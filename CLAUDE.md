@@ -212,7 +212,14 @@ npm run dev -- --port 3003
 |-------|------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | (coming soon) | `cause` | Individual features | TBD |
+| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+
+### Stage 3: Root Cause Analysis
+- **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 5D metric space)
+- **Initial State**: All features start as "unsure" (no pre-assignment)
+- **Manual Tagging**: User tags features into cause categories
+- **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
+- **Contour Visualization**: Shows category distributions on UMAP after classification
 
 ### SVM-Based Similarity Scoring
 Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
@@ -244,8 +251,8 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 | POST /api/pair-similarity-sort | Sort pairs by SVM similarity |
 | POST /api/similarity-score-histogram | Feature similarity histogram with bimodality |
 | POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
-| POST /api/cause-similarity-sort | Multi-class cause sorting |
-| POST /api/cause-similarity-score-histogram | Cause category histograms |
+| POST /api/umap-projection | Barycentric 2D positions for features (Stage 3) |
+| POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 | GET /health | Health check |
@@ -275,6 +282,7 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 - **Master Data**: `/data/master/features.parquet` (required)
 - **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
 - **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
+- **Barycentric Positions**: `/data/master/explanation_barycentric.parquet` (Stage 3 UMAP positions)
 - **Thematic Codes**: `/data/master/thematic_codes.parquet` (Thematic-LM output)
 
 ### Thematic-LM (Separate Tool)

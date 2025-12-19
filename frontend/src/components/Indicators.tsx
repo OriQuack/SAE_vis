@@ -1,110 +1,8 @@
 import React from 'react'
-import { getCircleRadius, getCircleOpacity } from '../lib/circle-encoding-utils'
-import { getMetricColor } from '../lib/utils'
 import { getTagColor } from '../lib/tag-system'
 import { STRIPE_PATTERN } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE } from '../lib/constants'
-import type { ScoreStats } from '../lib/circle-encoding-utils'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
-
-// ============================================================================
-// SCORE CIRCLE COMPONENT
-// ============================================================================
-// Reusable circle renderer with size/opacity encoding
-// - Size: Encodes score value (min 1px → max 10px)
-// - Opacity: Encodes consistency/spread (1.0 = consistent, 0.1 = high variance)
-// - Color: Can be fixed or dynamically calculated from metric type + value
-
-interface ScoreCircleProps {
-  score: number | null           // Score value (0-1 normalized)
-  scoreStats?: ScoreStats | null  // Statistics for opacity calculation
-  label?: string                 // Optional label below circle (e.g., score value)
-  tooltipText?: string           // Optional tooltip text
-  color?: string                 // Circle fill color (default: #1f2937) - ignored if metric is provided
-  showLabel?: boolean            // Whether to show label below circle (default: true)
-  className?: string             // Additional CSS classes
-  metric?: 'embedding' | 'fuzz' | 'detection' | 'decoder_similarity' | 'semantic_similarity'  // Optional: use metric-based color
-  useSolidColor?: boolean        // If true and metric provided, use solid color without gradient (default: true)
-}
-
-const ScoreCircle: React.FC<ScoreCircleProps> = ({
-  score,
-  scoreStats,
-  label,
-  tooltipText,
-  color = '#1f2937',
-  showLabel = true,
-  className = '',
-  metric,
-  useSolidColor = true
-}) => {
-  // Handle null score
-  if (score === null) {
-    return (
-      <div className={`score-circle score-circle--null ${className}`}>
-        <span className="score-circle__placeholder">—</span>
-      </div>
-    )
-  }
-
-  // Calculate circle properties
-  const radius = getCircleRadius(score)
-  const opacity = getCircleOpacity(scoreStats ?? null)
-
-  // Determine color: use metric-based color if metric is provided, otherwise use color prop
-  const circleColor = metric
-    ? getMetricColor(metric, score, useSolidColor)
-    : color
-
-  return (
-    <div
-      className={`score-circle ${className}`}
-      title={tooltipText}
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '4px',
-        background: 'transparent'
-      }}
-    >
-      {/* Circle SVG */}
-      <svg
-        width={radius * 2 + 4}
-        height={radius * 2 + 4}
-        style={{
-          display: 'block',
-          marginBottom: showLabel ? '4px' : '0',
-          background: 'transparent'
-        }}
-      >
-        <circle
-          cx={radius + 2}
-          cy={radius + 2}
-          r={radius}
-          fill={circleColor}
-          opacity={opacity}
-          stroke="none"
-        />
-      </svg>
-
-      {/* Label below circle */}
-      {showLabel && (
-        <div
-          style={{
-            fontSize: '11px',
-            fontFamily: 'monospace',
-            color: '#6b7280',
-            fontWeight: 400
-          }}
-        >
-          {label ?? score.toFixed(3)}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ============================================================================
 // TAG BADGE COMPONENT
@@ -267,6 +165,45 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 }
 
 // ============================================================================
+// TAG BUTTON COMPONENT
+// ============================================================================
+// Reusable button for tagging features/pairs with category colors
+// - Used in floating control panels below activation examples
+// - Supports selected state with visual feedback (scale, shadow)
+// - Color controlled via --tag-color CSS variable
+
+interface TagButtonProps {
+  label: string              // Button text (e.g., "Fragmented", "Well-Explained")
+  variant: string            // CSS variant suffix (e.g., "fragmented", "well-explained")
+  color: string              // Tag color for --tag-color CSS variable
+  isSelected: boolean        // Whether button shows selected state
+  onClick: () => void        // Click handler
+  className?: string         // Additional CSS classes (optional)
+}
+
+export const TagButton: React.FC<TagButtonProps> = ({
+  label,
+  variant,
+  color,
+  isSelected,
+  onClick,
+  className = ''
+}) => {
+  return (
+    <button
+      className={`selection__button selection__button--${variant} ${isSelected ? 'selected' : ''} ${className}`.trim()}
+      onClick={onClick}
+      style={{
+        '--tag-color': color,
+        border: 'none'
+      } as React.CSSProperties}
+    >
+      {label}
+    </button>
+  )
+}
+
+// ============================================================================
 // CAUSE METRIC BARS COMPONENT
 // ============================================================================
 // Displays three horizontal bars representing cause metric scores
@@ -349,5 +286,3 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
     </div>
   )
 }
-
-export default ScoreCircle

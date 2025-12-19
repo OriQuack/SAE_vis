@@ -13,10 +13,122 @@ import { getSelectionColors } from './color-utils'
 const UMAP_UNTAGGED_COLOR = '#6b7280'
 
 // ============================================================================
+// BARYCENTRIC TRIANGLE CONSTANTS
+// ============================================================================
+
+/**
+ * Barycentric triangle vertices for cause visualization.
+ * These correspond to the triangle_vertices in preprocessing config.
+ */
+export const BARYCENTRIC_TRIANGLE = {
+  vertices: {
+    missedNgram: [0.0, 0.0] as [number, number],
+    missedContext: [1.0, 0.0] as [number, number],
+    noisyActivation: [0.5, 0.866] as [number, number]
+  },
+  // Bounds for the triangle coordinate space
+  xMin: 0,
+  xMax: 1,
+  yMin: 0,
+  yMax: 0.866
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 
 export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
+
+// ============================================================================
+// BARYCENTRIC SPREAD TRANSFORMATION
+// ============================================================================
+
+/**
+ * Convert 2D position to barycentric weights.
+ * For triangle with vertices: (0,0), (1,0), (0.5, 0.866)
+ */
+function positionToBarycentric(x: number, y: number): [number, number, number] {
+  const yMax = BARYCENTRIC_TRIANGLE.yMax
+  const w3 = y / yMax  // noisy_activation weight
+  const w2 = x - 0.5 * w3  // missed_context weight
+  const w1 = 1 - w2 - w3  // missed_ngram weight
+  return [w1, w2, w3]
+}
+
+/**
+ * Convert barycentric weights to 2D position.
+ * Note: w1 is not used directly since position only depends on w2 and w3
+ * (w1 = 1 - w2 - w3 is implicit)
+ */
+function barycentricToPosition(_w1: number, w2: number, w3: number): { x: number, y: number } {
+  const yMax = BARYCENTRIC_TRIANGLE.yMax
+  return {
+    x: w2 + 0.5 * w3,
+    y: yMax * w3
+  }
+}
+
+/**
+ * Spread barycentric points using power transformation on weights.
+ * This is mathematically principled:
+ * - Works in the natural barycentric coordinate system
+ * - Same transformation applied uniformly to all weights
+ * - Guaranteed to stay inside the triangle
+ * - Preserves ordinal relationships (if w1 > w2 before, still w1 > w2 after)
+ *
+ * @param points - Array of UMAP points with barycentric coordinates
+ * @param power - Power for transformation (> 1 spreads toward vertices, < 1 concentrates toward center)
+ * @returns Transformed points with spread coordinates
+ */
+export function spreadBarycentricPoints(
+  points: UmapPoint[],
+  power: number = 2.5  // > 1 pushes toward vertices, < 1 pushes toward center
+): UmapPoint[] {
+  if (points.length === 0) return points
+
+  const transformPoint = (x: number, y: number): { x: number, y: number } => {
+    // Convert to barycentric weights
+    let [w1, w2, w3] = positionToBarycentric(x, y)
+
+    // Clamp weights to valid range (handle numerical errors)
+    w1 = Math.max(0, Math.min(1, w1))
+    w2 = Math.max(0, Math.min(1, w2))
+    w3 = Math.max(0, Math.min(1, w3))
+
+    // Apply power transformation (spreads toward vertices when power > 1)
+    const w1p = Math.pow(w1, power)
+    const w2p = Math.pow(w2, power)
+    const w3p = Math.pow(w3, power)
+
+    // Re-normalize so weights sum to 1
+    const sum = w1p + w2p + w3p
+    if (sum === 0) return { x, y }  // Edge case: all weights were 0
+
+    const w1n = w1p / sum
+    const w2n = w2p / sum
+    const w3n = w3p / sum
+
+    // Convert back to 2D position
+    return barycentricToPosition(w1n, w2n, w3n)
+  }
+
+  return points.map(p => {
+    const newPos = transformPoint(p.x, p.y)
+    return {
+      ...p,
+      x: newPos.x,
+      y: newPos.y,
+      explainer_positions: p.explainer_positions?.map(ep => {
+        const epPos = transformPoint(ep.x, ep.y)
+        return {
+          ...ep,
+          x: epPos.x,
+          y: epPos.y
+        }
+      })
+    }
+  })
+}
 
 export interface UmapScales {
   xScale: ScaleLinear<number, number>
@@ -127,6 +239,75 @@ export function computeUmapScales(
       .domain([yExtent[0] - yPadding, yExtent[1] + yPadding])
       .range([height, 0])  // Invert Y for SVG coordinate system
   }
+}
+
+/**
+ * Compute D3 scales for barycentric triangle coordinates.
+ * Uses fixed triangle bounds to ensure the visualization uses the full space
+ * and maintains proper aspect ratio for an equilateral triangle.
+ *
+ * @param width - Chart width in pixels
+ * @param height - Chart height in pixels
+ * @param padding - Padding around triangle bounds (default 0.05 = 5%)
+ * @returns Object with xScale and yScale
+ */
+export function computeBarycentricScales(
+  width: number,
+  height: number,
+  padding: number = 0.05
+): UmapScales {
+  const { xMin, xMax, yMin, yMax } = BARYCENTRIC_TRIANGLE
+
+  // Add padding
+  const xPadding = (xMax - xMin) * padding
+  const yPadding = (yMax - yMin) * padding
+
+  const domainWidth = xMax - xMin + 2 * xPadding
+  const domainHeight = yMax - yMin + 2 * yPadding
+
+  // Compute scales maintaining aspect ratio
+  const aspectRatio = domainWidth / domainHeight
+  const chartAspectRatio = width / height
+
+  let effectiveWidth = width
+  let effectiveHeight = height
+  let offsetX = 0
+  let offsetY = 0
+
+  if (chartAspectRatio > aspectRatio) {
+    // Chart is wider than needed - center horizontally
+    effectiveWidth = height * aspectRatio
+    offsetX = (width - effectiveWidth) / 2
+  } else {
+    // Chart is taller than needed - center vertically
+    effectiveHeight = width / aspectRatio
+    offsetY = (height - effectiveHeight) / 2
+  }
+
+  return {
+    xScale: scaleLinear()
+      .domain([xMin - xPadding, xMax + xPadding])
+      .range([offsetX, offsetX + effectiveWidth]),
+    yScale: scaleLinear()
+      .domain([yMin - yPadding, yMax + yPadding])
+      .range([offsetY + effectiveHeight, offsetY])  // Invert Y for SVG
+  }
+}
+
+/**
+ * Generate SVG path string for the barycentric triangle outline.
+ *
+ * @param scales - UMAP scales for coordinate conversion
+ * @returns SVG path string for the triangle
+ */
+export function getTrianglePathString(scales: UmapScales): string {
+  const { vertices } = BARYCENTRIC_TRIANGLE
+
+  const p1 = [scales.xScale(vertices.missedNgram[0]), scales.yScale(vertices.missedNgram[1])]
+  const p2 = [scales.xScale(vertices.missedContext[0]), scales.yScale(vertices.missedContext[1])]
+  const p3 = [scales.xScale(vertices.noisyActivation[0]), scales.yScale(vertices.noisyActivation[1])]
+
+  return `M ${p1[0]} ${p1[1]} L ${p2[0]} ${p2[1]} L ${p3[0]} ${p3[1]} Z`
 }
 
 // ============================================================================

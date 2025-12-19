@@ -60,6 +60,7 @@ data/
 │   ├── interfeature_activation_similarity.parquet # Cross-feature (~3MB)
 │   ├── explanation_alignment.parquet # Phrase alignments (~406KB)
 │   ├── ex_act_pattern_matching.parquet # Pattern validation (~81KB)
+│   ├── explanation_barycentric.parquet # Stage 3 UMAP positions
 │   ├── thematic_codes.parquet   # Thematic-LM output (~6KB)
 │   └── codebook.json            # Thematic-LM codebook
 │
@@ -137,7 +138,25 @@ data/
 
 **Purpose**: Validate explanation-activation pattern consistency
 
-### 10. thematic_codes.parquet (~6KB)
+### 10. explanation_barycentric.parquet (Stage 3 UMAP)
+**Precomputed 2D positions for cause analysis UMAP**
+
+**Purpose**: Enable instant UMAP visualization without runtime dimensionality reduction
+
+**Key Columns**:
+- `feature_id`, `llm_explainer` (3 rows per feature, one per explainer)
+- `position_x`, `position_y` (barycentric 2D coordinates)
+- `nearest_anchor` (closest cause category: noisy-activation, missed-N-gram, missed-context)
+- Metric scores: `intra_feature_sim`, `score_embedding`, `score_fuzz`, `score_detection`, `explanation_semantic_sim`
+
+**Algorithm**: Barycentric projection from 5D metric space to 2D using inverse distance weighting to 3 anchor points
+
+**Usage**:
+- Frontend displays mean position across 3 explainers per feature
+- Detail view shows individual explainer positions when feature selected
+- SVM classification uses metric scores for One-vs-Rest prediction
+
+### 11. thematic_codes.parquet (~6KB)
 **Thematic-LM analysis output**
 
 **Purpose**: Thematic codes assigned to feature explanations using multi-agent LLM system
@@ -245,8 +264,8 @@ scores = row["scores"]  # Nested scoring data
 - **Explainers**: 3 (Llama, Qwen, OpenAI)
 - **Embedding Dimensions**: 768
 - **Total Master Storage**: ~1.3GB compressed
-- **Master Files**: 10 parquet files + 1 JSON
-- **Processing Scripts**: 10 (0a, 0b, 1-9) + Thematic-LM
+- **Master Files**: 11 parquet files + 1 JSON
+- **Processing Scripts**: 10 (0a, 0b, 1-9) + Thematic-LM + Barycentric
 
 ### File Size Breakdown:
 | File | Size | Purpose |
@@ -258,6 +277,7 @@ scores = row["scores"]  # Nested scoring data
 | activation_example_similarity.parquet | ~5.9MB | N-gram metrics |
 | features.parquet | ~3.8MB | Main dataset |
 | interfeature_activation_similarity.parquet | ~3MB | Cross-feature analysis |
+| explanation_barycentric.parquet | ~1MB | Stage 3 UMAP positions |
 | explanation_alignment.parquet | ~406KB | Phrase alignments |
 | ex_act_pattern_matching.parquet | ~81KB | Pattern validation |
 | thematic_codes.parquet | ~6KB | Thematic-LM output |

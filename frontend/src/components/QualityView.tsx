@@ -4,7 +4,7 @@ import type { FeatureTableRow, SelectionCategory } from '../types'
 import SelectionPanel from './SelectionPanel'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { ScrollableItemList } from './ScrollableItemList'
-import { TagBadge } from './Indicators'
+import { TagBadge, TagButton } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
@@ -961,27 +961,27 @@ const QualityView: React.FC<QualityViewProps> = ({
                     </button>
 
                     {/* Selection buttons */}
-                    <button
-                      className={`selection__button selection__button--unsure ${currentSelectionState === null ? 'selected' : ''}`}
+                    <TagButton
+                      label="Unsure"
+                      variant="unsure"
+                      color={unsureColor}
+                      isSelected={currentSelectionState === null}
                       onClick={handleUnsureClick}
-                      style={{ '--tag-color': unsureColor } as React.CSSProperties}
-                    >
-                      Unsure
-                    </button>
-                    <button
-                      className={`selection__button selection__button--need-revision ${currentSelectionState === 'rejected' ? 'selected' : ''}`}
+                    />
+                    <TagButton
+                      label="Need Revision"
+                      variant="need-revision"
+                      color={needRevisionColor}
+                      isSelected={currentSelectionState === 'rejected'}
                       onClick={handleNeedRevisionClick}
-                      style={{ '--tag-color': needRevisionColor } as React.CSSProperties}
-                    >
-                      Need Revision
-                    </button>
-                    <button
-                      className={`selection__button selection__button--well-explained ${currentSelectionState === 'selected' ? 'selected' : ''}`}
+                    />
+                    <TagButton
+                      label="Well-Explained"
+                      variant="well-explained"
+                      color={wellExplainedColor}
+                      isSelected={currentSelectionState === 'selected'}
                       onClick={handleWellExplainedClick}
-                      style={{ '--tag-color': wellExplainedColor } as React.CSSProperties}
-                    >
-                      Well-Explained
-                    </button>
+                    />
 
                     {/* Next button */}
                     <button

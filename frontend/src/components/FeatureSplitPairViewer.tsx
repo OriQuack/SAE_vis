@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
 import ScrollableItemList from './ScrollableItemList'
-import { TagBadge } from './Indicators'
+import { TagBadge, TagButton } from './Indicators'
 import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
@@ -446,33 +446,27 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         </button>
 
         {/* Selection buttons */}
-        <button
-          className={`selection__button selection__button--unsure ${pairSelectionState === null ? 'selected' : ''}`}
+        <TagButton
+          label="Unsure"
+          variant="unsure"
+          color={unsureColor}
+          isSelected={pairSelectionState === null}
           onClick={handleUnsureClick}
-          style={{
-            '--tag-color': unsureColor
-          } as React.CSSProperties}
-        >
-          Unsure
-        </button>
-        <button
-          className={`selection__button selection__button--monosemantic ${pairSelectionState === 'rejected' ? 'selected' : ''}`}
+        />
+        <TagButton
+          label="Monosemantic"
+          variant="monosemantic"
+          color={monosemanticColor}
+          isSelected={pairSelectionState === 'rejected'}
           onClick={handleMonosemanticClick}
-          style={{
-            '--tag-color': monosemanticColor
-          } as React.CSSProperties}
-        >
-          Monosemantic
-        </button>
-        <button
-          className={`selection__button selection__button--fragmented ${pairSelectionState === 'selected' ? 'selected' : ''}`}
+        />
+        <TagButton
+          label="Fragmented"
+          variant="fragmented"
+          color={fragmentedColor}
+          isSelected={pairSelectionState === 'selected'}
           onClick={handleFragmentedClick}
-          style={{
-            '--tag-color': fragmentedColor
-          } as React.CSSProperties}
-        >
-          Fragmented
-        </button>
+        />
 
         {/* Next button */}
         <button

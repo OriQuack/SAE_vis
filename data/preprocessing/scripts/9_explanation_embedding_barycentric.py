@@ -309,6 +309,7 @@ class BarycentricEmbeddingProcessor:
                 "std": float(col.std()),
                 "min": float(col.min()),
                 "max": float(col.max()),
+                "p10": float(col.quantile(0.10)),
                 "p25": float(col.quantile(0.25)),
                 "p50": float(col.quantile(0.50)),
                 "p75": float(col.quantile(0.75)),
@@ -337,6 +338,8 @@ class BarycentricEmbeddingProcessor:
             return stats["min"]
         elif value_spec == "max":
             return stats["max"]
+        elif value_spec == "p10":
+            return stats["p10"]
         elif value_spec == "p25":
             return stats["p25"]
         elif value_spec == "p50":

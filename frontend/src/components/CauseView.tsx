@@ -4,7 +4,7 @@ import type { SelectionCategory, FeatureTableRow } from '../types'
 import SelectionPanel from './SelectionPanel'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
-import { TagBadge } from './Indicators'
+import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import ModalityIndicator from './ModalityIndicator'
@@ -924,34 +924,34 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </button>
 
                     {/* Selection buttons - all features must have a tag */}
-                    <button
-                      className={`selection__button selection__button--noisy-activation ${currentCauseCategory === 'noisy-activation' ? 'selected' : ''}`}
+                    <TagButton
+                      label="Noisy Activation"
+                      variant="noisy-activation"
+                      color={noisyActivationColor}
+                      isSelected={currentCauseCategory === 'noisy-activation'}
                       onClick={() => handleTagClick('noisy-activation')}
-                      style={{ '--tag-color': noisyActivationColor } as React.CSSProperties}
-                    >
-                      Noisy Activation
-                    </button>
-                    <button
-                      className={`selection__button selection__button--missed-N-gram ${currentCauseCategory === 'missed-N-gram' ? 'selected' : ''}`}
+                    />
+                    <TagButton
+                      label="Missed N-gram"
+                      variant="missed-N-gram"
+                      color={missedNgramColor}
+                      isSelected={currentCauseCategory === 'missed-N-gram'}
                       onClick={() => handleTagClick('missed-N-gram')}
-                      style={{ '--tag-color': missedNgramColor } as React.CSSProperties}
-                    >
-                      Missed N-gram
-                    </button>
-                    <button
-                      className={`selection__button selection__button--missed-context ${currentCauseCategory === 'missed-context' ? 'selected' : ''}`}
+                    />
+                    <TagButton
+                      label="Missed Context"
+                      variant="missed-context"
+                      color={missedContextColor}
+                      isSelected={currentCauseCategory === 'missed-context'}
                       onClick={() => handleTagClick('missed-context')}
-                      style={{ '--tag-color': missedContextColor } as React.CSSProperties}
-                    >
-                      Missed Context
-                    </button>
-                    <button
-                      className={`selection__button selection__button--well-explained ${currentCauseCategory === 'well-explained' ? 'selected' : ''}`}
+                    />
+                    <TagButton
+                      label="Well-Explained"
+                      variant="well-explained"
+                      color={wellExplainedColor}
+                      isSelected={currentCauseCategory === 'well-explained'}
                       onClick={() => handleTagClick('well-explained')}
-                      style={{ '--tag-color': wellExplainedColor } as React.CSSProperties}
-                    >
-                      Well-Explained
-                    </button>
+                    />
 
                     {/* Next button */}
                     <button

@@ -150,6 +150,22 @@ async def get_cached_activation_blob():
     # ~15-25s load vs ~100s for chunked JSON
 ```
 
+### 7. UMAP Service (Stage 3)
+Barycentric projections and SVM-based cause classification:
+
+```python
+# services/umap_service.py
+async def get_umap_projection(feature_ids):
+    # Returns precomputed 2D positions from explanation_barycentric.parquet
+    # Mean position across 3 explainers per feature
+    # Includes explainer_positions for detail view
+
+async def get_cause_classification(feature_ids, cause_selections):
+    # Trains One-vs-Rest SVMs for each cause category
+    # Uses mean metric vectors per feature (averaged across 3 explainers)
+    # Returns predicted_category and decision_scores per feature
+```
+
 ## Project Structure
 
 ```
@@ -182,6 +198,7 @@ backend/
 │       ├── table_data_service.py     # Table processing
 │       ├── alignment_service.py      # Explanation alignment
 │       ├── activation_cache_service.py # Cached activation data
+│       ├── umap_service.py           # Barycentric projection + SVM classification
 │       └── consistency_service.py    # Consistency metrics
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
@@ -332,14 +349,65 @@ Get pair similarity histogram (simplified flow)
 }
 ```
 
-#### POST /api/cause-similarity-sort
-Multi-class cause sorting (One-vs-Rest SVM)
+#### POST /api/umap-projection
+Get barycentric 2D positions for features (Stage 3 UMAP)
 
 **Request**:
 ```json
 {
-  "cause_selections": {"1": "category_a", "2": "category_b"},
   "feature_ids": [1, 2, 3, 4, 5]
+}
+```
+
+**Response**:
+```json
+{
+  "points": [
+    {
+      "feature_id": 1,
+      "x": 0.45,
+      "y": 0.32,
+      "nearest_anchor": "noisy-activation",
+      "explainer_positions": [
+        {"explainer": "llama", "x": 0.44, "y": 0.31, "nearest_anchor": "noisy-activation"},
+        {"explainer": "qwen", "x": 0.46, "y": 0.33, "nearest_anchor": "noisy-activation"},
+        {"explainer": "openai", "x": 0.45, "y": 0.32, "nearest_anchor": "missed-context"}
+      ]
+    }
+  ],
+  "total_features": 5,
+  "params_used": {"source": "barycentric_precomputed", "aggregation": "mean"}
+}
+```
+
+#### POST /api/cause-classification
+SVM cause classification for features (Stage 3)
+
+**Request**:
+```json
+{
+  "feature_ids": [1, 2, 3, 4, 5],
+  "cause_selections": {"1": "noisy-activation", "2": "missed-N-gram", "3": "missed-context"}
+}
+```
+
+**Response**:
+```json
+{
+  "results": [
+    {
+      "feature_id": 4,
+      "predicted_category": "noisy-activation",
+      "decision_margin": 0.123,
+      "decision_scores": {
+        "noisy-activation": 0.589,
+        "missed-N-gram": 0.035,
+        "missed-context": -0.999
+      }
+    }
+  ],
+  "total_features": 5,
+  "category_counts": {"noisy-activation": 2, "missed-N-gram": 2, "missed-context": 1}
 }
 ```
 
@@ -380,6 +448,15 @@ Multi-class cause sorting (One-vs-Rest SVM)
 #### explanation_alignment.parquet
 - **Location**: `/data/master/explanation_alignment.parquet`
 - **Purpose**: Cross-explainer phrase alignments for highlighting
+
+#### explanation_barycentric.parquet
+- **Location**: `/data/master/explanation_barycentric.parquet`
+- **Purpose**: Precomputed 2D positions for Stage 3 UMAP
+- **Key Columns**:
+  - feature_id, llm_explainer
+  - position_x, position_y (barycentric 2D coordinates)
+  - nearest_anchor (closest cause category anchor)
+  - Metric scores: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
 
 ## Development Workflow
 

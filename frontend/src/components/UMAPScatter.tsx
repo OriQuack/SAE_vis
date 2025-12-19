@@ -3,8 +3,10 @@ import { polygonContains } from 'd3-polygon'
 import { useVisualizationStore } from '../store/index'
 import {
   getCauseColor,
-  computeUmapScales,
+  computeBarycentricScales,
   computeCategoryContours,
+  getTrianglePathString,
+  spreadBarycentricPoints,
   CONTOUR_CONFIG,
   type CauseCategory
 } from '../lib/umap-utils'
@@ -155,21 +157,33 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     }
   }, [featureIds, canUseDecisionSpace, manualCauseSelections, fetchCauseClassification])
 
-  // Compute D3 scales
+  // Compute D3 scales using fixed barycentric triangle bounds
   const scales = useMemo(() => {
-    if (!umapProjection || umapProjection.length === 0) {
+    if (chartWidth <= 0 || chartHeight <= 0) {
       return null
     }
-    return computeUmapScales(umapProjection, chartWidth, chartHeight)
-  }, [umapProjection, chartWidth, chartHeight])
+    return computeBarycentricScales(chartWidth, chartHeight)
+  }, [chartWidth, chartHeight])
 
-  // Compute density contours per category
+  // Generate triangle outline path
+  const trianglePath = useMemo(() => {
+    if (!scales) return ''
+    return getTrianglePathString(scales)
+  }, [scales])
+
+  // Transform points to spread across triangle (uniform scaling from centroid)
+  const spreadPoints = useMemo(() => {
+    if (!umapProjection || umapProjection.length === 0) return null
+    return spreadBarycentricPoints(umapProjection)
+  }, [umapProjection])
+
+  // Compute density contours per category (using spread points)
   const categoryContours = useMemo(() => {
-    if (!umapProjection || !scales || chartWidth <= 0 || chartHeight <= 0) {
+    if (!spreadPoints || !scales || chartWidth <= 0 || chartHeight <= 0) {
       return []
     }
     return computeCategoryContours(
-      umapProjection,
+      spreadPoints,
       causeSelectionStates as Map<number, CauseCategory>,
       chartWidth,
       chartHeight,
@@ -177,7 +191,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       15,  // bandwidth (smaller = more detail)
       10   // threshold levels (more = finer contours)
     )
-  }, [umapProjection, causeSelectionStates, chartWidth, chartHeight, scales])
+  }, [spreadPoints, causeSelectionStates, chartWidth, chartHeight, scales])
 
   // Get mouse position relative to SVG
   const getMousePosition = useCallback((e: React.MouseEvent<SVGSVGElement>): [number, number] => {
@@ -218,7 +232,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     setIsDrawing(false)
     justFinishedDrawing.current = true
 
-    if (!scales || !umapProjection) {
+    if (!scales || !spreadPoints) {
       return
     }
 
@@ -228,9 +242,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       return
     }
 
-    // Find points inside the lasso polygon
+    // Find points inside the lasso polygon (using spread points for visual consistency)
     const selectedIds = new Set<number>()
-    for (const point of umapProjection) {
+    for (const point of spreadPoints) {
       const px = scales.xScale(point.x)
       const py = scales.yScale(point.y)
       if (polygonContains(lassoPath, [px, py])) {
@@ -240,7 +254,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     setUmapBrushedFeatureIds(selectedIds)
     // Keep the lasso path visible after selection
-  }, [lassoPath, scales, umapProjection, setUmapBrushedFeatureIds])
+  }, [lassoPath, scales, spreadPoints, setUmapBrushedFeatureIds])
 
   // Clear selection on click outside
   const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
@@ -280,7 +294,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Draw points on canvas: manually tagged (always) + brushed (when brush active) + selected feature explainers
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !umapProjection || !scales || chartWidth <= 0 || chartHeight <= 0) {
+    if (!canvas || !spreadPoints || !scales || chartWidth <= 0 || chartHeight <= 0) {
       return
     }
 
@@ -298,11 +312,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Find the selected feature's point for explainer positions
     const selectedPoint = selectedFeatureId != null
-      ? umapProjection.find(p => p.feature_id === selectedFeatureId)
+      ? spreadPoints.find(p => p.feature_id === selectedFeatureId)
       : null
 
     // Draw manually tagged and brushed points
-    for (const point of umapProjection) {
+    for (const point of spreadPoints) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isBrushed = umapBrushedFeatureIds.has(point.feature_id)
       const isSelected = point.feature_id === selectedFeatureId
@@ -403,7 +417,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
+  }, [spreadPoints, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
 
 
   // ============================================================================
@@ -440,7 +454,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }
 
   // Empty state
-  if (!umapProjection || umapProjection.length === 0 || !scales) {
+  if (!spreadPoints || spreadPoints.length === 0 || !scales) {
     return (
       <div ref={containerRef} className={`umap-scatter umap-scatter--empty ${className}`} style={containerStyle}>
         <div className="umap-scatter__message">
@@ -466,6 +480,17 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           onMouseLeave={handleMouseUp}
           onClick={handleClick}
         >
+          {/* Triangle outline */}
+          {trianglePath && (
+            <path
+              d={trianglePath}
+              fill="none"
+              stroke="#d1d5db"
+              strokeWidth={1.5}
+              className="umap-scatter__triangle-outline"
+            />
+          )}
+
           {/* Density contours per category */}
           <g className="umap-scatter__contours">
             {categoryContours.map(({ category, color, paths }) => (

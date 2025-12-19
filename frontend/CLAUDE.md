@@ -82,7 +82,15 @@ The application implements a 3-stage workflow for tagging features:
 |-------|-----------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseTable.tsx` | `cause` | Individual features | Multiple categories |
+| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+
+### Stage 3: Root Cause Analysis (CauseView)
+- **UMAP Scatter**: Barycentric projection visualization with density contours
+- **Initial State**: All features start as "unsure" (no pre-assignment)
+- **Metric Scores**: Displayed to help users decide which category to assign
+- **Manual Tagging**: Click features to assign cause categories
+- **SVM Classification**: After tagging 1+ feature per category, SVM predicts remaining
+- **Contour Update**: Contours show predicted category distributions after classification
 
 ### Shared Components Across Stages
 Both Stage 1 and Stage 2 share the same layout pattern:
@@ -105,7 +113,8 @@ frontend/src/
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
-│   ├── CauseTable.tsx            # Stage 3: Cause analysis table
+│   ├── CauseView.tsx             # Stage 3: Root cause analysis
+│   ├── UMAPScatter.tsx           # UMAP scatter plot (Stage 3)
 │   ├── SelectionPanel.tsx        # Unified selection panel
 │   ├── SelectionBar.tsx          # Selection state bar
 │   ├── TagStagePanel.tsx         # Stage navigation
@@ -141,6 +150,8 @@ frontend/src/
 │   ├── explainer-grid-utils.ts   # Explainer comparison grid
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
+│   ├── cause-tagging-utils.ts    # Cause category metric calculations
+│   ├── umap-utils.ts             # UMAP scales, contours, colors
 │   └── utils.ts                  # General helpers
 ├── store/                        # Zustand State (8 files)
 │   ├── index.ts                  # Main store composition
@@ -212,6 +223,22 @@ frontend/src/
 - SVM-based similarity scoring for features
 - Commit history for state snapshots
 - Tags: Well-Explained (selected) / Need Revision (rejected)
+
+**CauseView.tsx** - Stage 3: Root Cause Analysis
+- Mode: `cause`
+- UMAP scatter plot with barycentric projections
+- Features start as "unsure" (no pre-assignment)
+- Metric score bars to guide tagging decisions
+- SVM-based classification after manual tagging
+- Tags: Noisy Activation / Missed N-gram / Missed Context / Well-Explained
+
+**UMAPScatter.tsx** - UMAP Visualization (Stage 3)
+- Canvas-based scatter plot for performance
+- SVG overlay for contours and lasso selection
+- Barycentric precomputed 2D positions (mean across 3 explainers)
+- Density contours per cause category
+- Lasso selection for batch operations
+- Explainer position detail view on feature selection
 
 **AlluvialDiagram.tsx** - Comparison View
 - Cross-explainer flow visualization
@@ -379,6 +406,8 @@ const debouncedUpdate = useMemo(
 | POST /api/pair-similarity-sort | Sort pairs by SVM |
 | POST /api/similarity-score-histogram | Feature histogram + bimodality |
 | POST /api/pair-similarity-score-histogram | Pair histogram + bimodality |
+| POST /api/umap-projection | Barycentric 2D positions (Stage 3) |
+| POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/activation-examples | On-demand activation data |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 
