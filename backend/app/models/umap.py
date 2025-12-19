@@ -32,19 +32,35 @@ class UmapProjectionRequest(BaseModel):
     )
 
 
+class ExplainerPosition(BaseModel):
+    """Position for a single explainer."""
+
+    explainer: str = Field(..., description="LLM explainer name")
+    x: float = Field(..., description="X coordinate")
+    y: float = Field(..., description="Y coordinate")
+    nearest_anchor: Optional[str] = Field(
+        default=None,
+        description="Nearest anchor for this explainer"
+    )
+
+
 class UmapPoint(BaseModel):
-    """Single point in UMAP projection."""
+    """Single point in UMAP projection (mean position across explainers)."""
 
     feature_id: int = Field(..., description="Feature ID")
-    x: float = Field(..., description="X coordinate in UMAP space")
-    y: float = Field(..., description="Y coordinate in UMAP space")
+    x: float = Field(..., description="Mean X coordinate across explainers")
+    y: float = Field(..., description="Mean Y coordinate across explainers")
     decision_margin: Optional[float] = Field(
         default=None,
         description="Min distance to decision boundary (only for SVM Space UMAP)"
     )
     nearest_anchor: Optional[str] = Field(
         default=None,
-        description="Nearest anchor point: missed_ngram, missed_context, or noisy_activation"
+        description="Most common nearest anchor across explainers"
+    )
+    explainer_positions: Optional[List[ExplainerPosition]] = Field(
+        default=None,
+        description="Individual positions per explainer (for detail view)"
     )
 
 

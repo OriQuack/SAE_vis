@@ -23,6 +23,7 @@ interface UMAPScatterProps {
   width?: number
   height?: number
   className?: string
+  selectedFeatureId?: number | null  // Feature to highlight with explainer positions
 }
 
 // Margin configuration
@@ -35,7 +36,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   featureIds,
   width: propWidth,
   height: propHeight,
-  className = ''
+  className = '',
+  selectedFeatureId = null
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -279,22 +281,18 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return new Set(Object.keys(manualCauseSelections).map(Number))
   }, [manualCauseSelections])
 
-  // Draw points on canvas: manually tagged (always) + brushed (when brush active)
+  // Draw points on canvas: manually tagged (always) + brushed (when brush active) + selected feature explainers
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !umapProjection || !scales || chartWidth <= 0 || chartHeight <= 0) return
+    if (!canvas || !umapProjection || !scales || chartWidth <= 0 || chartHeight <= 0) {
+      return
+    }
 
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    // Clear canvas
+    // Always clear canvas first
     ctx.clearRect(0, 0, chartWidth, chartHeight)
-
-    // Collect points to draw: manually tagged + brushed
-    const hasBrush = umapBrushedFeatureIds.size > 0
-
-    // Skip if nothing to draw
-    if (manuallyTaggedIds.size === 0 && !hasBrush) return
 
     // Point styling
     const manualPointRadius = 4
@@ -302,20 +300,28 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     const manualPointAlpha = 0.85
     const brushedPointAlpha = 0.4
 
+    // Find the selected feature's point for explainer positions
+    const selectedPoint = selectedFeatureId != null
+      ? umapProjection.find(p => p.feature_id === selectedFeatureId)
+      : null
+
+    // Draw manually tagged and brushed points
     for (const point of umapProjection) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isBrushed = umapBrushedFeatureIds.has(point.feature_id)
+      const isSelected = point.feature_id === selectedFeatureId
 
-      // Skip if not in either set
+      // Skip if not in any set (selected feature drawn separately at end)
       if (!isManual && !isBrushed) continue
+      // Skip selected feature here - will draw it last on top
+      if (isSelected) continue
 
       const cx = scales.xScale(point.x)
       const cy = scales.yScale(point.y)
       const color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
 
-      // Manual points are larger and more opaque with a ring
       if (isManual) {
-        // Draw outer ring for manual points
+        // Manual points are larger and more opaque with a ring
         ctx.beginPath()
         ctx.arc(cx, cy, manualPointRadius + 1.5, 0, Math.PI * 2)
         ctx.strokeStyle = '#fff'
@@ -323,7 +329,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         ctx.globalAlpha = 0.9
         ctx.stroke()
 
-        // Draw filled point
         ctx.beginPath()
         ctx.arc(cx, cy, manualPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
@@ -339,9 +344,70 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     }
 
+    // Draw selected feature and its explainer positions LAST (on top of everything)
+    if (selectedPoint) {
+      const categoryColor = getCauseColor(selectedFeatureId!, causeSelectionStates as Map<number, CauseCategory>)
+      const selectionBlue = '#3b82f6'  // Blue highlight for selection indicator
+      const meanX = scales.xScale(selectedPoint.x)
+      const meanY = scales.yScale(selectedPoint.y)
+
+      // Draw explainer positions if available
+      if (selectedPoint.explainer_positions && selectedPoint.explainer_positions.length > 0) {
+        // Draw lines from mean to each explainer position (blue selection indicator)
+        ctx.strokeStyle = selectionBlue
+        ctx.lineWidth = 1.5
+        ctx.globalAlpha = 0.6
+        ctx.setLineDash([4, 4])
+
+        for (const ep of selectedPoint.explainer_positions) {
+          const epX = scales.xScale(ep.x)
+          const epY = scales.yScale(ep.y)
+
+          ctx.beginPath()
+          ctx.moveTo(meanX, meanY)
+          ctx.lineTo(epX, epY)
+          ctx.stroke()
+        }
+
+        ctx.setLineDash([])
+
+        // Draw explainer points (blue with white border)
+        for (const ep of selectedPoint.explainer_positions) {
+          const epX = scales.xScale(ep.x)
+          const epY = scales.yScale(ep.y)
+
+          ctx.beginPath()
+          ctx.arc(epX, epY, 4, 0, Math.PI * 2)
+          ctx.fillStyle = selectionBlue
+          ctx.globalAlpha = 1
+          ctx.fill()
+          ctx.strokeStyle = '#fff'
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+        }
+      }
+
+      // Draw selected feature point (mean position) with blue highlight ring - LAST
+      ctx.beginPath()
+      ctx.arc(meanX, meanY, manualPointRadius + 4, 0, Math.PI * 2)
+      ctx.strokeStyle = selectionBlue
+      ctx.lineWidth = 2.5
+      ctx.globalAlpha = 1
+      ctx.stroke()
+
+      ctx.beginPath()
+      ctx.arc(meanX, meanY, manualPointRadius + 1, 0, Math.PI * 2)
+      ctx.fillStyle = categoryColor  // Keep category color for the main point
+      ctx.globalAlpha = 1
+      ctx.fill()
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    }
+
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, chartWidth, chartHeight])
+  }, [umapProjection, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
 
 
   // ============================================================================
@@ -353,14 +419,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     ? { width: fixedWidth, height: propHeight }
     : { width: fixedWidth }
 
-  // Loading state (positions or classification)
-  if (umapLoading || causeClassificationLoading) {
-    const loadingMessage = umapLoading ? 'Loading positions...' : 'Computing classification...'
+  // Loading state - only block on position loading, not classification
+  // Classification loading shows as overlay indicator instead
+  if (umapLoading) {
     return (
       <div ref={containerRef} className={`umap-scatter umap-scatter--loading ${className}`} style={containerStyle}>
         <div className="umap-scatter__message">
           <span className="umap-scatter__spinner" />
-          <span>{loadingMessage}</span>
+          <span>Loading positions...</span>
         </div>
       </div>
     )
@@ -513,6 +579,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           className="umap-scatter__canvas"
         />
       </div>
+
+      {/* Classification loading indicator (subtle overlay) */}
+      {causeClassificationLoading && (
+        <div className="umap-scatter__classification-loading">
+          <span className="umap-scatter__spinner umap-scatter__spinner--small" />
+          <span>Updating...</span>
+        </div>
+      )}
 
       {/* Selection count */}
       {umapBrushedFeatureIds.size > 0 && (

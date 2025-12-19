@@ -777,13 +777,25 @@ export interface FlowPathData extends SankeyToSelectionFlow {
 // ============================================================================
 
 /**
- * UMAP Point - Single point in UMAP 2D projection
+ * Position for a single explainer (for detail view)
+ */
+export interface ExplainerPosition {
+  explainer: string
+  x: number
+  y: number
+  nearest_anchor?: string
+}
+
+/**
+ * UMAP Point - Single point in UMAP 2D projection (mean position across explainers)
  */
 export interface UmapPoint {
   feature_id: number
-  x: number
-  y: number
-  decision_margin?: number  // Min distance to decision boundary (only for SVM Space UMAP)
+  x: number  // Mean X across explainers
+  y: number  // Mean Y across explainers
+  decision_margin?: number  // Min distance to decision boundary (only for SVM classification)
+  nearest_anchor?: string   // Most common anchor across explainers
+  explainer_positions?: ExplainerPosition[]  // Individual positions per explainer (for detail view)
 }
 
 /**

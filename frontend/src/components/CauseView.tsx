@@ -14,7 +14,7 @@ import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
-import { CauseMetricsHistogram } from './CauseMetricsHistogram'
+import { CauseMetricBarsDetail } from './CauseMetricBarsDetail'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -250,7 +250,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (!umapProjection) return new Map<number, number>()
     const map = new Map<number, number>()
     for (const point of umapProjection) {
-      if (point.decision_margin !== undefined) {
+      // Check for both null and undefined since API can return null
+      if (point.decision_margin != null) {
         map.set(point.feature_id, point.decision_margin)
       }
     }
@@ -655,7 +656,7 @@ const CauseView: React.FC<CauseViewProps> = ({
           fullWidth={true}
           isAuto={causeSource === 'auto'}
         />
-        {decisionMargin !== undefined && (
+        {decisionMargin != null && (
           <span className="pair-similarity-score">{decisionMargin.toFixed(2)}</span>
         )}
       </div>
@@ -792,9 +793,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                   {/* Explanation Row - Left metrics (no border) + Right explanation (bordered) */}
                   <div className="cause-view__explanation-row">
-                    {/* Left: Cause Metrics Histogram (no border) */}
+                    {/* Left: Cause Metric Bars Detail (no border) */}
                     <div className="cause-view__metrics-container">
-                      <CauseMetricsHistogram
+                      <CauseMetricBarsDetail
                         scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
                       />
                     </div>
@@ -896,6 +897,7 @@ const CauseView: React.FC<CauseViewProps> = ({
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               width={500}
               className="cause-view__umap"
+              selectedFeatureId={selectedFeatureData?.featureId ?? null}
             />
 
             {/* Action buttons section with modality indicator above */}

@@ -1,22 +1,23 @@
 // ============================================================================
-// CAUSE METRICS HISTOGRAM
-// Histogram-style visualization for root cause metric scores
+// CAUSE METRIC BARS DETAIL
+// Detailed bar chart visualization for root cause metric scores
 // ============================================================================
 // Displays cause metrics (Noisy Activation, Missed Context, Missed N-gram)
-// as horizontal bars, with component scores shown as stacked narrow bars.
+// as horizontal bars with labels, component scores, and tooltips.
 // The metric with the minimum score is highlighted as the root cause.
+// This is the detailed version - for compact inline bars see CauseMetricBars in Indicators.tsx
 
 import React from 'react'
 import { TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
-import '../styles/CauseMetricsHistogram.css'
+import '../styles/CauseMetricBarsDetail.css'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface CauseMetricsHistogramProps {
+export interface CauseMetricBarsDetailProps {
   /** Cause metric scores to display */
   scores: CauseMetricScores | null
   /** Optional className for container */
@@ -42,17 +43,17 @@ interface MetricGroup {
 // ============================================================================
 
 /**
- * CauseMetricsHistogram - Displays cause metric scores as a histogram
+ * CauseMetricBarsDetail - Displays cause metric scores as horizontal bars with details
  *
  * Shows three metric groups:
  * - Noisy Activation: Avg(intraFeatureSim, explainerSemanticSim)
  * - Missed Context: Avg(embedding, detection)
  * - Missed N-gram: fuzz
  *
- * Each group displays component scores as stacked horizontal bars.
+ * Each group displays component scores as stacked horizontal bars with tooltips.
  * The group with the minimum aggregated score is highlighted as the root cause.
  */
-export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
+export const CauseMetricBarsDetail: React.FC<CauseMetricBarsDetailProps> = ({
   scores,
   className = ''
 }) => {
@@ -63,8 +64,8 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
 
   if (!scores) {
     return (
-      <div className={`cause-metrics-histogram ${className}`.trim()}>
-        <div className="cause-metrics-histogram__placeholder">No scores available</div>
+      <div className={`cause-metric-bars-detail ${className}`.trim()}>
+        <div className="cause-metric-bars-detail__placeholder">No scores available</div>
       </div>
     )
   }
@@ -109,25 +110,25 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
     : null
 
   return (
-    <div className={`cause-metrics-histogram ${className}`.trim()}>
+    <div className={`cause-metric-bars-detail ${className}`.trim()}>
       {metricGroups.map(({ key, label, aggregateScore, color, components }) => {
         const isMin = key === minKey
         return (
           <div
             key={key}
-            className={`cause-metrics-histogram__group ${isMin ? 'cause-metrics-histogram__group--highlighted' : ''}`}
+            className={`cause-metric-bars-detail__group ${isMin ? 'cause-metric-bars-detail__group--highlighted' : ''}`}
             style={isMin ? { backgroundColor: `${color}40` } : undefined}
           >
-            <span className="cause-metrics-histogram__label">{label}</span>
-            <div className="cause-metrics-histogram__bars">
+            <span className="cause-metric-bars-detail__label">{label}</span>
+            <div className="cause-metric-bars-detail__bars">
               {components.map(({ key: compKey, name, score }) => (
-                <div key={compKey} className="cause-metrics-histogram__bar-row">
+                <div key={compKey} className="cause-metric-bars-detail__bar-row">
                   <div
-                    className="cause-metrics-histogram__bar-container"
+                    className="cause-metric-bars-detail__bar-container"
                     data-tooltip={`${name}: ${score !== null ? score.toFixed(3) : 'N/A'}`}
                   >
                     <div
-                      className="cause-metrics-histogram__bar"
+                      className="cause-metric-bars-detail__bar"
                       style={{
                         width: score !== null ? `${score * 100}%` : '0%',
                         backgroundColor: color,
@@ -138,14 +139,14 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
                 </div>
               ))}
             </div>
-            <span className="cause-metrics-histogram__score">
+            <span className="cause-metric-bars-detail__score">
               {aggregateScore !== null ? aggregateScore.toFixed(2) : '—'}
             </span>
           </div>
         )
       })}
       {minKey && (
-        <div className="cause-metrics-histogram__indicator">
+        <div className="cause-metric-bars-detail__indicator">
           ▼ Lowest = Root cause
         </div>
       )}
@@ -153,4 +154,4 @@ export const CauseMetricsHistogram: React.FC<CauseMetricsHistogramProps> = ({
   )
 }
 
-export default CauseMetricsHistogram
+export default CauseMetricBarsDetail

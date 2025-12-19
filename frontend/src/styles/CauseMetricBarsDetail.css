@@ -1,26 +1,26 @@
 /* ============================================================================
- * CAUSE METRICS HISTOGRAM
- * Histogram-style visualization with component bars for root cause analysis
+ * CAUSE METRIC BARS DETAIL
+ * Detailed bar chart visualization with labels and tooltips for root cause analysis
  * ============================================================================ */
 
-.cause-metrics-histogram {
+.cause-metric-bars-detail {
   width: 100%;
 }
 
 /* Metric group container (label + bars + score) */
-.cause-metrics-histogram__group {
+.cause-metric-bars-detail__group {
   display: flex;
   align-items: center;
   margin-bottom: 4px;
 }
 
-.cause-metrics-histogram__group:last-of-type {
+.cause-metric-bars-detail__group:last-of-type {
   margin-bottom: 0;
 }
 
 /* Highlighted group (root cause - minimum score) */
 /* Background color is set inline using the metric's color */
-.cause-metrics-histogram__group--highlighted {
+.cause-metric-bars-detail__group--highlighted {
   border-radius: 3px;
   padding: 2px 4px;
   margin-left: -4px;
@@ -28,7 +28,7 @@
 }
 
 /* Metric label */
-.cause-metrics-histogram__label {
+.cause-metric-bars-detail__label {
   font-size: 11px;
   width: 95px;
   text-align: right;
@@ -38,7 +38,7 @@
 }
 
 /* Container for stacked component bars */
-.cause-metrics-histogram__bars {
+.cause-metric-bars-detail__bars {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -46,13 +46,13 @@
 }
 
 /* Single bar row */
-.cause-metrics-histogram__bar-row {
+.cause-metric-bars-detail__bar-row {
   display: flex;
   align-items: center;
 }
 
 /* Bar background container */
-.cause-metrics-histogram__bar-container {
+.cause-metric-bars-detail__bar-container {
   flex: 1;
   height: 8px;
   background-color: #f3f4f6;
@@ -63,7 +63,7 @@
 }
 
 /* CSS Tooltip */
-.cause-metrics-histogram__bar-container::after {
+.cause-metric-bars-detail__bar-container::after {
   content: attr(data-tooltip);
   position: absolute;
   bottom: 100%;
@@ -83,13 +83,13 @@
   pointer-events: none;
 }
 
-.cause-metrics-histogram__bar-container:hover::after {
+.cause-metric-bars-detail__bar-container:hover::after {
   opacity: 1;
   visibility: visible;
 }
 
 /* Score bar fill */
-.cause-metrics-histogram__bar {
+.cause-metric-bars-detail__bar {
   height: 100%;
   border-radius: 1px;
   transition: width 0.2s ease;
@@ -97,7 +97,7 @@
 }
 
 /* Aggregate score display */
-.cause-metrics-histogram__score {
+.cause-metric-bars-detail__score {
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
   color: #000;
@@ -107,7 +107,7 @@
 }
 
 /* Root cause indicator */
-.cause-metrics-histogram__indicator {
+.cause-metric-bars-detail__indicator {
   font-size: 11px;
   color: #000;
   margin-top: 4px;
@@ -115,7 +115,7 @@
 }
 
 /* Placeholder when no scores available */
-.cause-metrics-histogram__placeholder {
+.cause-metric-bars-detail__placeholder {
   font-size: 10px;
   color: #9ca3af;
   font-style: italic;

@@ -15,7 +15,8 @@ from sklearn.svm import SVC
 from ..models.umap import (
     UmapProjectionRequest,
     UmapProjectionResponse,
-    UmapPoint
+    UmapPoint,
+    ExplainerPosition
 )
 from ..models.similarity_sort import (
     CauseClassificationRequest,
@@ -63,6 +64,9 @@ class UMAPService:
     ) -> UmapProjectionResponse:
         """Return pre-computed barycentric positions for features.
 
+        Returns mean position across explainers for each feature,
+        plus individual explainer positions for detail view.
+
         Args:
             request: Request containing feature IDs
 
@@ -77,30 +81,53 @@ class UMAPService:
 
         feature_ids = request.feature_ids
 
-        # Load pre-computed positions
+        # Load all explainer rows (not just unique)
         df = self.data_service._barycentric_lazy.filter(
             pl.col("feature_id").is_in(feature_ids)
         ).select([
-            "feature_id", "position_x", "position_y", "nearest_anchor"
-        ]).unique(subset=["feature_id"]).collect()
+            "feature_id", "llm_explainer", "position_x", "position_y", "nearest_anchor"
+        ]).collect()
 
-        logger.info(f"Loaded pre-computed positions for {len(df)} features")
+        logger.info(f"Loaded {len(df)} rows for {df['feature_id'].n_unique()} features")
 
-        # Build response
-        points = [
-            UmapPoint(
-                feature_id=int(row["feature_id"]),
-                x=float(row["position_x"]),
-                y=float(row["position_y"]),
-                nearest_anchor=row["nearest_anchor"]
-            )
-            for row in df.iter_rows(named=True)
-        ]
+        # Group by feature_id to compute mean and collect explainer positions
+        points = []
+        for fid in df["feature_id"].unique().to_list():
+            feature_rows = df.filter(pl.col("feature_id") == fid)
+
+            # Compute mean position
+            mean_x = float(feature_rows["position_x"].mean())
+            mean_y = float(feature_rows["position_y"].mean())
+
+            # Get most common nearest_anchor (mode)
+            anchor_counts = feature_rows["nearest_anchor"].value_counts()
+            most_common_anchor = anchor_counts.sort("counts", descending=True)["nearest_anchor"][0]
+
+            # Collect explainer positions for detail view
+            explainer_positions = [
+                ExplainerPosition(
+                    explainer=row["llm_explainer"],
+                    x=float(row["position_x"]),
+                    y=float(row["position_y"]),
+                    nearest_anchor=row["nearest_anchor"]
+                )
+                for row in feature_rows.iter_rows(named=True)
+            ]
+
+            points.append(UmapPoint(
+                feature_id=int(fid),
+                x=mean_x,
+                y=mean_y,
+                nearest_anchor=most_common_anchor,
+                explainer_positions=explainer_positions
+            ))
+
+        logger.info(f"Built {len(points)} feature points with explainer details")
 
         return UmapProjectionResponse(
             points=points,
             total_features=len(points),
-            params_used={"source": "barycentric_precomputed"}
+            params_used={"source": "barycentric_precomputed", "aggregation": "mean"}
         )
 
     async def get_cause_classification(
