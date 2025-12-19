@@ -323,8 +323,8 @@
   height: 100%;
 }
 
-/* Brushed features section - subheader + list */
-.cause-view__brushed-section {
+/* Selected features section - subheader + list */
+.cause-view__selected-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -334,13 +334,13 @@
   overflow: hidden;
 }
 
-.cause-view__brushed-section .subheader {
+.cause-view__selected-section .subheader {
   margin: 0;
   flex-shrink: 0;
 }
 
-/* Scrollable list in brushed section */
-.cause-view__brushed-section .scrollable-list {
+/* Scrollable list in selected section */
+.cause-view__selected-section .scrollable-list {
   flex: 1;
   min-height: 150px;
   overflow-y: auto;

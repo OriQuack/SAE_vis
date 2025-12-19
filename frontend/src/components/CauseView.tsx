@@ -76,7 +76,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeMultiModality = useVisualizationStore(state => state.causeMultiModality)
   const fetchMultiModality = useVisualizationStore(state => state.fetchMultiModality)
 
-  // UMAP brushed features and projection data
+  // UMAP selected features and projection data
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
   const umapProjection = useVisualizationStore(state => state.umapProjection)
 
@@ -93,10 +93,10 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
-  const [currentBrushedIndex, setCurrentBrushedIndex] = useState(0)
-  const [activeListSource, setActiveListSource] = useState<'all' | 'brushed'>('all')
+  const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
+  const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('all')
   const [currentPage, setCurrentPage] = useState(0)
-  const [brushedSortDirection, setBrushedSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
   const [featuresSortDirection, setFeaturesSortDirection] = useState<'asc' | 'desc'>('asc')
   const [containerWidth, setContainerWidth] = useState(600)
   const rightPanelRef = useRef<HTMLDivElement>(null)
@@ -239,8 +239,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
-  // Convert brushed feature IDs to array for ScrollableItemList
-  const brushedFeatureList = useMemo(() => {
+  // Convert selected feature IDs to array for ScrollableItemList
+  const selectedFeatureList = useMemo(() => {
     return Array.from(umapBrushedFeatureIds)
   }, [umapBrushedFeatureIds])
 
@@ -257,10 +257,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [umapProjection])
 
-  // Sort brushed features by decision margin, excluding manually tagged features
-  const sortedBrushedFeatureList = useMemo(() => {
+  // Sort selected features by decision margin, excluding manually tagged features
+  const sortedSelectedFeatureList = useMemo(() => {
     // Filter out manually tagged features (only show untagged/auto-tagged)
-    const untaggedFeatures = brushedFeatureList.filter(featureId => {
+    const untaggedFeatures = selectedFeatureList.filter(featureId => {
       const source = causeSelectionSources.get(featureId)
       return source !== 'manual'
     })
@@ -269,9 +269,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     return [...untaggedFeatures].sort((a, b) => {
       const marginA = decisionMarginMap.get(a) ?? 0
       const marginB = decisionMarginMap.get(b) ?? 0
-      return brushedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
+      return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
     })
-  }, [brushedFeatureList, decisionMarginMap, brushedSortDirection, causeSelectionSources])
+  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection, causeSelectionSources])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -317,7 +317,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     return true
   }, [selectedFeatureIds, causeSelectionSources])
 
-  // Reset feature index when brushed list changes
+  // Reset feature index when selected list changes
   useEffect(() => {
     if (currentFeatureIndex >= featureListWithMetadata.length && featureListWithMetadata.length > 0) {
       setCurrentFeatureIndex(featureListWithMetadata.length - 1)
@@ -348,8 +348,8 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     } else {
-      // activeListSource === 'brushed'
-      const featureId = sortedBrushedFeatureList[currentBrushedIndex]
+      // activeListSource === 'selected'
+      const featureId = sortedSelectedFeatureList[currentSelectedIndex]
       if (featureId === undefined) return null
       const feature = featureListWithMetadata.find(f => f.featureId === featureId)
       if (!feature) return null
@@ -359,7 +359,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     }
-  }, [activeListSource, featureListWithMetadata, currentFeatureIndex, sortedBrushedFeatureList, currentBrushedIndex, activationExamples])
+  }, [activeListSource, featureListWithMetadata, currentFeatureIndex, sortedSelectedFeatureList, currentSelectedIndex, activationExamples])
 
   // Find the best explanation (max quality score)
   const bestExplanation = useMemo(() => {
@@ -395,10 +395,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [selectedFeatureData, tableData?.explainer_ids])
 
-  // Handle click on feature in bottom row brushed list (UMAP selection)
-  const handleBrushedListClick = useCallback((index: number) => {
-    setCurrentBrushedIndex(index)
-    setActiveListSource('brushed')
+  // Handle click on feature in selected list (UMAP selection)
+  const handleSelectedListClick = useCallback((index: number) => {
+    setCurrentSelectedIndex(index)
+    setActiveListSource('selected')
   }, [])
 
   // Handle click on feature in feature list (left panel)
@@ -430,9 +430,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     )
   }, [causeSelectionStates, causeSelectionSources, causeMetricScores, handleFeatureListClick])
 
-  // Toggle sort direction for brushed features list
-  const toggleBrushedSortDirection = useCallback(() => {
-    setBrushedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
+  // Toggle sort direction for selected features list
+  const toggleSelectedSortDirection = useCallback(() => {
+    setSelectedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
   }, [])
 
   // Toggle sort direction for features list
@@ -549,15 +549,15 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
 
   // ============================================================================
-  // BRUSHED TAGGING HANDLERS
+  // SELECTED TAGGING HANDLERS
   // ============================================================================
 
-  // Tag all brushed features with a specific cause category
-  const handleTagBrushedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
+  // Tag all selected features with a specific cause category
+  const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
     // 1. Save current state to current commit before applying new tags
     saveCurrentState()
 
-    // 2. Apply tags to all brushed features
+    // 2. Apply tags to all selected features
     umapBrushedFeatureIds.forEach(featureId => {
       setCauseCategory(featureId, category)
     })
@@ -565,7 +565,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 3. Create new commit after tags are applied (hook handles onCommitCreated callback)
     setTimeout(() => {
       createCommit('tagAll')
-      console.log('[CauseView] Created new commit after tagging brushed as', category)
+      console.log('[CauseView] Created new commit after tagging selected as', category)
     }, 0)
   }, [umapBrushedFeatureIds, setCauseCategory, saveCurrentState, createCommit])
 
@@ -650,7 +650,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
 
-  // Render feature item for brushed ScrollableItemList (with click handler)
+  // Render feature item for selected ScrollableItemList (with click handler)
   const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
     const causeSource = causeSelectionSources.get(featureId)
@@ -665,7 +665,7 @@ const CauseView: React.FC<CauseViewProps> = ({
           featureId={featureId}
           tagName={tagName}
           tagCategoryId={TAG_CATEGORY_CAUSE}
-          onClick={() => handleBrushedListClick(index)}
+          onClick={() => handleSelectedListClick(index)}
           fullWidth={true}
           isAuto={causeSource === 'auto'}
         />
@@ -674,7 +674,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         )}
       </div>
     )
-  }, [causeSelectionStates, causeSelectionSources, handleBrushedListClick, decisionMarginMap])
+  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick, decisionMarginMap])
 
   // ============================================================================
   // RENDER
@@ -722,18 +722,18 @@ const CauseView: React.FC<CauseViewProps> = ({
             <div className="cause-view__action-section">
               <ModalityIndicator multimodality={causeMultiModality} />
               <div className="cause-view__action-buttons">
-                {/* Button 1: Tag brushed as Noisy Activation */}
+                {/* Button 1: Tag selected as Noisy Activation */}
                 <div className="action-button-item">
                   <button
                     className="action-button"
-                    onClick={() => handleTagBrushedAs('noisy-activation')}
+                    onClick={() => handleTagSelectedAs('noisy-activation')}
                     disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all brushed features as Noisy Activation"
+                    title="Tag all selected features as Noisy Activation"
                   >
-                    Tag Brushed as Noisy Activation
+                    Tag Selected as Noisy Activation
                   </button>
                   <div className="action-button__desc">
-                    Assign brushed features to Noisy Activation
+                    Assign selected features to Noisy Activation
                   </div>
                   <div className="action-button__legend">
                     <span className="action-button__legend-item">
@@ -748,18 +748,18 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Button 2: Tag brushed as Missed Context */}
+                {/* Button 2: Tag selected as Missed Context */}
                 <div className="action-button-item">
                   <button
                     className="action-button"
-                    onClick={() => handleTagBrushedAs('missed-context')}
+                    onClick={() => handleTagSelectedAs('missed-context')}
                     disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all brushed features as Missed Context"
+                    title="Tag all selected features as Missed Context"
                   >
-                    Tag Brushed as Missed Context
+                    Tag Selected as Missed Context
                   </button>
                   <div className="action-button__desc">
-                    Assign brushed features to Missed Context
+                    Assign selected features to Missed Context
                   </div>
                   <div className="action-button__legend">
                     <span className="action-button__legend-item">
@@ -774,18 +774,18 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Button 3: Tag brushed as Missed N-gram */}
+                {/* Button 3: Tag selected as Missed N-gram */}
                 <div className="action-button-item">
                   <button
                     className="action-button"
-                    onClick={() => handleTagBrushedAs('missed-N-gram')}
+                    onClick={() => handleTagSelectedAs('missed-N-gram')}
                     disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all brushed features as Missed N-gram"
+                    title="Tag all selected features as Missed N-gram"
                   >
-                    Tag Brushed as Missed N-Gram
+                    Tag Selected as Missed N-Gram
                   </button>
                   <div className="action-button__desc">
-                    Assign brushed features to Missed N-Gram
+                    Assign selected features to Missed N-Gram
                   </div>
                   <div className="action-button__legend">
                     <span className="action-button__legend-item">
@@ -840,20 +840,20 @@ const CauseView: React.FC<CauseViewProps> = ({
               </div>
             </div>
 
-            <div className="cause-view__brushed-section">
-              <h4 className="subheader">Brushed Features</h4>
+            <div className="cause-view__selected-section">
+              <h4 className="subheader">Selected Features</h4>
               <ScrollableItemList
                 variant="causeBrushed"
-                badges={[{ label: 'Selected', count: sortedBrushedFeatureList.length }]}
+                badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
                 columnHeader={{
                   label: 'Decision Margin',
-                  sortDirection: brushedSortDirection,
-                  onClick: toggleBrushedSortDirection
+                  sortDirection: selectedSortDirection,
+                  onClick: toggleSelectedSortDirection
                 }}
-                items={sortedBrushedFeatureList}
+                items={sortedSelectedFeatureList}
                 renderItem={renderBottomRowFeatureItem}
-                currentIndex={activeListSource === 'brushed' ? currentBrushedIndex : -1}
-                isActive={activeListSource === 'brushed'}
+                currentIndex={activeListSource === 'selected' ? currentSelectedIndex : -1}
+                isActive={activeListSource === 'selected'}
                 emptyMessage="Brush on UMAP to select features"
               />
             </div>
