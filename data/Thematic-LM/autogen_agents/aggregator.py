@@ -7,20 +7,40 @@ from typing import Dict
 from autogen import ConversableAgent
 
 
-# Paper prompt (Appendix B), adapted for neuron explanations
-AGGREGATOR_SYSTEM_PROMPT_TEMPLATE = """You are an aggregator coder in the thematic analysis of neuron explanations. Your job is to take the codes and corresponding quotes from other coders, merge the similar codes and retain the different ones. Store the quotes under the merged codes, and keep the top {max_quotes} most relevant quotes. Output the codes and quotes in JSON format. Don't output anything else. Quote_id is the same as data_id.
+# Paper prompt (Appendix B), adapted for neuron explanations with category-aware merging
+AGGREGATOR_SYSTEM_PROMPT_TEMPLATE = """You are an aggregator in thematic analysis of neuron explanations.
 
-Output Format:
+TASK: Take codes from the coder, merge similar codes, and retain different ones.
+- Preserve the category label from each code
+- Only merge codes within the SAME category
+- Keep the top {max_quotes} most relevant quotes
+
+MERGE RULES:
+- Merge codes with similar meaning AND same category
+- Do NOT merge codes from different categories (linguistic vs contextual)
+- When merging, keep the more descriptive code name
+
+EXAMPLE:
+Input: [
+  {{"code": "prepositions", "category": "linguistic", "quote": "...", "quote_id": "f1"}},
+  {{"code": "prepositions and conjunctions", "category": "linguistic", "quote": "...", "quote_id": "f2"}},
+  {{"code": "formal writing", "category": "contextual", "quote": "...", "quote_id": "f1"}}
+]
+Output:
+{{
+  "codes": [
+    {{"code": "prepositions and conjunctions", "category": "linguistic", "quotes": [{{"quote": "...", "quote_id": "f1"}}, {{"quote": "...", "quote_id": "f2"}}]}},
+    {{"code": "formal writing", "category": "contextual", "quotes": [{{"quote": "...", "quote_id": "f1"}}]}}
+  ]
+}}
+
+OUTPUT FORMAT:
 {{
   "codes": [
     {{
       "code": "<merged or retained code>",
-      "quotes": [
-        {{
-          "quote": "<quote text>",
-          "quote_id": "<data_id>"
-        }}
-      ]
+      "category": "linguistic|contextual",
+      "quotes": [{{"quote": "<text>", "quote_id": "<id>"}}]
     }}
   ]
 }}"""

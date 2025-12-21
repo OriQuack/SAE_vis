@@ -62,7 +62,7 @@
   flex-direction: row;
   flex: 3;
   min-height: 0;
-  gap: 16px;
+  gap: 0;
   align-items: stretch;
 }
 
@@ -76,8 +76,6 @@
   gap: 4px;
   padding: 4px;
   background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
 }
 
 .cause-view__placeholder {
@@ -109,9 +107,10 @@
 .cause-view__legend {
   display: flex;
   align-items: center;
-  gap: 4px;
+  justify-content: flex-end;
   flex-shrink: 0;
   font-size: 11px;
+  padding: 0 8px;
 }
 
 /* Activation section */
@@ -168,25 +167,15 @@
  * EXPLANATION ROW - Left metrics (no border) + Right explanation (bordered)
  * ============================================================================ */
 
-.cause-view__explanation-row {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  min-height: 0;
-  flex: 1;
-}
-
-/* Left: Cause metrics histogram (no border) */
+/* Cause metrics container - below explanation */
 .cause-view__metrics-container {
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  margin-left: 4px;
-  margin-top: 25px;
-  min-width: 200px;
+  padding: 4px 8px;
 }
 
-/* Right: Explanation section (bordered) */
+/* Right: Explanation section */
 .cause-view__explanation-section {
   display: flex;
   flex-direction: column;
@@ -207,16 +196,16 @@
   padding: 0 6px;
 }
 
-/* Semantic similarity legend - in header row, right-aligned */
+/* Semantic similarity legend - on separate line, right-aligned */
 .cause-view__explanation-legend {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   font-size: 12px;
   color: #6b7280;
-  padding: 0px 12px;
+  padding: 0 8px;
   flex-shrink: 0;
-  margin-left: auto;
 }
 
 .cause-view__explanation-legend .legend-group-label {
@@ -306,15 +295,21 @@
 }
 
 /* ============================================================================
- * BOTTOM ROW - UMAP + Selected features list
+ * BOTTOM ROW - Action buttons (horizontal)
  * ============================================================================ */
 
 .cause-view__row-bottom {
   display: flex;
+  flex: 1;
   flex-direction: row;
-  flex: 2;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 12px 16px;
   min-height: 0;
-  gap: 0;
+  background-color: #f9fafb;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0 0 4px 4px;
 }
 
 /* UMAP container - fixed width, flex height */
@@ -323,19 +318,19 @@
   height: 100%;
 }
 
-/* Selected features section - subheader + list */
+/* Selected features section - subheader + list (shrink to content) */
 .cause-view__selected-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 1;
+  flex-shrink: 0;
   min-height: 0;
-  min-width: 0;
   overflow: hidden;
 }
 
 .cause-view__selected-section .subheader {
   margin: 0;
+  padding: 8px 8px 0 8px;
   flex-shrink: 0;
 }
 
@@ -508,24 +503,23 @@
 }
 
 /* ============================================================================
- * ACTION SECTION - Modality indicator + action buttons container
+ * ACTION SECTION - Modality indicator + action buttons container (horizontal in bottom row)
  * ============================================================================ */
 
 .cause-view__action-section {
   display: flex;
-  flex-direction: column;
-  flex: 0 0 140px;
-  gap: 4px;
+  flex-direction: row;
+  align-items: center;
+  gap: 16px;
 }
 
 /* ============================================================================
- * ACTION BUTTONS - Container and layout (uses shared .action-button from base.css)
+ * ACTION BUTTONS - Horizontal layout (uses shared .action-button from base.css)
  * ============================================================================ */
 
 .cause-view__action-buttons {
   display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  flex: 1;
-  min-height: 0;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 12px;
 }

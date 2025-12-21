@@ -319,13 +319,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
       // Count features by category
       const categoryCounts = new Map<CauseCategory, number>()
-      let totalCategorized = 0
 
       for (const featureId of cell.featureIds) {
         const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
         if (category) {
           categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1)
-          totalCategorized++
         }
       }
 
@@ -339,8 +337,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         }
       }
 
-      // Calculate purity (percentage with majority category)
-      const purity = totalCategorized > 0 ? maxCount / totalCategorized : 0
+      // Calculate purity (percentage of ALL features with majority category)
+      const purity = cell.featureIds.size > 0 ? maxCount / cell.featureIds.size : 0
 
       info.set(cellKey, {
         majorityCategory,

@@ -28,11 +28,14 @@ class CodebookEntry:
     corresponding quotes, and quote IDs in JSON format. Each entry in the
     codebook is a code, and its associated quotes are nested below each
     code along with their quote IDs."
+
+    Extended with category field for linguistic/contextual classification.
     """
 
     code_id: int
     code_text: str
     embedding: np.ndarray
+    category: str = "unknown"  # "linguistic" | "contextual" | "unknown"
     frequency: int = 1
     variants: List[str] = field(default_factory=list)
     # Per paper: quotes stored WITH quote_ids for traceability
@@ -44,6 +47,7 @@ class CodebookEntry:
         return {
             "code_id": self.code_id,
             "code_text": self.code_text,
+            "category": self.category,  # NEW: include category
             "frequency": self.frequency,
             "variants": self.variants,
             "example_quotes": self.example_quotes[:20],  # Paper: max 20 quotes with quote_ids
@@ -158,7 +162,8 @@ class CodebookManager:
 
         return results
 
-    def add_code(self, code_text: str, quotes: List[Dict[str, str]]) -> Tuple[int, bool]:
+    def add_code(self, code_text: str, quotes: List[Dict[str, str]],
+                 category: str = "unknown") -> Tuple[int, bool]:
         """Add a new code to the codebook.
 
         Called when reviewer decides to create a new code (merge_codes empty).
@@ -169,6 +174,7 @@ class CodebookManager:
         Args:
             code_text: The code label
             quotes: List of quote dicts with 'quote' and 'quote_id' keys
+            category: Code category - "linguistic" | "contextual" | "unknown"
 
         Returns:
             Tuple of (code_id, is_new) - is_new is always True for add_code
@@ -187,6 +193,7 @@ class CodebookManager:
             code_id=self._next_id,
             code_text=code_text,
             embedding=embedding,
+            category=category,  # NEW: store category
             frequency=1,
             variants=[code_text],
             example_quotes=valid_quotes
@@ -206,7 +213,8 @@ class CodebookManager:
         code_text: str,
         quotes: List[Dict[str, str]],
         existing_code_id: int,
-        update_code_text: bool = False
+        update_code_text: bool = False,
+        category: str = None
     ) -> int:
         """Merge a new code into an existing code entry.
 
@@ -220,6 +228,7 @@ class CodebookManager:
             quotes: List of quote dicts with 'quote' and 'quote_id' keys
             existing_code_id: ID of existing code to merge into
             update_code_text: If True, update the entry's code_text to the new refined name
+            category: Code category to update if existing entry has "unknown"
 
         Returns:
             The existing code ID
@@ -227,11 +236,15 @@ class CodebookManager:
         if existing_code_id not in self.entries:
             logger.warning(f"Cannot merge: code {existing_code_id} not found")
             # Fallback: add as new
-            code_id, _ = self.add_code(code_text, quotes)
+            code_id, _ = self.add_code(code_text, quotes, category=category or "unknown")
             return code_id
 
         entry = self.entries[existing_code_id]
         entry.frequency += 1
+
+        # Update category if provided and entry has unknown
+        if category and category != "unknown" and entry.category == "unknown":
+            entry.category = category
 
         # Per plan lines 729-732: Update code name to the (possibly refined) name
         if update_code_text and code_text.lower() != entry.code_text.lower():
@@ -394,6 +407,7 @@ class CodebookManager:
                 code_id=code_id,
                 code_text=entry_data["code_text"],
                 embedding=embedding,
+                category=entry_data.get("category", "unknown"),  # Default for old data
                 frequency=entry_data["frequency"],
                 variants=entry_data.get("variants", []),
                 example_quotes=entry_data.get("example_quotes", []),

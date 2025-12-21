@@ -6,7 +6,7 @@
     "start_feature": null,
     "end_feature": null,
     "limit": 10,
-    "mode": "continue",
+    "mode": "overwrite",
     "load_codebook": "../master/codebook.json"
   },
 

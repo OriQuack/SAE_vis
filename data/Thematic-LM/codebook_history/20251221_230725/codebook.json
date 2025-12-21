@@ -1,6 +1,6 @@
 {
   "metadata": {
-    "created_at": "2025-12-16T13:22:53.655066",
+    "created_at": "2025-12-21T23:07:25.028299",
     "total_codes": 36,
     "version": 72,
     "paper": "Qiao et al. Thematic-LM (WWW '25)"
@@ -9,6 +9,7 @@
     {
       "code_id": 0,
       "code_text": "progress query",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "question-introducing phrases",
@@ -29,6 +30,7 @@
     {
       "code_id": 1,
       "code_text": "how-beginning prompts",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "how-beginning prompts"
@@ -44,6 +46,7 @@
     {
       "code_id": 2,
       "code_text": "process-or-method markers",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "process-or-method markers"
@@ -59,6 +62,7 @@
     {
       "code_id": 3,
       "code_text": "definition-focused tokens",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "define token"
@@ -78,6 +82,7 @@
     {
       "code_id": 4,
       "code_text": "technical definitions",
+      "category": "unknown",
       "frequency": 5,
       "variants": [
         "formal or technical contexts",
@@ -106,6 +111,7 @@
     {
       "code_id": 5,
       "code_text": "place and organization names",
+      "category": "unknown",
       "frequency": 4,
       "variants": [
         "proper nouns"
@@ -129,6 +135,7 @@
     {
       "code_id": 6,
       "code_text": "time-related words",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "time-related words"
@@ -144,6 +151,7 @@
     {
       "code_id": 7,
       "code_text": "numerical tokens",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "numerical tokens"
@@ -159,6 +167,7 @@
     {
       "code_id": 8,
       "code_text": "mathematical symbols",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "mathematical symbols"
@@ -174,6 +183,7 @@
     {
       "code_id": 9,
       "code_text": "function words",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "function words"
@@ -189,6 +199,7 @@
     {
       "code_id": 10,
       "code_text": "clause-linking punctuation",
+      "category": "unknown",
       "frequency": 4,
       "variants": [
         "punctuation and special characters",
@@ -209,6 +220,7 @@
     {
       "code_id": 11,
       "code_text": "operators and brackets",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "mathematical and programming notation",
@@ -229,6 +241,7 @@
     {
       "code_id": 12,
       "code_text": "citations and abbreviations",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "citations and abbreviations"
@@ -244,6 +257,7 @@
     {
       "code_id": 13,
       "code_text": "definitional phrase",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "definitional phrase"
@@ -259,6 +273,7 @@
     {
       "code_id": 14,
       "code_text": "tokens starting with 'Hor'",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "tokens starting with 'Hor'"
@@ -274,6 +289,7 @@
     {
       "code_id": 15,
       "code_text": "game resolution terms",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "sports terminology"
@@ -289,6 +305,7 @@
     {
       "code_id": 16,
       "code_text": "spatial acceleration structure",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "spatial acceleration structure"
@@ -304,6 +321,7 @@
     {
       "code_id": 17,
       "code_text": "BVH terminology",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "BVH terminology"
@@ -319,6 +337,7 @@
     {
       "code_id": 18,
       "code_text": "assessment phrases",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "comparative questions"
@@ -334,6 +353,7 @@
     {
       "code_id": 19,
       "code_text": "specific or descriptive names",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "related names and terms"
@@ -353,6 +373,7 @@
     {
       "code_id": 20,
       "code_text": "competitive sports events",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "competitive sports events"
@@ -368,6 +389,7 @@
     {
       "code_id": 21,
       "code_text": "keywords and identifiers",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "programming terminology"
@@ -387,6 +409,7 @@
     {
       "code_id": 22,
       "code_text": "prepositions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "prepositions"
@@ -402,6 +425,7 @@
     {
       "code_id": 23,
       "code_text": "conjunctions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "conjunctions"
@@ -417,6 +441,7 @@
     {
       "code_id": 24,
       "code_text": "comparative expressions",
+      "category": "unknown",
       "frequency": 3,
       "variants": [
         "comparative or transitional words"
@@ -436,6 +461,7 @@
     {
       "code_id": 25,
       "code_text": "architecture vocabulary",
+      "category": "unknown",
       "frequency": 4,
       "variants": [
         "building and structure nouns"
@@ -459,6 +485,7 @@
     {
       "code_id": 26,
       "code_text": "nouns and adjectives",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "nouns and adjectives"
@@ -474,6 +501,7 @@
     {
       "code_id": 27,
       "code_text": "nature vocabulary",
+      "category": "unknown",
       "frequency": 4,
       "variants": [
         "science and nature terms"
@@ -497,6 +525,7 @@
     {
       "code_id": 28,
       "code_text": "adjective complements",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "linking verb constructions"
@@ -512,6 +541,7 @@
     {
       "code_id": 29,
       "code_text": "function definitions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "function definitions"
@@ -527,6 +557,7 @@
     {
       "code_id": 30,
       "code_text": "macro definitions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "macro definitions"
@@ -542,6 +573,7 @@
     {
       "code_id": 31,
       "code_text": "programming constructs",
+      "category": "unknown",
       "frequency": 2,
       "variants": [
         "programming constructs"
@@ -561,6 +593,7 @@
     {
       "code_id": 32,
       "code_text": "slash alternation",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "slash alternation"
@@ -576,6 +609,7 @@
     {
       "code_id": 33,
       "code_text": "imperative verb phrase",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "imperative verb phrase"
@@ -591,6 +625,7 @@
     {
       "code_id": 34,
       "code_text": "quality expressions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "quality expressions"
@@ -606,6 +641,7 @@
     {
       "code_id": 35,
       "code_text": "experience expressions",
+      "category": "unknown",
       "frequency": 1,
       "variants": [
         "experience expressions"

@@ -43,8 +43,6 @@ const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'well-explained': 'Well-Explained'
 }
 
-// Pagination for feature list
-const ITEMS_PER_PAGE = 10
 
 interface CauseViewProps {
   className?: string
@@ -95,10 +93,12 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('all')
-  const [currentPage, setCurrentPage] = useState(0)
   const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [featuresSortDirection, setFeaturesSortDirection] = useState<'asc' | 'desc'>('asc')
   const [containerWidth, setContainerWidth] = useState(600)
+  const [selectedPage, setSelectedPage] = useState(0)
+
+  // Pagination for selected features list
+  const ITEMS_PER_PAGE = 10
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
 
@@ -273,6 +273,15 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureList, decisionMarginMap, selectedSortDirection, causeSelectionSources])
 
+  // Pagination for selected features list
+  const selectedTotalPages = Math.ceil(sortedSelectedFeatureList.length / ITEMS_PER_PAGE)
+  const paginatedSelectedFeatureList = useMemo(() => {
+    return sortedSelectedFeatureList.slice(
+      selectedPage * ITEMS_PER_PAGE,
+      (selectedPage + 1) * ITEMS_PER_PAGE
+    )
+  }, [sortedSelectedFeatureList, selectedPage])
+
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
     if (!tableData?.features || !selectedFeatureIds || selectedFeatureIds.size === 0) return []
@@ -289,24 +298,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       }))
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
-
-  // Sort features by decision margin and paginate
-  const sortedFeatureList = useMemo(() => {
-    if (decisionMarginMap.size === 0) return featureListWithMetadata
-    return [...featureListWithMetadata].sort((a, b) => {
-      const marginA = decisionMarginMap.get(a.featureId) ?? 0
-      const marginB = decisionMarginMap.get(b.featureId) ?? 0
-      return featuresSortDirection === 'asc' ? marginA - marginB : marginB - marginA
-    })
-  }, [featureListWithMetadata, decisionMarginMap, featuresSortDirection])
-
-  const totalPages = Math.ceil(sortedFeatureList.length / ITEMS_PER_PAGE)
-  const currentPageFeatures = useMemo(() => {
-    return sortedFeatureList.slice(
-      currentPage * ITEMS_PER_PAGE,
-      (currentPage + 1) * ITEMS_PER_PAGE
-    )
-  }, [sortedFeatureList, currentPage])
 
   // Check if all features are manually tagged (for enabling next stage button)
   const allTagged = useMemo(() => {
@@ -397,47 +388,14 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Handle click on feature in selected list (UMAP selection)
   const handleSelectedListClick = useCallback((index: number) => {
-    setCurrentSelectedIndex(index)
+    const globalIndex = selectedPage * ITEMS_PER_PAGE + index
+    setCurrentSelectedIndex(globalIndex)
     setActiveListSource('selected')
-  }, [])
-
-  // Handle click on feature in feature list (left panel)
-  const handleFeatureListClick = useCallback((index: number) => {
-    const globalIndex = currentPage * ITEMS_PER_PAGE + index
-    setCurrentFeatureIndex(globalIndex)
-    setActiveListSource('all')
-  }, [currentPage])
-
-  // Render feature item for feature list ScrollableItemList
-  const renderFeatureListItem = useCallback((feature: typeof featureListWithMetadata[0], index: number) => {
-    const causeCategory = causeSelectionStates.get(feature.featureId)
-    const causeSource = causeSelectionSources.get(feature.featureId)
-    const scores = causeMetricScores.get(feature.featureId)
-    const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Unsure'
-
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
-        <TagBadge
-          featureId={feature.featureId}
-          tagName={tagName}
-          tagCategoryId={TAG_CATEGORY_CAUSE}
-          onClick={() => handleFeatureListClick(index)}
-          fullWidth={true}
-          isAuto={causeSource === 'auto'}
-        />
-        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
-      </div>
-    )
-  }, [causeSelectionStates, causeSelectionSources, causeMetricScores, handleFeatureListClick])
+  }, [selectedPage])
 
   // Toggle sort direction for selected features list
   const toggleSelectedSortDirection = useCallback(() => {
     setSelectedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
-  }, [])
-
-  // Toggle sort direction for features list
-  const toggleFeaturesSortDirection = useCallback(() => {
-    setFeaturesSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
   }, [])
 
   // ============================================================================
@@ -650,17 +608,18 @@ const CauseView: React.FC<CauseViewProps> = ({
   const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
 
-  // Render feature item for selected ScrollableItemList (with click handler)
+  // Render feature item for selected ScrollableItemList (with click handler and CauseMetricBars)
   const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
     const causeSource = causeSelectionSources.get(featureId)
     const decisionMargin = decisionMarginMap.get(featureId)
+    const scores = causeMetricScores.get(featureId)
 
-    // All features must have a tag - use category name or default to Noisy Activation
+    // All features must have a tag - use category name or default to Unsure
     const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Unsure'
 
     return (
-      <div className="pair-item-with-score">
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
         <TagBadge
           featureId={featureId}
           tagName={tagName}
@@ -669,12 +628,13 @@ const CauseView: React.FC<CauseViewProps> = ({
           fullWidth={true}
           isAuto={causeSource === 'auto'}
         />
+        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
         {decisionMargin != null && (
           <span className="pair-similarity-score">{decisionMargin.toFixed(2)}</span>
         )}
       </div>
     )
-  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick, decisionMarginMap])
+  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick, decisionMarginMap, causeMetricScores])
 
   // ============================================================================
   // RENDER
@@ -708,137 +668,15 @@ const CauseView: React.FC<CauseViewProps> = ({
           onCommitClick={handleCommitClick}
         />
 
-        {/* Right column: Top placeholder + Bottom UMAP section */}
+        {/* Right column: Top row + Bottom action bar */}
         <div className="cause-view__content">
-          {/* Top row: UMAP + Action Buttons + Selected features list */}
+          {/* Top row: UMAP + Selected features list + Detail panel */}
           <div className="cause-view__row-top">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
               className="cause-view__umap"
               selectedFeatureId={selectedFeatureData?.featureId ?? null}
             />
-
-            {/* Action buttons section with modality indicator above */}
-            <div className="cause-view__action-section">
-              <ModalityIndicator multimodality={causeMultiModality} />
-              <div className="cause-view__action-buttons">
-                {/* Button 1: Tag selected as Noisy Activation */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('noisy-activation')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Noisy Activation"
-                  >
-                    Tag Selected as Noisy Activation
-                  </button>
-                  <div className="action-button__desc">
-                    Assign selected features to Noisy Activation
-                  </div>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Button 2: Tag selected as Context Miss */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('missed-context')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Context Miss"
-                  >
-                    Tag Selected as Context Miss
-                  </button>
-                  <div className="action-button__desc">
-                    Assign selected features to Context Miss
-                  </div>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Button 3: Tag selected as Pattern Miss */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('missed-N-gram')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Pattern Miss"
-                  >
-                    Tag Selected as Pattern Miss
-                  </button>
-                  <div className="action-button__desc">
-                    Assign selected features to Pattern Miss
-                  </div>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Button 4: Tag Remaining by Boundary */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button action-button--primary"
-                    onClick={handleTagRemainingByBoundary}
-                    disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                    title="Auto-tag remaining features using SVM decision boundary"
-                  >
-                    Tag Remaining by Boundary
-                  </button>
-                  <div className="action-button__desc">
-                    Split remaining features by SVM decision boundary
-                  </div>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
-                    </span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
-                    </span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                    </span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['well-explained']}</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
 
             <div className="cause-view__selected-section">
               <h4 className="subheader">Selected Features</h4>
@@ -850,50 +688,29 @@ const CauseView: React.FC<CauseViewProps> = ({
                   sortDirection: selectedSortDirection,
                   onClick: toggleSelectedSortDirection
                 }}
-                items={sortedSelectedFeatureList}
+                items={paginatedSelectedFeatureList}
                 renderItem={renderBottomRowFeatureItem}
-                currentIndex={activeListSource === 'selected' ? currentSelectedIndex : -1}
+                currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
                 isActive={activeListSource === 'selected'}
                 emptyMessage="Brush on UMAP to select features"
+                pageNavigation={{
+                  currentPage: selectedPage,
+                  totalPages: selectedTotalPages,
+                  onPreviousPage: () => {
+                    if (selectedPage > 0) {
+                      setSelectedPage(selectedPage - 1)
+                      setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
+                    }
+                  },
+                  onNextPage: () => {
+                    if (selectedPage < selectedTotalPages - 1) {
+                      setSelectedPage(selectedPage + 1)
+                      setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
+                    }
+                  }
+                }}
               />
             </div>
-          </div>
-
-          {/* Bottom row: Feature list + Activation/Explanation panel */}
-          <div className="cause-view__row-bottom">
-            {/* Left: All features from segment */}
-            <ScrollableItemList
-              variant="cause"
-              badges={[{ label: 'Features', count: featureListWithMetadata.length }]}
-              columnHeader={{
-                label: 'Decision Margin',
-                sortDirection: featuresSortDirection,
-                onClick: toggleFeaturesSortDirection
-              }}
-              sortConfig={{
-                getDisplayScore: (item: typeof featureListWithMetadata[0]) => decisionMarginMap.get(item.featureId)
-              }}
-              items={currentPageFeatures}
-              renderItem={renderFeatureListItem}
-              currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
-              isActive={activeListSource === 'all'}
-              pageNavigation={{
-                currentPage,
-                totalPages,
-                onPreviousPage: () => {
-                  if (currentPage > 0) {
-                    setCurrentPage(currentPage - 1)
-                    setCurrentFeatureIndex((currentPage - 1) * ITEMS_PER_PAGE)
-                  }
-                },
-                onNextPage: () => {
-                  if (currentPage < totalPages - 1) {
-                    setCurrentPage(currentPage + 1)
-                    setCurrentFeatureIndex((currentPage + 1) * ITEMS_PER_PAGE)
-                  }
-                }
-              }}
-            />
 
             {/* Right: Activation examples and explanations */}
             <div className="cause-view__right-panel" ref={rightPanelRef}>
@@ -903,17 +720,16 @@ const CauseView: React.FC<CauseViewProps> = ({
                   <div className="cause-view__header-row">
                     <h4 className="subheader">Activation Examples</h4>
                     <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
-                    <div style={{ flex: 1 }} />
-                    {/* Activation legend */}
-                    <div className="cause-view__legend">
-                      <div className="legend-item">
-                        <span className="legend-sample legend-sample--activation">token</span>:
-                        <span className="legend-label">Activation Strength</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Feature-Specific Pattern</span>
-                      </div>
+                  </div>
+                  {/* Activation legend */}
+                  <div className="cause-view__legend">
+                    <div className="legend-item">
+                      <span className="legend-sample legend-sample--activation">token</span>:
+                      <span className="legend-label">Activation Strength</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-sample legend-sample--intra">token</span>:
+                      <span className="legend-label">Feature-Specific Pattern</span>
                     </div>
                   </div>
 
@@ -934,7 +750,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Best Explanation Header - Outside bordered container */}
+                  {/* Best Explanation Header */}
                   <div className="cause-view__explanation-header">
                     <h4 className="subheader">Best Explanation</h4>
                     {bestExplanation && (
@@ -945,61 +761,58 @@ const CauseView: React.FC<CauseViewProps> = ({
                         </span>
                       </div>
                     )}
-                    {/* Semantic similarity legend */}
-                    <div className="cause-view__explanation-legend">
-                      <span className="legend-group-label">Common Phrase Semantic Similarity:</span>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
-                        <span className="legend-label">≥0.85</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
-                        <span className="legend-label">≥0.70</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                        <span className="legend-label">≥0.60</span>
-                      </div>
+                  </div>
+                  {/* Semantic similarity legend */}
+                  <div className="cause-view__explanation-legend">
+                    <span className="legend-group-label">Common Phrase Semantic Similarity:</span>
+                    <div className="legend-item">
+                      <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
+                      <span className="legend-label">≥0.85</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
+                      <span className="legend-label">≥0.70</span>
+                    </div>
+                    <div className="legend-item">
+                      <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
+                      <span className="legend-label">≥0.60</span>
                     </div>
                   </div>
 
-                  {/* Explanation Row - Left metrics (no border) + Right explanation (bordered) */}
-                  <div className="cause-view__explanation-row">
-                    {/* Left: Cause Metric Bars Detail (no border) */}
-                    <div className="cause-view__metrics-container">
-                      <CauseMetricBarsDetail
-                        scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                      />
+                  {/* Explanation Section */}
+                  <div className="cause-view__explanation-section">
+                    <div className="cause-view__explanation-content">
+                      {bestExplanation ? (
+                        <div className="cause-view__explainer-block">
+                          <span
+                            className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
+                          >
+                            {getExplainerDisplayName(bestExplanation.explainerId)}
+                          </span>
+                          <span className="cause-view__explainer-text">
+                            {bestExplanation.highlightedExplanation?.segments ? (
+                              <HighlightedExplanation
+                                segments={bestExplanation.highlightedExplanation.segments}
+                                truncated={false}
+                              />
+                            ) : (
+                              <span className="cause-view__no-explanation">
+                                {bestExplanation.explanationText || 'No explanation available'}
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="cause-view__no-explanation">No explanations available</span>
+                      )}
                     </div>
+                  </div>
 
-                    {/* Right: Best Explanation Content (bordered) */}
-                    <div className="cause-view__explanation-section">
-                      <div className="cause-view__explanation-content">
-                        {bestExplanation ? (
-                          <div className="cause-view__explainer-block">
-                            <span
-                              className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
-                            >
-                              {getExplainerDisplayName(bestExplanation.explainerId)}
-                            </span>
-                            <span className="cause-view__explainer-text">
-                              {bestExplanation.highlightedExplanation?.segments ? (
-                                <HighlightedExplanation
-                                  segments={bestExplanation.highlightedExplanation.segments}
-                                  truncated={false}
-                                />
-                              ) : (
-                                <span className="cause-view__no-explanation">
-                                  {bestExplanation.explanationText || 'No explanation available'}
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                        ) : (
-                          <span className="cause-view__no-explanation">No explanations available</span>
-                        )}
-                      </div>
-                    </div>
+                  {/* Cause Metric Bars Detail - below explanation */}
+                  <div className="cause-view__metrics-container">
+                    <CauseMetricBarsDetail
+                      scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                    />
                   </div>
 
                   {/* Floating control panel at bottom */}
@@ -1060,6 +873,116 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </span>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Bottom row: Action buttons (horizontal) */}
+          <div className="cause-view__row-bottom">
+            <ModalityIndicator multimodality={causeMultiModality} />
+            <div className="cause-view__action-buttons">
+              {/* Button 1: Tag selected as Noisy Activation */}
+              <div className="action-button-item">
+                <button
+                  className="action-button"
+                  onClick={() => handleTagSelectedAs('noisy-activation')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all selected features as Noisy Activation"
+                >
+                  Tag Selected as Noisy Activation
+                </button>
+                <div className="action-button__legend">
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                  <span className="action-button__legend-arrow">→</span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Button 2: Tag selected as Context Miss */}
+              <div className="action-button-item">
+                <button
+                  className="action-button"
+                  onClick={() => handleTagSelectedAs('missed-context')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all selected features as Context Miss"
+                >
+                  Tag Selected as Context Miss
+                </button>
+                <div className="action-button__legend">
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                  <span className="action-button__legend-arrow">→</span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Button 3: Tag selected as Pattern Miss */}
+              <div className="action-button-item">
+                <button
+                  className="action-button"
+                  onClick={() => handleTagSelectedAs('missed-N-gram')}
+                  disabled={umapBrushedFeatureIds.size === 0}
+                  title="Tag all selected features as Pattern Miss"
+                >
+                  Tag Selected as Pattern Miss
+                </button>
+                <div className="action-button__legend">
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                  <span className="action-button__legend-arrow">→</span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                    <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                  </span>
+                </div>
+              </div>
+
+              {/* Button 4: Tag Remaining by Boundary */}
+              <div className="action-button-item">
+                <button
+                  className="action-button action-button--primary"
+                  onClick={handleTagRemainingByBoundary}
+                  disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                  title="Auto-tag remaining features using SVM decision boundary"
+                >
+                  Tag Remaining by Boundary
+                </button>
+                <div className="action-button__legend">
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                    <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
+                  </span>
+                  <span className="action-button__legend-arrow">→</span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                    <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
+                  </span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                    <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
+                  </span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                    <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
+                  </span>
+                  <span className="action-button__legend-item">
+                    <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
+                    <span className="action-button__legend-count">{boundaryTagCounts['well-explained']}</span>
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

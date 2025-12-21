@@ -23,26 +23,29 @@ CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of SAE (Sparse Aut
 }"""
 
 
-# SAE-specific coder prompt - structured for clarity with one-shot example
+# SAE-specific coder prompt - structured for clarity with category classification
 SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations.
 
-TASK: Generate 1-3 codes for each neuron explanation. Each code should:
-- Capture the pattern category (e.g., "sports terminology", "mathematical operators")
-- OR capture specific lexical patterns when described (e.g., "tokens starting with 'Hor'")
-- Avoid: vague codes (e.g., "various tokens")
-- Include a meaningful supporting quote extracted from the explanation
+TASK: Generate 1-3 codes for each explanation. Each code must be classified into ONE category:
+- LINGUISTIC: Describes token pattern, part-of-speech, morphology, syntax, punctuation
+  Examples: "prepositions", "tokens starting with 'Hor'", "verb phrases", "punctuation marks"
+- CONTEXTUAL: Describes semantic meaning, domain, usage context, topic
+  Examples: "formal writing context", "sports terminology", "programming domain"
 
-CODE FORMAT RESTRICTION:
-- Code must be 1-6 words, noun phrase style
-- Avoid verbose descriptions or full sentences
+IMPORTANT RULES:
+- Generate SEPARATE codes for linguistic and contextual aspects
+- Do NOT combine both aspects in one code
+- Each code should be 1-6 words, noun phrase style
+- Include a meaningful quote extracted from the explanation
 
 EXAMPLE:
-Input: "This neuron activates on words like overtime, playoffs, and championship in sports contexts."
+Input: "Prepositions and conjunctions, often used in formal writing contexts"
 Output:
 {
-  "data_id": "f0_model",
+  "data_id": "f7_llama",
   "codes": [
-    {"code": "sports terminology", "quote": "overtime, playoffs, and championship", "quote_id": "f0_model"}
+    {"code": "prepositions and conjunctions", "category": "linguistic", "quote": "Prepositions and conjunctions", "quote_id": "f7_llama"},
+    {"code": "formal writing context", "category": "contextual", "quote": "often used in formal writing contexts", "quote_id": "f7_llama"}
   ]
 }
 
@@ -50,7 +53,7 @@ OUTPUT FORMAT:
 {
   "data_id": "<data_id>",
   "codes": [
-    {"code": "<1-6 word noun phrase>", "quote": "<extract from text>", "quote_id": "<data_id>"}
+    {"code": "<1-6 word noun phrase>", "category": "linguistic|contextual", "quote": "<extract>", "quote_id": "<data_id>"}
   ]
 }"""
 

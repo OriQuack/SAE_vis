@@ -124,9 +124,11 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
         codes_with_current_names = []
         for c in r["codes"]:
             current_code_text = codebook.entries[c.code_id].code_text if c.code_id in codebook.entries else c.code_text
+            current_category = codebook.entries[c.code_id].category if c.code_id in codebook.entries else c.category
             codes_with_current_names.append({
                 "code_id": c.code_id,
                 "code_text": current_code_text,
+                "category": current_category,  # Include category in output
                 "quotes": c.quotes,
                 "is_new": c.is_new,
                 "merged_with": c.merged_with,

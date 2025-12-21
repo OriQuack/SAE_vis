@@ -53,6 +53,7 @@ class CodeResult:
     """Result of coding a single code entry."""
     code_id: int
     code_text: str
+    category: str  # "linguistic" | "contextual" | "unknown"
     quotes: List[Dict[str, Any]]
     is_new: bool
     merged_with: List[str] = field(default_factory=list)  # Code NAMES, not IDs
@@ -281,6 +282,7 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
                     "codes": [
                         {
                             "code": c.get("code", ""),
+                            "category": c.get("category", "unknown"),  # NEW: extract category
                             "quote": c.get("quote", ""),
                             "quote_id": c.get("quote_id", quote_id),
                         }
@@ -319,6 +321,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
                     for code in co.get("codes", []):
                         aggregated_codes.append({
                             "code": code["code"],
+                            "category": code.get("category", "unknown"),  # Preserve category
                             "quotes": [{
                                 "quote": code["quote"],
                                 "quote_id": code["quote_id"],
@@ -329,6 +332,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
             aggregated_codes = [
                 {
                     "code": c["code"],
+                    "category": c.get("category", "unknown"),  # NEW: preserve category
                     "quotes": [{
                         "quote": c["quote"],
                         "quote_id": c["quote_id"],
@@ -341,6 +345,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
         final_codes = []
         for agg_code in aggregated_codes:
             code_text = agg_code.get("code", "")
+            code_category = agg_code.get("category", "unknown")  # NEW: extract category
             quotes = agg_code.get("quotes", [])
 
             if not code_text:
@@ -356,12 +361,14 @@ Merge similar codes, retain different ones. Output in JSON format."""
                     code_text,
                     quotes,
                     exact_match_id,
-                    update_code_text=False  # Keep existing name
+                    update_code_text=False,  # Keep existing name
+                    category=code_category  # Pass category
                 )
                 self.stats["merged_codes"] += 1
                 final_codes.append(CodeResult(
                     code_id=code_id,
                     code_text=self.codebook.entries[code_id].code_text,
+                    category=code_category,  # Pass category
                     quotes=quotes,
                     is_new=False,
                     merged_with=[self.codebook.entries[code_id].code_text],
@@ -392,12 +399,14 @@ Merge similar codes, retain different ones. Output in JSON format."""
                     if inner_match_id is not None and not merge_code_names:
                         # Auto-merge - exact name match
                         code_id = self.codebook.merge_code(
-                            updated_code, item_quotes, inner_match_id, update_code_text=False
+                            updated_code, item_quotes, inner_match_id,
+                            update_code_text=False, category=code_category
                         )
                         self.stats["merged_codes"] += 1
                         final_codes.append(CodeResult(
                             code_id=code_id,
                             code_text=self.codebook.entries[code_id].code_text,
+                            category=code_category,  # Pass category
                             quotes=item_quotes,
                             is_new=False,
                             merged_with=[self.codebook.entries[code_id].code_text],
@@ -425,7 +434,8 @@ Merge similar codes, retain different ones. Output in JSON format."""
                                 updated_code,
                                 item_quotes,  # Pass ALL quotes, not just first
                                 primary_target_id,
-                                update_code_text=True  # Per plan lines 729-732
+                                update_code_text=True,  # Per plan lines 729-732
+                                category=code_category  # Pass category
                             )
 
                             # If multiple merge targets, consolidate others into primary
@@ -437,6 +447,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
                             final_codes.append(CodeResult(
                                 code_id=code_id,
                                 code_text=self.codebook.entries[code_id].code_text,
+                                category=code_category,  # Pass category
                                 quotes=item_quotes,
                                 is_new=False,
                                 merged_with=merge_code_names,
@@ -445,12 +456,14 @@ Merge similar codes, retain different ones. Output in JSON format."""
                             # Code names not found - add as new with ALL quotes
                             code_id, _ = self.codebook.add_code(
                                 updated_code,
-                                item_quotes  # Pass ALL quotes
+                                item_quotes,  # Pass ALL quotes
+                                category=code_category  # Pass category
                             )
                             self.stats["new_codes"] += 1
                             final_codes.append(CodeResult(
                                 code_id=code_id,
                                 code_text=updated_code,
+                                category=code_category,  # Pass category
                                 quotes=item_quotes,
                                 is_new=True,
                             ))
@@ -458,12 +471,14 @@ Merge similar codes, retain different ones. Output in JSON format."""
                         # merge_codes empty - add as new code with ALL quotes
                         code_id, _ = self.codebook.add_code(
                             updated_code,
-                            item_quotes  # Pass ALL quotes
+                            item_quotes,  # Pass ALL quotes
+                            category=code_category  # Pass category
                         )
                         self.stats["new_codes"] += 1
                         final_codes.append(CodeResult(
                             code_id=code_id,
                             code_text=updated_code,
+                            category=code_category,  # Pass category
                             quotes=item_quotes,
                             is_new=True,
                         ))
@@ -471,12 +486,14 @@ Merge similar codes, retain different ones. Output in JSON format."""
                 # Reviewer failed or old format - add as new code with ALL quotes
                 code_id, _ = self.codebook.add_code(
                     code_text,
-                    quotes  # Pass ALL quotes
+                    quotes,  # Pass ALL quotes
+                    category=code_category  # Pass category
                 )
                 self.stats["new_codes"] += 1
                 final_codes.append(CodeResult(
                     code_id=code_id,
                     code_text=code_text,
+                    category=code_category,  # Pass category
                     quotes=quotes,
                     is_new=True,
                 ))
