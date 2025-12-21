@@ -55,8 +55,8 @@ interface CellCategoryInfo {
 // Map category to display name for getTagColor lookup
 const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
-  'missed-N-gram': 'Missed N-gram',
-  'missed-context': 'Missed Context',
+  'missed-N-gram': 'Pattern Miss',
+  'missed-context': 'Context Miss',
   'well-explained': 'Well-Explained'
 }
 
@@ -544,16 +544,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
 
       if (isManual) {
-        // Manual points are larger and more opaque with a ring
+        // Manual points same size as brushed, no border
         ctx.beginPath()
-        ctx.arc(cx, cy, manualPointRadius + 1.5, 0, Math.PI * 2)
-        ctx.strokeStyle = '#fff'
-        ctx.lineWidth = 1.5
-        ctx.globalAlpha = 0.9
-        ctx.stroke()
-
-        ctx.beginPath()
-        ctx.arc(cx, cy, manualPointRadius, 0, Math.PI * 2)
+        ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
         ctx.globalAlpha = manualPointAlpha
         ctx.fill()
@@ -839,29 +832,29 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             >
               Noisy Activation
             </div>
-            {/* Bottom-left vertex: Missed N-gram */}
+            {/* Bottom-left vertex: Pattern Miss */}
             <div
               className="umap-scatter__vertex-label"
               style={{
                 left: scales.xScale(BARYCENTRIC_TRIANGLE.vertices.missedNgram[0]),
                 top: scales.yScale(BARYCENTRIC_TRIANGLE.vertices.missedNgram[1]),
-                transform: 'translate(-10px, 10px)',
-                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+                transform: 'translate(-20px, 10px)',
+                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
               } as React.CSSProperties}
             >
-              Missed N-gram
+              Pattern Miss
             </div>
-            {/* Bottom-right vertex: Missed Context */}
+            {/* Bottom-right vertex: Context Miss */}
             <div
               className="umap-scatter__vertex-label"
               style={{
                 left: scales.xScale(BARYCENTRIC_TRIANGLE.vertices.missedContext[0]),
                 top: scales.yScale(BARYCENTRIC_TRIANGLE.vertices.missedContext[1]),
-                transform: 'translate(calc(-100% + 10px), 10px)',
-                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+                transform: 'translate(calc(-100% + 20px), 10px)',
+                '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
               } as React.CSSProperties}
             >
-              Missed Context
+              Context Miss
             </div>
           </>
         )}

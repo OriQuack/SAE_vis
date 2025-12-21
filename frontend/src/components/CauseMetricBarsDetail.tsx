@@ -59,8 +59,8 @@ export const CauseMetricBarsDetail: React.FC<CauseMetricBarsDetailProps> = ({
 }) => {
   // Get colors from tag system for each metric
   const noisyColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const contextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
-  const ngramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
+  const contextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
+  const ngramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
 
   if (!scores) {
     return (
@@ -84,17 +84,16 @@ export const CauseMetricBarsDetail: React.FC<CauseMetricBarsDetailProps> = ({
     },
     {
       key: 'missedContext',
-      label: 'Missed Context',
+      label: 'Context Miss',
       aggregateScore: scores.missedContext,
       color: contextColor,
       components: [
-        { key: 'embedding', name: 'Embedding Score', score: scores.embedding },
         { key: 'detection', name: 'Detection Score', score: scores.detection }
       ]
     },
     {
       key: 'missedNgram',
-      label: 'Missed N-gram',
+      label: 'Pattern Miss',
       aggregateScore: scores.missedNgram,
       color: ngramColor,
       components: [

@@ -429,8 +429,8 @@ export function getCauseCategoryLegend(): Array<{
   return [
     { category: 'well-explained', color: stage2Colors.confirmed, label: 'Well-Explained' },
     { category: 'noisy-activation', color: colors.confirmed, label: 'Noisy Activation' },
-    { category: 'missed-N-gram', color: colors.autoSelected, label: 'Missed N-gram' },
-    { category: 'missed-context', color: colors.rejected, label: 'Missed Context' },
+    { category: 'missed-N-gram', color: colors.autoSelected, label: 'Pattern Miss' },
+    { category: 'missed-context', color: colors.rejected, label: 'Context Miss' },
     { category: 'unsure', color: UMAP_UNTAGGED_COLOR, label: 'Untagged' }
   ]
 }

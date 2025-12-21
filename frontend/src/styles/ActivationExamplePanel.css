@@ -112,7 +112,7 @@
   vertical-align: middle;
 }
 
-/* N-gram pattern indicator (lexical patterns: char or word n-grams) */
+/* Pattern indicator (lexical patterns: char or word n-grams) */
 /* Three confidence levels based on Jaccard similarity score */
 
 /* Low confidence (0.0-0.4): Subtle dashed border - using outline for inset effect */

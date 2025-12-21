@@ -38,8 +38,8 @@ type CauseCommit = Commit<Map<number, CauseCategory>, Map<number, 'manual' | 'au
 // Map CauseCategory to display tag names
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
-  'missed-N-gram': 'Missed N-gram',
-  'missed-context': 'Missed Context',
+  'missed-N-gram': 'Pattern Miss',
+  'missed-context': 'Context Miss',
   'well-explained': 'Well-Explained'
 }
 
@@ -646,8 +646,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#9ca3af'
-  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
 
   // Render feature item for selected ScrollableItemList (with click handler)
@@ -748,18 +748,18 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Button 2: Tag selected as Missed Context */}
+                {/* Button 2: Tag selected as Context Miss */}
                 <div className="action-button-item">
                   <button
                     className="action-button"
                     onClick={() => handleTagSelectedAs('missed-context')}
                     disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Missed Context"
+                    title="Tag all selected features as Context Miss"
                   >
-                    Tag Selected as Missed Context
+                    Tag Selected as Context Miss
                   </button>
                   <div className="action-button__desc">
-                    Assign selected features to Missed Context
+                    Assign selected features to Context Miss
                   </div>
                   <div className="action-button__legend">
                     <span className="action-button__legend-item">
@@ -774,18 +774,18 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Button 3: Tag selected as Missed N-gram */}
+                {/* Button 3: Tag selected as Pattern Miss */}
                 <div className="action-button-item">
                   <button
                     className="action-button"
                     onClick={() => handleTagSelectedAs('missed-N-gram')}
                     disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Missed N-gram"
+                    title="Tag all selected features as Pattern Miss"
                   >
-                    Tag Selected as Missed N-Gram
+                    Tag Selected as Pattern Miss
                   </button>
                   <div className="action-button__desc">
-                    Assign selected features to Missed N-Gram
+                    Assign selected features to Pattern Miss
                   </div>
                   <div className="action-button__legend">
                     <span className="action-button__legend-item">
@@ -912,7 +912,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                       <div className="legend-item">
                         <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Feature-Specific N-gram</span>
+                        <span className="legend-label">Feature-Specific Pattern</span>
                       </div>
                     </div>
                   </div>
@@ -1022,14 +1022,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                       onClick={() => handleTagClick('noisy-activation')}
                     />
                     <TagButton
-                      label="Missed N-gram"
+                      label="Pattern Miss"
                       variant="missed-N-gram"
                       color={missedNgramColor}
                       isSelected={currentCauseCategory === 'missed-N-gram'}
                       onClick={() => handleTagClick('missed-N-gram')}
                     />
                     <TagButton
-                      label="Missed Context"
+                      label="Context Miss"
                       variant="missed-context"
                       color={missedContextColor}
                       isSelected={currentCauseCategory === 'missed-context'}

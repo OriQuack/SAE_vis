@@ -368,11 +368,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           </div>
           <div className="legend-item">
             <span className="legend-sample legend-sample--intra">token</span>:
-            <span className="legend-label">Feature-Specific N-gram</span>
+            <span className="legend-label">Feature-Specific Pattern</span>
           </div>
           <div className="legend-item">
             <span className="legend-sample legend-sample--inter">token</span>:
-            <span className="legend-label">Shared N-gram</span>
+            <span className="legend-label">Shared Pattern</span>
           </div>
         </div>
       </div>

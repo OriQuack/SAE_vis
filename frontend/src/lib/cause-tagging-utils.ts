@@ -277,7 +277,7 @@ export function calculateCauseMetricScores(
   // Calculate Missed Context score components
   const embedding = calculateEmbeddingScore(explainers)
   const detection = calculateDetectionScore(explainers)
-  const missedContext = averageValues([embedding, detection])
+  const missedContext = detection
 
   // Calculate Missed N-gram score component
   const fuzz = calculateFuzzScore(explainers)

@@ -120,7 +120,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       },
       stage3: {
         // TODO: Implement stage 3 tag mapping
-        // Available tags: "Missed Context", "Missed N-gram", "Noisy Activation"
+        // Available tags: "Context Miss", "Pattern Miss", "Noisy Activation"
         confirmed: 'TBD',
         rejected: 'TBD'
       }
@@ -398,8 +398,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     // Get colors for each cause category from tag-system
     const causeColors = {
       noisyActivation: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#CC79A7',
-      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Missed N-gram') || '#E69F00',
-      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#D55E00',
+      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#E69F00',
+      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#D55E00',
       wellExplained: getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#009E73',
       unsure: stageColors.unsure
     }
@@ -407,8 +407,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     // Define cause categories in render order
     const causeCategories = [
       { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
-      { key: 'missedNgram', label: 'Missed N-gram', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
-      { key: 'missedContext', label: 'Missed Context', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
+      { key: 'missedNgram', label: 'Pattern Miss', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
+      { key: 'missedContext', label: 'Context Miss', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
       { key: 'wellExplained', label: 'Well-Explained', manual: causeCounts.wellExplained, auto: causeCounts.wellExplainedAuto },
     ]
 
@@ -439,9 +439,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleCauseMouseMove}
             onMouseLeave={handleCauseMouseLeave}
           >
-            {showLabels && percentage > labelThreshold && (
+            {/* Left-side label for vertical orientation */}
+            {isVertical && showLabels && (
+              <div className="selection-state-bar__left-label">
+                <span className="selection-state-bar__label-name">{label}</span>
+                <span className="selection-state-bar__label-count">({manual.toLocaleString()})</span>
+              </div>
+            )}
+            {/* Inline label for horizontal orientation */}
+            {!isVertical && showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? manual.toLocaleString() : `${label} (${manual.toLocaleString()})`}
+                {`${label} (${manual.toLocaleString()})`}
               </span>
             )}
           </div>
@@ -478,9 +486,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleCauseMouseMove}
             onMouseLeave={handleCauseMouseLeave}
           >
-            {showLabels && percentage > labelThreshold && (
+            {/* Left-side label for vertical orientation */}
+            {isVertical && showLabels && (
+              <div className="selection-state-bar__left-label">
+                <span className="selection-state-bar__label-name">{label} (auto)</span>
+                <span className="selection-state-bar__label-count">({auto.toLocaleString()})</span>
+              </div>
+            )}
+            {/* Inline label for horizontal orientation */}
+            {!isVertical && showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
-                {isVertical ? auto.toLocaleString() : `${label} (+${auto.toLocaleString()})`}
+                {`${label} (+${auto.toLocaleString()})`}
               </span>
             )}
           </div>
@@ -511,9 +527,17 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
           onMouseMove={handleCauseMouseMove}
           onMouseLeave={handleCauseMouseLeave}
         >
-          {showLabels && percentage > labelThreshold && (
+          {/* Left-side label for vertical orientation */}
+          {isVertical && showLabels && (
+            <div className="selection-state-bar__left-label">
+              <span className="selection-state-bar__label-name">Unsure</span>
+              <span className="selection-state-bar__label-count">({causeCounts.unsure.toLocaleString()})</span>
+            </div>
+          )}
+          {/* Inline label for horizontal orientation */}
+          {!isVertical && showLabels && percentage > labelThreshold && (
             <span className="selection-state-bar__segment-label">
-              {isVertical ? causeCounts.unsure.toLocaleString() : `Unsure (${causeCounts.unsure.toLocaleString()})`}
+              {`Unsure (${causeCounts.unsure.toLocaleString()})`}
             </span>
           )}
         </div>

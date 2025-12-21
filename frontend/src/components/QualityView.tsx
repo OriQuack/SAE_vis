@@ -826,7 +826,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       </div>
                       <div className="legend-item">
                         <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Feature-Specific N-gram</span>
+                        <span className="legend-label">Feature-Specific Pattern</span>
                       </div>
                     </div>
                   </div>

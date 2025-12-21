@@ -750,11 +750,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.autoSelected }} />
-                              Missed N-gram: {missedNgramCount}
+                              Pattern Miss: {missedNgramCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
-                              Missed Context: {missedContextCount}
+                              Context Miss: {missedContextCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stage2Colors.confirmed }} />

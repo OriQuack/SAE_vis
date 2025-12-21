@@ -444,7 +444,7 @@
   transform: scale(1.08);
 }
 
-/* Selection button variant for Missed N-gram */
+/* Selection button variant for Pattern Miss */
 .selection__button--missed-N-gram {
   color: #000;
   border-color: var(--tag-color, #9ca3af);
@@ -465,7 +465,7 @@
   transform: scale(1.08);
 }
 
-/* Selection button variant for Missed Context */
+/* Selection button variant for Context Miss */
 .selection__button--missed-context {
   color: #000;
   border-color: var(--tag-color, #9ca3af);

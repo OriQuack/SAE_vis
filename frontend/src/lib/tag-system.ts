@@ -144,10 +144,10 @@ function assignConstantColors(): void {
         // Cause Category (Categorical colors)
         // Note: 'Well-Explained' in Quality uses GREEN, so Cause uses TEAL for distinction
         // ========================================
-        case 'Missed Context':
+        case 'Context Miss':
           colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #ff9da7 - Pink
           break
-        case 'Missed N-gram':
+        case 'Pattern Miss':
           colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #edc949 - Yellow
           break
         case 'Noisy Activation':
@@ -348,7 +348,7 @@ export function getTagCategoriesInOrder(): TagCategoryConfig[] {
  * Get color for a specific tag
  *
  * @param categoryId - Category ID (e.g., 'quality', 'cause')
- * @param tagName - Tag name (e.g., 'Well-Explained', 'Missed Context')
+ * @param tagName - Tag name (e.g., 'Well-Explained', 'Context Miss')
  * @returns Hex color string or null if not found
  */
 export function getTagColor(categoryId: string, tagName: string): string | null {

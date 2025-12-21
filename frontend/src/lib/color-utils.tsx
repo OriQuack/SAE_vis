@@ -119,9 +119,9 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     return {
       confirmed: colors['Noisy Activation'] || '#CC79A7',    // Purple
-      autoSelected: colors['Missed N-gram'] || '#E69F00',    // Orange (stripe added in render)
-      rejected: colors['Missed Context'] || '#D55E00',       // Vermillion
-      autoRejected: colors['Missed Context'] || '#D55E00',   // Vermillion
+      autoSelected: colors['Pattern Miss'] || '#E69F00',    // Orange (stripe added in render)
+      rejected: colors['Context Miss'] || '#D55E00',       // Vermillion
+      autoRejected: colors['Context Miss'] || '#D55E00',   // Vermillion
       unsure: UNSURE_GRAY
     }
   }

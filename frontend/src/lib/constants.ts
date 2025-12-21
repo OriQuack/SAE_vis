@@ -162,8 +162,8 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     tags: [
       "Well-Explained",
       "Noisy Activation",
-      "Missed Context",
-      "Missed N-gram"
+      "Context Miss",
+      "Pattern Miss"
     ],
     relatedMetrics: [
       // Noisy Activation indicators
