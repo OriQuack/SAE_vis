@@ -489,7 +489,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {/* Left-side label for vertical orientation */}
             {isVertical && showLabels && (
               <div className="selection-state-bar__left-label">
-                <span className="selection-state-bar__label-name">{label} (auto)</span>
+                <span className="selection-state-bar__label-name">
+                  {label}
+                  <span className="selection-state-bar__label-auto">(auto)</span>
+                </span>
                 <span className="selection-state-bar__label-count">({auto.toLocaleString()})</span>
               </div>
             )}

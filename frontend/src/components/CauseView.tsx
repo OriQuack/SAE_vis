@@ -92,13 +92,13 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
-  const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('all')
+  const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('selected')
   const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
 
   // Pagination for selected features list
-  const ITEMS_PER_PAGE = 10
+  const ITEMS_PER_PAGE = 5
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
 
@@ -244,7 +244,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     return Array.from(umapBrushedFeatureIds)
   }, [umapBrushedFeatureIds])
 
-  // Create decision margin lookup map from UMAP projection data
+  // Create Margin lookup map from UMAP projection data
   const decisionMarginMap = useMemo(() => {
     if (!umapProjection) return new Map<number, number>()
     const map = new Map<number, number>()
@@ -257,21 +257,15 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [umapProjection])
 
-  // Sort selected features by decision margin, excluding manually tagged features
+  // Sort selected features by decision margin
   const sortedSelectedFeatureList = useMemo(() => {
-    // Filter out manually tagged features (only show untagged/auto-tagged)
-    const untaggedFeatures = selectedFeatureList.filter(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      return source !== 'manual'
-    })
-
-    if (decisionMarginMap.size === 0) return untaggedFeatures
-    return [...untaggedFeatures].sort((a, b) => {
+    if (decisionMarginMap.size === 0) return selectedFeatureList
+    return [...selectedFeatureList].sort((a, b) => {
       const marginA = decisionMarginMap.get(a) ?? 0
       const marginB = decisionMarginMap.get(b) ?? 0
       return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
     })
-  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection, causeSelectionSources])
+  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection])
 
   // Pagination for selected features list
   const selectedTotalPages = Math.ceil(sortedSelectedFeatureList.length / ITEMS_PER_PAGE)
@@ -316,6 +310,12 @@ const CauseView: React.FC<CauseViewProps> = ({
       setCurrentFeatureIndex(0)
     }
   }, [featureListWithMetadata.length, currentFeatureIndex])
+
+  // Reset selected index when brushed features change (auto-select first feature)
+  useEffect(() => {
+    setCurrentSelectedIndex(0)
+    setSelectedPage(0)
+  }, [umapBrushedFeatureIds])
 
   // Track right panel width for ActivationExample
   useEffect(() => {
@@ -455,16 +455,32 @@ const CauseView: React.FC<CauseViewProps> = ({
   // handleCommitClick is provided by the hook
 
   // ============================================================================
-  // NAVIGATION HANDLERS
+  // NAVIGATION HANDLERS - Navigate through brushed/selected features
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
-    setCurrentFeatureIndex(i => Math.max(0, i - 1))
-  }, [])
+    setCurrentSelectedIndex(i => {
+      const newIndex = Math.max(0, i - 1)
+      // Update page if needed
+      const newPage = Math.floor(newIndex / ITEMS_PER_PAGE)
+      if (newPage !== selectedPage) {
+        setSelectedPage(newPage)
+      }
+      return newIndex
+    })
+  }, [selectedPage])
 
   const handleNavigateNext = useCallback(() => {
-    setCurrentFeatureIndex(i => Math.min(featureListWithMetadata.length - 1, i + 1))
-  }, [featureListWithMetadata.length])
+    setCurrentSelectedIndex(i => {
+      const newIndex = Math.min(sortedSelectedFeatureList.length - 1, i + 1)
+      // Update page if needed
+      const newPage = Math.floor(newIndex / ITEMS_PER_PAGE)
+      if (newPage !== selectedPage) {
+        setSelectedPage(newPage)
+      }
+      return newIndex
+    })
+  }, [sortedSelectedFeatureList.length, selectedPage])
 
   // ============================================================================
   // TAG BUTTON HANDLERS
@@ -481,30 +497,30 @@ const CauseView: React.FC<CauseViewProps> = ({
     return causeSelectionSources.get(selectedFeatureData.featureId) || null
   }, [selectedFeatureData, causeSelectionSources])
 
-  // Handle tag button click - set to specific category (no toggle off - must always have a tag)
-  // Auto-tagged features can be confirmed by clicking the same category
+  // Handle tag button click - toggle category on/off
+  // Clicking same category: if manual, clear to unsure; if auto, confirm as manual
+  // Clicking different category: set new category as manual
   const handleTagClick = useCallback((category: CauseCategory) => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
 
-    // If clicking same category and it's auto-tagged, confirm it (change to manual)
-    // If clicking different category, set new category (will be manual)
     const isSameCategory = currentCauseCategory === category
     const isAutoTagged = currentCauseSource === 'auto'
 
     if (isSameCategory && !isAutoTagged) {
-      // Already manually selected same category - do nothing
+      // Already manually selected same category - toggle off to unsure
+      setCauseCategory(featureId, null)
       return
     }
 
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
 
-    // Auto-advance to next feature
-    if (currentFeatureIndex < featureListWithMetadata.length - 1) {
+    // Auto-advance to next feature in selected list (only when tagging, not untagging)
+    if (currentSelectedIndex < sortedSelectedFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentFeatureIndex, featureListWithMetadata.length, handleNavigateNext])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedSelectedFeatureList.length, handleNavigateNext])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -670,7 +686,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
         {/* Right column: Top row + Bottom action bar */}
         <div className="cause-view__content">
-          {/* Top row: UMAP + Selected features list + Detail panel */}
+          {/* Top row: UMAP + Selected list overlay + Detail panel */}
           <div className="cause-view__row-top">
             <UMAPScatter
               featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
@@ -678,39 +694,38 @@ const CauseView: React.FC<CauseViewProps> = ({
               selectedFeatureId={selectedFeatureData?.featureId ?? null}
             />
 
-            <div className="cause-view__selected-section">
-              <h4 className="subheader">Selected Features</h4>
-              <ScrollableItemList
-                variant="causeBrushed"
-                badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
-                columnHeader={{
-                  label: 'Decision Margin',
-                  sortDirection: selectedSortDirection,
-                  onClick: toggleSelectedSortDirection
-                }}
-                items={paginatedSelectedFeatureList}
-                renderItem={renderBottomRowFeatureItem}
-                currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
-                isActive={activeListSource === 'selected'}
-                emptyMessage="Brush on UMAP to select features"
-                pageNavigation={{
-                  currentPage: selectedPage,
-                  totalPages: selectedTotalPages,
-                  onPreviousPage: () => {
-                    if (selectedPage > 0) {
-                      setSelectedPage(selectedPage - 1)
-                      setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
-                    }
-                  },
-                  onNextPage: () => {
-                    if (selectedPage < selectedTotalPages - 1) {
-                      setSelectedPage(selectedPage + 1)
-                      setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
-                    }
+            {/* Selected list - positioned between UMAP and detail panel */}
+            <ScrollableItemList
+              className="cause-view__selected-overlay"
+              variant="causeBrushed"
+              badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
+              columnHeader={{
+                label: 'Decision Margin',
+                sortDirection: selectedSortDirection,
+                onClick: toggleSelectedSortDirection
+              }}
+              items={paginatedSelectedFeatureList}
+              renderItem={renderBottomRowFeatureItem}
+              currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
+              isActive={activeListSource === 'selected'}
+              emptyMessage="Brush to select"
+              pageNavigation={{
+                currentPage: selectedPage,
+                totalPages: selectedTotalPages,
+                onPreviousPage: () => {
+                  if (selectedPage > 0) {
+                    setSelectedPage(selectedPage - 1)
+                    setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
                   }
-                }}
-              />
-            </div>
+                },
+                onNextPage: () => {
+                  if (selectedPage < selectedTotalPages - 1) {
+                    setSelectedPage(selectedPage + 1)
+                    setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
+                  }
+                }
+              }}
+            />
 
             {/* Right: Activation examples and explanations */}
             <div className="cause-view__right-panel" ref={rightPanelRef}>
@@ -753,14 +768,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   {/* Best Explanation Header */}
                   <div className="cause-view__explanation-header">
                     <h4 className="subheader">Best Explanation</h4>
-                    {bestExplanation && (
-                      <div className="pair-info__similarity">
-                        <span className="similarity__label">Quality Score:</span>
-                        <span className="similarity__value">
-                          {bestExplanation.qualityScore.toFixed(3)}
-                        </span>
-                      </div>
-                    )}
                   </div>
                   {/* Semantic similarity legend */}
                   <div className="cause-view__explanation-legend">
@@ -784,6 +791,22 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <div className="cause-view__explanation-content">
                       {bestExplanation ? (
                         <div className="cause-view__explainer-block">
+                          {/* Explainer symbol */}
+                          {bestExplanation.explainerId === 'llama' && (
+                            <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
+                              <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
+                            </svg>
+                          )}
+                          {bestExplanation.explainerId === 'gemini' && (
+                            <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
+                              <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
+                            </svg>
+                          )}
+                          {bestExplanation.explainerId === 'openai' && (
+                            <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
+                              <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
+                            </svg>
+                          )}
                           <span
                             className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
                           >
@@ -812,6 +835,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   <div className="cause-view__metrics-container">
                     <CauseMetricBarsDetail
                       scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                      qualityScore={bestExplanation?.qualityScore}
                     />
                   </div>
 
@@ -821,7 +845,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <button
                       className="nav__button"
                       onClick={handleNavigatePrevious}
-                      disabled={currentFeatureIndex === 0}
+                      disabled={currentSelectedIndex === 0 || sortedSelectedFeatureList.length === 0}
                     >
                       ← Prev
                     </button>
@@ -860,7 +884,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <button
                       className="nav__button"
                       onClick={handleNavigateNext}
-                      disabled={currentFeatureIndex >= featureListWithMetadata.length - 1}
+                      disabled={currentSelectedIndex >= sortedSelectedFeatureList.length - 1 || sortedSelectedFeatureList.length === 0}
                     >
                       Next →
                     </button>
@@ -976,10 +1000,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   <span className="action-button__legend-item">
                     <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
                     <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                  </span>
-                  <span className="action-button__legend-item">
-                    <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
-                    <span className="action-button__legend-count">{boundaryTagCounts['well-explained']}</span>
                   </span>
                 </div>
               </div>

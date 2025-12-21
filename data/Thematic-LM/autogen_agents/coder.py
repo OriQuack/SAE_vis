@@ -37,6 +37,7 @@ IMPORTANT RULES:
 - Do NOT combine both aspects in one code
 - Each code should be 1-6 words, noun phrase style
 - Include a meaningful quote extracted from the explanation
+- Focus on meaningful patterns, not superficial characters
 
 EXAMPLE:
 Input: "Prepositions and conjunctions, often used in formal writing contexts"

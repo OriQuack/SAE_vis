@@ -54,24 +54,36 @@
 }
 
 /* ============================================================================
- * TOP ROW - Placeholder for future content
+ * TOP ROW - UMAP (with embedded selected list overlay) + Detail panel
  * ============================================================================ */
 
 .cause-view__row-top {
-  display: flex;
-  flex-direction: row;
+  --detail-panel-width: 700px;
+  position: relative;
   flex: 3;
   min-height: 0;
-  gap: 0;
-  align-items: stretch;
 }
 
-/* Right panel - matches QualityView styling */
+/* Selected list overlay - positioned left of detail panel */
+.cause-view__selected-overlay.scrollable-list {
+  position: absolute;
+  top: 0;
+  right: var(--detail-panel-width);
+  width: 240px;
+  height: 240px;
+  z-index: 10;
+  margin: 8px;
+}
+
+/* Right panel - fixed width, absolute positioned to right */
 .cause-view__right-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--detail-panel-width);
   display: flex;
   flex-direction: column;
-  flex: 1;
-  min-width: 0;
   overflow: hidden;
   gap: 4px;
   padding: 4px;
@@ -119,13 +131,13 @@
   flex-direction: column;
   gap: 4px;
   min-width: 0;
-  min-height: 0;
+  height: 160px;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   padding: 6px;
   overflow: hidden;
-  flex: 2;
+  flex-shrink: 0;
 }
 
 .cause-view__activation-examples {
@@ -181,6 +193,7 @@
   flex-direction: column;
   min-width: 0;
   flex: 1;
+  max-height: 80px;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
@@ -267,7 +280,12 @@
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  gap: 8px;
+  gap: 6px;
+}
+
+.cause-view__explainer-symbol {
+  flex-shrink: 0;
+  margin-top: 3px;
 }
 
 .cause-view__explainer-name {
@@ -295,50 +313,24 @@
 }
 
 /* ============================================================================
- * BOTTOM ROW - Action buttons (horizontal)
+ * BOTTOM ROW - Compact action buttons (horizontal)
  * ============================================================================ */
 
 .cause-view__row-bottom {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 12px 16px;
-  min-height: 0;
-  background-color: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-  border-radius: 0 0 4px 4px;
+  gap: 12px;
+  padding: 8px;
 }
 
 /* UMAP container - fixed width, flex height */
 .cause-view__umap {
   flex: 0 0 auto;
   height: 100%;
-}
-
-/* Selected features section - subheader + list (shrink to content) */
-.cause-view__selected-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.cause-view__selected-section .subheader {
-  margin: 0;
-  padding: 8px 8px 0 8px;
-  flex-shrink: 0;
-}
-
-/* Scrollable list in selected section */
-.cause-view__selected-section .scrollable-list {
-  flex: 1;
-  min-height: 150px;
-  overflow-y: auto;
+  position: relative;  /* For overlay positioning */
 }
 
 /* ============================================================================
@@ -510,7 +502,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 16px;
+  gap: 12px;
 }
 
 /* ============================================================================
@@ -521,5 +513,37 @@
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  gap: 12px;
+  gap: 8px;
+  width: 1000px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+/* ModalityIndicator compact styling in bottom row */
+.cause-view__row-bottom .modality-indicator {
+  flex: 1;
+  padding: 8px 12px;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.cause-view__row-bottom .modality-indicator__label {
+  font-size: 12px;
+}
+
+.cause-view__row-bottom .modality-indicator__dot {
+  width: 20px;
+  height: 20px;
+}
+
+.cause-view__row-bottom .modality-indicator__dot--active {
+  transform: scale(1.15);
+}
+
+.cause-view__row-bottom .modality-indicator__line {
+  height: 2px;
 }

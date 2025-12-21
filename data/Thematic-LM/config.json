@@ -47,7 +47,7 @@
   "codebook_config": {
     "description": "Following Thematic-LM paper: reviewer decides ALL merge/new decisions. Top-k=10 similar codes retrieved (Section 4).",
     "top_k_retrieval": 10,
-    "min_similarity": 0.0
+    "min_similarity": 0.3
   },
 
   "processing_config": {

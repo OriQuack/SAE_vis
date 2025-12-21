@@ -7,34 +7,21 @@
   width: 100%;
 }
 
-/* Metric group container (label + bars + score) */
-.cause-metric-bars-detail__group {
+/* Individual row (label + bar + score) */
+.cause-metric-bars-detail__row {
   display: flex;
   align-items: center;
-  margin-bottom: 4px;
-}
-
-.cause-metric-bars-detail__group:last-of-type {
-  margin-bottom: 0;
-}
-
-/* Highlighted group (root cause - minimum score) */
-/* Background color is set inline using the metric's color */
-.cause-metric-bars-detail__group--highlighted {
-  border-radius: 3px;
-  padding: 2px 4px;
-  margin-left: -4px;
-  margin-right: -4px;
 }
 
 /* Metric label */
 .cause-metric-bars-detail__label {
-  font-size: 11px;
-  width: 95px;
+  font-size: 12px;
+  width: 170px;
   text-align: right;
-  padding-right: 4px;
+  padding-right: 8px;
   color: #000;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 /* Container for stacked component bars */
@@ -42,7 +29,6 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
 /* Single bar row */
@@ -109,7 +95,7 @@
 /* Root cause indicator */
 .cause-metric-bars-detail__indicator {
   font-size: 11px;
-  color: #000;
+  color: #374151;
   margin-top: 4px;
   text-align: center;
 }

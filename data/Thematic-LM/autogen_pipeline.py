@@ -379,7 +379,7 @@ Merge similar codes, retain different ones. Output in JSON format."""
             similar = self.codebook.find_similar(code_text, top_k=top_k, min_similarity=min_similarity)
 
             # Build reviewer prompt (shows code NAMES, not IDs)
-            reviewer_message = self._build_reviewer_prompt(code_text, quotes, similar)
+            reviewer_message = self._build_reviewer_prompt(code_text, quotes, similar, explanation_text)
 
             # Get reviewer decision (ALWAYS called - no threshold skipping!)
             decision = self._call_agent(self.reviewer, reviewer_message)
@@ -512,11 +512,13 @@ Merge similar codes, retain different ones. Output in JSON format."""
         self,
         new_code: str,
         quotes: List[Dict[str, Any]],
-        similar_codes: List[Tuple[CodebookEntry, float]]
+        similar_codes: List[Tuple[CodebookEntry, float]],
+        explanation_text: str = ""
     ) -> str:
         """Build the prompt for the reviewer agent.
 
         Following paper: Shows code NAMES (not IDs) for merge_codes output.
+        Added: original explanation for context.
         """
         # Format quotes (random sample for representative view)
         sampled_quotes = random.sample(quotes, min(5, len(quotes)))
@@ -525,26 +527,23 @@ Merge similar codes, retain different ones. Output in JSON format."""
             for q in sampled_quotes
         ])
 
-        new_code_section = f"""Item 1 - NEW CODE AND QUOTES:
+        new_code_section = f"""Item 1 - NEW CODE:
+Original explanation: "{explanation_text}"
 Code: "{new_code}"
 Quotes:
 {quotes_str}"""
 
-        # Format similar codes from codebook - show NAMES and SIMILARITY SCORES
+        # Format similar codes from codebook (similarity used for filtering, not shown)
         if similar_codes:
             similar_section = "Item 2 - SIMILAR EXISTING CODES FROM CODEBOOK:\n"
-            similar_section += "(Similarity scores: >80% = very similar, >60% = related)\n"
-            for entry, sim_score in similar_codes:
-                # Random sample for representative view
+            for entry, _ in similar_codes:
                 sampled_entry_quotes = random.sample(entry.example_quotes, min(5, len(entry.example_quotes)))
                 entry_quotes = "\n".join([
                     f"    - \"{q.get('quote', q) if isinstance(q, dict) else q}\" (ID: {shorten_quote_id(q.get('quote_id', 'N/A')) if isinstance(q, dict) else 'N/A'})"
                     for q in sampled_entry_quotes
                 ])
-                # Show code NAME and SIMILARITY SCORE prominently
                 similar_section += f"""
-Code: "{entry.code_text}" [SIMILARITY: {sim_score:.0%}]
-  Frequency: {entry.frequency}
+Code: "{entry.code_text}"
   Example quotes:
 {entry_quotes}
 """

@@ -379,6 +379,20 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     setUmapBrushedFeatureIds(cell.featureIds)
   }, [setUmapBrushedFeatureIds])
 
+  // Auto-select first cell on initial load (when grid is computed and no selection exists)
+  useEffect(() => {
+    if (!gridState || umapBrushedFeatureIds.size > 0) return
+
+    // Find the first leaf cell with features
+    for (const cellKey of gridState.leafCells) {
+      const cell = gridState.cells.get(cellKey)
+      if (cell && cell.featureIds.size > 0) {
+        setUmapBrushedFeatureIds(cell.featureIds)
+        break
+      }
+    }
+  }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
+
   // Lasso mouse handlers (only active in lasso mode)
   const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     // Only active in lasso mode
@@ -858,49 +872,63 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         )}
       </div>
 
-      {/* Mode toggle + Explainer legend (stacked vertically) */}
-      <div className="umap-scatter__controls">
-        <div className="umap-scatter__mode-toggle">
-          <button
-            className={`umap-scatter__mode-btn ${selectionMode === 'cells' ? 'umap-scatter__mode-btn--active' : ''}`}
-            onClick={() => {
-              setSelectionMode('cells')
-              setLassoPath([])  // Clear lasso when switching
-            }}
-            title="Cell selection"
-          >
-            Cells
-          </button>
-          <button
-            className={`umap-scatter__mode-btn ${selectionMode === 'lasso' ? 'umap-scatter__mode-btn--active' : ''}`}
-            onClick={() => {
-              setSelectionMode('lasso')
-              setHoveredCellKey(null)  // Clear hover when switching
-            }}
-            title="Lasso selection"
-          >
-            Lasso
-          </button>
-        </div>
+      {/* Mode toggle */}
+      <div className="umap-scatter__mode-toggle">
+        <button
+          className={`umap-scatter__mode-btn ${selectionMode === 'cells' ? 'umap-scatter__mode-btn--active' : ''}`}
+          onClick={() => {
+            setSelectionMode('cells')
+            setLassoPath([])  // Clear lasso when switching
+          }}
+          title="Cell selection"
+        >
+          Cells
+        </button>
+        <button
+          className={`umap-scatter__mode-btn ${selectionMode === 'lasso' ? 'umap-scatter__mode-btn--active' : ''}`}
+          onClick={() => {
+            setSelectionMode('lasso')
+            setHoveredCellKey(null)  // Clear hover when switching
+          }}
+          title="Lasso selection"
+        >
+          Lasso
+        </button>
+      </div>
 
-        <div className="umap-scatter__explainer-legend">
-          <div className="umap-scatter__legend-item">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
-            </svg>
-            <span>Llama</span>
+      {/* Unified legend panel */}
+      <div className="umap-scatter__unified-legend">
+        {/* Explainer shapes */}
+        <div className="umap-scatter__legend-section">
+          <span className="umap-scatter__legend-title">Explainer</span>
+          <div className="umap-scatter__legend-items">
+            <div className="umap-scatter__legend-item">
+              <svg width="12" height="12" viewBox="0 0 14 14">
+                <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
+              </svg>
+              <span>Llama</span>
+            </div>
+            <div className="umap-scatter__legend-item">
+              <svg width="12" height="12" viewBox="0 0 14 14">
+                <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
+              </svg>
+              <span>Gemini</span>
+            </div>
+            <div className="umap-scatter__legend-item">
+              <svg width="12" height="12" viewBox="0 0 14 14">
+                <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
+              </svg>
+              <span>OpenAI</span>
+            </div>
           </div>
-          <div className="umap-scatter__legend-item">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
-            </svg>
-            <span>Gemini</span>
-          </div>
-          <div className="umap-scatter__legend-item">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
-            </svg>
-            <span>OpenAI</span>
+        </div>
+        {/* Purity gradient */}
+        <div className="umap-scatter__legend-section">
+          <span className="umap-scatter__legend-title">Purity</span>
+          <div className="umap-scatter__purity-row">
+            <span>Low</span>
+            <div className="umap-scatter__purity-bar" />
+            <span>High</span>
           </div>
         </div>
       </div>

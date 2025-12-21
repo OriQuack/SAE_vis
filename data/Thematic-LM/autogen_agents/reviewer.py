@@ -26,6 +26,7 @@ WHEN TO MERGE (set merge_codes to existing code name):
 - New code uses different wording but captures the same pattern type
   Example: "Hor-initial tokens" and "'Hor' prefix" → same pattern
 - When merging, use a code name that accurately covers the merged concepts
+- CRITICAL: Only merge codes within the SAME category (linguistic ↔ linguistic, contextual ↔ contextual) 
 
 WHEN TO ADD AS NEW (leave merge_codes empty):
 - New code describes a genuinely different concept not covered by existing codes

@@ -121,18 +121,22 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
     serializable_results = []
     for r in results:
         # Look up current code names from codebook (may have changed due to merges)
-        codes_with_current_names = []
+        # Deduplicate by code_id (multiple coder codes may merge to same entry)
+        seen_code_ids = {}
         for c in r["codes"]:
+            if c.code_id in seen_code_ids:
+                continue  # Skip duplicate
             current_code_text = codebook.entries[c.code_id].code_text if c.code_id in codebook.entries else c.code_text
             current_category = codebook.entries[c.code_id].category if c.code_id in codebook.entries else c.category
-            codes_with_current_names.append({
+            seen_code_ids[c.code_id] = {
                 "code_id": c.code_id,
                 "code_text": current_code_text,
-                "category": current_category,  # Include category in output
+                "category": current_category,
                 "quotes": c.quotes,
                 "is_new": c.is_new,
                 "merged_with": c.merged_with,
-            })
+            }
+        codes_with_current_names = list(seen_code_ids.values())
 
         result = {
             "feature_id": r["feature_id"],

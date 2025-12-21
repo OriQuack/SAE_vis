@@ -2,13 +2,16 @@
 // CAUSE METRIC BARS DETAIL
 // Detailed bar chart visualization for root cause metric scores
 // ============================================================================
-// Displays cause metrics (Noisy Activation, Missed Context, Missed N-gram)
-// as horizontal bars with labels, component scores, and tooltips.
-// The metric with the minimum score is highlighted as the root cause.
+// Displays individual metrics as horizontal bars with full name labels.
+// - Quality Score (black)
+// - Activation Example Similarity (Noisy Activation color)
+// - LLM Explainer Semantic Similarity (Noisy Activation color)
+// - Detection (Context Miss color)
+// - Fuzz (Pattern Miss color)
 // This is the detailed version - for compact inline bars see CauseMetricBars in Indicators.tsx
 
 import React from 'react'
-import { TAG_CATEGORY_CAUSE } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, NEUTRAL_ICON_COLORS } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 import '../styles/CauseMetricBarsDetail.css'
@@ -20,22 +23,17 @@ import '../styles/CauseMetricBarsDetail.css'
 export interface CauseMetricBarsDetailProps {
   /** Cause metric scores to display */
   scores: CauseMetricScores | null
+  /** Quality score from best explanation */
+  qualityScore?: number
   /** Optional className for container */
   className?: string
 }
 
-interface MetricComponent {
-  key: string
-  name: string
-  score: number | null
-}
-
-interface MetricGroup {
+interface MetricRow {
   key: string
   label: string
-  aggregateScore: number | null
+  score: number | null
   color: string
-  components: MetricComponent[]
 }
 
 // ============================================================================
@@ -45,16 +43,16 @@ interface MetricGroup {
 /**
  * CauseMetricBarsDetail - Displays cause metric scores as horizontal bars with details
  *
- * Shows three metric groups:
- * - Noisy Activation: Avg(intraFeatureSim, explainerSemanticSim)
- * - Missed Context: Avg(embedding, detection)
- * - Missed N-gram: fuzz
- *
- * Each group displays component scores as stacked horizontal bars with tooltips.
- * The group with the minimum aggregated score is highlighted as the root cause.
+ * Shows five metric rows:
+ * - Quality Score (black)
+ * - Activation Example Similarity (Noisy Activation color)
+ * - LLM Explainer Semantic Similarity (Noisy Activation color)
+ * - Detection (Missed Context color)
+ * - Fuzz (Missed N-gram color)
  */
 export const CauseMetricBarsDetail: React.FC<CauseMetricBarsDetailProps> = ({
   scores,
+  qualityScore,
   className = ''
 }) => {
   // Get colors from tag system for each metric
@@ -70,83 +68,75 @@ export const CauseMetricBarsDetail: React.FC<CauseMetricBarsDetailProps> = ({
     )
   }
 
-  // Define metric groups with their component scores
-  const metricGroups: MetricGroup[] = [
+  // Define all metric rows including quality score
+  const metricRows: MetricRow[] = [
+    ...(qualityScore !== undefined ? [{
+      key: 'qualityScore',
+      label: 'Quality Score',
+      score: qualityScore,
+      color: NEUTRAL_ICON_COLORS.ICON_STROKE  // Dark gray (#475569)
+    }] : []),
     {
-      key: 'noisyActivation',
-      label: 'Noisy Activation',
-      aggregateScore: scores.noisyActivation,
-      color: noisyColor,
-      components: [
-        { key: 'intraFeatureSim', name: 'Activation Eample Similarity', score: scores.intraFeatureSim },
-        { key: 'explainerSemanticSim', name: 'LLM Explainer Semantic Similarity', score: scores.explainerSemanticSim }
-      ]
+      key: 'intraFeatureSim',
+      label: 'Activation Example Sim.',
+      score: scores.intraFeatureSim,
+      color: noisyColor
     },
     {
-      key: 'missedContext',
-      label: 'Context Miss',
-      aggregateScore: scores.missedContext,
-      color: contextColor,
-      components: [
-        { key: 'detection', name: 'Detection Score', score: scores.detection }
-      ]
+      key: 'explainerSemanticSim',
+      label: 'LLM Explainer Semantic Sim.',
+      score: scores.explainerSemanticSim,
+      color: noisyColor
     },
     {
-      key: 'missedNgram',
-      label: 'Pattern Miss',
-      aggregateScore: scores.missedNgram,
-      color: ngramColor,
-      components: [
-        { key: 'fuzz', name: 'Fuzz Score', score: scores.fuzz }
-      ]
+      key: 'detection',
+      label: 'Detection Score',
+      score: scores.detection,
+      color: contextColor
+    },
+    {
+      key: 'fuzz',
+      label: 'Fuzz Score',
+      score: scores.fuzz,
+      color: ngramColor
     }
   ]
 
-  // Determine minimum aggregated score (root cause)
-  const validGroups = metricGroups.filter(g => g.aggregateScore !== null)
-  const minKey = validGroups.length > 0
-    ? validGroups.reduce((min, g) => (g.aggregateScore! < min.aggregateScore! ? g : min)).key
+  // Find minimum score (excluding quality score) to indicate root cause
+  const causeMetrics = metricRows.filter(m => m.key !== 'qualityScore' && m.score !== null)
+  const minMetric = causeMetrics.length > 0
+    ? causeMetrics.reduce((min, m) => (m.score! < min.score! ? m : min))
     : null
 
   return (
     <div className={`cause-metric-bars-detail ${className}`.trim()}>
-      {metricGroups.map(({ key, label, aggregateScore, color, components }) => {
-        const isMin = key === minKey
-        return (
-          <div
-            key={key}
-            className={`cause-metric-bars-detail__group ${isMin ? 'cause-metric-bars-detail__group--highlighted' : ''}`}
-            style={isMin ? { backgroundColor: `${color}40` } : undefined}
-          >
-            <span className="cause-metric-bars-detail__label">{label}</span>
-            <div className="cause-metric-bars-detail__bars">
-              {components.map(({ key: compKey, name, score }) => (
-                <div key={compKey} className="cause-metric-bars-detail__bar-row">
-                  <div
-                    className="cause-metric-bars-detail__bar-container"
-                    data-tooltip={`${name}: ${score !== null ? score.toFixed(3) : 'N/A'}`}
-                  >
-                    <div
-                      className="cause-metric-bars-detail__bar"
-                      style={{
-                        width: score !== null ? `${score * 100}%` : '0%',
-                        backgroundColor: color,
-                        opacity: isMin ? 1 : 0.6
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+      {metricRows.map(({ key, label, score, color }) => (
+        <div key={key} className="cause-metric-bars-detail__row">
+          <span className="cause-metric-bars-detail__label">{label}</span>
+          <div className="cause-metric-bars-detail__bars">
+            <div className="cause-metric-bars-detail__bar-row">
+              <div
+                className="cause-metric-bars-detail__bar-container"
+                data-tooltip={`${label}: ${score !== null ? score.toFixed(3) : 'N/A'}`}
+              >
+                <div
+                  className="cause-metric-bars-detail__bar"
+                  style={{
+                    width: score !== null ? `${score * 100}%` : '0%',
+                    backgroundColor: color
+                  }}
+                />
+              </div>
             </div>
-            <span className="cause-metric-bars-detail__score">
-              {aggregateScore !== null ? aggregateScore.toFixed(2) : '—'}
-            </span>
           </div>
-        )
-      })}
-      {minKey && (
+          <span className="cause-metric-bars-detail__score">
+            {score !== null ? score.toFixed(2) : '—'}
+          </span>
+        </div>
+      ))}
+      {minMetric && (
         <div className="cause-metric-bars-detail__indicator">
-          ▼ Lowest = Root cause
+          ▼ min = root cause
         </div>
       )}
     </div>

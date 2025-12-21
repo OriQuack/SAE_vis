@@ -190,18 +190,10 @@
    MODE TOGGLE
    ============================================================================ */
 
-/* Controls container - holds mode toggle and legend */
-.umap-scatter__controls {
+.umap-scatter__mode-toggle {
   position: absolute;
   top: 8px;
   right: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 10;
-}
-
-.umap-scatter__mode-toggle {
   display: flex;
   gap: 2px;
   background: rgba(255, 255, 255, 0.95);
@@ -209,6 +201,7 @@
   padding: 2px;
   border: 1px solid var(--border-color, #e5e7eb);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  z-index: 10;
 }
 
 .umap-scatter__mode-btn {
@@ -280,8 +273,8 @@
 
 .umap-scatter__vertex-label {
   position: absolute;
-  padding: 3px 8px;
-  font-size: 11px;
+  padding: 2px 8px;
+  font-size: 13px;
   font-weight: 600;
   color: #000;
   background-color: var(--tag-color, #9ca3af);
@@ -293,27 +286,64 @@
 }
 
 /* ============================================================================
-   EXPLAINER SHAPE LEGEND
+   UNIFIED LEGEND PANEL
    ============================================================================ */
 
-.umap-scatter__explainer-legend {
+.umap-scatter__unified-legend {
+  position: absolute;
+  top: 12px;
+  left: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.95);
-  padding: 6px 8px;
+  padding: 10px 14px;
   border-radius: 4px;
   border: 1px solid var(--border-color, #e5e7eb);
-  font-size: 11px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  font-size: 14px;
+  z-index: 10;
+}
+
+.umap-scatter__legend-section {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.umap-scatter__legend-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+}
+
+.umap-scatter__legend-items {
+  display: flex;
+  gap: 10px;
 }
 
 .umap-scatter__legend-item {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-primary, #374151);
 }
 
 .umap-scatter__legend-item svg {
   flex-shrink: 0;
+}
+
+.umap-scatter__purity-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.umap-scatter__purity-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: 2px;
+  background: linear-gradient(to right, #e5e7eb, #374151);
 }

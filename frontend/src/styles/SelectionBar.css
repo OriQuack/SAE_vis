@@ -72,6 +72,15 @@
 
 .selection-state-bar__label-name {
   font-size: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.selection-state-bar__label-auto {
+  font-size: 11px;
+  font-weight: 500;
+  opacity: 0.8;
+  align-self: flex-end;
 }
 
 .selection-state-bar__label-count {
