@@ -540,13 +540,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       ? spreadPoints.find(p => p.feature_id === selectedFeatureId)
       : null
 
-    // Draw manually tagged and brushed points
+    // Draw manually tagged and brushed points (auto-tagged only shown if brushed)
     for (const point of spreadPoints) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isBrushed = umapBrushedFeatureIds.has(point.feature_id)
+      const isAutoTagged = !isManual && causeSelectionSources.get(point.feature_id) === 'auto'
       const isSelected = point.feature_id === selectedFeatureId
 
-      // Skip if not in any set (selected feature drawn separately at end)
+      // Skip if not in brushed selection (manual points always shown, auto only if brushed)
       if (!isManual && !isBrushed) continue
       // Skip selected feature here - will draw it last on top
       if (isSelected) continue
@@ -556,14 +557,22 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
 
       if (isManual) {
-        // Manual points same size as brushed, no border
+        // Manual points: solid filled circles
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
         ctx.globalAlpha = manualPointAlpha
         ctx.fill()
+      } else if (isAutoTagged) {
+        // Auto-tagged points: hollow circles (ring only)
+        ctx.beginPath()
+        ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
+        ctx.strokeStyle = color
+        ctx.lineWidth = 1.5
+        ctx.globalAlpha = manualPointAlpha
+        ctx.stroke()
       } else if (isBrushed) {
-        // Brushed (non-manual) points are smaller
+        // Brushed (untagged) points: smaller filled circles
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
@@ -620,19 +629,31 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       ctx.globalAlpha = 1
       ctx.stroke()
 
+      // Check if selected feature is manually tagged
+      const isSelectedManual = manuallyTaggedIds.has(selectedFeatureId!)
+
       ctx.beginPath()
       ctx.arc(meanX, meanY, manualPointRadius + 1, 0, Math.PI * 2)
-      ctx.fillStyle = categoryColor  // Keep category color for the main point
       ctx.globalAlpha = 1
-      ctx.fill()
-      ctx.strokeStyle = '#fff'
-      ctx.lineWidth = 1.5
-      ctx.stroke()
+
+      if (isSelectedManual) {
+        // Manual: filled circle
+        ctx.fillStyle = categoryColor
+        ctx.fill()
+        ctx.strokeStyle = '#fff'
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+      } else {
+        // Auto-tagged or untagged: hollow circle
+        ctx.strokeStyle = categoryColor
+        ctx.lineWidth = 2
+        ctx.stroke()
+      }
     }
 
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [spreadPoints, scales, causeSelectionStates, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
+  }, [spreadPoints, scales, causeSelectionStates, causeSelectionSources, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
 
 
   // ============================================================================
