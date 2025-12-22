@@ -1,6 +1,7 @@
 import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react'
 import { polygonContains } from 'd3-polygon'
 import { useVisualizationStore } from '../store/index'
+import { useResizeObserver } from '../lib/utils'
 import {
   getCauseColor,
   computeBarycentricScales,
@@ -159,30 +160,16 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   className = '',
   selectedFeatureId = null
 }) => {
-  const containerRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  // Measure container dimensions and use minimum for square
-  const [measuredSize, setMeasuredSize] = useState({ width: 0, height: 0 })
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const observer = new ResizeObserver(entries => {
-      const entry = entries[0]
-      if (entry) {
-        const { width, height } = entry.contentRect
-        if (width > 0 && height > 0) {
-          setMeasuredSize({ width, height })
-        }
-      }
-    })
-
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [])
+  // Use standardized resize observer hook for consistent behavior
+  const { ref: containerRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: propWidth || 400,
+    defaultHeight: propHeight || 400,
+    debounceMs: 16,
+    debugId: 'umap-scatter'
+  })
 
   // Square proportion: use minimum of width/height to fit within container
   const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
@@ -700,8 +687,13 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
   return (
     <div ref={containerRef} className={`umap-scatter ${className}`} style={containerStyle}>
-      {/* Chart area */}
-      <div className="umap-scatter__chart">
+      {/* Centered chart wrapper - square size, centered in container */}
+      <div
+        className="umap-scatter__chart-wrapper"
+        style={{ width: size, height: size }}
+      >
+        {/* Chart area */}
+        <div className="umap-scatter__chart">
         {/* SVG for contours + lasso */}
         <svg
           ref={svgRef}
@@ -891,6 +883,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             </div>
           </>
         )}
+        </div>
       </div>
 
       {/* Mode toggle */}
