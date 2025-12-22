@@ -72,7 +72,7 @@ function xyToBarycentric(x: number, y: number): [number, number, number] {
 /**
  * Convert barycentric weights to 2D position.
  */
-function barycentricToXY(w1: number, w2: number, w3: number): Point2D {
+function barycentricToXY(_w1: number, w2: number, w3: number): Point2D {
   // Using the standard barycentric formula:
   // P = w1*V0 + w2*V1 + w3*V2
   // V0 = (0, 0), V1 = (1, 0), V2 = (0.5, 0.866)

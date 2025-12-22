@@ -148,7 +148,7 @@ function assignConstantColors(): void {
           colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #ff9da7 - Pink
           break
         case 'Pattern Miss':
-          colors[tag] = D3_SCHEME_TABLEAU10.ORANGE  // #edc949 - Yellow
+          colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #edc949 - Yellow
           break
         case 'Noisy Activation':
           colors[tag] = D3_SCHEME_TABLEAU10.RED  // #f28e2c - Orange

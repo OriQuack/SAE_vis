@@ -3,7 +3,8 @@
  * ============================================================================
  * Layout:
  *   Header (full width at top)
- *   Body: [SelectionPanel (180px)] | [UMAP (centered) + Detail panel with action buttons]
+ *   Body: [UMAP (centered) + Detail panel with action buttons]
+ *   Note: SelectionPanel is now rendered at App level (left column alongside Sankey)
  * ============================================================================ */
 
 .cause-view {
@@ -22,7 +23,7 @@
  * ============================================================================ */
 
 /* ============================================================================
- * BODY - SelectionPanel + Content area
+ * BODY - Content area (SelectionPanel moved to App level)
  * ============================================================================ */
 
 .cause-view__body {
@@ -31,12 +32,6 @@
   flex: 1;
   min-height: 0;
   gap: 0;
-}
-
-/* SelectionPanel in CauseView should have fixed width */
-.cause-view .table-selection-panel {
-  flex: 0 0 180px;
-  width: 180px;
 }
 
 /* ============================================================================
@@ -58,7 +53,6 @@
  * ============================================================================ */
 
 .cause-view__row-top {
-  --detail-panel-width: 600px;
   display: flex;
   flex-direction: row;
   flex: 1;
@@ -94,15 +88,16 @@
   z-index: 10;
 }
 
-/* Right panel - fixed width, contains detail section and action buttons */
+/* Right panel - flex 1:1 with UMAP, contains detail section and action buttons */
 .cause-view__right-panel {
-  flex: 0 0 var(--detail-panel-width);
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
   gap: 8px;
   padding: 4px;
   background-color: #ffffff;
+  min-width: 0;
 }
 
 /* Detail section - flex to fill available space */

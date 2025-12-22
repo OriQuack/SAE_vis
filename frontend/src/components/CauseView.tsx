@@ -1,7 +1,6 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { SelectionCategory, FeatureTableRow } from '../types'
-import SelectionPanel from './SelectionPanel'
+import type { FeatureTableRow } from '../types'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton, CauseMetricBars } from './Indicators'
@@ -19,7 +18,7 @@ import '../styles/CauseView.css'
 // ============================================================================
 // CAUSE VIEW - Root cause analysis workflow (Stage 3)
 // ============================================================================
-// Layout: [SelectionPanel bar] | [Content: UMAP + Selected Features List]
+// Layout: [Content: UMAP + Selected Features List + Right Panel]
 
 // Commit history types
 export interface CauseCommitCounts {
@@ -45,12 +44,10 @@ const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
 
 interface CauseViewProps {
   className?: string
-  onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void
 }
 
 const CauseView: React.FC<CauseViewProps> = ({
-  className = '',
-  onCategoryRefsReady
+  className = ''
 }) => {
   // Store state
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
@@ -394,8 +391,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     commits: tagCommitHistory,
     currentCommitIndex,
     saveCurrentState,
-    createCommit,
-    handleCommitClick
+    createCommit
   } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>({
     ...createCauseCommitHistoryOptions(
       () => causeSelectionStates,
@@ -416,7 +412,20 @@ const CauseView: React.FC<CauseViewProps> = ({
     initialCommit: initialCommitForRevisit
   })
 
-  // handleCommitClick is provided by the hook
+  // Sync local commit history to global store for SelectionPanel display in App.tsx
+  useEffect(() => {
+    // Sync commits to store (convert to display format)
+    const displayCommits = tagCommitHistory.map(c => ({
+      id: c.id,
+      type: c.type,
+      counts: c.counts
+    }))
+    // Update store with current commit history
+    useVisualizationStore.setState({
+      stage3CommitHistory: displayCommits,
+      stage3CurrentCommitIndex: currentCommitIndex
+    })
+  }, [tagCommitHistory, currentCommitIndex])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Navigate through brushed/selected features
@@ -636,19 +645,9 @@ const CauseView: React.FC<CauseViewProps> = ({
         </span>
       </div>
 
-      {/* Body: SelectionPanel + Content area */}
+      {/* Body: Content area */}
       <div className="cause-view__body">
-        {/* Left column: SelectionPanel vertical bar */}
-        <SelectionPanel
-          stage="stage3"
-          onCategoryRefsReady={onCategoryRefsReady}
-          filteredFeatureIds={selectedFeatureIds || undefined}
-          commitHistory={tagCommitHistory}
-          currentCommitIndex={currentCommitIndex}
-          onCommitClick={handleCommitClick}
-        />
-
-        {/* Right column: Top row + Bottom action bar */}
+        {/* Main content: Top row + Bottom action bar */}
         <div className="cause-view__content">
           {/* Top row: UMAP + Selected list overlay + Detail panel */}
           <div className="cause-view__row-top">
@@ -821,13 +820,6 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                       {/* Selection buttons - all features must have a tag */}
                       <TagButton
-                        label="Noisy Activation"
-                        variant="noisy-activation"
-                        color={noisyActivationColor}
-                        isSelected={currentCauseCategory === 'noisy-activation'}
-                        onClick={() => handleTagClick('noisy-activation')}
-                      />
-                      <TagButton
                         label="Pattern Miss"
                         variant="missed-N-gram"
                         color={missedNgramColor}
@@ -840,6 +832,13 @@ const CauseView: React.FC<CauseViewProps> = ({
                         color={missedContextColor}
                         isSelected={currentCauseCategory === 'missed-context'}
                         onClick={() => handleTagClick('missed-context')}
+                      />
+                      <TagButton
+                        label="Noisy Activation"
+                        variant="noisy-activation"
+                        color={noisyActivationColor}
+                        isSelected={currentCauseCategory === 'noisy-activation'}
+                        onClick={() => handleTagClick('noisy-activation')}
                       />
                       <TagButton
                         label="Well-Explained"
@@ -874,27 +873,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                 <div className="cause-view__action-section">
                   <span className="cause-view__action-header">Tag Remaining in Selected Cell as</span>
                   <div className="cause-view__action-row">
-                    <div className="action-button-item">
-                      <button
-                        className="action-button"
-                        onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={umapBrushedFeatureIds.size === 0}
-                        title="Tag all selected features as Noisy Activation"
-                      >
-                        Noisy Activation
-                      </button>
-                      <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                        </span>
-                        <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                        </span>
-                      </div>
-                    </div>
                     <div className="action-button-item">
                       <button
                         className="action-button"
@@ -933,6 +911,27 @@ const CauseView: React.FC<CauseViewProps> = ({
                         <span className="action-button__legend-arrow">→</span>
                         <span className="action-button__legend-item">
                           <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
+                        onClick={() => handleTagSelectedAs('noisy-activation')}
+                        disabled={umapBrushedFeatureIds.size === 0}
+                        title="Tag all selected features as Noisy Activation"
+                      >
+                        Noisy Activation
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
                           <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
                         </span>
                       </div>

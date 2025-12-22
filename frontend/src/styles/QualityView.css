@@ -3,10 +3,11 @@
  * ============================================================================
  * Layout:
  *   Header (full width at top)
- *   Body: [SelectionPanel bar (85px)] | [2-row content area]
+ *   Body: [2-row content area]
  *     Content area has 2 rows:
- *       Row 1 (top 50%): Placeholder panel
+ *       Row 1 (top 50%): Feature list + right panel
  *       Row 2 (bottom 50%): ThresholdTaggingPanel
+ *   Note: SelectionPanel is now rendered at App level (left column alongside Sankey)
  * ============================================================================ */
 
 .quality-view {
@@ -25,7 +26,7 @@
  * ============================================================================ */
 
 /* ============================================================================
- * BODY - SelectionPanel + Content area
+ * BODY - Content area (SelectionPanel moved to App level)
  * ============================================================================ */
 
 .quality-view__body {
@@ -34,12 +35,6 @@
   flex: 1;
   min-height: 0;
   gap: 0;
-}
-
-/* SelectionPanel in QualityView should have fixed width */
-.quality-view .table-selection-panel {
-  flex: 0 0 180px;
-  width: 180px;
 }
 
 /* ============================================================================

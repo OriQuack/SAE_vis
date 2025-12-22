@@ -405,7 +405,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                   </div>
                   <div className="stage-tab__label">{stage.label}</div>
                 </div>
-                <div className="stage-tab__instruction">{stage.instruction}</div>
+                {stage.instruction && <div className="stage-tab__instruction">{stage.instruction}</div>}
               </button>
 
               {/* Inline Tags for this stage */}

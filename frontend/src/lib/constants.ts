@@ -177,7 +177,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Categorizes the root cause of explanation issues for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Determine root cause for poor explanation quality",
+    instruction: "Identify root cause of explanation failure",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },

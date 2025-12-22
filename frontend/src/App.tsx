@@ -9,8 +9,10 @@ import QualityView from './components/QualityView'
 import CauseView from './components/CauseView'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
+import SelectionPanel from './components/SelectionPanel'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './lib/constants'
 import type { SelectionCategory } from './types'
+import type { TableStage } from './lib/color-utils'
 import * as api from './api'
 import './styles/base.css'
 import './styles/App.css'
@@ -94,8 +96,47 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     toggleComparisonView,
     activeStageCategory,
     activateCategoryTable,
-    tableData
+    tableData,
+    // Commit history state
+    stage1CommitHistory,
+    stage1CurrentCommitIndex,
+    restoreStage1Commit,
+    stage2CommitHistory,
+    stage2CurrentCommitIndex,
+    restoreStage2Commit,
+    stage3CommitHistory,
+    stage3CurrentCommitIndex,
+    restoreStage3Commit,
+    // For filtered feature IDs (from segment selection)
+    getSelectedNodeFeatures
   } = useVisualizationStore()
+
+  // Determine current stage and commit history based on activeStageCategory
+  const currentStage: TableStage = activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? 'stage1'
+    : activeStageCategory === TAG_CATEGORY_QUALITY ? 'stage2'
+    : activeStageCategory === TAG_CATEGORY_CAUSE ? 'stage3'
+    : 'stage1'
+
+  const commitHistory = currentStage === 'stage1' ? stage1CommitHistory
+    : currentStage === 'stage2' ? stage2CommitHistory
+    : stage3CommitHistory
+
+  const currentCommitIndex = currentStage === 'stage1' ? stage1CurrentCommitIndex
+    : currentStage === 'stage2' ? stage2CurrentCommitIndex
+    : stage3CurrentCommitIndex
+
+  const handleCommitClick = useCallback((index: number) => {
+    if (currentStage === 'stage1') {
+      restoreStage1Commit(index)
+    } else if (currentStage === 'stage2') {
+      restoreStage2Commit(index)
+    } else {
+      restoreStage3Commit(index)
+    }
+  }, [currentStage, restoreStage1Commit, restoreStage2Commit, restoreStage3Commit])
+
+  // Get filtered feature IDs for SelectionPanel
+  const selectedFeatureIds = getSelectedNodeFeatures()
 
   // Health check function
   const checkHealth = useCallback(async () => {
@@ -191,7 +232,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
 
         {/* Bottom Section - Sankey + Selection Panel + Table */}
         <div className="sankey-view__main-content">
-          {/* Left Column - Sankey */}
+          {/* Left Column - Sankey + SelectionPanel (side by side) */}
           <div className="sankey-view__sankey-column">
             <div className="sankey-view__sankey-left">
               <SankeyDiagram
@@ -201,6 +242,16 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 onSegmentRefsReady={setSankeySegmentRefs}
               />
             </div>
+            <div className="sankey-view__selection-panel">
+              <SelectionPanel
+                stage={currentStage}
+                onCategoryRefsReady={setSelectionCategoryRefs}
+                filteredFeatureIds={selectedFeatureIds || undefined}
+                commitHistory={commitHistory}
+                currentCommitIndex={currentCommitIndex}
+                onCommitClick={handleCommitClick}
+              />
+            </div>
           </div>
 
           {/* Right Column - Table */}
@@ -208,17 +259,11 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
             <div className="sankey-view__center-left">
               {/* Conditional Rendering: Feature Split View, Quality View, or Cause View */}
               {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
-                <>
-                  <FeatureSplitView onCategoryRefsReady={setSelectionCategoryRefs} />
-                </>
+                <FeatureSplitView />
               ) : activeStageCategory === TAG_CATEGORY_QUALITY ? (
-                <>
-                  <QualityView onCategoryRefsReady={setSelectionCategoryRefs} />
-                </>
+                <QualityView />
               ) : activeStageCategory === TAG_CATEGORY_CAUSE ? (
-                <>
-                  <CauseView onCategoryRefsReady={setSelectionCategoryRefs} />
-                </>
+                <CauseView />
               ) : (
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
                   Select a stage to begin

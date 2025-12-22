@@ -311,6 +311,35 @@ interface AppState {
   setIsRevisitingStage3: (value: boolean) => void
   restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => void
 
+  // ============================================================================
+  // COMMIT HISTORY - Centralized for SelectionPanel display
+  // ============================================================================
+  // Stage 1 commit history (pair tagging)
+  stage1CommitHistory: Array<{id: number; type: string; counts?: CommitCounts}>
+  stage1CurrentCommitIndex: number
+  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  // Stage 2 commit history (feature tagging)
+  stage2CommitHistory: Array<{id: number; type: string; counts?: QualityCommitCounts}>
+  stage2CurrentCommitIndex: number
+  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  // Stage 3 commit history (cause tagging)
+  stage3CommitHistory: Array<{id: number; type: string; counts?: CauseCommitCounts}>
+  stage3CurrentCommitIndex: number
+  stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  // Commit history actions
+  addStage1Commit: (type: 'apply' | 'tagAll', counts?: CommitCounts, featureIds?: Set<number>) => void
+  setStage1CommitIndex: (index: number) => void
+  restoreStage1Commit: (index: number) => void
+  clearStage1Commits: () => void
+  addStage2Commit: (type: 'apply' | 'tagAll', counts?: QualityCommitCounts, featureIds?: Set<number>) => void
+  setStage2CommitIndex: (index: number) => void
+  restoreStage2Commit: (index: number) => void
+  clearStage2Commits: () => void
+  addStage3Commit: (type: 'apply' | 'tagAll', counts?: CauseCommitCounts, featureIds?: Set<number>) => void
+  setStage3CommitIndex: (index: number) => void
+  restoreStage3Commit: (index: number) => void
+  clearStage3Commits: () => void
+
   // UMAP projection state (for Stage 3 CauseView scatter plot)
   umapProjection: UmapPoint[] | null
   umapFeatureSignature: string | null  // Signature of last-fetched feature IDs (prevents redundant API calls)
@@ -451,6 +480,17 @@ const initialState = {
   // Stage 3 revisiting state
   isRevisitingStage3: false,
   stage3FinalCommit: null,
+
+  // Commit history state (centralized for SelectionPanel)
+  stage1CommitHistory: [{id: 0, type: 'initial'}],
+  stage1CurrentCommitIndex: 0,
+  stage1CommitData: new Map(),
+  stage2CommitHistory: [{id: 0, type: 'initial'}],
+  stage2CurrentCommitIndex: 0,
+  stage2CommitData: new Map(),
+  stage3CommitHistory: [{id: 0, type: 'initial'}],
+  stage3CurrentCommitIndex: 0,
+  stage3CommitData: new Map(),
 
   // UMAP projection state
   umapProjection: null,
@@ -652,6 +692,182 @@ export const useStore = create<AppState>((set, get) => {
       causeSelectionSources: new Map(sources)
     })
     console.log('[Store.restoreCauseSelectionStates] Restored cause selection states:', states.size, 'features')
+  },
+
+  // ============================================================================
+  // COMMIT HISTORY ACTIONS
+  // ============================================================================
+
+  // Stage 1 commit actions
+  addStage1Commit: (type: 'apply' | 'tagAll', counts?: CommitCounts, featureIds?: Set<number>) => {
+    const state = get()
+    const newId = state.stage1CommitHistory.length
+    const newCommit = { id: newId, type, counts }
+    const commitData = {
+      states: new Map(state.pairSelectionStates),
+      sources: new Map(state.pairSelectionSources),
+      featureIds: featureIds ? new Set(featureIds) : undefined
+    }
+
+    const newHistory = [...state.stage1CommitHistory, newCommit]
+    const newData = new Map(state.stage1CommitData)
+    newData.set(newId, commitData)
+
+    set({
+      stage1CommitHistory: newHistory.length > 10 ? [newHistory[0], ...newHistory.slice(-9)] : newHistory,
+      stage1CurrentCommitIndex: Math.min(state.stage1CurrentCommitIndex + 1, 9),
+      stage1CommitData: newData
+    })
+    console.log('[Store.addStage1Commit] Added commit:', newId, type)
+  },
+
+  setStage1CommitIndex: (index: number) => {
+    set({ stage1CurrentCommitIndex: index })
+  },
+
+  restoreStage1Commit: (index: number) => {
+    const state = get()
+    if (index < 0 || index >= state.stage1CommitHistory.length) return
+
+    const commitData = state.stage1CommitData.get(index)
+    if (commitData) {
+      set({
+        pairSelectionStates: new Map(commitData.states),
+        pairSelectionSources: new Map(commitData.sources),
+        stage1CurrentCommitIndex: index
+      })
+      console.log('[Store.restoreStage1Commit] Restored commit:', index)
+    } else if (index === 0) {
+      // Initial commit - clear state
+      set({
+        pairSelectionStates: new Map(),
+        pairSelectionSources: new Map(),
+        stage1CurrentCommitIndex: 0
+      })
+      console.log('[Store.restoreStage1Commit] Restored initial commit')
+    }
+  },
+
+  clearStage1Commits: () => {
+    set({
+      stage1CommitHistory: [{id: 0, type: 'initial'}],
+      stage1CurrentCommitIndex: 0,
+      stage1CommitData: new Map()
+    })
+  },
+
+  // Stage 2 commit actions
+  addStage2Commit: (type: 'apply' | 'tagAll', counts?: QualityCommitCounts, featureIds?: Set<number>) => {
+    const state = get()
+    const newId = state.stage2CommitHistory.length
+    const newCommit = { id: newId, type, counts }
+    const commitData = {
+      states: new Map(state.featureSelectionStates),
+      sources: new Map(state.featureSelectionSources),
+      featureIds: featureIds ? new Set(featureIds) : undefined
+    }
+
+    const newHistory = [...state.stage2CommitHistory, newCommit]
+    const newData = new Map(state.stage2CommitData)
+    newData.set(newId, commitData)
+
+    set({
+      stage2CommitHistory: newHistory.length > 10 ? [newHistory[0], ...newHistory.slice(-9)] : newHistory,
+      stage2CurrentCommitIndex: Math.min(state.stage2CurrentCommitIndex + 1, 9),
+      stage2CommitData: newData
+    })
+    console.log('[Store.addStage2Commit] Added commit:', newId, type)
+  },
+
+  setStage2CommitIndex: (index: number) => {
+    set({ stage2CurrentCommitIndex: index })
+  },
+
+  restoreStage2Commit: (index: number) => {
+    const state = get()
+    if (index < 0 || index >= state.stage2CommitHistory.length) return
+
+    const commitData = state.stage2CommitData.get(index)
+    if (commitData) {
+      set({
+        featureSelectionStates: new Map(commitData.states),
+        featureSelectionSources: new Map(commitData.sources),
+        stage2CurrentCommitIndex: index
+      })
+      console.log('[Store.restoreStage2Commit] Restored commit:', index)
+    } else if (index === 0) {
+      set({
+        featureSelectionStates: new Map(),
+        featureSelectionSources: new Map(),
+        stage2CurrentCommitIndex: 0
+      })
+      console.log('[Store.restoreStage2Commit] Restored initial commit')
+    }
+  },
+
+  clearStage2Commits: () => {
+    set({
+      stage2CommitHistory: [{id: 0, type: 'initial'}],
+      stage2CurrentCommitIndex: 0,
+      stage2CommitData: new Map()
+    })
+  },
+
+  // Stage 3 commit actions
+  addStage3Commit: (type: 'apply' | 'tagAll', counts?: CauseCommitCounts, featureIds?: Set<number>) => {
+    const state = get()
+    const newId = state.stage3CommitHistory.length
+    const newCommit = { id: newId, type, counts }
+    const commitData = {
+      states: new Map(state.causeSelectionStates),
+      sources: new Map(state.causeSelectionSources),
+      featureIds: featureIds ? new Set(featureIds) : undefined
+    }
+
+    const newHistory = [...state.stage3CommitHistory, newCommit]
+    const newData = new Map(state.stage3CommitData)
+    newData.set(newId, commitData)
+
+    set({
+      stage3CommitHistory: newHistory.length > 10 ? [newHistory[0], ...newHistory.slice(-9)] : newHistory,
+      stage3CurrentCommitIndex: Math.min(state.stage3CurrentCommitIndex + 1, 9),
+      stage3CommitData: newData
+    })
+    console.log('[Store.addStage3Commit] Added commit:', newId, type)
+  },
+
+  setStage3CommitIndex: (index: number) => {
+    set({ stage3CurrentCommitIndex: index })
+  },
+
+  restoreStage3Commit: (index: number) => {
+    const state = get()
+    if (index < 0 || index >= state.stage3CommitHistory.length) return
+
+    const commitData = state.stage3CommitData.get(index)
+    if (commitData) {
+      set({
+        causeSelectionStates: new Map(commitData.states),
+        causeSelectionSources: new Map(commitData.sources),
+        stage3CurrentCommitIndex: index
+      })
+      console.log('[Store.restoreStage3Commit] Restored commit:', index)
+    } else if (index === 0) {
+      set({
+        causeSelectionStates: new Map(),
+        causeSelectionSources: new Map(),
+        stage3CurrentCommitIndex: 0
+      })
+      console.log('[Store.restoreStage3Commit] Restored initial commit')
+    }
+  },
+
+  clearStage3Commits: () => {
+    set({
+      stage3CommitHistory: [{id: 0, type: 'initial'}],
+      stage3CurrentCommitIndex: 0,
+      stage3CommitData: new Map()
+    })
   },
 
   // Feature selection actions (used by TablePanel checkboxes)

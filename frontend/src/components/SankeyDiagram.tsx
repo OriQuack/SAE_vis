@@ -746,7 +746,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     <div className={`sankey-diagram ${className}`}>
       <div className="view-header">
         <span className="view-title">Filter</span>
-        <span className="view-description">
+        <span className="view-description" style={currentStage >= 3 ? { visibility: 'hidden' } : undefined}>
           Drag the{' '}
           <svg
             className="view-threshold-icon"

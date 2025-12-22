@@ -1,7 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, SelectionCategory } from '../types'
-import SelectionPanel from './SelectionPanel'
+import type { FeatureTableRow } from '../types'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton } from './Indicators'
@@ -21,7 +20,7 @@ import '../styles/ThresholdTaggingPanel.css'
 // ============================================================================
 // QUALITY VIEW - Organized layout for quality assessment workflow (Stage 2)
 // ============================================================================
-// Layout: [SelectionPanel bar] | [Top: placeholder] | [Bottom: ThresholdTaggingPanel]
+// Layout: [Top: feature list + right panel] | [Bottom: ThresholdTaggingPanel]
 
 // Counts stored at commit time for hover preview
 export interface QualityCommitCounts {
@@ -36,12 +35,10 @@ type FeatureCommit = Commit<Map<number, 'selected' | 'rejected'>, Map<number, 'm
 
 interface QualityViewProps {
   className?: string
-  onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void
 }
 
 const QualityView: React.FC<QualityViewProps> = ({
-  className = '',
-  onCategoryRefsReady
+  className = ''
 }) => {
   // Store state
   const tableData = useVisualizationStore(state => state.tableData)
@@ -212,8 +209,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     currentCommitIndex,
     saveCurrentState,
     createCommit,
-    createCommitAsync,
-    handleCommitClick
+    createCommitAsync
   } = useCommitHistory<Map<number, 'selected' | 'rejected'>, Map<number, 'manual' | 'auto'>, QualityCommitCounts>({
     ...createFeatureCommitHistoryOptions(
       () => featureSelectionStates,
@@ -233,6 +229,21 @@ const QualityView: React.FC<QualityViewProps> = ({
     },
     initialCommit: initialCommitForRevisit
   })
+
+  // Sync local commit history to global store for SelectionPanel display in App.tsx
+  useEffect(() => {
+    // Sync commits to store (convert to display format)
+    const displayCommits = tagCommitHistory.map(c => ({
+      id: c.id,
+      type: c.type,
+      counts: c.counts
+    }))
+    // Update store with current commit history
+    useVisualizationStore.setState({
+      stage2CommitHistory: displayCommits,
+      stage2CurrentCommitIndex: currentCommitIndex
+    })
+  }, [tagCommitHistory, currentCommitIndex])
 
   // Pagination for the top row list
   const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
@@ -645,8 +656,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     setActiveListSource('all')
   }, [applySimilarityTags, saveCurrentState, createCommitAsync, setSortMode])
 
-  // handleCommitClick is provided by the hook
-
   // ============================================================================
   // TAG ALL HANDLERS
   // ============================================================================
@@ -768,21 +777,11 @@ const QualityView: React.FC<QualityViewProps> = ({
         </span>
       </div>
 
-      {/* Body: SelectionPanel + Content area */}
+      {/* Body: Content area */}
       <div className="quality-view__body">
-        {/* Left column: SelectionPanel vertical bar */}
-        <SelectionPanel
-          stage="stage2"
-          onCategoryRefsReady={onCategoryRefsReady}
-          filteredFeatureIds={selectedFeatureIds || undefined}
-          commitHistory={tagCommitHistory}
-          currentCommitIndex={currentCommitIndex}
-          onCommitClick={handleCommitClick}
-        />
-
-        {/* Right column: 2 rows */}
+        {/* Main content: 2 rows */}
         <div className="quality-view__content">
-          {/* Top row: Feature list + empty right panel */}
+          {/* Top row: Feature list + right panel */}
           <div className="quality-view__row-top">
             <ScrollableItemList
               variant="features"

@@ -1,7 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore, type CommitCounts } from '../store/index'
-import type { FeatureTableRow, SelectionCategory } from '../types'
-import SelectionPanel from './SelectionPanel'
+import type { FeatureTableRow } from '../types'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { isBimodalScore } from '../lib/modality-utils'
@@ -14,19 +13,17 @@ import '../styles/FeatureSplitView.css'
 // ============================================================================
 // FEATURE SPLIT VIEW - Organized layout for feature splitting workflow
 // ============================================================================
-// Layout: [SelectionPanel bar] | [Top: pair list + viewer] | [Bottom: left boundary + histogram + right boundary]
+// Layout: [Top: pair list + viewer] | [Bottom: left boundary + histogram + right boundary]
 
 // Local type alias for pair commit with CommitCounts
 type PairCommit = Commit<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>
 
 interface FeatureSplitViewProps {
   className?: string
-  onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void
 }
 
 const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
-  className = '',
-  onCategoryRefsReady
+  className = ''
 }) => {
   // Store state
   const tableData = useVisualizationStore(state => state.tableData)
@@ -99,8 +96,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     currentCommitIndex,
     saveCurrentState,
     createCommit,
-    createCommitAsync,
-    handleCommitClick
+    createCommitAsync
   } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
     ...createPairCommitHistoryOptions(
       () => pairSelectionStates,
@@ -120,6 +116,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     },
     initialCommit: initialCommitForRevisit
   })
+
+  // Sync local commit history to global store for SelectionPanel display in App.tsx
+  useEffect(() => {
+    // Sync commits to store (convert to display format)
+    const displayCommits = tagCommitHistory.map(c => ({
+      id: c.id,
+      type: c.type,
+      counts: c.counts
+    }))
+    // Update store with current commit history
+    useVisualizationStore.setState({
+      stage1CommitHistory: displayCommits,
+      stage1CurrentCommitIndex: currentCommitIndex
+    })
+  }, [tagCommitHistory, currentCommitIndex])
 
   // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -726,21 +737,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         </span>
       </div>
 
-      {/* Body: SelectionPanel + Content area */}
+      {/* Body: Content area */}
       <div className="feature-split-view__body">
-        {/* Left column: SelectionPanel vertical bar (full height) */}
-        <SelectionPanel
-          stage="stage1"
-          onCategoryRefsReady={onCategoryRefsReady}
-          filteredFeatureIds={selectedFeatureIds || undefined}
-          commitHistory={tagCommitHistory}
-          currentCommitIndex={currentCommitIndex}
-          onCommitClick={handleCommitClick}
-        />
-
-        {/* Right column: 2 rows */}
+        {/* Main content: 2 rows */}
         <div className="feature-split-view__content">
-        {/* Top row: Pair list + FeatureSplitPairViewer */}
+          {/* Top row: Pair list + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
