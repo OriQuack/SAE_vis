@@ -213,16 +213,27 @@ body {
   border-color: #6b7280;
 }
 
-/* Next stage variant - Gray border, black text */
+/* Next stage variant - Blue background when enabled, gray when disabled */
 .action-button--next {
-  background-color: white;
-  color: #000000;
-  border-color: #9ca3af;
+  background-color: #3b82f6;
+  color: #ffffff;
+  border-color: #2563eb;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .action-button--next:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #6b7280;
+  background-color: #2563eb;
+  border-color: #1d4ed8;
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
+}
+
+.action-button--next:disabled {
+  background-color: white;
+  color: #9ca3af;
+  border-color: #d1d5db;
+  box-shadow: none;
+  font-weight: 500;
 }
 
 /* ============================================================================

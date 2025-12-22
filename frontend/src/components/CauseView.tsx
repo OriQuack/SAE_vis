@@ -12,7 +12,8 @@ import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
-import { CauseMetricBarsDetail } from './CauseMetricBarsDetail'
+import { CauseMetricParallelCoords } from './CauseMetricParallelCoords'
+import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -65,6 +66,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeMetricScores = useVisualizationStore(state => state.causeMetricScores)
+
+  // Stage 2 selection states (for well-explained background lines)
+  const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
 
 
   // UMAP selected features and projection data
@@ -262,6 +266,29 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
     return true
   }, [selectedFeatureIds, causeSelectionSources])
+
+  // Compute metric scores for Stage 2 "Well-Explained" features (for parallel coords background)
+  const wellExplainedScores = useMemo(() => {
+    const map = new Map<number, ReturnType<typeof calculateCauseMetricScores>>()
+    if (!tableData?.features) return map
+
+    // Build feature lookup for score calculation
+    const featureMap = new Map<number, FeatureTableRow>(
+      tableData.features.map((f: FeatureTableRow) => [f.feature_id, f])
+    )
+
+    featureSelectionStates.forEach((state, featureId) => {
+      if (state === 'selected') {  // Well-Explained in Stage 2
+        const row = featureMap.get(featureId)
+        const activation = activationExamples[featureId] ?? null
+        if (row) {
+          const scores = calculateCauseMetricScores(row, activation)
+          map.set(featureId, scores)
+        }
+      }
+    })
+    return map
+  }, [featureSelectionStates, tableData, activationExamples])
 
   // Reset feature index when selected list changes
   useEffect(() => {
@@ -799,11 +826,12 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Cause Metric Bars Detail - below explanation */}
+                    {/* Parallel Coordinates - below explanation */}
                     <div className="cause-view__metrics-container">
-                      <CauseMetricBarsDetail
-                        scores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                        qualityScore={bestExplanation?.qualityScore}
+                      <CauseMetricParallelCoords
+                        wellExplainedScores={wellExplainedScores}
+                        currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                        currentCategory={causeSelectionStates.get(selectedFeatureData.featureId) ?? null}
                       />
                     </div>
 

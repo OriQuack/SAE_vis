@@ -1,0 +1,97 @@
+/* ============================================================================
+ * CAUSE METRIC PARALLEL COORDINATES
+ * Parallel coordinates visualization for root cause metric comparison
+ * ============================================================================ */
+
+.cause-metric-parallel-coords {
+  width: 100%;
+}
+
+.cause-metric-parallel-coords__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* Axis lines */
+.cause-metric-parallel-coords__axis {
+  stroke: #d1d5db;
+  stroke-width: 1;
+}
+
+/* Axis labels */
+.cause-metric-parallel-coords__axis-label {
+  font-size: 10px;
+  fill: #6b7280;
+  text-anchor: middle;
+  dominant-baseline: hanging;
+}
+
+/* Tick labels (0 and 1 on first axis) */
+.cause-metric-parallel-coords__tick-label {
+  font-size: 9px;
+  fill: #9ca3af;
+  text-anchor: end;
+  dominant-baseline: middle;
+}
+
+/* Background lines (well-explained features) */
+.cause-metric-parallel-coords__background-line {
+  fill: none;
+  stroke-width: 1;
+  opacity: 0.05;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Foreground line (current feature) */
+.cause-metric-parallel-coords__foreground-line {
+  fill: none;
+  stroke-width: 2.5;
+  opacity: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Data points on foreground line */
+.cause-metric-parallel-coords__foreground-point {
+  stroke: white;
+  stroke-width: 1.5;
+}
+
+/* Placeholder when no data */
+.cause-metric-parallel-coords__placeholder {
+  font-size: 11px;
+  color: #9ca3af;
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}
+
+/* Legend container */
+.cause-metric-parallel-coords__legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 0 4px 4px 0;
+}
+
+/* Legend item */
+.cause-metric-parallel-coords__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Legend line SVG */
+.cause-metric-parallel-coords__legend-line {
+  flex-shrink: 0;
+}
+
+/* Legend label */
+.cause-metric-parallel-coords__legend-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+}
