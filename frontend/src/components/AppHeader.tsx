@@ -61,7 +61,7 @@ const Header: React.FC = () => {
             <span className="header__sae-value">{saeMetadata.layer}</span>
             <span className="header__sae-separator"></span>
             <span className="header__sae-label">Features:</span>
-            <span className="header__sae-value">{saeMetadata.width}</span>
+            <span className="header__sae-value">{saeMetadata.width ? Number(saeMetadata.width).toLocaleString() : 'N/A'}</span>
           </div>
         )}
 

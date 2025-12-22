@@ -129,7 +129,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_QUALITY]: {
     id: TAG_CATEGORY_QUALITY,
-    label: "Assess Quality",
+    label: "Check Quality",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
     defaultThresholds: [0.6],
@@ -154,7 +154,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_CAUSE]: {
     id: TAG_CATEGORY_CAUSE,
-    label: "Determine Cause",
+    label: "Investigate Cause",
     stageOrder: 3,
     metric: null,  // Pre-defined groups, not metric-based
     defaultThresholds: [],

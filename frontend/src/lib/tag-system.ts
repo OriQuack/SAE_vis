@@ -145,13 +145,13 @@ function assignConstantColors(): void {
         // Note: 'Well-Explained' in Quality uses GREEN, so Cause uses TEAL for distinction
         // ========================================
         case 'Context Miss':
-          colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #ff9da7 - Pink
+          colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #ff9da7 - Pink
           break
         case 'Pattern Miss':
-          colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #edc949 - Yellow
+          colors[tag] = D3_SCHEME_TABLEAU10.ORANGE  // #edc949 - Yellow
           break
         case 'Noisy Activation':
-          colors[tag] = D3_SCHEME_TABLEAU10.ORANGE  // #f28e2c - Orange
+          colors[tag] = D3_SCHEME_TABLEAU10.RED  // #f28e2c - Orange
           break
 
         default:

@@ -163,8 +163,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
 
-  // Measure container height and use for square dimensions
-  const [measuredHeight, setMeasuredHeight] = useState(0)
+  // Measure container dimensions and use minimum for square
+  const [measuredSize, setMeasuredSize] = useState({ width: 0, height: 0 })
 
   useEffect(() => {
     const container = containerRef.current
@@ -173,9 +173,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     const observer = new ResizeObserver(entries => {
       const entry = entries[0]
       if (entry) {
-        const { height } = entry.contentRect
-        if (height > 0) {
-          setMeasuredHeight(height)
+        const { width, height } = entry.contentRect
+        if (width > 0 && height > 0) {
+          setMeasuredSize({ width, height })
         }
       }
     })
@@ -184,8 +184,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return () => observer.disconnect()
   }, [])
 
-  // Square proportion: use container height for both dimensions
-  const size = measuredHeight || propHeight || propWidth || 400
+  // Square proportion: use minimum of width/height to fit within container
+  const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
 
   // Selection mode state
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('cells')
@@ -660,8 +660,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // RENDER
   // ============================================================================
 
-  // Container style - fill height from flex parent, width matches height for square
-  const containerStyle = { width: size, height: '100%' }
+  // Container style - fill available space from flex parent
+  const containerStyle = { width: '100%', height: '100%' }
 
   // Loading state - only block on position loading, not classification
   // Classification loading shows as overlay indicator instead

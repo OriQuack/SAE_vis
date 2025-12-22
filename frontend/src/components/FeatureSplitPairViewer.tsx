@@ -338,29 +338,26 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
       {/* Main content area */}
       <div className="pair-viewer__main">
-        {/* Compact header with pair info and legend */}
+        {/* Header row */}
         <div className="pair-viewer__header">
-        {/* Subheader */}
-        <h4 className="subheader">Activation Examples</h4>
+          {/* Subheader */}
+          <h4 className="subheader">Activation Examples</h4>
 
-        {/* Feature IDs */}
-        <div className="pair-info__ids">
-          <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
-          <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+          {/* Feature IDs */}
+          <div className="pair-info__ids">
+            <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+            <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+          </div>
+
+          {/* Decoder Similarity */}
+          <div className="pair-info__similarity">
+            <span className="similarity__label">Decoder Similarity:</span>
+            <span className="similarity__value">
+              {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
+            </span>
+          </div>
         </div>
-
-        {/* Decoder Similarity */}
-        <div className="pair-info__similarity">
-          <span className="similarity__label">Decoder Similarity:</span>
-          <span className="similarity__value">
-            {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
-          </span>
-        </div>
-
-        {/* Flexible gap to push legend to the right */}
-        <div style={{ flex: 1 }}></div>
-
-        {/* Legend - aligned right */}
+        {/* Activation legend */}
         <div className="pair-viewer__legend">
           <div className="legend-item">
             <span className="legend-sample legend-sample--activation">token</span>:
@@ -375,7 +372,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             <span className="legend-label">Shared Pattern</span>
           </div>
         </div>
-      </div>
 
       {/* Activation examples side-by-side */}
       <div className={`pair-viewer__content ${isLoading ? 'pair-viewer__content--loading' : ''}`}>

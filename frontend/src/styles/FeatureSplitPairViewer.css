@@ -121,9 +121,11 @@
 .pair-viewer__legend {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 4px;
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 11px;
+  padding: 0 8px;
 }
 
 /* Individual legend item */

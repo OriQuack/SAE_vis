@@ -688,44 +688,47 @@ const CauseView: React.FC<CauseViewProps> = ({
         <div className="cause-view__content">
           {/* Top row: UMAP + Selected list overlay + Detail panel */}
           <div className="cause-view__row-top">
-            <UMAPScatter
-              featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
-              className="cause-view__umap"
-              selectedFeatureId={selectedFeatureData?.featureId ?? null}
-            />
+            {/* UMAP wrapper - contains scatter and overlay */}
+            <div className="cause-view__umap-wrapper">
+              <UMAPScatter
+                featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
+                className="cause-view__umap"
+                selectedFeatureId={selectedFeatureData?.featureId ?? null}
+              />
 
-            {/* Selected list - positioned between UMAP and detail panel */}
-            <ScrollableItemList
-              className="cause-view__selected-overlay"
-              variant="causeBrushed"
-              badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
-              columnHeader={{
-                label: 'Decision Margin',
-                sortDirection: selectedSortDirection,
-                onClick: toggleSelectedSortDirection
-              }}
-              items={paginatedSelectedFeatureList}
-              renderItem={renderBottomRowFeatureItem}
-              currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
-              isActive={activeListSource === 'selected'}
-              emptyMessage="Brush to select"
-              pageNavigation={{
-                currentPage: selectedPage,
-                totalPages: selectedTotalPages,
-                onPreviousPage: () => {
-                  if (selectedPage > 0) {
-                    setSelectedPage(selectedPage - 1)
-                    setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
+              {/* Selected list - positioned inside UMAP wrapper */}
+              <ScrollableItemList
+                className="cause-view__selected-overlay"
+                variant="causeBrushed"
+                badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
+                columnHeader={{
+                  label: 'Decision Margin',
+                  sortDirection: selectedSortDirection,
+                  onClick: toggleSelectedSortDirection
+                }}
+                items={paginatedSelectedFeatureList}
+                renderItem={renderBottomRowFeatureItem}
+                currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
+                isActive={activeListSource === 'selected'}
+                emptyMessage="Brush to select"
+                pageNavigation={{
+                  currentPage: selectedPage,
+                  totalPages: selectedTotalPages,
+                  onPreviousPage: () => {
+                    if (selectedPage > 0) {
+                      setSelectedPage(selectedPage - 1)
+                      setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
+                    }
+                  },
+                  onNextPage: () => {
+                    if (selectedPage < selectedTotalPages - 1) {
+                      setSelectedPage(selectedPage + 1)
+                      setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
+                    }
                   }
-                },
-                onNextPage: () => {
-                  if (selectedPage < selectedTotalPages - 1) {
-                    setSelectedPage(selectedPage + 1)
-                    setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
-                  }
-                }
-              }}
-            />
+                }}
+              />
+            </div>
 
             {/* Right: Activation examples and explanations */}
             <div className="cause-view__right-panel" ref={rightPanelRef}>

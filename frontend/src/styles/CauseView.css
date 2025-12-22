@@ -3,7 +3,7 @@
  * ============================================================================
  * Layout:
  *   Header (full width at top)
- *   Body: [SelectionPanel bar (85px)] | [Content area (placeholder)]
+ *   Body: [SelectionPanel (180px)] | [UMAP wrapper (flex)] | [Detail panel (600px)]
  * ============================================================================ */
 
 .cause-view {
@@ -40,7 +40,7 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - Right column with top placeholder + bottom UMAP
+ * CONTENT AREA - Main content column
  * ============================================================================ */
 
 .cause-view__content {
@@ -58,30 +58,46 @@
  * ============================================================================ */
 
 .cause-view__row-top {
-  --detail-panel-width: 700px;
-  position: relative;
+  --detail-panel-width: 600px;
+  display: flex;
+  flex-direction: row;
   flex: 3;
+  min-height: 0;
+  gap: 8px;
+}
+
+/* UMAP wrapper - takes remaining space, contains scatter + overlay */
+.cause-view__umap-wrapper {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  overflow: hidden;
+}
+
+/* UMAP container - fills wrapper */
+.cause-view__umap {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
   min-height: 0;
 }
 
-/* Selected list overlay - positioned left of detail panel */
+/* Selected list overlay - positioned inside UMAP wrapper */
 .cause-view__selected-overlay.scrollable-list {
   position: absolute;
-  top: 0;
-  right: var(--detail-panel-width);
-  width: 240px;
+  top: 8px;
+  right: 0px;
+  width: 200px;
   height: 240px;
   z-index: 10;
-  margin: 8px;
 }
 
-/* Right panel - fixed width, absolute positioned to right */
+/* Right panel - fixed width */
 .cause-view__right-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: var(--detail-panel-width);
+  flex: 0 0 var(--detail-panel-width);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -326,13 +342,6 @@
   padding: 8px;
 }
 
-/* UMAP container - fixed width, flex height */
-.cause-view__umap {
-  flex: 0 0 auto;
-  height: 100%;
-  position: relative;  /* For overlay positioning */
-}
-
 /* ============================================================================
  * FLOATING CONTROLS - Navigation and tag buttons at bottom
  * ============================================================================ */
@@ -492,17 +501,6 @@
 .cause-view .selection__button--well-explained:hover:not(.selected) {
   color: #000;
   transform: scale(1.08);
-}
-
-/* ============================================================================
- * ACTION SECTION - Modality indicator + action buttons container (horizontal in bottom row)
- * ============================================================================ */
-
-.cause-view__action-section {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
 }
 
 /* ============================================================================
