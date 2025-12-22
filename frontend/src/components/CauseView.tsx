@@ -95,7 +95,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [selectedPage, setSelectedPage] = useState(0)
 
   // Pagination for selected features list
-  const ITEMS_PER_PAGE = 5
+  const ITEMS_PER_PAGE = 8
   const rightPanelRef = useRef<HTMLDivElement>(null)
   const hasAutoTaggedRef = useRef(false)
 
