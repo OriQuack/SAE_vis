@@ -313,6 +313,7 @@ interface AppState {
 
   // UMAP projection state (for Stage 3 CauseView scatter plot)
   umapProjection: UmapPoint[] | null
+  umapFeatureSignature: string | null  // Signature of last-fetched feature IDs (prevents redundant API calls)
   umapLoading: boolean
   umapError: string | null
   umapBrushedFeatureIds: Set<number>
@@ -453,6 +454,7 @@ const initialState = {
 
   // UMAP projection state
   umapProjection: null,
+  umapFeatureSignature: null,
   umapLoading: false,
   umapError: null,
   umapBrushedFeatureIds: new Set<number>(),

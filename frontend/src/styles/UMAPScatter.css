@@ -142,25 +142,12 @@
   height: 100%;
 }
 
-/* SVG for contours and lasso (base layer) */
+/* SVG for cell grid (base layer) */
 .umap-scatter__svg {
   position: absolute;
   top: 0;
   left: 0;
-  cursor: crosshair;
-}
-
-/* Contour styling */
-.umap-scatter__contours path {
-  pointer-events: none;
-}
-
-/* Lasso selection paths */
-.umap-scatter__lasso,
-.umap-scatter__lasso-shadow,
-.umap-scatter__lasso-inner {
-  pointer-events: none;
-  transition: fill 0.15s ease;
+  cursor: pointer;
 }
 
 /* Canvas for brushed points (top layer) */
@@ -191,51 +178,6 @@
 .umap-scatter__spinner--small {
   width: 12px;
   height: 12px;
-}
-
-/* ============================================================================
-   MODE TOGGLE
-   ============================================================================ */
-
-.umap-scatter__mode-toggle {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 2px;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 6px;
-  padding: 2px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  z-index: 10;
-}
-
-.umap-scatter__mode-btn {
-  padding: 4px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary, #6b7280);
-  background: transparent;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.umap-scatter__mode-btn:hover {
-  color: var(--text-primary, #374151);
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.umap-scatter__mode-btn--active {
-  color: #fff;
-  background: var(--color-primary, #3b82f6);
-}
-
-.umap-scatter__mode-btn--active:hover {
-  color: #fff;
-  background: var(--color-primary-dark, #2563eb);
 }
 
 /* ============================================================================

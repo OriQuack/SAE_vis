@@ -870,103 +870,109 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
-                {/* Button 1: Tag selected as Noisy Activation */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('noisy-activation')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Noisy Activation"
-                  >
-                    Tag Selected as Noisy Activation
-                  </button>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
+                {/* Row 1: Tag Selected Cell */}
+                <div className="cause-view__action-section">
+                  <span className="cause-view__action-header">Tag Remaining in Selected Cell as</span>
+                  <div className="cause-view__action-row">
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
+                        onClick={() => handleTagSelectedAs('noisy-activation')}
+                        disabled={umapBrushedFeatureIds.size === 0}
+                        title="Tag all selected features as Noisy Activation"
+                      >
+                        Noisy Activation
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
+                        onClick={() => handleTagSelectedAs('missed-N-gram')}
+                        disabled={umapBrushedFeatureIds.size === 0}
+                        title="Tag all selected features as Pattern Miss"
+                      >
+                        Pattern Miss
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                      </div>
+                    </div>
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
+                        onClick={() => handleTagSelectedAs('missed-context')}
+                        disabled={umapBrushedFeatureIds.size === 0}
+                        title="Tag all selected features as Context Miss"
+                      >
+                        Context Miss
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Button 2: Tag selected as Context Miss */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('missed-context')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Context Miss"
-                  >
-                    Tag Selected as Context Miss
-                  </button>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Button 3: Tag selected as Pattern Miss */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button"
-                    onClick={() => handleTagSelectedAs('missed-N-gram')}
-                    disabled={umapBrushedFeatureIds.size === 0}
-                    title="Tag all selected features as Pattern Miss"
-                  >
-                    Tag Selected as Pattern Miss
-                  </button>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                      <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* Button 4: Tag Remaining by Boundary */}
-                <div className="action-button-item">
-                  <button
-                    className="action-button action-button--primary"
-                    onClick={handleTagRemainingByBoundary}
-                    disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                    title="Auto-tag remaining features using SVM decision boundary"
-                  >
-                    Tag Remaining by Boundary
-                  </button>
-                  <div className="action-button__legend">
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                      <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
-                    </span>
-                    <span className="action-button__legend-arrow">→</span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
-                    </span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
-                    </span>
-                    <span className="action-button__legend-item">
-                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                      <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                    </span>
+                {/* Row 2: Tag All Remaining */}
+                <div className="cause-view__action-section">
+                  <span className="cause-view__action-header">Tag All Remaining</span>
+                  <div className="cause-view__action-row">
+                    <div className="action-button-item">
+                      <button
+                        className="action-button action-button--primary"
+                        onClick={handleTagRemainingByBoundary}
+                        disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                        title="Auto-tag remaining features using SVM decision boundary"
+                      >
+                        By SVM Boundary
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                          <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
+                        </span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                          <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
+                        </span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                          <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

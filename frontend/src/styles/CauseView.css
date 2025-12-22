@@ -505,28 +505,35 @@
 
 .cause-view__action-buttons {
   display: flex;
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: stretch;
-  gap: 6px;
+  flex-direction: column;
+  gap: 8px;
   flex-shrink: 0;
-  padding: 8px;
+  padding: 8px 12px;
   background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
 }
 
-.cause-view__action-buttons .action-button-item {
-  flex: 1 1 calc(50% - 3px);
-  min-width: 0;
+.cause-view__action-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.cause-view__action-buttons .action-button {
-  width: 100%;
+.cause-view__action-header {
   font-size: 11px;
-  padding: 4px 8px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.025em;
 }
 
-.cause-view__action-buttons .action-button__legend {
-  font-size: 10px;
+.cause-view__action-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+}
+
+.cause-view__action-row .action-button-item {
+  flex: 1;
 }

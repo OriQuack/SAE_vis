@@ -1,14 +1,11 @@
 import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react'
-import { polygonContains } from 'd3-polygon'
 import { useVisualizationStore } from '../store/index'
 import { useResizeObserver } from '../lib/utils'
 import {
   getCauseColor,
   computeBarycentricScales,
-  computeCategoryContours,
   getTrianglePathString,
   spreadBarycentricPoints,
-  CONTOUR_CONFIG,
   BARYCENTRIC_TRIANGLE,
   type CauseCategory
 } from '../lib/umap-utils'
@@ -23,11 +20,11 @@ import {
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
-// UMAP SCATTER PLOT COMPONENT - HYBRID VISUALIZATION
+// UMAP SCATTER PLOT COMPONENT - CELL-BASED VISUALIZATION
 // ============================================================================
 // Displays 2D UMAP projection using:
-// - Density contours per cause category (always visible)
-// - Individual points on brush selection (reveal on demand)
+// - Triangle cell grid for region selection
+// - Individual points on cell selection (reveal on demand)
 
 interface UMAPScatterProps {
   featureIds: number[]
@@ -42,9 +39,6 @@ const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
-
-// Selection mode type
-type SelectionMode = 'cells' | 'lasso'
 
 // Cell category info for SVM visualization
 interface CellCategoryInfo {
@@ -174,20 +168,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Square proportion: use minimum of width/height to fit within container
   const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
 
-  // Selection mode state
-  const [selectionMode, setSelectionMode] = useState<SelectionMode>('cells')
-
-  // Lasso state
-  const [isDrawing, setIsDrawing] = useState(false)
-  const [lassoPath, setLassoPath] = useState<[number, number][]>([])
-  const justFinishedDrawing = useRef(false)
-  const isDrawingRef = useRef(false)  // Ref for immediate access in handlers
-
   // Cell grid state
   const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null)
-
-  // Track previous featureIds to avoid unnecessary refetches
-  const prevFeatureIdsRef = useRef<string>('')
 
   // Store state
   const umapProjection = useVisualizationStore(state => state.umapProjection)
@@ -231,22 +213,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const prevManualTagsRef = useRef<string>('')
 
   // Fetch barycentric positions when feature IDs change
+  // Memoization is handled in the store - it skips API call if data is already cached
   useEffect(() => {
-    const featureSignature = featureIds.length >= 3
-      ? `${featureIds.length}:${featureIds.slice(0, 5).join(',')}`
-      : ''
-
-    const featureIdsChanged = featureSignature !== prevFeatureIdsRef.current
-    prevFeatureIdsRef.current = featureSignature
-
-    if (!featureIdsChanged) return
-
     if (featureIds.length < 3) {
       clearUmapProjection()
       return
     }
 
-    // Always fetch barycentric positions (precomputed, no options needed)
+    // Store handles memoization: skips API call if same featureIds already fetched
     fetchUmapProjection(featureIds)
   }, [featureIds, fetchUmapProjection, clearUmapProjection])
 
@@ -337,31 +311,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return info
   }, [gridState, causeSelectionStates])
 
-  // Compute density contours per category (using spread points)
-  const categoryContours = useMemo(() => {
-    if (!spreadPoints || !scales || chartWidth <= 0 || chartHeight <= 0) {
-      return []
-    }
-    return computeCategoryContours(
-      spreadPoints,
-      causeSelectionStates as Map<number, CauseCategory>,
-      chartWidth,
-      chartHeight,
-      scales,
-      15,  // bandwidth (smaller = more detail)
-      10   // threshold levels (more = finer contours)
-    )
-  }, [spreadPoints, causeSelectionStates, chartWidth, chartHeight, scales])
-
-  // Get mouse position relative to SVG (works with both React and native events)
-  const getMousePosition = useCallback((e: MouseEvent | React.MouseEvent): [number, number] => {
-    const svg = svgRef.current
-    if (!svg) return [0, 0]
-    const rect = svg.getBoundingClientRect()
-    return [e.clientX - rect.left, e.clientY - rect.top]
-  }, [])
-
-  // Cell click handler (for cell mode)
+  // Cell click handler
   const handleCellClick = useCallback((cell: TriangleCell) => {
     setUmapBrushedFeatureIds(cell.featureIds)
   }, [setUmapBrushedFeatureIds])
@@ -379,117 +329,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     }
   }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
-
-  // Lasso mouse handlers (only active in lasso mode)
-  const handleMouseDown = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    // Only active in lasso mode
-    if (selectionMode !== 'lasso') return
-    // Only respond to left mouse button
-    if (e.button !== 0) return
-
-    e.preventDefault()
-    const pos = getMousePosition(e)
-    isDrawingRef.current = true
-    setIsDrawing(true)
-    setLassoPath([pos])
-    setUmapBrushedFeatureIds(new Set())
-  }, [selectionMode, getMousePosition, setUmapBrushedFeatureIds])
-
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    // Use ref for immediate check (avoids stale closure issues)
-    if (!isDrawingRef.current) return
-
-    const pos = getMousePosition(e)
-    setLassoPath(prev => [...prev, pos])
-  }, [getMousePosition])
-
-  const handleMouseUp = useCallback(() => {
-    // Use ref for immediate check
-    if (!isDrawingRef.current) {
-      return
-    }
-
-    isDrawingRef.current = false
-    setIsDrawing(false)
-    justFinishedDrawing.current = true
-  }, [])
-
-  // Finalize lasso selection when drawing ends (separate from mouseup handler)
-  useEffect(() => {
-    // Only run when we just finished drawing (isDrawing went from true to false)
-    if (isDrawing || !justFinishedDrawing.current) return
-
-    if (!scales || !spreadPoints) {
-      return
-    }
-
-    // Need at least 3 points to form a polygon
-    if (lassoPath.length < 3) {
-      setLassoPath([])
-      return
-    }
-
-    // Find points inside the lasso polygon (using spread points for visual consistency)
-    const selectedIds = new Set<number>()
-    for (const point of spreadPoints) {
-      const px = scales.xScale(point.x)
-      const py = scales.yScale(point.y)
-      if (polygonContains(lassoPath, [px, py])) {
-        selectedIds.add(point.feature_id)
-      }
-    }
-
-    setUmapBrushedFeatureIds(selectedIds)
-    // Keep the lasso path visible after selection
-  }, [isDrawing, lassoPath, scales, spreadPoints, setUmapBrushedFeatureIds])
-
-  // Attach global mouse handlers when drawing to continue lasso outside SVG
-  // Also disable pointer events on other elements to prevent hover effects
-  useEffect(() => {
-    if (!isDrawing) return
-
-    document.body.classList.add('umap-lasso-drawing')
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      document.body.classList.remove('umap-lasso-drawing')
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [isDrawing, handleMouseMove, handleMouseUp])
-
-  // Clear selection on click outside (lasso mode only)
-  const handleClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    // Only active in lasso mode
-    if (selectionMode !== 'lasso') return
-    // Only respond to left mouse button
-    if (e.button !== 0) return
-
-    // Skip if we just finished drawing (click fires after mouseup)
-    if (justFinishedDrawing.current) {
-      justFinishedDrawing.current = false
-      return
-    }
-
-    // Clear selection if there's an existing lasso
-    if (lassoPath.length > 0) {
-      setLassoPath([])
-      setUmapBrushedFeatureIds(new Set())
-    }
-  }, [selectionMode, lassoPath, setUmapBrushedFeatureIds])
-
-  // Convert lasso path to SVG path string
-  const lassoPathString = useMemo(() => {
-    if (lassoPath.length < 2) return ''
-    const pathParts = lassoPath.map((p, i) =>
-      i === 0 ? `M ${p[0]} ${p[1]}` : `L ${p[0]} ${p[1]}`
-    )
-    if (!isDrawing && lassoPath.length >= 3) {
-      pathParts.push('Z')  // Close the path when done drawing
-    }
-    return pathParts.join(' ')
-  }, [lassoPath, isDrawing])
 
   // Get set of manually tagged feature IDs for rendering
   const manuallyTaggedIds = useMemo(() => {
@@ -694,14 +533,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       >
         {/* Chart area */}
         <div className="umap-scatter__chart">
-        {/* SVG for contours + lasso */}
+        {/* SVG for cell grid */}
         <svg
           ref={svgRef}
           className="umap-scatter__svg"
           width={chartWidth}
           height={chartHeight}
-          onMouseDown={handleMouseDown}
-          onClick={handleClick}
         >
           {/* Triangle outline */}
           {trianglePath && (
@@ -714,35 +551,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             />
           )}
 
-          {/* Density contours per category (lasso mode only) */}
-          {selectionMode === 'lasso' && (
-            <g className="umap-scatter__contours">
-              {categoryContours.map(({ category, color, paths }) => (
-                <g key={category} className={`umap-scatter__contour-group umap-scatter__contour-group--${category}`}>
-                  {paths.map((path, i) => {
-                    // Outer contours are more transparent
-                    const levelOpacity = CONTOUR_CONFIG.levelOpacities[
-                      Math.min(i, CONTOUR_CONFIG.levelOpacities.length - 1)
-                    ]
-                    return (
-                      <path
-                        key={i}
-                        d={path}
-                        fill={color}
-                        fillOpacity={CONTOUR_CONFIG.fillOpacity * levelOpacity}
-                        stroke={color}
-                        strokeOpacity={CONTOUR_CONFIG.strokeOpacity * levelOpacity}
-                        strokeWidth={CONTOUR_CONFIG.strokeWidth}
-                      />
-                    )
-                  })}
-                </g>
-              ))}
-            </g>
-          )}
-
-          {/* Triangle cell grid (cell mode only) */}
-          {selectionMode === 'cells' && gridState && scales && (
+          {/* Triangle cell grid */}
+          {gridState && scales && (
             <g className="umap-scatter__cell-grid">
               {Array.from(gridState.leafCells).map(key => {
                 const cell = gridState.cells.get(key)
@@ -791,45 +601,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
                 )
               })}
             </g>
-          )}
-
-          {/* Lasso selection path (lasso mode only) */}
-          {selectionMode === 'lasso' && lassoPathString && (
-            <>
-              {/* Outer glow/shadow */}
-              <path
-                d={lassoPathString}
-                className="umap-scatter__lasso-shadow"
-                fill="none"
-                stroke="rgba(0, 0, 0, 0.15)"
-                strokeWidth={4}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              {/* Main lasso line */}
-              <path
-                d={lassoPathString}
-                className="umap-scatter__lasso"
-                fill={isDrawing ? 'none' : 'rgba(59, 130, 246, 0.08)'}
-                stroke={isDrawing ? '#3b82f6' : '#2563eb'}
-                strokeWidth={2}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeDasharray={isDrawing ? '6,4' : 'none'}
-              />
-              {/* Inner highlight (when completed) */}
-              {!isDrawing && (
-                <path
-                  d={lassoPathString}
-                  className="umap-scatter__lasso-inner"
-                  fill="none"
-                  stroke="rgba(255, 255, 255, 0.6)"
-                  strokeWidth={1}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              )}
-            </>
           )}
         </svg>
 
@@ -884,30 +655,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           </>
         )}
         </div>
-      </div>
-
-      {/* Mode toggle */}
-      <div className="umap-scatter__mode-toggle">
-        <button
-          className={`umap-scatter__mode-btn ${selectionMode === 'cells' ? 'umap-scatter__mode-btn--active' : ''}`}
-          onClick={() => {
-            setSelectionMode('cells')
-            setLassoPath([])  // Clear lasso when switching
-          }}
-          title="Cell selection"
-        >
-          Cells
-        </button>
-        <button
-          className={`umap-scatter__mode-btn ${selectionMode === 'lasso' ? 'umap-scatter__mode-btn--active' : ''}`}
-          onClick={() => {
-            setSelectionMode('lasso')
-            setHoveredCellKey(null)  // Clear hover when switching
-          }}
-          title="Lasso selection"
-        >
-          Lasso
-        </button>
       </div>
 
       {/* Unified legend panel */}

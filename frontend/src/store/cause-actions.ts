@@ -225,25 +225,45 @@ export const createCauseActions = (set: any, get: any) => ({
   /**
    * Fetch UMAP 2D projection for the given features.
    * Uses cause-related metrics: semantic_similarity, score_detection, score_embedding, score_fuzz
+   *
+   * Memoization: Skips API call if the same featureIds have already been fetched
+   * and data is cached in the store. This prevents redundant fetches when
+   * revisiting CauseView.
    */
   fetchUmapProjection: async (
     featureIds: number[],
     options?: { nNeighbors?: number; minDist?: number }
   ) => {
-    console.log('[Store.fetchUmapProjection] Starting UMAP projection:', {
-      featureCount: featureIds.length,
-      options
-    })
-
     // Validate minimum features (UMAP requires at least 3)
     if (featureIds.length < 3) {
       console.warn('[Store.fetchUmapProjection] ⚠️ UMAP requires at least 3 features')
       set({
         umapError: 'UMAP requires at least 3 features',
-        umapLoading: false
+        umapLoading: false,
+        umapFeatureSignature: null
       })
       return
     }
+
+    // Compute stable signature: sorted feature IDs joined
+    const sortedIds = [...featureIds].sort((a, b) => a - b)
+    const signature = `${sortedIds.length}:${sortedIds.join(',')}`
+
+    // Check if we already have this data cached
+    const state = get()
+    if (state.umapFeatureSignature === signature && state.umapProjection !== null) {
+      console.log('[Store.fetchUmapProjection] ⚡ Using cached UMAP projection:', {
+        featureCount: featureIds.length,
+        cachedPoints: state.umapProjection.length
+      })
+      return
+    }
+
+    console.log('[Store.fetchUmapProjection] Starting UMAP projection:', {
+      featureCount: featureIds.length,
+      options,
+      signatureChanged: state.umapFeatureSignature !== signature
+    })
 
     try {
       set({ umapLoading: true, umapError: null })
@@ -258,6 +278,7 @@ export const createCauseActions = (set: any, get: any) => ({
 
       set({
         umapProjection: response.points,
+        umapFeatureSignature: signature,
         umapLoading: false,
         umapError: null
       })
@@ -265,7 +286,8 @@ export const createCauseActions = (set: any, get: any) => ({
       console.error('[Store.fetchUmapProjection] ❌ Failed to fetch UMAP projection:', error)
       set({
         umapError: error instanceof Error ? error.message : 'Failed to fetch UMAP projection',
-        umapLoading: false
+        umapLoading: false,
+        umapFeatureSignature: null
       })
     }
   },
@@ -363,12 +385,13 @@ export const createCauseActions = (set: any, get: any) => ({
   },
 
   /**
-   * Clear UMAP projection state
+   * Clear UMAP projection state (including cached signature)
    */
   clearUmapProjection: () => {
     console.log('[Store.clearUmapProjection] Clearing UMAP projection state')
     set({
       umapProjection: null,
+      umapFeatureSignature: null,
       umapLoading: false,
       umapError: null,
       umapBrushedFeatureIds: new Set<number>()
