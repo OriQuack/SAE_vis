@@ -786,22 +786,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <div className="cause-view__explanation-content">
                         {bestExplanation ? (
                           <div className="cause-view__explainer-block">
-                            {/* Explainer symbol */}
-                            {bestExplanation.explainerId === 'llama' && (
-                              <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
-                                <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
-                              </svg>
-                            )}
-                            {bestExplanation.explainerId === 'gemini' && (
-                              <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
-                                <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
-                              </svg>
-                            )}
-                            {bestExplanation.explainerId === 'openai' && (
-                              <svg width="16" height="16" viewBox="0 0 14 14" className="cause-view__explainer-symbol">
-                                <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
-                              </svg>
-                            )}
                             <span
                               className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
                             >

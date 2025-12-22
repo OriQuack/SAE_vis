@@ -98,53 +98,11 @@ function adjustColorByPurity(hexColor: string, purity: number): string {
   return `hsl(${h}, ${targetS}%, ${targetL}%)`
 }
 
-// Shape type for explainer positions
-type ExplainerShape = 'square' | 'diamond' | 'triangle'
-
-// Shape mapping for each LLM explainer (using full model names from backend)
-const EXPLAINER_SHAPES: Record<string, ExplainerShape> = {
-  'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4': 'square',  // llama
-  'google/gemini-flash-2.5': 'diamond',                             // gemini
-  'openai/gpt-4o-mini': 'triangle'                                  // openai
-}
-
-// Draw a shape on canvas at (x, y) with given size
-// Sizes are adjusted for equal visual weight (same area)
-function drawShape(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  size: number,
-  shape: ExplainerShape
-) {
-  ctx.beginPath()
-  switch (shape) {
-    case 'square':
-      // Area = 4 * size²
-      ctx.rect(x - size, y - size, size * 2, size * 2)
-      break
-    case 'diamond': {
-      // Base diamond area = 2 * size², scale by √2 ≈ 1.41 for equal area
-      const d = size * 1.41
-      ctx.moveTo(x, y - d)
-      ctx.lineTo(x + d, y)
-      ctx.lineTo(x, y + d)
-      ctx.lineTo(x - d, y)
-      ctx.closePath()
-      break
-    }
-    case 'triangle': {
-      // Match legend proportions: base=12, height=11 in 14x14 viewBox
-      // Scale for equal visual weight with square
-      const halfBase = size * 1.5
-      const height = size * 2.75
-      ctx.moveTo(x, y - height / 2)              // Top vertex
-      ctx.lineTo(x + halfBase, y + height / 2)   // Bottom right
-      ctx.lineTo(x - halfBase, y + height / 2)   // Bottom left
-      ctx.closePath()
-      break
-    }
-  }
+// Short name mapping for each LLM explainer (using full model names from backend)
+const EXPLAINER_SHORT_NAMES: Record<string, string> = {
+  'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4': 'Llama',
+  'google/gemini-flash-2.5': 'Gemini',
+  'openai/gpt-4o-mini': 'OpenAI'
 }
 
 const UMAPScatter: React.FC<UMAPScatterProps> = ({
@@ -434,16 +392,40 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
         ctx.setLineDash([])
 
-        // Draw explainer points (blue, different shapes per explainer)
+        // Draw explainer points with text labels
+        const badgeGray = '#374151'  // Dark gray for badge background
         for (const ep of selectedPoint.explainer_positions) {
           const epX = scales.xScale(ep.x)
           const epY = scales.yScale(ep.y)
-          const shape = EXPLAINER_SHAPES[ep.explainer] || 'square'
+          const shortName = EXPLAINER_SHORT_NAMES[ep.explainer] || ep.explainer
 
-          drawShape(ctx, epX, epY, 4, shape)
+          // Draw small circle at explainer position (blue)
+          ctx.beginPath()
+          ctx.arc(epX, epY, 3, 0, Math.PI * 2)
           ctx.fillStyle = selectionBlue
           ctx.globalAlpha = 1
           ctx.fill()
+
+          // Draw text label with background (above the point)
+          ctx.font = '10px system-ui, -apple-system, sans-serif'
+          ctx.textAlign = 'center'
+          ctx.textBaseline = 'bottom'
+          const textWidth = ctx.measureText(shortName).width
+          const padding = 3
+          const labelX = epX
+          const labelY = epY - 8  // Position above the point
+
+          // Draw badge background (dark gray)
+          ctx.fillStyle = badgeGray
+          ctx.globalAlpha = 0.9
+          ctx.beginPath()
+          ctx.roundRect(labelX - textWidth / 2 - padding, labelY - 12, textWidth + padding * 2, 14, 3)
+          ctx.fill()
+
+          // Draw text
+          ctx.fillStyle = '#fff'
+          ctx.globalAlpha = 1
+          ctx.fillText(shortName, labelX, labelY)
         }
       }
 
@@ -659,28 +641,13 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
       {/* Unified legend panel */}
       <div className="umap-scatter__unified-legend">
-        {/* Explainer shapes */}
+        {/* Explainer badges */}
         <div className="umap-scatter__legend-section">
           <span className="umap-scatter__legend-title">Explainer</span>
           <div className="umap-scatter__legend-items">
-            <div className="umap-scatter__legend-item">
-              <svg width="12" height="12" viewBox="0 0 14 14">
-                <rect x="3" y="3" width="8" height="8" fill="#3b82f6"/>
-              </svg>
-              <span>Llama</span>
-            </div>
-            <div className="umap-scatter__legend-item">
-              <svg width="12" height="12" viewBox="0 0 14 14">
-                <polygon points="7,0.5 13,7 7,13.5 1,7" fill="#3b82f6"/>
-              </svg>
-              <span>Gemini</span>
-            </div>
-            <div className="umap-scatter__legend-item">
-              <svg width="12" height="12" viewBox="0 0 14 14">
-                <polygon points="7,1 13,12 1,12" fill="#3b82f6"/>
-              </svg>
-              <span>OpenAI</span>
-            </div>
+            <span className="umap-scatter__explainer-badge">Llama</span>
+            <span className="umap-scatter__explainer-badge">Gemini</span>
+            <span className="umap-scatter__explainer-badge">OpenAI</span>
           </div>
         </div>
         {/* Purity gradient */}
