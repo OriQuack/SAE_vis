@@ -64,6 +64,7 @@
   gap: 0;
   overflow: hidden;
   flex-shrink: 0;
+  flex: 1;
 }
 
 /* Note: Bottom row styles are now in ThresholdTaggingPanel.css */

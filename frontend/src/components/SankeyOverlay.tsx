@@ -8,7 +8,7 @@ import {
 // Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
-import { TAG_CATEGORIES, METRIC_QUALITY_SCORE, SANKEY_COLORS } from '../lib/constants'
+import { TAG_CATEGORIES, METRIC_QUALITY_SCORE, SANKEY_COLORS, UNSURE_GRAY } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 // Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
@@ -196,28 +196,39 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               // Check if this is a terminal segment
               const isTerminal = segmentTagName ? isTerminalSegment(segmentTagName) : false
 
+              // For terminal segments: use UNSURE_GRAY base with colored stripe pattern
+              // For non-terminal: use tag color
+              const baseFill = isTerminal ? UNSURE_GRAY : fillColor
+
+              // Get the appropriate stripe pattern based on tag name
+              const stripePattern = segmentTagName === 'Fragmented'
+                ? 'url(#terminal-stripes-fragmented)'
+                : segmentTagName === 'Well-Explained'
+                  ? 'url(#terminal-stripes-well-explained)'
+                  : null
+
               return (
                 <g key={`${barIndex}-${segmentIndex}`}>
-                  {/* Base colored rectangle */}
+                  {/* Base rectangle - UNSURE_GRAY for terminal, tag color for others */}
                   <rect
                     x={segment.x}
                     y={segment.y - layout.y}  // Adjust y relative to group transform
                     width={segment.width}
                     height={segment.height}
-                    fill={fillColor}
-                    fillOpacity={0.85}
+                    fill={baseFill}
+                    fillOpacity={isTerminal ? 1 : 0.85}
                     stroke="white"
                     strokeWidth={0.3}
                     strokeOpacity={0.6}
                   />
-                  {/* Stripe overlay for terminal segments */}
-                  {isTerminal && (
+                  {/* Colored stripe overlay for terminal segments */}
+                  {isTerminal && stripePattern && (
                     <rect
                       x={segment.x}
                       y={segment.y - layout.y}
                       width={segment.width}
                       height={segment.height}
-                      fill="url(#terminal-stripes)"
+                      fill={stripePattern}
                       stroke="none"
                       pointerEvents="none"
                     />

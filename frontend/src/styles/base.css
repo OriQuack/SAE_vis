@@ -15,8 +15,8 @@
   --border-thin: #e5e7eb;     /* Thin borders - divides rows, columns, subrows */
   --border-thick: #d1d5db;    /* Thick borders - divides headers from content */
 
-  /* Selection State Colors */
-  --unsure-gray: #9d9d9dff;   /* Unsure/untagged state - badges, buttons, bars, tags */
+  /* Selection State Colors - Matches UNSURE_GRAY from lib/constants.ts */
+  --unsure-gray: #e0e0e0ff;   /* Unsure/untagged state - badges, buttons, bars, tags */
 }
 
 /* Reset and base styles */
@@ -289,14 +289,16 @@ body {
   flex-shrink: 0;
 }
 
-/* Striped swatch - diagonal stripes (preview/current state) */
+/* Striped swatch - diagonal stripes (preview/current state)
+   Uses STRIPE_PATTERN.small variant (2px stripes on 4px pattern)
+   Rotation: -45° (unified with other stripe patterns, \ direction) */
 .action-button__legend-swatch--striped {
   background: repeating-linear-gradient(
     -45deg,
-    var(--swatch-color),
+    var(--unsure-gray),
+    var(--unsure-gray) 2px,
     var(--swatch-color) 2px,
-    #e0e0e0 2px,
-    #e0e0e0 4px
+    var(--swatch-color) 4px
   );
   border: 1px solid var(--swatch-color);
 }

@@ -94,7 +94,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  gap: 4px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -503,7 +503,6 @@
   gap: 8px;
   flex-shrink: 0;
   padding: 8px 12px;
-  background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 6px;
 }

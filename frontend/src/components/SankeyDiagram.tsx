@@ -21,9 +21,11 @@ import {
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  SANKEY_COLORS
+  SANKEY_COLORS,
+  UNSURE_GRAY
 } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { STRIPE_PATTERN, addOpacityToHex } from '../lib/color-utils'
 import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
 import '../styles/SankeyDiagram.css'
@@ -273,7 +275,7 @@ const VerticalBarSankeyNode: React.FC<{
           const segmentKey = `${node.id}_${index}`
           return (
             <g key={`segment-${index}`}>
-              {/* Base colored rectangle */}
+              {/* Base rectangle - gray for terminal, colored for non-terminal */}
               <rect
                 ref={(el) => {
                   if (el && segmentRefs) {
@@ -288,7 +290,7 @@ const VerticalBarSankeyNode: React.FC<{
                 width={(node.x1 || 0) - (node.x0 || 0)}
                 height={segment.height}
                 rx={2}
-                fill={segment.color}
+                fill={isTerminal ? UNSURE_GRAY : segment.color}
                 opacity={SANKEY_COLORS.NODE_OPACITY}
                 stroke={SANKEY_COLORS.SEGMENT_STROKE}
                 strokeWidth={1}
@@ -305,7 +307,7 @@ const VerticalBarSankeyNode: React.FC<{
               >
                 <title>{`${segment.label}\n${segment.featureCount} features`}</title>
               </rect>
-              {/* Stripe overlay for terminal segments */}
+              {/* Stripe overlay for terminal segments - colored stripes on gray */}
               {isTerminal && (
                 <rect
                   className="sankey-vertical-bar-segment-stripes"
@@ -314,7 +316,9 @@ const VerticalBarSankeyNode: React.FC<{
                   width={(node.x1 || 0) - (node.x0 || 0)}
                   height={segment.height}
                   rx={2}
-                  fill="url(#terminal-stripes)"
+                  fill={segment.label === 'Fragmented'
+                    ? 'url(#terminal-stripes-fragmented)'
+                    : 'url(#terminal-stripes-well-explained)'}
                   stroke="none"
                   pointerEvents="none"
                   style={{
@@ -786,9 +790,51 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       >
         <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg">
           <defs>
-            {/* Stripe pattern for terminal segments */}
-            <pattern id="terminal-stripes" patternUnits="userSpaceOnUse" width="12" height="12" patternTransform="rotate(45)">
-              <line x1="0" y1="0" x2="0" y2="12" stroke="white" strokeWidth="5" opacity="0.4" />
+            {/* Stripe patterns for terminal segments - colored stripes on gray background */}
+            {/* Uses STRIPE_PATTERN constants for unified styling */}
+            {/* SVG patternTransform uses negative rotation to match CSS gradient visually */}
+            {/* Pattern for Fragmented (Stage 1 terminal) */}
+            <pattern
+              id="terminal-stripes-fragmented"
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_PATTERN.width}
+              height={STRIPE_PATTERN.height}
+              patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+            >
+              <rect
+                width={STRIPE_PATTERN.stripeWidth}
+                height={STRIPE_PATTERN.height}
+                fill={addOpacityToHex(getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442', STRIPE_PATTERN.opacity)}
+              />
+            </pattern>
+            {/* Pattern for Well-Explained (Stage 2 terminal) */}
+            <pattern
+              id="terminal-stripes-well-explained"
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_PATTERN.width}
+              height={STRIPE_PATTERN.height}
+              patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+            >
+              <rect
+                width={STRIPE_PATTERN.stripeWidth}
+                height={STRIPE_PATTERN.height}
+                fill={addOpacityToHex(getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#009E73', STRIPE_PATTERN.opacity)}
+              />
+            </pattern>
+            {/* Generic pattern for SankeyOverlay (unsure gray stripes on transparent) */}
+            <pattern
+              id="terminal-stripes"
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_PATTERN.width}
+              height={STRIPE_PATTERN.height}
+              patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+            >
+              <rect
+                width={STRIPE_PATTERN.stripeWidth}
+                height={STRIPE_PATTERN.height}
+                fill={UNSURE_GRAY}
+                opacity={STRIPE_PATTERN.opacity}
+              />
             </pattern>
           </defs>
           <rect width={containerSize.width} height={containerSize.height} fill={SANKEY_COLORS.BACKGROUND} />

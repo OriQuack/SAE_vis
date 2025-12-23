@@ -537,23 +537,21 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     height={histogramChart.height}
                     fill="url(#autoRejectedPreviewStripe)"
                   />
-                  {/* Zone 2: Reject threshold to 0 (grey, unsure) */}
+                  {/* Zone 2: Reject threshold to 0 (white, unsure) */}
                   <rect
                     x={safeThresholdPositions.rejectX}
                     y={0}
                     width={Math.max(0, histogramChart.xScale(0) - safeThresholdPositions.rejectX)}
                     height={histogramChart.height}
-                    fill="#999"
-                    opacity={0.1}
+                    fill="#ffffff"
                   />
-                  {/* Zone 3: 0 to select threshold (grey, unsure - same as zone 2) */}
+                  {/* Zone 3: 0 to select threshold (white, unsure - same as zone 2) */}
                   <rect
                     x={histogramChart.xScale(0)}
                     y={0}
                     width={Math.max(0, safeThresholdPositions.selectX - histogramChart.xScale(0))}
                     height={histogramChart.height}
-                    fill="#999"
-                    opacity={0.1}
+                    fill="#ffffff"
                   />
                   {/* Zone 4: Select threshold to right edge (blue stripe, auto-selected preview) */}
                   <rect

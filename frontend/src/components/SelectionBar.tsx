@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory, TAG_CATEGORY_CAUSE } from '../lib/constants'
-import { getSelectionColors, STRIPE_PATTERN, type TableStage } from '../lib/color-utils'
+import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/SelectionBar.css'
 
@@ -299,19 +299,13 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
               } : {
                 width: `${percentage}%`
               }),
-              // For auto-tagged segments: stripes of category color with unsure-colored gaps
+              // For auto-tagged segments: colored stripes on unsure gray background
               // For manual segments: solid category color
               backgroundColor: (category === 'autoSelected' || category === 'autoRejected')
                 ? stageColors.unsure
                 : getColor(category),
               ...((category === 'autoSelected' || category === 'autoRejected') ? {
-                backgroundImage: `repeating-linear-gradient(
-                  ${STRIPE_PATTERN.rotation}deg,
-                  ${stageColors.unsure},
-                  ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                  ${getColor(category)} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                  ${getColor(category)} ${STRIPE_PATTERN.width}px
-                )`
+                backgroundImage: getStripeGradient(getColor(category), stageColors.unsure)
               } : {})
             }}
             onClick={() => handleCategoryClick(category)}
@@ -360,13 +354,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                 width: `${stripePercentage}%`
               }),
               backgroundColor: stageColors.unsure,
-              backgroundImage: `repeating-linear-gradient(
-                ${STRIPE_PATTERN.rotation}deg,
-                ${stageColors.unsure},
-                ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                ${stripeColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                ${stripeColor} ${STRIPE_PATTERN.width}px
-              )`,
+              backgroundImage: getStripeGradient(stripeColor, stageColors.unsure),
               position: 'relative'
             }}
             onClick={() => handleCategoryClick(category)}
@@ -474,13 +462,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
                 width: `${percentage}%`
               }),
               backgroundColor: stageColors.unsure,
-              backgroundImage: `repeating-linear-gradient(
-                ${STRIPE_PATTERN.rotation}deg,
-                ${stageColors.unsure},
-                ${stageColors.unsure} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                ${color} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-                ${color} ${STRIPE_PATTERN.width}px
-              )`
+              backgroundImage: getStripeGradient(color, stageColors.unsure)
             }}
             onMouseEnter={(e) => handleCauseMouseEnter({ key, label, count: auto, percentage, isAuto: true, color }, e)}
             onMouseMove={handleCauseMouseMove}

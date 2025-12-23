@@ -1,6 +1,6 @@
 import React from 'react'
 import { getTagColor } from '../lib/tag-system'
-import { STRIPE_PATTERN } from '../lib/color-utils'
+import { getStripeGradientWithOpacity } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
@@ -70,26 +70,12 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
     }
 
     if (showStripe) {
-      // Apply stripe pattern for auto-tagged items with lower opacity
+      // Apply stripe pattern for auto-tagged items with 75% opacity stripes
       const gapColor = UNSURE_GRAY
-      // Convert hex to rgba with 50% opacity for softer stripes
-      const hexToRgba = (hex: string, alpha: number) => {
-        const r = parseInt(hex.slice(1, 3), 16)
-        const g = parseInt(hex.slice(3, 5), 16)
-        const b = parseInt(hex.slice(5, 7), 16)
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`
-      }
-      const stripeColor = hexToRgba(tagBgColor, 0.75)
       return {
         ...baseStyle,
         backgroundColor: gapColor,
-        backgroundImage: `repeating-linear-gradient(
-          ${STRIPE_PATTERN.rotation}deg,
-          ${gapColor},
-          ${gapColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-          ${stripeColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-          ${stripeColor} ${STRIPE_PATTERN.width}px
-        )`
+        backgroundImage: getStripeGradientWithOpacity(tagBgColor, gapColor, 0.75)
       }
     }
 

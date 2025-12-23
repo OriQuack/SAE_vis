@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react'
-import { getSelectionColors, STRIPE_PATTERN, type TableStage } from '../lib/color-utils'
+import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
 
 // ============================================================================
@@ -132,13 +132,7 @@ export function ScrollableItemList<T = any>({
     const gapColor = colors.unsure
     return {
       backgroundColor: gapColor,
-      backgroundImage: `repeating-linear-gradient(
-        ${STRIPE_PATTERN.rotation}deg,
-        ${gapColor},
-        ${gapColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-        ${tagColor} ${STRIPE_PATTERN.width - STRIPE_PATTERN.stripeWidth}px,
-        ${tagColor} ${STRIPE_PATTERN.width}px
-      )`
+      backgroundImage: getStripeGradient(tagColor, gapColor)
     }
   }, [headerStripe])
 

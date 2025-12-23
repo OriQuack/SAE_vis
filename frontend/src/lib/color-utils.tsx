@@ -300,17 +300,80 @@ export function getSemanticSimilarityColor(similarity: number): string {
 }
 
 // ============================================================================
-// STRIPE PATTERN UTILITIES
+// STRIPE PATTERN UTILITIES - Single source of truth for all stripe patterns
+// Used across: SankeyDiagram, SelectionBar, ScrollableItemList, Indicators,
+//              DecisionMarginHistogram, SankeyHistogramPopover, base.css
 // ============================================================================
 
 /**
- * Stripe pattern configuration - single source of truth for all stripe patterns
- * Used in SelectionBar and ScrollableItemList for CSS gradient stripes
+ * Stripe pattern configuration - unified settings for all stripe patterns
+ *
+ * Standard pattern: For large components (Sankey, SelectionBar, histograms)
+ * Small pattern: For small UI elements (12x12 legend swatches)
  */
 export const STRIPE_PATTERN = {
+  // Standard pattern dimensions (for large components)
   width: 12,
   height: 12,
-  stripeWidth: 6,
-  rotation: -45,
-  opacity: 0.3
+  stripeWidth: 6,      // 6px stripes (equal to gap)
+  gapWidth: 6,         // 6px gaps (equal to stripe)
+  rotation: -45,       // Negative 45° for CSS gradients (\ direction)
+
+  // Opacity for stripe color overlay
+  opacity: 0.4,       // Balanced visibility
+
+  // Small variant (for 12x12px legend swatches in ThresholdTaggingPanel)
+  small: {
+    width: 4,
+    stripeWidth: 2,
+    gapWidth: 2,
+  }
+}
+
+/**
+ * Generate CSS repeating-linear-gradient for stripe patterns
+ * Used by: SelectionBar, ScrollableItemList, Indicators (TagBadge)
+ *
+ * Color scheme: Tag-colored stripes on gray/unsure background
+ *
+ * @param stripeColor - Color for the stripe lines (typically tag color)
+ * @param gapColor - Color for the gap between stripes (defaults to UNSURE_GRAY)
+ * @param variant - 'standard' for large components, 'small' for legend swatches
+ * @returns CSS repeating-linear-gradient string
+ */
+export function getStripeGradient(
+  stripeColor: string,
+  gapColor: string = UNSURE_GRAY,
+  variant: 'standard' | 'small' = 'standard'
+): string {
+  const { rotation } = STRIPE_PATTERN
+  const dims = variant === 'small' ? STRIPE_PATTERN.small : STRIPE_PATTERN
+
+  return `repeating-linear-gradient(
+    ${rotation}deg,
+    ${gapColor},
+    ${gapColor} ${dims.gapWidth}px,
+    ${stripeColor} ${dims.gapWidth}px,
+    ${stripeColor} ${dims.width}px
+  )`
+}
+
+/**
+ * Get stripe gradient with opacity applied to the stripe color
+ * Useful when you need transparent/semi-transparent stripes
+ *
+ * @param stripeColor - Base color for stripes (will have opacity applied)
+ * @param gapColor - Color for gaps (defaults to UNSURE_GRAY)
+ * @param opacity - Opacity for stripe color (0-1, defaults to STRIPE_PATTERN.opacity)
+ * @param variant - 'standard' or 'small'
+ * @returns CSS repeating-linear-gradient string
+ */
+export function getStripeGradientWithOpacity(
+  stripeColor: string,
+  gapColor: string = UNSURE_GRAY,
+  opacity: number = STRIPE_PATTERN.opacity,
+  variant: 'standard' | 'small' = 'standard'
+): string {
+  const stripeColorWithOpacity = addOpacityToHex(stripeColor, opacity)
+  return getStripeGradient(stripeColorWithOpacity, gapColor, variant)
 }
