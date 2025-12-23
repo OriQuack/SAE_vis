@@ -46,7 +46,6 @@ interface SankeyDiagramProps {
   height?: number
   className?: string
   animationDuration?: number
-  showHistogramOnClick?: boolean
   flowDirection?: 'left-to-right' | 'right-to-left'
   panel?: typeof PANEL_LEFT | typeof PANEL_RIGHT
   onSegmentRefsReady?: (refs: Map<string, SVGRectElement>) => void  // Callback for exposing segment refs (key: "{nodeId}_{segmentIndex}")
@@ -179,9 +178,8 @@ const SankeyLink: React.FC<{
   link: D3SankeyLink
   onMouseEnter: (e: React.MouseEvent) => void
   onMouseLeave: () => void
-  onClick?: (e: React.MouseEvent) => void
   isHovered: boolean
-}> = ({ link, onMouseEnter, onMouseLeave, onClick, isHovered }) => {
+}> = ({ link, onMouseEnter, onMouseLeave, isHovered }) => {
   const sourceNode = typeof link.source === 'object' ? link.source : null
   if (!sourceNode) return null
 
@@ -199,12 +197,10 @@ const SankeyLink: React.FC<{
       stroke={color}
       strokeWidth={Math.max(1, link.width || 0)}
       style={{
-        transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`,
-        cursor: onClick ? 'pointer' : 'default'
+        transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
       }}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      onClick={onClick}
     />
   )
 }
@@ -420,7 +416,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   height = 800,
   className = '',
   animationDuration = DEFAULT_ANIMATION.duration,
-  showHistogramOnClick = true,
   flowDirection = 'left-to-right',
   panel = PANEL_LEFT,
   onSegmentRefsReady
@@ -444,7 +439,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const tableData = useVisualizationStore(state => state.tableData)
   const {
-    showHistogramPopover,
     updateStageThreshold,
     selectNodeWithCategory,
     getNodeCategory,
@@ -582,36 +576,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // This prevents the indicator from jumping around when thresholds change
 
   // Stage labels removed - metric labels now shown on links
-
-  // Event handlers
-  const handleNodeHistogramClick = useCallback((node: D3SankeyNode) => {
-    if (!showHistogramOnClick || !sankeyStructure) return
-
-    // V2: Only show histograms for segment nodes with metrics
-    const structureNode = sankeyStructure.nodes.find(n => n.id === node.id)
-    if (!structureNode || structureNode.type !== 'segment') return
-
-    const metric = structureNode.metric
-    if (!metric) return
-
-    const containerRect = containerElementRef.current?.getBoundingClientRect()
-    const position = {
-      x: containerRect ? containerRect.right + 20 : window.innerWidth - 600,
-      y: containerRect ? containerRect.top + containerRect.height / 2 : window.innerHeight / 2
-    }
-
-    showHistogramPopover(node.id, node.name, [metric as any], position, undefined, undefined, panel, node.category)
-  }, [showHistogramOnClick, showHistogramPopover, sankeyStructure, panel])
-
-  const handleLinkHistogramClick = useCallback((link: D3SankeyLink) => {
-    if (!showHistogramOnClick) return
-
-    const sourceNode = typeof link.source === 'object' ? link.source : null
-    if (!sourceNode) return
-
-    // V2: Delegate to node histogram click
-    handleNodeHistogramClick(sourceNode)
-  }, [showHistogramOnClick, handleNodeHistogramClick])
 
   // REMOVED: handleAddStageClick - No longer needed with fixed 3-stage auto-expansion
   // const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
@@ -848,7 +812,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   link={link}
                   onMouseEnter={() => setHoveredLinkIndex(index)}
                   onMouseLeave={() => setHoveredLinkIndex(null)}
-                  onClick={showHistogramOnClick ? () => handleLinkHistogramClick(link) : undefined}
                   isHovered={hoveredLinkIndex === index}
                 />
               ))}

@@ -3,20 +3,17 @@ import * as api from '../api'
 import type {
   FilterOptions,
   HistogramData,
-  MetricType,
-  PopoverState,
   LoadingStates,
   ErrorStates,
   AlluvialFlow,
   SankeyNode,
-  NodeCategory,
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData,
   UmapPoint,
   MultiModalityInfo
 } from '../types'
-import { getNodeThresholdPath, processFeatureGroupResponse } from '../lib/threshold-utils'
+import { processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
   PANEL_LEFT,
   PANEL_RIGHT,
@@ -93,7 +90,6 @@ interface AppState {
 
   // Shared state
   filterOptions: FilterOptions | null
-  popoverState: PopoverState
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
@@ -155,24 +151,12 @@ interface AppState {
   setHistogramData: (data: Record<string, HistogramData> | null, panel?: PanelSide, nodeId?: string) => void
 
   // UI actions
-  showHistogramPopover: (
-    nodeId: string | undefined,
-    nodeName: string,
-    metrics: MetricType[],
-    position: { x: number; y: number },
-    parentNodeId?: string,
-    parentNodeName?: string,
-    panel?: PanelSide,
-    nodeCategory?: NodeCategory
-  ) => void
-  hideHistogramPopover: () => void
   setLoading: (key: keyof LoadingStates, value: boolean) => void
   setError: (key: keyof ErrorStates, error: string | null) => void
   clearError: (key: keyof ErrorStates) => void
 
   // API actions
   fetchFilterOptions: () => Promise<void>
-  fetchMultipleHistogramData: (metrics: MetricType[], nodeId?: string, panel?: PanelSide) => Promise<void>
 
   // Alluvial flows data
   alluvialFlows: AlluvialFlow[] | null
@@ -390,9 +374,6 @@ const initialState = {
 
   // Shared state
   filterOptions: null,
-  popoverState: {
-    histogram: null
-  },
   loading: {
     filters: false,
     histogram: false,
@@ -1088,32 +1069,6 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   // UI actions
-  showHistogramPopover: (nodeId, nodeName, metrics, position, parentNodeId, parentNodeName, panel = PANEL_LEFT, nodeCategory) => {
-    set(() => ({
-      popoverState: {
-        histogram: {
-          nodeId,
-          nodeName,
-          nodeCategory,
-          parentNodeId,
-          parentNodeName,
-          metrics,
-          position,
-          visible: true,
-          panel
-        }
-      }
-    }))
-  },
-
-  hideHistogramPopover: () => {
-    set(() => ({
-      popoverState: {
-        histogram: null
-      }
-    }))
-  },
-
   setLoading: (key, value) => {
     set((state) => ({
       loading: {
@@ -1155,70 +1110,6 @@ export const useStore = create<AppState>((set, get) => {
       const errorMessage = error instanceof Error ? error.message : 'Failed to fetch filter options'
       state.setError('filters', errorMessage)
       state.setLoading('filters', false)
-    }
-  },
-
-  fetchMultipleHistogramData: async (metrics, nodeId?: string, panel = PANEL_LEFT) => {
-    const state = get()
-    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
-    const panelState = state[panelKey]
-    const { filters } = panelState
-
-    console.log('[HistogramPopover] fetchMultipleHistogramData called:', {
-      metrics,
-      nodeId,
-      panel,
-      filters
-    })
-
-    const hasActiveFilters = Object.values(filters).some(
-      filterArray => filterArray && filterArray.length > 0
-    )
-
-    if (!hasActiveFilters) {
-      console.log('[HistogramPopover] No active filters, skipping request')
-      return
-    }
-
-    state.setLoading('histogram', true)
-    state.clearError('histogram')
-
-    try {
-      // Compute threshold path if nodeId provided
-      const thresholdPath = nodeId && panelState.sankeyTree
-        ? getNodeThresholdPath(nodeId, panelState.sankeyTree)
-        : undefined
-
-      const histogramPromises = metrics.map(async (metric) => {
-        const request = {
-          filters,
-          metric,
-          nodeId,
-          thresholdPath,
-          bins: 50
-        }
-
-        console.log('[HistogramPopover] Request for metric:', metric, request)
-
-        const data = await api.getHistogramData(request)
-
-        console.log('[HistogramPopover] Response for metric:', metric, {
-          totalFeatures: data.total_features
-        })
-
-        return { [metric]: data }
-      })
-
-      const results = await Promise.all(histogramPromises)
-      const combinedData = results.reduce((acc, result) => ({ ...acc, ...result }), {})
-
-      state.setHistogramData(combinedData, panel, nodeId)
-
-      state.setLoading('histogram', false)
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to fetch histogram data'
-      state.setError('histogram', errorMessage)
-      state.setLoading('histogram', false)
     }
   },
 

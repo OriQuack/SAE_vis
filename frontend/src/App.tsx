@@ -3,7 +3,6 @@ import { useVisualizationStore } from './store/index'
 import Header from './components/AppHeader'
 import SankeyDiagram from './components/SankeyDiagram'
 import AlluvialDiagram from './components/AlluvialDiagram'
-import HistogramPopover from './components/SankeyHistogramPopover'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
 import CauseView from './components/CauseView'
@@ -236,7 +235,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           <div className="sankey-view__sankey-column">
             <div className="sankey-view__sankey-left">
               <SankeyDiagram
-                showHistogramOnClick={true}
                 flowDirection="left-to-right"
                 panel="left"
                 onSegmentRefsReady={setSankeySegmentRefs}
@@ -283,7 +281,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                   {/* Right Sankey Diagram */}
                   <div className="comparison-overlay__sankey">
                     <SankeyDiagram
-                      showHistogramOnClick={true}
                       flowDirection="right-to-left"
                       panel="right"
                     />
@@ -310,8 +307,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
         </div>
       </div>
 
-      {/* Histogram popover for node-specific threshold setting */}
-      <HistogramPopover />
     </div>
   )
 }

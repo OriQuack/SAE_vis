@@ -282,22 +282,6 @@ export interface ErrorStates {
 
 export type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
-export interface HistogramPopoverData {
-  nodeId: string | undefined
-  nodeName: string
-  nodeCategory: NodeCategory | undefined
-  parentNodeId: string | undefined
-  parentNodeName: string | undefined
-  metrics: MetricType[]
-  position: { x: number; y: number }
-  visible: boolean
-  panel: PanelSide
-}
-
-export interface PopoverState {
-  histogram: HistogramPopoverData | null
-}
-
 export type MetricType =
   | typeof METRIC_DECODER_SIMILARITY
   | typeof METRIC_SEMANTIC_SIMILARITY
