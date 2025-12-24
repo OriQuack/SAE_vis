@@ -52,7 +52,7 @@ function getThresholdPath(nodeId: string, structure: SankeyStructure): Threshold
     const stage1Segment = structure.nodes.find(n => n.id === 'stage1_segment') as SegmentSankeyNode
     const stage2Segment = structure.nodes.find(n => n.id === 'stage2_segment') as SegmentSankeyNode
     if (!stage1Segment || !stage2Segment) return undefined
-    if (!stage1Segment.threshold || !stage2Segment.threshold) return undefined
+    if (stage1Segment.threshold == null || stage2Segment.threshold == null) return undefined
 
     return [
       {

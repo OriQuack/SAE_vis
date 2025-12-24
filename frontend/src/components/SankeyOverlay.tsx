@@ -88,7 +88,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     return sankeyStructure?.nodes.find((n: any) => n.id === targetNode.id)
   }, [node, links, sankeyStructure])
 
-  const committedThreshold = targetSegmentNode?.threshold || null
+  const committedThreshold = targetSegmentNode?.threshold ?? null
 
   // Extract segment colors from target segment node
   const segmentColors = useMemo(() => {
@@ -434,7 +434,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               links={layout.links}
               sankeyStructure={sankeyStructure}
               animationDuration={animationDuration}
-              dragThreshold={nodeDragThresholds[targetNode.id || '']?.[0] || null}
+              dragThreshold={nodeDragThresholds[targetNode.id || '']?.[0] ?? null}
               metric={metric}
             />
           )
@@ -475,7 +475,7 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
           const metricMax = binEdges[binEdges.length - 1]
 
           // V2: Use single threshold value from target segment
-          const currentThreshold = targetStructureNode.threshold || ((metricMin + metricMax) / 2)
+          const currentThreshold = targetStructureNode.threshold ?? ((metricMin + metricMax) / 2)
 
           return (
             <ThresholdHandles
