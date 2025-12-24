@@ -297,7 +297,9 @@ export const createCauseActions = (set: any, get: any) => ({
   /**
    * Fetch SVM cause classification for features.
    * Uses mean metric vectors per feature for OvR SVM classification.
-   * Requires at least one manually tagged feature per category.
+   *
+   * Backend uses anchor points as baseline training data, so manual tags
+   * are optional. When provided, manual tags improve predictions.
    */
   fetchCauseClassification: async (
     featureIds: number[],
@@ -308,19 +310,8 @@ export const createCauseActions = (set: any, get: any) => ({
       manualTagCount: Object.keys(causeSelections).length
     })
 
-    // Validate that we have tags for all 3 categories
-    const categories = ['noisy-activation', 'missed-N-gram', 'missed-context']
-    const taggedCategories = new Set(Object.values(causeSelections))
-    const missingCategories = categories.filter(c => !taggedCategories.has(c))
-
-    if (missingCategories.length > 0) {
-      console.warn('[Store.fetchCauseClassification] ⚠️ Missing tags for categories:', missingCategories)
-      set({
-        causeClassificationError: `Tag at least one feature per category. Missing: ${missingCategories.join(', ')}`,
-        causeClassificationLoading: false
-      })
-      return
-    }
+    // No validation required - backend uses anchor points as baseline training data
+    // Manual tags are optional and improve predictions when provided
 
     try {
       set({ causeClassificationLoading: true, causeClassificationError: null })

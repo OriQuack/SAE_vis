@@ -122,9 +122,9 @@
   background: white;
 }
 
-/* Completed State */
+/* Completed State - Neutral gray colors */
 .stage-tab--completed {
-  border-color: #10b981;
+  border-color: #94a3b8;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
 }
 
@@ -136,7 +136,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: #d1fae5;
+  background: #e2e8f0;
   border-radius: 8px 8px 0 0;
   z-index: -1;
   transition: background 0.2s ease;
@@ -144,7 +144,7 @@
 }
 
 .stage-tab--completed:hover::after {
-  background: #a7f3d0;
+  background: #cbd5e1;
 }
 
 /* Future State - Not yet clicked stages */
@@ -198,10 +198,10 @@
 }
 
 .stage-tab--completed .stage-tab__number {
-  background: #10b981;
+  background: #64748b;
   color: white;
   font-size: 18px;
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+  box-shadow: 0 2px 6px rgba(100, 116, 139, 0.4);
 }
 
 /* Stage label */

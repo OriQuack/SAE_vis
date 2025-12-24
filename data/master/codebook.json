@@ -1,8 +1,8 @@
 {
   "metadata": {
-    "created_at": "2025-12-24T16:27:40.510609",
-    "total_codes": 41,
-    "version": 87,
+    "created_at": "2025-12-24T17:11:17.155036",
+    "total_codes": 103,
+    "version": 248,
     "paper": "Qiao et al. Thematic-LM (WWW '25)"
   },
   "entries": [
@@ -40,9 +40,9 @@
     },
     {
       "code_id": 2,
-      "code_text": "token 'define' or variants",
+      "code_text": "token 'define' occurrences",
       "category": "linguistic",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "token 'define' or variants"
       ],
@@ -50,18 +50,23 @@
         {
           "quote": "The token \"define\" or its variants",
           "quote_id": "f1_llama"
+        },
+        {
+          "quote": "occurrences of the word \"define\" and its variations",
+          "quote_id": "f1_gpt"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 3,
-      "code_text": "academic or informative contexts",
+      "code_text": "educational domain",
       "category": "contextual",
-      "frequency": 9,
+      "frequency": 10,
       "variants": [
         "formal and technical contexts",
-        "science and technology domain"
+        "science and technology domain",
+        "academic or informative contexts"
       ],
       "example_quotes": [
         {
@@ -91,6 +96,10 @@
         {
           "quote": "academic or informative contexts",
           "quote_id": "f44_llama"
+        },
+        {
+          "quote": "academic learning and school",
+          "quote_id": "f40_gemini"
         }
       ],
       "merged_from": []
@@ -99,7 +108,7 @@
       "code_id": 4,
       "code_text": "verbs or verb phrases",
       "category": "linguistic",
-      "frequency": 2,
+      "frequency": 9,
       "variants": [
         "verbs or verb phrases"
       ],
@@ -111,15 +120,43 @@
         {
           "quote": "Verbs that express actions",
           "quote_id": "f14_llama"
+        },
+        {
+          "quote": "defining something",
+          "quote_id": "f1_gemini"
+        },
+        {
+          "quote": "acts frequently or regularly",
+          "quote_id": "f14_gemini"
+        },
+        {
+          "quote": "watching television or videos",
+          "quote_id": "f18_gemini"
+        },
+        {
+          "quote": "purchasing items in a store",
+          "quote_id": "f19_gemini"
+        },
+        {
+          "quote": "do this/that",
+          "quote_id": "f7_gemini"
+        },
+        {
+          "quote": "phrases indicating progression or movement in a situation",
+          "quote_id": "f10_gpt"
+        },
+        {
+          "quote": "mentions of watching",
+          "quote_id": "f18_gpt"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 5,
-      "code_text": "physical or metaphorical sense",
+      "code_text": "physical or metaphorical movement/progression",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "physical or metaphorical sense"
       ],
@@ -127,6 +164,14 @@
         {
           "quote": "often in a physical or metaphorical sense",
           "quote_id": "f10_llama"
+        },
+        {
+          "quote": "movement and progression",
+          "quote_id": "f10_gemini"
+        },
+        {
+          "quote": "progression or movement in a situation",
+          "quote_id": "f10_gpt"
         }
       ],
       "merged_from": []
@@ -155,7 +200,7 @@
       "code_id": 7,
       "code_text": "proper nouns and names",
       "category": "linguistic",
-      "frequency": 3,
+      "frequency": 8,
       "variants": [
         "proper nouns and names"
       ],
@@ -171,17 +216,38 @@
         {
           "quote": "Proper nouns, names of specific locations",
           "quote_id": "f48_llama"
+        },
+        {
+          "quote": "names like Kim, Lee, Emily",
+          "quote_id": "f12_gemini"
+        },
+        {
+          "quote": "names in lists",
+          "quote_id": "f26_gemini"
+        },
+        {
+          "quote": "references to the name \"Kim\"",
+          "quote_id": "f12_gpt"
+        },
+        {
+          "quote": "references to \"Horace\" or related names and terms",
+          "quote_id": "f2_gpt"
+        },
+        {
+          "quote": "proper nouns, specifically names",
+          "quote_id": "f21_gpt"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 8,
-      "code_text": "identifiers or references",
+      "code_text": "name usage across contexts",
       "category": "contextual",
-      "frequency": 4,
+      "frequency": 11,
       "variants": [
-        "identifiers or references"
+        "identifiers or references",
+        "list-based naming context"
       ],
       "example_quotes": [
         {
@@ -199,6 +265,34 @@
         {
           "quote": "being part of a proper noun or a word with a specific meaning",
           "quote_id": "f42_llama"
+        },
+        {
+          "quote": "names like Kim, Lee, Emily",
+          "quote_id": "f12_gemini"
+        },
+        {
+          "quote": "starts with Hor",
+          "quote_id": "f2_gemini"
+        },
+        {
+          "quote": "names in lists",
+          "quote_id": "f26_gemini"
+        },
+        {
+          "quote": "numbers in parentheses",
+          "quote_id": "f32_gemini"
+        },
+        {
+          "quote": "lists of nouns and phrases",
+          "quote_id": "f44_gemini"
+        },
+        {
+          "quote": "in various contexts",
+          "quote_id": "f12_gpt"
+        },
+        {
+          "quote": "within various contexts",
+          "quote_id": "f2_gpt"
         }
       ],
       "merged_from": []
@@ -237,11 +331,14 @@
     },
     {
       "code_id": 11,
-      "code_text": "programming contexts",
+      "code_text": "programming and markup domain",
       "category": "contextual",
-      "frequency": 3,
+      "frequency": 10,
       "variants": [
-        "programming language code snippets"
+        "programming language code snippets",
+        "programming contexts",
+        "programming language domain",
+        "programming construct definitions"
       ],
       "example_quotes": [
         {
@@ -255,6 +352,34 @@
         {
           "quote": "keywords and identifiers in various programming contexts",
           "quote_id": "f6_llama"
+        },
+        {
+          "quote": "java code changes",
+          "quote_id": "f13_gemini"
+        },
+        {
+          "quote": "Objective-C/Swift code patterns",
+          "quote_id": "f28_gemini"
+        },
+        {
+          "quote": "`Vector3f` and `Float` in programming contexts",
+          "quote_id": "f43_gemini"
+        },
+        {
+          "quote": "function/macro definitions",
+          "quote_id": "f6_gemini"
+        },
+        {
+          "quote": "programming and software development",
+          "quote_id": "f13_gpt"
+        },
+        {
+          "quote": "in programming or markup languages",
+          "quote_id": "f15_gpt"
+        },
+        {
+          "quote": "particularly in Objective-C, including error handling and object encoding/decoding",
+          "quote_id": "f28_gpt"
         }
       ],
       "merged_from": []
@@ -279,7 +404,7 @@
       "code_id": 13,
       "code_text": "operators and punctuation tokens",
       "category": "linguistic",
-      "frequency": 8,
+      "frequency": 9,
       "variants": [
         "punctuation marks and special characters",
         "tokens with special characters"
@@ -316,17 +441,22 @@
         {
           "quote": "operators, brackets, and semicolons",
           "quote_id": "f6_llama"
+        },
+        {
+          "quote": "sex/gender or comparison/method",
+          "quote_id": "f20_gemini"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 14,
-      "code_text": "formatting and mathematical usage",
+      "code_text": "technical notation context",
       "category": "contextual",
-      "frequency": 8,
+      "frequency": 10,
       "variants": [
-        "code syntax and mathematical expressions"
+        "code syntax and mathematical expressions",
+        "formatting and mathematical usage"
       ],
       "example_quotes": [
         {
@@ -360,15 +490,23 @@
         {
           "quote": "mathematical and programming notation",
           "quote_id": "f4_llama"
+        },
+        {
+          "quote": "code, numbers, and symbols",
+          "quote_id": "f15_gemini"
+        },
+        {
+          "quote": "Ba, barium, Ba(OH)2",
+          "quote_id": "f42_gemini"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 15,
-      "code_text": "proper and common nouns",
+      "code_text": "noun and phrase lists",
       "category": "linguistic",
-      "frequency": 5,
+      "frequency": 8,
       "variants": [
         "proper and common nouns"
       ],
@@ -392,6 +530,18 @@
         {
           "quote": "Nouns representing buildings, structures, and monuments",
           "quote_id": "f8_llama"
+        },
+        {
+          "quote": "lists of nouns and phrases",
+          "quote_id": "f44_gemini"
+        },
+        {
+          "quote": "buildings, architecture, built",
+          "quote_id": "f8_gemini"
+        },
+        {
+          "quote": "keywords and phrases related to physical exercise",
+          "quote_id": "f11_gpt"
         }
       ],
       "merged_from": []
@@ -430,9 +580,9 @@
     },
     {
       "code_id": 18,
-      "code_text": "watching and listening context",
+      "code_text": "media viewing activities",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "watching and listening context"
       ],
@@ -440,6 +590,14 @@
         {
           "quote": "in the context of watching, listening, or looking at something or someone",
           "quote_id": "f18_llama"
+        },
+        {
+          "quote": "watching television or videos",
+          "quote_id": "f18_gemini"
+        },
+        {
+          "quote": "related activities like viewing media",
+          "quote_id": "f18_gpt"
         }
       ],
       "merged_from": []
@@ -480,7 +638,7 @@
       "code_id": 21,
       "code_text": "nouns naming chemical substances",
       "category": "linguistic",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "nouns naming chemical substances"
       ],
@@ -488,15 +646,19 @@
         {
           "quote": "Chemical elements, compounds, and related terms",
           "quote_id": "f25_llama"
+        },
+        {
+          "quote": "Ba, barium, Ba(OH)2",
+          "quote_id": "f42_gemini"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 22,
-      "code_text": "prepositions, conjunctions, and articles",
+      "code_text": "prepositional phrase",
       "category": "linguistic",
-      "frequency": 4,
+      "frequency": 8,
       "variants": [
         "prepositions, conjunctions, and articles"
       ],
@@ -512,6 +674,22 @@
         {
           "quote": "Articles and other determiners",
           "quote_id": "f49_llama"
+        },
+        {
+          "quote": "value between",
+          "quote_id": "f39_gemini"
+        },
+        {
+          "quote": "prepositions followed by nouns",
+          "quote_id": "f47_gemini"
+        },
+        {
+          "quote": "in scientific contexts",
+          "quote_id": "f9_gemini"
+        },
+        {
+          "quote": "related to animals, particularly pets",
+          "quote_id": "f20_gpt"
         }
       ],
       "merged_from": []
@@ -520,7 +698,7 @@
       "code_id": 23,
       "code_text": "compensation and reparation concepts",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "compensation and reparation concepts"
       ],
@@ -528,6 +706,14 @@
         {
           "quote": "making up for something, often implying a form of balance, reparation, or improvement",
           "quote_id": "f27_llama"
+        },
+        {
+          "quote": "compensate, compensation, compensatory",
+          "quote_id": "f27_gemini"
+        },
+        {
+          "quote": "compensation and adjustments in various contexts",
+          "quote_id": "f27_gpt"
         }
       ],
       "merged_from": []
@@ -550,11 +736,12 @@
     },
     {
       "code_id": 25,
-      "code_text": "numbers and mathematical symbols",
+      "code_text": "programming and mathematical notation tokens",
       "category": "linguistic",
-      "frequency": 2,
+      "frequency": 7,
       "variants": [
-        "numbers and mathematical symbols"
+        "numbers and mathematical symbols",
+        "mathematical notation tokens"
       ],
       "example_quotes": [
         {
@@ -564,6 +751,26 @@
         {
           "quote": "decimal numbers, and sometimes hexadecimal values",
           "quote_id": "f31_llama"
+        },
+        {
+          "quote": "code, numbers, and symbols",
+          "quote_id": "f15_gemini"
+        },
+        {
+          "quote": "mathematical expressions",
+          "quote_id": "f35_gemini"
+        },
+        {
+          "quote": "`Vector3f` and `Float` in programming contexts",
+          "quote_id": "f43_gemini"
+        },
+        {
+          "quote": "technical syntax and command structures",
+          "quote_id": "f15_gpt"
+        },
+        {
+          "quote": "mathematical expressions or symbols",
+          "quote_id": "f35_gpt"
         }
       ],
       "merged_from": []
@@ -572,7 +779,7 @@
       "code_id": 26,
       "code_text": "possessive pronouns and adjectives",
       "category": "linguistic",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "possessive pronouns and adjectives"
       ],
@@ -580,6 +787,14 @@
         {
           "quote": "Possessive pronouns and adjectives",
           "quote_id": "f30_llama"
+        },
+        {
+          "quote": "possessive determiners",
+          "quote_id": "f30_gemini"
+        },
+        {
+          "quote": "references to possessive pronouns",
+          "quote_id": "f30_gpt"
         }
       ],
       "merged_from": []
@@ -588,7 +803,7 @@
       "code_id": 27,
       "code_text": "ownership or association semantics",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "ownership or association semantics"
       ],
@@ -596,6 +811,14 @@
         {
           "quote": "indicating ownership or association",
           "quote_id": "f30_llama"
+        },
+        {
+          "quote": "possessive determiners",
+          "quote_id": "f30_gemini"
+        },
+        {
+          "quote": "nouns indicating ownership",
+          "quote_id": "f30_gpt"
         }
       ],
       "merged_from": []
@@ -604,7 +827,7 @@
       "code_id": 28,
       "code_text": "punctuation marks and function words",
       "category": "linguistic",
-      "frequency": 4,
+      "frequency": 5,
       "variants": [
         "punctuation marks and function words"
       ],
@@ -624,6 +847,10 @@
         {
           "quote": "Punctuation marks, particularly commas, periods, and occasionally other symbols",
           "quote_id": "f5_llama"
+        },
+        {
+          "quote": "closing punctuation followed by",
+          "quote_id": "f41_gemini"
         }
       ],
       "merged_from": []
@@ -652,7 +879,7 @@
       "code_id": 30,
       "code_text": "noun phrases describing conditions",
       "category": "linguistic",
-      "frequency": 1,
+      "frequency": 3,
       "variants": [
         "noun phrases describing conditions"
       ],
@@ -660,6 +887,14 @@
         {
           "quote": "describing conditions, procedures, or consequences",
           "quote_id": "f36_llama"
+        },
+        {
+          "quote": "being in a fixed state",
+          "quote_id": "f17_gemini"
+        },
+        {
+          "quote": "the state and conditions of the world",
+          "quote_id": "f22_gpt"
         }
       ],
       "merged_from": []
@@ -668,7 +903,7 @@
       "code_id": 31,
       "code_text": "medical and injury domain",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "medical and injury domain"
       ],
@@ -676,15 +911,19 @@
         {
           "quote": "medical and injury-related terms",
           "quote_id": "f36_llama"
+        },
+        {
+          "quote": "physical injuries or wounds",
+          "quote_id": "f36_gemini"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 32,
-      "code_text": "explanatory phrase or clause",
+      "code_text": "general explanatory context",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 5,
       "variants": [
         "explanatory phrase or clause"
       ],
@@ -692,6 +931,22 @@
         {
           "quote": "following a phrase or clause that provides context or explanation",
           "quote_id": "f41_llama"
+        },
+        {
+          "quote": "defining something",
+          "quote_id": "f1_gemini"
+        },
+        {
+          "quote": "exercise and its context",
+          "quote_id": "f11_gemini"
+        },
+        {
+          "quote": "indicating a focus on definitions or explanations",
+          "quote_id": "f1_gpt"
+        },
+        {
+          "quote": "physical exercise and its importance or effects",
+          "quote_id": "f11_gpt"
         }
       ],
       "merged_from": []
@@ -714,11 +969,13 @@
     },
     {
       "code_id": 34,
-      "code_text": "Conjunctions, prepositions, and nouns",
+      "code_text": "coordinated noun phrases",
       "category": "linguistic",
-      "frequency": 2,
+      "frequency": 17,
       "variants": [
-        "Conjunctions, prepositions, and nouns"
+        "Conjunctions, prepositions, and nouns",
+        "coordinated noun phrase",
+        "conjoined noun phrase"
       ],
       "example_quotes": [
         {
@@ -728,6 +985,66 @@
         {
           "quote": "Prepositions and conjunctions",
           "quote_id": "f7_llama"
+        },
+        {
+          "quote": "movement and progression",
+          "quote_id": "f10_gemini"
+        },
+        {
+          "quote": "exercise and its context",
+          "quote_id": "f11_gemini"
+        },
+        {
+          "quote": "content rating and censorship",
+          "quote_id": "f24_gemini"
+        },
+        {
+          "quote": "gases and gas mixtures",
+          "quote_id": "f25_gemini"
+        },
+        {
+          "quote": "announcement, agreement, event, renovation",
+          "quote_id": "f33_gemini"
+        },
+        {
+          "quote": "pipe and valve components",
+          "quote_id": "f37_gemini"
+        },
+        {
+          "quote": "a total cost or amount",
+          "quote_id": "f38_gemini"
+        },
+        {
+          "quote": "academic learning and school",
+          "quote_id": "f40_gemini"
+        },
+        {
+          "quote": "citations and references",
+          "quote_id": "f46_gemini"
+        },
+        {
+          "quote": "activities and engagements related to real estate",
+          "quote_id": "f14_gpt"
+        },
+        {
+          "quote": "emotional expressions and physical reactions",
+          "quote_id": "f17_gpt"
+        },
+        {
+          "quote": "functions or methods related to creating or managing product tags",
+          "quote_id": "f23_gpt"
+        },
+        {
+          "quote": "content classification and ratings",
+          "quote_id": "f24_gpt"
+        },
+        {
+          "quote": "indicators of compensation and adjustments",
+          "quote_id": "f27_gpt"
+        },
+        {
+          "quote": "events and their related contexts",
+          "quote_id": "f33_gpt"
         }
       ],
       "merged_from": []
@@ -736,7 +1053,7 @@
       "code_id": 35,
       "code_text": "range of values",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "range of values"
       ],
@@ -744,6 +1061,10 @@
         {
           "quote": "a range of values, typically years",
           "quote_id": "f46_llama"
+        },
+        {
+          "quote": "value between",
+          "quote_id": "f39_gemini"
         }
       ],
       "merged_from": []
@@ -784,7 +1105,7 @@
       "code_id": 38,
       "code_text": "architecture and geography domain",
       "category": "contextual",
-      "frequency": 2,
+      "frequency": 3,
       "variants": [
         "architecture and geography domain"
       ],
@@ -796,15 +1117,19 @@
         {
           "quote": "often including specific names or descriptive words",
           "quote_id": "f8_llama"
+        },
+        {
+          "quote": "buildings, architecture, built",
+          "quote_id": "f8_gemini"
         }
       ],
       "merged_from": []
     },
     {
       "code_id": 39,
-      "code_text": "use in similes and comparisons",
+      "code_text": "comparative assessment topic",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "use in similes and comparisons"
       ],
@@ -812,6 +1137,10 @@
         {
           "quote": "sometimes used in similes or comparisons",
           "quote_id": "f49_llama"
+        },
+        {
+          "quote": "about comparisons and assessments",
+          "quote_id": "f0_gpt"
         }
       ],
       "merged_from": []
@@ -820,7 +1149,7 @@
       "code_id": 40,
       "code_text": "list and clause separation",
       "category": "contextual",
-      "frequency": 1,
+      "frequency": 2,
       "variants": [
         "list and clause separation"
       ],
@@ -828,6 +1157,1075 @@
         {
           "quote": "often used to separate items in lists, set off clauses, or indicate the end of a sentence",
           "quote_id": "f5_llama"
+        },
+        {
+          "quote": "followed by sentence start",
+          "quote_id": "f41_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 41,
+      "code_text": "wh-question clause",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "wh-question clause"
+      ],
+      "example_quotes": [
+        {
+          "quote": "how things are doing",
+          "quote_id": "f0_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 42,
+      "code_text": "status inquiry",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "status inquiry"
+      ],
+      "example_quotes": [
+        {
+          "quote": "how things are doing",
+          "quote_id": "f0_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 43,
+      "code_text": "three-word noun phrase",
+      "category": "linguistic",
+      "frequency": 3,
+      "variants": [
+        "three-word noun phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "java code changes",
+          "quote_id": "f13_gemini"
+        },
+        {
+          "quote": "overtime tie shootout",
+          "quote_id": "f3_gemini"
+        },
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 44,
+      "code_text": "habitual action description",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "habitual action description"
+      ],
+      "example_quotes": [
+        {
+          "quote": "acts frequently or regularly",
+          "quote_id": "f14_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 45,
+      "code_text": "unchanging state concept",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "unchanging state concept"
+      ],
+      "example_quotes": [
+        {
+          "quote": "a fixed state of stability",
+          "quote_id": "f17_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 46,
+      "code_text": "retail shopping and customer service domain",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "retail shopping activity"
+      ],
+      "example_quotes": [
+        {
+          "quote": "purchasing items in a store",
+          "quote_id": "f19_gemini"
+        },
+        {
+          "quote": "references to retail and customer service interactions",
+          "quote_id": "f19_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 47,
+      "code_text": "tokens starting with Hor",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "tokens starting with Hor"
+      ],
+      "example_quotes": [
+        {
+          "quote": "starts with Hor",
+          "quote_id": "f2_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 48,
+      "code_text": "sex and gender topic",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "sex and gender topic"
+      ],
+      "example_quotes": [
+        {
+          "quote": "sex/gender or comparison/method",
+          "quote_id": "f20_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 49,
+      "code_text": "proper nouns and numerals",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "proper nouns and numerals"
+      ],
+      "example_quotes": [
+        {
+          "quote": "place names and numbers",
+          "quote_id": "f21_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 50,
+      "code_text": "names and locations",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "geographic names and quantities"
+      ],
+      "example_quotes": [
+        {
+          "quote": "place names and numbers",
+          "quote_id": "f21_gemini"
+        },
+        {
+          "quote": "specifically names and locations",
+          "quote_id": "f21_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 51,
+      "code_text": "definite noun phrase with copula",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "definite noun phrase with copula"
+      ],
+      "example_quotes": [
+        {
+          "quote": "the world is",
+          "quote_id": "f22_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 52,
+      "code_text": "existential declarative fragment",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "existential declarative fragment"
+      ],
+      "example_quotes": [
+        {
+          "quote": "the world is",
+          "quote_id": "f22_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 53,
+      "code_text": "compound noun phrase",
+      "category": "linguistic",
+      "frequency": 3,
+      "variants": [
+        "compound noun phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "product tags",
+          "quote_id": "f23_gemini"
+        },
+        {
+          "quote": "the operational modes",
+          "quote_id": "f29_gemini"
+        },
+        {
+          "quote": "retail and customer service interactions",
+          "quote_id": "f19_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 54,
+      "code_text": "product tag management",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "ecommerce metadata"
+      ],
+      "example_quotes": [
+        {
+          "quote": "product tags",
+          "quote_id": "f23_gemini"
+        },
+        {
+          "quote": "creating or managing product tags",
+          "quote_id": "f23_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 55,
+      "code_text": "content moderation domain",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "content moderation domain"
+      ],
+      "example_quotes": [
+        {
+          "quote": "content rating and censorship",
+          "quote_id": "f24_gemini"
+        },
+        {
+          "quote": "information related to content classification and ratings",
+          "quote_id": "f24_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 56,
+      "code_text": "chemical substances domain",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "chemical substances domain"
+      ],
+      "example_quotes": [
+        {
+          "quote": "gases and gas mixtures",
+          "quote_id": "f25_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 57,
+      "code_text": "verb-noun-adjective forms",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "verb-noun-adjective forms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "compensate, compensation, compensatory",
+          "quote_id": "f27_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 58,
+      "code_text": "slash-separated language tokens",
+      "category": "linguistic",
+      "frequency": 2,
+      "variants": [
+        "slash-separated language tokens"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Objective-C/Swift code patterns",
+          "quote_id": "f28_gemini"
+        },
+        {
+          "quote": "function/macro definitions",
+          "quote_id": "f6_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 59,
+      "code_text": "vehicle control systems and operation modes terminology",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "system operation modes"
+      ],
+      "example_quotes": [
+        {
+          "quote": "operational modes of the system",
+          "quote_id": "f29_gemini"
+        },
+        {
+          "quote": "driving modes and vehicle control systems",
+          "quote_id": "f29_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 60,
+      "code_text": "sports competition context",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "sports competition context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "overtime tie shootout",
+          "quote_id": "f3_gemini"
+        },
+        {
+          "quote": "particularly playoffs and finals",
+          "quote_id": "f3_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 61,
+      "code_text": "legal citation syntax",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "legal citation syntax"
+      ],
+      "example_quotes": [
+        {
+          "quote": "legal citations with dates",
+          "quote_id": "f31_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 62,
+      "code_text": "legal domain references",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "legal domain references"
+      ],
+      "example_quotes": [
+        {
+          "quote": "legal citations with dates",
+          "quote_id": "f31_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 63,
+      "code_text": "parenthetical numerals",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "parenthetical numerals"
+      ],
+      "example_quotes": [
+        {
+          "quote": "numbers in parentheses",
+          "quote_id": "f32_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 64,
+      "code_text": "organizational and project topics",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "organizational and project topics"
+      ],
+      "example_quotes": [
+        {
+          "quote": "announcement, agreement, event, renovation",
+          "quote_id": "f33_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 65,
+      "code_text": "exclusive quantifier phrase",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "exclusive quantifier phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "only one",
+          "quote_id": "f34_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 66,
+      "code_text": "singular quantity context",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "singular quantity context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "only one",
+          "quote_id": "f34_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 67,
+      "code_text": "mathematical content domain",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "mathematical content domain"
+      ],
+      "example_quotes": [
+        {
+          "quote": "mathematical expressions",
+          "quote_id": "f35_gemini"
+        },
+        {
+          "quote": "mathematical expressions or symbols",
+          "quote_id": "f35_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 68,
+      "code_text": "adjective-noun phrase",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "adjective-noun phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "physical injuries or wounds",
+          "quote_id": "f36_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 69,
+      "code_text": "industrial piping domain",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "industrial piping domain"
+      ],
+      "example_quotes": [
+        {
+          "quote": "pipe and valve components",
+          "quote_id": "f37_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 70,
+      "code_text": "monetary amount concept",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "monetary amount concept"
+      ],
+      "example_quotes": [
+        {
+          "quote": "a total cost or amount",
+          "quote_id": "f38_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 71,
+      "code_text": "3D spatial acceleration structure",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "3D spatial acceleration structure"
+      ],
+      "example_quotes": [
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 72,
+      "code_text": "definite and possessive determiners",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "definite and possessive determiners"
+      ],
+      "example_quotes": [
+        {
+          "quote": "the/your/his + noun",
+          "quote_id": "f45_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 73,
+      "code_text": "referential noun phrase usage",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "referential noun phrase usage"
+      ],
+      "example_quotes": [
+        {
+          "quote": "the/your/his + noun",
+          "quote_id": "f45_gemini"
+        },
+        {
+          "quote": "a certain kind of person",
+          "quote_id": "f49_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 74,
+      "code_text": "scholarly attribution practice",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "scholarly attribution practice"
+      ],
+      "example_quotes": [
+        {
+          "quote": "citations and references",
+          "quote_id": "f46_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 75,
+      "code_text": "grammar instruction context",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "grammar instruction context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "prepositions followed by nouns",
+          "quote_id": "f47_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 76,
+      "code_text": "compound adjective",
+      "category": "linguistic",
+      "frequency": 2,
+      "variants": [
+        "two-word compound adjective"
+      ],
+      "example_quotes": [
+        {
+          "quote": "high end",
+          "quote_id": "f48_gemini"
+        },
+        {
+          "quote": "programming-related constructs and data types",
+          "quote_id": "f28_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 77,
+      "code_text": "premium product context",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "premium product context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "high end",
+          "quote_id": "f48_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 78,
+      "code_text": "indefinite noun phrase",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "indefinite noun phrase"
+      ],
+      "example_quotes": [
+        {
+          "quote": "a certain kind of person",
+          "quote_id": "f49_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 79,
+      "code_text": "linking verb plus adjective",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "linking verb plus adjective"
+      ],
+      "example_quotes": [
+        {
+          "quote": "linking verb plus adjective",
+          "quote_id": "f5_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 80,
+      "code_text": "subject attribute predication",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "subject attribute predication"
+      ],
+      "example_quotes": [
+        {
+          "quote": "linking verb plus adjective",
+          "quote_id": "f5_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 81,
+      "code_text": "informal instruction context",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "informal instruction context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "do this/that",
+          "quote_id": "f7_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 82,
+      "code_text": "scientific discourse topic",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "scientific discourse topic"
+      ],
+      "example_quotes": [
+        {
+          "quote": "nature in scientific contexts",
+          "quote_id": "f9_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 83,
+      "code_text": "question and phrase constructions",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "question and phrase constructions"
+      ],
+      "example_quotes": [
+        {
+          "quote": "questions and phrases about comparisons",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 84,
+      "code_text": "terminology related noun phrases",
+      "category": "linguistic",
+      "frequency": 3,
+      "variants": [
+        "domain-specific noun phrases",
+        "scientific terminology"
+      ],
+      "example_quotes": [
+        {
+          "quote": "technical terms related to programming",
+          "quote_id": "f13_gpt"
+        },
+        {
+          "quote": "terms related to scientific concepts",
+          "quote_id": "f25_gpt"
+        },
+        {
+          "quote": "terminology related to driving modes",
+          "quote_id": "f29_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 85,
+      "code_text": "real estate and personal experiences",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "real estate and personal experiences"
+      ],
+      "example_quotes": [
+        {
+          "quote": "related to real estate and personal experiences",
+          "quote_id": "f14_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 86,
+      "code_text": "noun phrases denoting appreciation",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "noun phrases denoting appreciation"
+      ],
+      "example_quotes": [
+        {
+          "quote": "expressions of appreciation",
+          "quote_id": "f16_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 87,
+      "code_text": "positive sentiment about experiences",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "positive sentiment about experiences"
+      ],
+      "example_quotes": [
+        {
+          "quote": "positive sentiment related to experiences",
+          "quote_id": "f16_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 88,
+      "code_text": "affective and physiological responses",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "affective and physiological responses"
+      ],
+      "example_quotes": [
+        {
+          "quote": "emotional expressions and physical reactions",
+          "quote_id": "f17_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 89,
+      "code_text": "pet-related information",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "pet-related information"
+      ],
+      "example_quotes": [
+        {
+          "quote": "information related to animals, particularly pets",
+          "quote_id": "f20_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 90,
+      "code_text": "violence and socio-economic themes",
+      "category": "contextual",
+      "frequency": 2,
+      "variants": [
+        "violence and socio-economic themes"
+      ],
+      "example_quotes": [
+        {
+          "quote": "themes of violence, change, and socio-economic factors",
+          "quote_id": "f22_gpt"
+        },
+        {
+          "quote": "references to violence or injuries",
+          "quote_id": "f36_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 91,
+      "code_text": "software API functionality",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "software API functionality"
+      ],
+      "example_quotes": [
+        {
+          "quote": "functions or methods related to",
+          "quote_id": "f23_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 92,
+      "code_text": "gas reactions and semiconductors",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "gas reactions and semiconductors"
+      ],
+      "example_quotes": [
+        {
+          "quote": "gas reactions and semiconductor processes",
+          "quote_id": "f25_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 93,
+      "code_text": "kinship terminology",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "kinship terminology"
+      ],
+      "example_quotes": [
+        {
+          "quote": "family relationships and genealogical references",
+          "quote_id": "f26_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 94,
+      "code_text": "family and genealogy domain",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "family and genealogy domain"
+      ],
+      "example_quotes": [
+        {
+          "quote": "family relationships and genealogical references",
+          "quote_id": "f26_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 95,
+      "code_text": "noun phrase references",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "noun phrase references"
+      ],
+      "example_quotes": [
+        {
+          "quote": "references to competitive sports events",
+          "quote_id": "f3_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 96,
+      "code_text": "numerical data tokens",
+      "category": "linguistic",
+      "frequency": 2,
+      "variants": [
+        "numeric values or codes"
+      ],
+      "example_quotes": [
+        {
+          "quote": "numeric values or codes",
+          "quote_id": "f31_gpt"
+        },
+        {
+          "quote": "numerical data or statistics",
+          "quote_id": "f32_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 97,
+      "code_text": "legal or medical context",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "legal or medical context"
+      ],
+      "example_quotes": [
+        {
+          "quote": "particularly in a legal or medical context",
+          "quote_id": "f31_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 98,
+      "code_text": "data presentation formats",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "data presentation formats"
+      ],
+      "example_quotes": [
+        {
+          "quote": "presented in various formats",
+          "quote_id": "f32_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 99,
+      "code_text": "legal and production aspects",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "legal and production aspects"
+      ],
+      "example_quotes": [
+        {
+          "quote": "including legal and production aspects",
+          "quote_id": "f33_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 100,
+      "code_text": "existence and quantity markers",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "existence and quantity markers"
+      ],
+      "example_quotes": [
+        {
+          "quote": "existence and quantity",
+          "quote_id": "f34_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 101,
+      "code_text": "specific elements or phenomena",
+      "category": "contextual",
+      "frequency": 1,
+      "variants": [
+        "specific elements or phenomena"
+      ],
+      "example_quotes": [
+        {
+          "quote": "specific elements or phenomena in a context",
+          "quote_id": "f34_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 102,
+      "code_text": "noun phrase referring to harm",
+      "category": "linguistic",
+      "frequency": 1,
+      "variants": [
+        "noun phrase referring to harm"
+      ],
+      "example_quotes": [
+        {
+          "quote": "references to violence or injuries",
+          "quote_id": "f36_gpt"
         }
       ],
       "merged_from": []

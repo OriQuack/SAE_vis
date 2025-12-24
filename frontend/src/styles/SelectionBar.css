@@ -106,6 +106,18 @@
   border-right: none;
 }
 
+/* Empty segments (placeholder for categories with 0 items) */
+.selection-state-bar__segment--empty {
+  flex-shrink: 0;
+  border-right: none;
+}
+
+.selection-state-bar__left-label--empty .selection-state-bar__label-name,
+.selection-state-bar__left-label--empty .selection-state-bar__label-count {
+  opacity: 0.5;
+  font-weight: 500;
+}
+
 /* Interactive segments (with click handler) */
 .selection-state-bar__segment--interactive {
   cursor: pointer;

@@ -71,9 +71,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
 
 
-  // UMAP selected features and projection data
+  // UMAP selected features
   const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
-  const umapProjection = useVisualizationStore(state => state.umapProjection)
 
   // Table data and activation examples for feature detail view
   const tableData = useVisualizationStore(state => state.tableData)
@@ -85,6 +84,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // SVM decision margins for auto-tagging by decision boundary
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+  const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
+  const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
 
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
@@ -153,6 +154,32 @@ const CauseView: React.FC<CauseViewProps> = ({
     hasAutoTaggedRef.current = true
   }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples, initializeCauseMetricScores])
 
+  // ============================================================================
+  // AUTO-TRIGGER SVM CLASSIFICATION - Train with anchor points on entry
+  // ============================================================================
+  // Ref to track if classification has been triggered (prevents duplicate calls)
+  const hasTriggeredClassificationRef = useRef(false)
+
+  useEffect(() => {
+    // Skip if revisiting (will restore from commit) or already triggered
+    if (isRevisitingStage3 || hasTriggeredClassificationRef.current) return
+
+    // Wait for metric scores to be initialized first
+    if (!hasAutoTaggedRef.current) return
+
+    // Wait for required data
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
+
+    // Don't trigger if already loading
+    if (causeClassificationLoading) return
+
+    console.log('[CauseView] Auto-triggering SVM classification with anchor points for', selectedFeatureIds.size, 'features')
+    hasTriggeredClassificationRef.current = true
+
+    // Trigger classification with empty selections (backend uses anchors as baseline)
+    fetchCauseClassification(Array.from(selectedFeatureIds), {})
+  }, [isRevisitingStage3, selectedFeatureIds, causeClassificationLoading, fetchCauseClassification])
+
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
   // Wait for metric scores to be calculated before creating the commit
@@ -209,18 +236,23 @@ const CauseView: React.FC<CauseViewProps> = ({
     return Array.from(umapBrushedFeatureIds)
   }, [umapBrushedFeatureIds])
 
-  // Create Margin lookup map from UMAP projection data
+  // Create decision margin lookup map from SVM classification results
+  // Decision margin = min absolute distance to any category boundary
   const decisionMarginMap = useMemo(() => {
-    if (!umapProjection) return new Map<number, number>()
-    const map = new Map<number, number>()
-    for (const point of umapProjection) {
-      // Check for both null and undefined since API can return null
-      if (point.decision_margin != null) {
-        map.set(point.feature_id, point.decision_margin)
-      }
+    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) {
+      return new Map<number, number>()
     }
+    const map = new Map<number, number>()
+    causeCategoryDecisionMargins.forEach((categoryScores, featureId) => {
+      // Compute margin as min absolute value of all category scores
+      const scores = Object.values(categoryScores)
+      if (scores.length > 0) {
+        const margin = Math.min(...scores.map(s => Math.abs(s)))
+        map.set(featureId, margin)
+      }
+    })
     return map
-  }, [umapProjection])
+  }, [causeCategoryDecisionMargins])
 
   // Sort selected features by decision margin
   const sortedSelectedFeatureList = useMemo(() => {

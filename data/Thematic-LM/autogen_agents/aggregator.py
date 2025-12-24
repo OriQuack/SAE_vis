@@ -82,4 +82,5 @@ def create_aggregator_agent(
         system_message=system_message,
         llm_config=autogen_llm_config,
         human_input_mode="NEVER",  # Fully automated per paper
+        max_consecutive_auto_reply=0,  # Disable limit - using single-shot generate_reply()
     )

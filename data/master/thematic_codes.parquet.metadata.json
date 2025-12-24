@@ -1,8 +1,8 @@
 {
-  "created_at": "2025-12-24T16:27:40.514465",
-  "total_rows": 41,
-  "unique_features": 41,
-  "unique_explainers": 1,
+  "created_at": "2025-12-24T17:11:17.161269",
+  "total_rows": 122,
+  "unique_features": 50,
+  "unique_explainers": 3,
   "schema": {
     "feature_id": "UInt32",
     "llm_explainer": "Categorical",

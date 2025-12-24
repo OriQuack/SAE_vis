@@ -468,12 +468,11 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleCauseMouseMove}
             onMouseLeave={handleCauseMouseLeave}
           >
-            {/* Left-side label for vertical orientation - no "(auto)" suffix in stage 3 */}
+            {/* Inline +n label for vertical orientation - consistent with Stage 1/2 preview pattern */}
             {isVertical && showLabels && (
-              <div className="selection-state-bar__left-label">
-                <span className="selection-state-bar__label-name">{label}</span>
-                <span className="selection-state-bar__label-count">({auto.toLocaleString()})</span>
-              </div>
+              <span className="selection-state-bar__segment-label">
+                +{auto.toLocaleString()}
+              </span>
             )}
             {/* Inline label for horizontal orientation */}
             {!isVertical && showLabels && percentage > labelThreshold && (

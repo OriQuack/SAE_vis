@@ -308,3 +308,101 @@
   pointer-events: none;
   z-index: 15;
 }
+
+/* ============================================================================
+   FILTER PANEL
+   ============================================================================ */
+
+.umap-scatter__filter-panel {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px 10px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+}
+
+.umap-scatter__filter-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.umap-scatter__filter-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.umap-scatter__filter-btn {
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  text-align: left;
+  color: #000;
+  background: transparent;
+  border: 1px solid var(--filter-color, #e5e7eb);
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  opacity: 0.5;
+}
+
+.umap-scatter__filter-btn:hover {
+  opacity: 0.8;
+}
+
+.umap-scatter__filter-btn--active {
+  background: var(--filter-color, #e5e7eb);
+  opacity: 1;
+}
+
+.umap-scatter__threshold-slider {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.umap-scatter__threshold-slider label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+}
+
+.umap-scatter__threshold-slider input[type="range"] {
+  width: 100%;
+  height: 4px;
+  appearance: none;
+  background: #e5e7eb;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.umap-scatter__threshold-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #374151;
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+.umap-scatter__threshold-slider input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #374151;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+}
