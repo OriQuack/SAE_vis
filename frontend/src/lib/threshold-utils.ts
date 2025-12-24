@@ -658,6 +658,70 @@ export function groupFeaturesByThresholds(
 }
 
 /**
+ * Group features by thresholds using a pre-computed scores map.
+ * Used for decision_margin metric where scores are not in tableData but in stage3QualityScores.
+ *
+ * @param parentFeatureIds - Set of feature IDs from parent node
+ * @param scoresMap - Pre-computed scores map (featureId -> score)
+ * @param thresholds - Array of threshold values
+ * @returns Array of feature groups
+ */
+export function groupFeaturesByScoresMap(
+  parentFeatureIds: Set<number>,
+  scoresMap: Map<number, number>,
+  thresholds: number[]
+): FeatureGroup[] {
+  // Sort thresholds in ascending order
+  const sortedThresholds = [...thresholds].sort((a, b) => a - b)
+
+  // Create N+1 groups from N thresholds
+  const groups: FeatureGroup[] = []
+
+  for (let i = 0; i <= sortedThresholds.length; i++) {
+    const featureIds = new Set<number>()
+    let rangeLabel: string
+
+    if (i === 0) {
+      // Group 0: < threshold[0]
+      rangeLabel = `< ${sortedThresholds[0].toFixed(2)}`
+      for (const featureId of parentFeatureIds) {
+        const score = scoresMap.get(featureId)
+        if (score !== undefined && score < sortedThresholds[0]) {
+          featureIds.add(featureId)
+        }
+      }
+    } else if (i === sortedThresholds.length) {
+      // Last group: >= threshold[i-1]
+      rangeLabel = `>= ${sortedThresholds[i - 1].toFixed(2)}`
+      for (const featureId of parentFeatureIds) {
+        const score = scoresMap.get(featureId)
+        if (score !== undefined && score >= sortedThresholds[i - 1]) {
+          featureIds.add(featureId)
+        }
+      }
+    } else {
+      // Middle groups: threshold[i-1] <= value < threshold[i]
+      rangeLabel = `${sortedThresholds[i - 1].toFixed(2)} - ${sortedThresholds[i].toFixed(2)}`
+      for (const featureId of parentFeatureIds) {
+        const score = scoresMap.get(featureId)
+        if (score !== undefined && score >= sortedThresholds[i - 1] && score < sortedThresholds[i]) {
+          featureIds.add(featureId)
+        }
+      }
+    }
+
+    groups.push({
+      groupIndex: i,
+      rangeLabel,
+      featureIds,
+      featureCount: featureIds.size
+    })
+  }
+
+  return groups
+}
+
+/**
  * Calculate segment proportions for v2 segment nodes from feature groups.
  * Converts feature groups into NodeSegment[] format with colors and proportional heights.
  *

@@ -156,9 +156,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     id: TAG_CATEGORY_CAUSE,
     label: "Investigate Cause",
     stageOrder: 3,
-    metric: null,  // Pre-defined groups, not metric-based
+    metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for threshold-based splitting
     defaultThresholds: [],
-    showHistogram: false,
+    showHistogram: true,
     tags: [
       "Well-Explained",
       "Noisy Activation",
@@ -266,14 +266,15 @@ export const CATEGORY_DISPLAY_NAMES = {
   [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity"
 } as const
 
-export const METRIC_DISPLAY_NAMES = {
+export const METRIC_DISPLAY_NAMES: Record<string, string> = {
   [METRIC_DECODER_SIMILARITY]: "Decoder Similarity",
   [METRIC_SEMANTIC_SIMILARITY]: "Semantic Similarity",
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
-  [METRIC_QUALITY_SCORE]: "Quality Score"
-} as const
+  [METRIC_QUALITY_SCORE]: "Quality Score",
+  'decision_margin': "Decision Margin"
+}
 
 // ============================================================================
 // D3 COLOR SCHEMES

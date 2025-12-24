@@ -332,19 +332,31 @@ export function shouldDisplayNodeHistogram(
  * @param data - Histogram data containing metric statistics
  * @param node - Sankey node to position ticks within
  * @param tickCount - Number of ticks to generate (default: 5)
+ * @param metric - Optional metric name for fixed range handling (e.g., 'decision_margin')
  * @returns Array of tick data with positions and formatted labels
  */
 export function calculateHistogramYAxisTicks(
   data: HistogramData,
   node: D3SankeyNode,
-  tickCount: number = 5
+  tickCount: number = 5,
+  metric?: string
 ): HistogramAxisTick[] {
   const nodeY0 = node.y0 || 0
   const nodeY1 = node.y1 || 0
 
+  // Calculate domain based on data statistics
+  let domainMin = data.statistics.min
+  let domainMax = data.statistics.max
+
+  // For decision_margin (Stage 3), use fixed range -1 to 1, expanding if data exceeds
+  if (metric === 'decision_margin') {
+    domainMin = Math.min(-1, domainMin)
+    domainMax = Math.max(1, domainMax)
+  }
+
   // Create scale matching the histogram bars
   const yScale = scaleLinear()
-    .domain([data.statistics.min, data.statistics.max])
+    .domain([domainMin, domainMax])
     .range([nodeY0, nodeY1])
 
   // Generate ticks using D3's intelligent tick algorithm

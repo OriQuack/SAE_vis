@@ -440,6 +440,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableData = useVisualizationStore(state => state.tableData)
   const {
     updateStageThreshold,
+    updateStage3QualityThreshold,
     selectNodeWithCategory,
     getNodeCategory,
     setSelectedSankeySegment
@@ -599,8 +600,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       updateStageThreshold(1, newThreshold, panel)
     } else if (nodeId === 'stage2_segment') {
       updateStageThreshold(2, newThreshold, panel)
+    } else if (nodeId === 'stage3_segment') {
+      // Stage 3 uses SVM-based quality scores from Stage 2
+      updateStage3QualityThreshold(newThreshold)
     }
-  }, [updateStageThreshold, panel])
+  }, [updateStageThreshold, updateStage3QualityThreshold, panel])
 
   const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
     console.log('[SankeyDiagram.handleNodeSelectionClick] ⚡ CLICK EVENT FIRED!')
@@ -960,13 +964,14 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             : segment.tagName
 
                           // Terminal segments from previous stages get smaller fonts
-                          // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
-                          // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
-                          const isStage1Terminal = segment.tagName === 'Fragmented' || segment.tagName === 'Monosemantic'
-                          const isStage2Terminal = segment.tagName === 'Well-Explained' || segment.tagName === 'Need Revision'
-                          const isPreviousStageTerminal =
-                            (isStage1Terminal && maxStage >= 2) ||
-                            (isStage2Terminal && maxStage >= 3)
+                          // Use node depth to determine if this is a previous stage (not tag names, since Stage 3 reuses tag names)
+                          const nodeDepth = structureNode?.depth ?? 0
+                          const isPreviousStageSegment = nodeDepth < maxStage
+
+                          // Check if user is dragging threshold for this node AND this is the selected segment
+                          const isDraggingThreshold = optimisticThresholds[node.id || ''] !== undefined
+                          const isSelectedSegment = selectedSegment?.nodeId === node.id && selectedSegment?.segmentIndex === segmentIndex
+                          const shouldEnlargeLabel = isDraggingThreshold && isSelectedSegment
 
                           const labelLines = [
                             displayTagName,
@@ -975,9 +980,21 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           ].filter(line => line !== '') // Remove empty metric line if no metric
 
                           // Calculate vertical offset to center label group
-                          const lineHeight = 16
+                          // Use larger line height for selected segment during drag
+                          const lineHeight = shouldEnlargeLabel ? 20 : 16
                           const totalHeight = labelLines.length * lineHeight
                           const verticalOffset = -totalHeight / 2 + lineHeight / 2
+
+                          // Calculate font sizes - bigger for selected segment during drag
+                          const getBaseFontSize = (lineIndex: number) => {
+                            if (isPreviousStageSegment) {
+                              return lineIndex === 0 ? 13 : 10
+                            }
+                            if (shouldEnlargeLabel) {
+                              return lineIndex === 0 ? 20 : 14  // Bigger for selected segment
+                            }
+                            return lineIndex === 0 ? 16 : 12
+                          }
 
                           return (
                             <g key={`segment-label-${segmentIndex}`}>
@@ -987,7 +1004,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                                     x={labelX}
                                     y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
                                     text={line}
-                                    fontSize={isPreviousStageTerminal ? (lineIndex === 0 ? 13 : 10) : (lineIndex === 0 ? 16 : 12)}
+                                    fontSize={getBaseFontSize(lineIndex)}
                                     textAnchor={textAnchor}
                                     isHovered={isHovered}
                                   />
@@ -1000,24 +1017,23 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     )
                   }
 
-                  // Fallback: if no segments, render simple label for terminal/regular vertical bar nodes
+                  // Fallback: if no segments, render simple label
+                  // For stage3_segment with no segments yet, show "Unsure" as initial state
                   const fallbackLabelX = isRightToLeft ? node.x1! + 4 : node.x0! - 4
                   const fallbackTextAnchor = isRightToLeft ? 'start' : 'end'
                   const fallbackIsHovered = hoveredNodeId === node.id
                   const fallbackNodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2
 
-                  // Split name into lines and add feature count
-                  const fallbackNameLines = node.name.split('\n')
+                  // For stage3_segment without segments, show "Unsure" as fallback
+                  const isStage3SegmentFallback = node.id === 'stage3_segment' && structureNode?.type === 'segment'
+                  const fallbackDisplayName = isStage3SegmentFallback ? 'Unsure' : node.name
+                  const fallbackNameLines = fallbackDisplayName.split('\n')
                   const fallbackAllLines = [...fallbackNameLines, `(${node.feature_count.toLocaleString()})`]
 
-                  // Check if this is a previous stage terminal node
-                  // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
-                  // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
-                  const fallbackIsStage1Terminal = node.name.includes('Fragmented') || node.name.includes('Monosemantic')
-                  const fallbackIsStage2Terminal = node.name.includes('Well-Explained') || node.name.includes('Need Revision')
-                  const fallbackIsPreviousStageTerminal =
-                    (fallbackIsStage1Terminal && maxStage >= 2) ||
-                    (fallbackIsStage2Terminal && maxStage >= 3)
+                  // Check if this is a previous stage node using depth
+                  // For stage3_segment fallback, it's current stage (not previous)
+                  const fallbackNodeDepth = structureNode?.depth ?? node.stage ?? 0
+                  const fallbackIsPreviousStage = !isStage3SegmentFallback && fallbackNodeDepth < maxStage
 
                   const fallbackLineHeight = 16
                   const fallbackTotalHeight = fallbackAllLines.length * fallbackLineHeight
@@ -1031,7 +1047,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             x={fallbackLabelX}
                             y={fallbackNodeCenterY + fallbackVerticalOffset + (lineIndex * fallbackLineHeight)}
                             text={line}
-                            fontSize={fallbackIsPreviousStageTerminal
+                            fontSize={fallbackIsPreviousStage
                               ? (lineIndex === fallbackAllLines.length - 1 ? 10 : 13)
                               : (lineIndex === fallbackAllLines.length - 1 ? 12 : 16)}
                             textAnchor={fallbackTextAnchor}

@@ -18,8 +18,9 @@ import type {
   Filters
 } from '../types'
 import { getStageConfig } from './sankey-stages'
-import { processFeatureGroupResponse } from './threshold-utils'
-import { TAG_CATEGORIES } from './constants'
+import { processFeatureGroupResponse, groupFeaturesByScoresMap, calculateSegmentProportions } from './threshold-utils'
+import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY } from './constants'
+import { getBadgeColors } from './tag-system'
 import * as api from '../api'
 
 // ============================================================================
@@ -546,31 +547,20 @@ export function buildStage3(
     value: wellExplainedSegment.featureCount
   })
 
-  // 3. Create single "Unsure" segment for Stage 3
-  // Unlike Stages 1 & 2, Stage 3 has no threshold to pre-filter features
-  // All features start as "Unsure" and get tagged by user
-  // Use Need Revision color for visual continuity (these features came from Need Revision)
-  const segments: NodeSegment[] = [{
-    tagName: 'Unsure',
-    featureIds: needRevisionNode.featureIds,
-    featureCount: needRevisionNode.featureCount,
-    color: needRevisionSegment.color,
-    height: 1.0,
-    yPosition: 0
-  }]
-
-  // 4. Create Cause segment node (only if need_revision has features)
+  // 3. Create Cause segment node (only if need_revision has features)
+  // Initially empty segments - will be populated when threshold is applied via updateStage3Threshold
+  // SankeyDiagram.tsx fallback rendering handles the "Unsure" display before threshold is set
   if (needRevisionNode.featureCount > 0) {
     const causeSegmentNode: SegmentSankeyNode = {
       id: 'stage3_segment',
       type: 'segment',
-      metric: null,  // No metric for Cause stage
-      threshold: null,
+      metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for histogram display
+      threshold: null,  // Will be set when quality scores are fetched
       parentId: 'need_revision',
       depth: 3,
       featureIds: needRevisionNode.featureIds,
       featureCount: needRevisionNode.featureCount,
-      segments
+      segments: []  // Empty initially - populated by updateStage3Threshold when threshold is applied
     }
     nodes.push(causeSegmentNode)
 
@@ -680,4 +670,58 @@ export async function updateStageThreshold(
 
   // Stage 3 has no threshold
   return structure
+}
+
+/**
+ * Update Stage 3 threshold for quality score-based segmentation.
+ *
+ * Stage 3 uses a different approach from Stages 1 & 2:
+ * - Instead of API-based threshold grouping on a raw metric,
+ *   it uses SVM decision margin scores from Stage 2's model
+ * - The scores are pre-computed and passed from the store
+ *
+ * @param structure - Current Sankey structure (must be Stage 3)
+ * @param qualityScores - Map of feature_id -> SVM decision margin score
+ * @param newThreshold - New threshold value for splitting
+ * @returns Updated Sankey structure with new segments
+ */
+export function updateStage3Threshold(
+  structure: SankeyStructure,
+  qualityScores: Map<number, number>,
+  newThreshold: number
+): SankeyStructure {
+  const segmentNode = structure.nodes.find(n => n.id === 'stage3_segment') as SegmentSankeyNode
+  if (!segmentNode) {
+    console.warn('[updateStage3Threshold] Stage 3 segment node not found')
+    return structure
+  }
+
+  // Avoid division by zero
+  if (segmentNode.featureCount === 0) {
+    return structure
+  }
+
+  // Use shared helper functions (same as SankeyOverlay optimistic updates)
+  // This eliminates duplicate segment calculation logic
+  const groups = groupFeaturesByScoresMap(segmentNode.featureIds, qualityScores, [newThreshold])
+  const tags = ['Need Revision', 'Well-Explained']
+  const tagColors = getBadgeColors(TAG_CATEGORY_QUALITY)
+  const updatedSegments = calculateSegmentProportions(groups, tags, tagColors, segmentNode.featureCount)
+
+  // Update segment node
+  const updatedSegmentNode: SegmentSankeyNode = {
+    ...segmentNode,
+    metric: 'decision_margin',  // Indicate this uses Stage 2 SVM scores
+    threshold: newThreshold,
+    segments: updatedSegments
+  }
+
+  const updatedNodes = structure.nodes.map(n =>
+    n.id === 'stage3_segment' ? updatedSegmentNode : n
+  )
+
+  return {
+    ...structure,
+    nodes: updatedNodes
+  }
 }

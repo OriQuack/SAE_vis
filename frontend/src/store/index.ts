@@ -11,7 +11,8 @@ import type {
   SankeySegmentSelection,
   FlowPathData,
   UmapPoint,
-  MultiModalityInfo
+  MultiModalityInfo,
+  SimilarityScoreHistogramResponse
 } from '../types'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -342,6 +343,14 @@ interface AppState {
   causeMultiModalityLoading: boolean
   fetchMultiModality: (featureIds: number[], causeSelections: Record<number, string>) => Promise<void>
 
+  // Stage 3 quality scores (from Stage 2 SVM - for histogram overlay)
+  stage3QualityScores: Map<number, number> | null  // feature_id -> decision margin
+  stage3QualityHistogram: SimilarityScoreHistogramResponse | null
+  stage3QualityThreshold: number | null  // Threshold for splitting Need Revision features
+  isStage3QualityScoresLoading: boolean
+  fetchStage3QualityScores: () => Promise<void>
+  updateStage3QualityThreshold: (threshold: number) => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -488,6 +497,12 @@ const initialState = {
   causeMultiModality: null,
   causeMultiModalityLoading: false,
 
+  // Stage 3 quality scores (from Stage 2 SVM - for histogram overlay)
+  stage3QualityScores: null,
+  stage3QualityHistogram: null,
+  stage3QualityThreshold: null,
+  isStage3QualityScoresLoading: false,
+
   // Hover state
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
@@ -620,6 +635,10 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Multi-modality action (Stage 3)
   fetchMultiModality: causeActions.fetchMultiModality,
+
+  // Compose Stage 3 quality scores actions (from Stage 2 SVM)
+  fetchStage3QualityScores: causeActions.fetchStage3QualityScores,
+  updateStage3QualityThreshold: causeActions.updateStage3QualityThreshold,
 
   // Unified similarity tagging actions (route based on mode)
   ...unifiedSimilarityActions,

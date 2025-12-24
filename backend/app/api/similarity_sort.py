@@ -13,7 +13,8 @@ from ..models.similarity_sort import (
     PairSimilarityHistogramRequest,
     CauseSimilaritySortRequest, CauseSimilaritySortResponse,
     CauseSimilarityHistogramRequest, CauseSimilarityHistogramResponse,
-    MultiModalityRequest, MultiModalityResponse
+    MultiModalityRequest, MultiModalityResponse,
+    Stage3QualityScoresRequest
 )
 
 if TYPE_CHECKING:
@@ -549,4 +550,77 @@ async def multi_modality_test(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during multi-modality test: {str(e)}"
+        )
+
+
+@router.post("/stage3-quality-scores", response_model=SimilarityHistogramResponse)
+async def stage3_quality_scores(
+    request: Stage3QualityScoresRequest,
+    service: "SimilaritySortService" = Depends(get_similarity_sort_service)
+) -> SimilarityHistogramResponse:
+    """
+    Calculate quality scores for Stage 3 features using Stage 2's SVM model.
+
+    This endpoint trains an SVM on Stage 2's final selections:
+    - Well-Explained features = positive class (selected)
+    - Need Revision features = negative class (rejected)
+
+    Then scores the specified feature_ids (typically the Need Revision set)
+    to determine their proximity to the Well-Explained decision boundary.
+
+    Features with higher scores are closer to the Well-Explained class,
+    indicating they may have been borderline cases suitable for reconsideration.
+
+    This is used in Stage 3 to display a histogram overlay on the Sankey diagram,
+    allowing threshold-based splitting of Need Revision features.
+
+    Args:
+        request: Request with well_explained_ids, need_revision_ids, and feature_ids
+        service: Injected similarity sort service
+
+    Returns:
+        Response with scores, histogram data, and bimodality detection
+    """
+    try:
+        logger.info(
+            f"Stage 3 quality scores request: well_explained={len(request.well_explained_ids)}, "
+            f"need_revision={len(request.need_revision_ids)}, "
+            f"to_score={len(request.feature_ids)}"
+        )
+
+        # Validate request
+        if not request.feature_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="feature_ids cannot be empty"
+            )
+
+        if not request.well_explained_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="well_explained_ids cannot be empty (need at least 1 for SVM training)"
+            )
+
+        if not request.need_revision_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="need_revision_ids cannot be empty (need at least 1 for SVM training)"
+            )
+
+        # Call service to calculate scores and histogram
+        response = await service.get_stage3_quality_scores(request)
+
+        logger.info(f"Stage 3 quality scores completed: {response.total_items} features scored")
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in Stage 3 quality scores: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during Stage 3 quality score calculation: {str(e)}"
         )

@@ -241,11 +241,36 @@ export const createCommonActions = (set: any, get: any) => ({
       return null // No selection - show all features
     }
 
+    // Special case: Stage 3 node selected without specific segment
+    // This happens when we want to select the entire stage3_segment node
+    if (tableSelectedNodeIds.includes('stage3_segment') && leftPanel.sankeyStructure) {
+      const needRevisionNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'need_revision')
+      if (needRevisionNode && needRevisionNode.featureIds) {
+        console.log('[Store.getSelectedNodeFeatures] V2: Stage 3 whole node - returning all need_revision features:', {
+          featureCount: needRevisionNode.featureIds.size
+        })
+        return needRevisionNode.featureIds
+      }
+    }
+
     // V2: If a specific segment is selected, return only that segment's features
     if (selectedSegment && leftPanel.sankeyStructure) {
       const segmentNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === selectedSegment.nodeId)
 
       if (segmentNode && segmentNode.type === 'segment' && segmentNode.segments) {
+        // Special case for Stage 3: Return ALL features from need_revision node
+        // The threshold segments in stage3_segment are for visualization only.
+        // CauseView should always work with all features flowing into Stage 3.
+        if (selectedSegment.nodeId === 'stage3_segment') {
+          const needRevisionNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'need_revision')
+          if (needRevisionNode && needRevisionNode.featureIds) {
+            console.log('[Store.getSelectedNodeFeatures] V2: Stage 3 - returning all need_revision features:', {
+              featureCount: needRevisionNode.featureIds.size
+            })
+            return needRevisionNode.featureIds
+          }
+        }
+
         const segment = segmentNode.segments[selectedSegment.segmentIndex]
         if (segment) {
           console.log('[Store.getSelectedNodeFeatures] V2: Got features from selected segment:', {
@@ -540,7 +565,7 @@ export const createCommonActions = (set: any, get: any) => ({
       }
     } else if (stageNumber === 3) {
       selectedNodeId = 'stage3_segment'
-      segmentIndex = 0  // First cause segment (Missed Context)
+      segmentIndex = null  // Select entire node for Stage 3 (not individual segments)
       // Clear revisiting flags when moving to Stage 3
       set({ isRevisitingStage1: false, isRevisitingStage2: false })
     } else {

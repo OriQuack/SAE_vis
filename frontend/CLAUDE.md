@@ -96,42 +96,40 @@ The application implements a 3-stage workflow for tagging features:
 Both Stage 1 and Stage 2 share the same layout pattern:
 - **SelectionPanel** (left): Selection state bar + commit history
 - **ThresholdTaggingPanel** (bottom): Histogram + boundary lists
-- **TagAutomaticPanel**: SVM-based similarity scoring histogram
+- **DecisionMarginHistogram**: SVM decision margin histogram with threshold handles
 
 ## Project Structure
 
 ```
 frontend/src/
-├── components/                    # React Components (26 files)
+├── components/                    # React Components (25 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
 │   ├── SankeyOverlay.tsx         # Stage addition interface
-│   ├── SankeyHistogramPopover.tsx # Histogram popover for threshold editing
 │   ├── SankeyToSelectionFlowOverlay.tsx # Flow visualization overlay
 │   ├── AlluvialDiagram.tsx       # Cross-explainer flow comparison
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
 │   ├── CauseView.tsx             # Stage 3: Root cause analysis
+│   ├── CauseMetricParallelCoords.tsx # Parallel coordinates for cause metrics
 │   ├── UMAPScatter.tsx           # UMAP scatter plot (Stage 3)
 │   ├── SelectionPanel.tsx        # Unified selection panel
 │   ├── SelectionBar.tsx          # Selection state bar
 │   ├── TagStagePanel.tsx         # Stage navigation
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
-│   ├── TagAutomaticPanel.tsx     # Histogram + auto-tagging
-│   ├── TagAutomaticPopover.tsx   # Legacy threshold tagging popover
+│   ├── DecisionMarginHistogram.tsx # SVM decision margin histogram
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ScrollableItemList.tsx    # Scrollable item list
-│   ├── ActivationExample.tsx     # Activation display
-│   ├── TableExplanation.tsx      # Explanation text with highlights
-│   ├── TableIndicators.tsx       # Score indicators
+│   ├── ActivationExamplePanel.tsx # Activation display panel
+│   ├── ExplanationPanel.tsx      # Explanation text with highlights
+│   ├── Indicators.tsx            # Score indicators
 │   ├── QualityScoreBreakdown.tsx # Score breakdown
-│   ├── BimodalityIndicator.tsx   # Bimodality detection display
+│   ├── ModalityIndicator.tsx     # Modality detection display
 │   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
-│   ├── FlowPanel.tsx             # Flow panel for stage transitions
-│   └── _QualityTable.deprecated.tsx # (deprecated, not imported)
-├── lib/                          # Utilities (19 files)
+│   └── FlowPanel.tsx             # Flow panel for stage transitions
+├── lib/                          # Utilities (32 files)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -142,17 +140,29 @@ frontend/src/
 │   ├── threshold-utils.ts        # Threshold path handling
 │   ├── alluvial-utils.ts         # Alluvial diagram layout
 │   ├── flow-utils.ts             # Flow panel utilities
-│   ├── table-utils.ts            # Table layout
+│   ├── table-data-utils.ts       # Table data processing
 │   ├── tag-system.ts             # Tag colors/labels
 │   ├── hierarchical-colors.ts    # CIELAB color assignment
 │   ├── circle-encoding-utils.ts  # Circle encoding for scores
-│   ├── bimodality-utils.ts       # Bimodality detection helpers
+│   ├── modality-utils.ts         # Modality detection helpers
 │   ├── explainer-grid-utils.ts   # Explainer comparison grid
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
 │   ├── cause-tagging-utils.ts    # Cause category metric calculations
 │   ├── umap-utils.ts             # UMAP scales, contours, colors
-│   └── utils.ts                  # General helpers
+│   ├── color-utils.tsx           # Color manipulation utilities
+│   ├── triangle-grid.ts          # Triangle grid layout utilities
+│   ├── utils.ts                  # General helpers
+│   └── tagging-hooks/            # Reusable tagging hooks (9 files)
+│       ├── index.ts              # Hook exports
+│       ├── useThresholdPreview.ts # Threshold preview state
+│       ├── useTaggingStatus.ts   # Tagging status tracking
+│       ├── useCommitHistory.ts   # Commit history management
+│       ├── useListNavigation.ts  # List navigation state
+│       ├── usePaginatedList.ts   # Pagination logic
+│       ├── useBoundaryItems.ts   # Boundary item detection
+│       ├── useSortableList.ts    # Sortable list logic
+│       └── useBimodalStatus.ts   # Bimodal distribution status
 ├── store/                        # Zustand State (8 files)
 │   ├── index.ts                  # Main store composition
 │   ├── sankey-actions.ts         # Sankey operations
@@ -162,29 +172,30 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (23 files)
+├── styles/                       # CSS Files (24 files)
 │   ├── base.css                  # Base styles, CSS variables
+│   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
 │   ├── SankeyDiagram.css         # Sankey styles
-│   ├── SankeyHistogramPopover.css # Popover styles
 │   ├── SankeyToSelectionFlowOverlay.css # Flow overlay styles
 │   ├── AlluvialDiagram.css       # Alluvial styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── QualityView.css           # Stage 2 styles
-│   ├── QualityTable.css          # Quality table styles
-│   ├── CauseTable.css            # Stage 3 table styles
+│   ├── CauseView.css             # Stage 3 styles
+│   ├── CauseMetricParallelCoords.css # Parallel coords styles
+│   ├── UMAPScatter.css           # UMAP scatter styles
 │   ├── SelectionPanel.css        # Selection panel styles
 │   ├── SelectionBar.css          # Selection bar styles
 │   ├── TagStagePanel.css         # Stage panel styles
 │   ├── ThresholdTaggingPanel.css # Bottom panel styles
-│   ├── TagAutomaticPanel.css     # Auto-tagging panel styles
-│   ├── TagAutomaticPopover.css   # Popover styles
+│   ├── DecisionMarginHistogram.css # Decision margin histogram styles
 │   ├── ScrollableItemList.css    # Scrollable list styles
-│   ├── ActivationExample.css     # Activation styles
-│   ├── BimodalityIndicator.css   # Bimodality indicator styles
+│   ├── ActivationExamplePanel.css # Activation panel styles
+│   ├── ModalityIndicator.css     # Modality indicator styles
 │   ├── ExplainerComparisonGrid.css # Comparison grid styles
 │   ├── FlowPanel.css             # Flow panel styles
+│   ├── TagAutomaticPopover.css   # Legacy popover styles
 │   └── AppHeader.css             # Header styles
 ├── types.ts                      # TypeScript types
 ├── api.ts                        # API client
@@ -212,7 +223,7 @@ frontend/src/
 - Mode: `pair`
 - Pair list with hierarchical clustering
 - FeatureSplitPairViewer for pair analysis
-- TagAutomaticPanel for histogram-based tagging
+- DecisionMarginHistogram for histogram-based tagging
 - Commit history for state snapshots
 - Tags: Fragmented (selected) / Monosemantic (rejected)
 
@@ -227,8 +238,8 @@ frontend/src/
 **CauseView.tsx** - Stage 3: Root Cause Analysis
 - Mode: `cause`
 - UMAP scatter plot with barycentric projections
+- CauseMetricParallelCoords for metric visualization
 - Features start as "unsure" (no pre-assignment)
-- Metric score bars to guide tagging decisions
 - SVM-based classification after manual tagging
 - Tags: Noisy Activation / Missed N-gram / Missed Context / Well-Explained
 
@@ -239,6 +250,11 @@ frontend/src/
 - Density contours per cause category
 - Lasso selection for batch operations
 - Explainer position detail view on feature selection
+
+**CauseMetricParallelCoords.tsx** - Parallel Coordinates (Stage 3)
+- Parallel coordinates visualization for cause metrics
+- Shows metric distributions across cause categories
+- Interactive axis highlighting
 
 **AlluvialDiagram.tsx** - Comparison View
 - Cross-explainer flow visualization
@@ -265,22 +281,17 @@ frontend/src/
 
 **ThresholdTaggingPanel.tsx** - Bottom Panel for Tagging
 - Supports both `pair` and `feature` modes
-- Contains: TagAutomaticPanel + buttons + boundary lists
+- Contains: DecisionMarginHistogram + buttons + boundary lists
 - Mode-specific labels and item rendering
 
-**TagAutomaticPanel.tsx** - Histogram-Based Tagging
-- SVM similarity score histogram
+**DecisionMarginHistogram.tsx** - Histogram-Based Tagging
+- SVM decision margin histogram
 - Dual thresholds (select/reject)
 - Real-time preview
-- Bimodality detection integration
+- Modality detection integration
 - Supports both `pair` and `feature` modes
 
 ### Visualization Components
-
-**SankeyHistogramPopover.tsx** - Threshold Editing
-- Histogram visualization
-- Draggable threshold handles
-- Portal-based rendering
 
 **SankeyToSelectionFlowOverlay.tsx** - Flow Visualization
 - Renders flows from Sankey segments to SelectionBar
@@ -292,14 +303,26 @@ frontend/src/
 - Decoder similarity visualization
 - Selection/rejection interface
 
-**BimodalityIndicator.tsx** - Bimodality Detection
-- Visual indicator for bimodal distributions
+**ModalityIndicator.tsx** - Modality Detection
+- Visual indicator for unimodal/bimodal distributions
 - Shows GMM components, Dip test results
 
 **ScrollableItemList.tsx** - Boundary Lists
 - Scrollable list with fixed height
 - Color-coded selection states
 - Click handlers for navigation
+
+**ActivationExamplePanel.tsx** - Activation Display
+- Shows activation examples for features
+- Token highlighting with activation values
+
+**ExplanationPanel.tsx** - Explanation Display
+- Explanation text with keyword highlights
+- Cross-explainer comparison support
+
+**Indicators.tsx** - Score Indicators
+- Visual indicators for metric scores
+- Circle encoding for score visualization
 
 ## SVM-Based Similarity Scoring
 
@@ -308,10 +331,25 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
 2. **SVM Training**: Backend trains SVM on manual selections
 3. **Scoring**: All items scored by distance from decision boundary
-4. **Histogram**: Scores displayed in histogram with dual thresholds
-5. **Bimodality Detection**: Hartigan's Dip test + GMM analysis
+4. **Histogram**: Scores displayed in DecisionMarginHistogram with dual thresholds
+5. **Modality Detection**: Hartigan's Dip test + GMM analysis
 6. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
 7. **Commit History**: Each apply creates a restorable state snapshot
+
+## Tagging Hooks (lib/tagging-hooks/)
+
+Reusable React hooks for tagging functionality across stages:
+
+| Hook | Purpose |
+|------|---------|
+| `useThresholdPreview` | Manages threshold preview state and calculations |
+| `useTaggingStatus` | Tracks tagging status (ready, pending, complete) |
+| `useCommitHistory` | Manages commit history for state snapshots |
+| `useListNavigation` | Handles list navigation with keyboard/click |
+| `usePaginatedList` | Pagination logic for large item lists |
+| `useBoundaryItems` | Detects items at threshold boundaries |
+| `useSortableList` | Sortable list with drag/reorder support |
+| `useBimodalStatus` | Tracks bimodal distribution status |
 
 ## Development Workflow
 
@@ -364,7 +402,7 @@ function SankeyDiagram() {
 4. **Action naming** - Use verb prefixes (set, update, fetch, etc.)
 
 ### Mode-Aware Components
-Components like `ThresholdTaggingPanel` and `TagAutomaticPanel` support multiple modes:
+Components like `ThresholdTaggingPanel` and `DecisionMarginHistogram` support multiple modes:
 ```typescript
 // Mode determines: item type, labels, selection states, API calls
 interface Props {
@@ -404,8 +442,8 @@ const debouncedUpdate = useMemo(
 | POST /api/segment-cluster-pairs | Get all cluster pairs |
 | POST /api/similarity-sort | Sort features by SVM |
 | POST /api/pair-similarity-sort | Sort pairs by SVM |
-| POST /api/similarity-score-histogram | Feature histogram + bimodality |
-| POST /api/pair-similarity-score-histogram | Pair histogram + bimodality |
+| POST /api/similarity-score-histogram | Feature histogram + modality |
+| POST /api/pair-similarity-score-histogram | Pair histogram + modality |
 | POST /api/umap-projection | Barycentric 2D positions (Stage 3) |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/activation-examples | On-demand activation data |

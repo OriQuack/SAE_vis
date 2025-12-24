@@ -22,7 +22,8 @@ import type {
   CauseSimilarityHistogramResponse,
   UmapProjectionResponse,
   MultiModalityResponse,
-  CauseClassificationResponse
+  CauseClassificationResponse,
+  Stage3QualityScoresRequest
 } from './types'
 
 // ============================================================================
@@ -68,7 +69,8 @@ const API_ENDPOINTS = {
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
   UMAP_PROJECTION: "/umap-projection",
   CAUSE_CLASSIFICATION: "/cause-classification",
-  MULTI_MODALITY_TEST: "/multi-modality-test"
+  MULTI_MODALITY_TEST: "/multi-modality-test",
+  STAGE3_QUALITY_SCORES: "/stage3-quality-scores"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -739,6 +741,68 @@ export async function getCauseClassification(
     resultCount: data.results?.length || 0,
     totalFeatures: data.total_features,
     categoryCounts: data.category_counts
+  })
+
+  return data
+}
+
+// ============================================================================
+// STAGE 3 QUALITY SCORES API (Using Stage 2 SVM)
+// ============================================================================
+
+/**
+ * Get Stage 3 quality scores using Stage 2's SVM model.
+ *
+ * Trains an SVM on Stage 2's final Well-Explained vs Need Revision selections,
+ * then scores all specified feature_ids to determine their proximity to the
+ * Well-Explained decision boundary.
+ *
+ * Features with higher scores are closer to the Well-Explained class,
+ * indicating they may have been borderline cases suitable for reconsideration.
+ *
+ * @param wellExplainedIds - Feature IDs tagged as Well-Explained in Stage 2
+ * @param needRevisionIds - Feature IDs tagged as Need Revision in Stage 2
+ * @param featureIds - Feature IDs to score (typically = needRevisionIds)
+ * @returns Histogram response with scores and bimodality detection
+ */
+export async function getStage3QualityScores(
+  wellExplainedIds: number[],
+  needRevisionIds: number[],
+  featureIds: number[]
+): Promise<SimilarityScoreHistogramResponse> {
+  console.log('[API] getStage3QualityScores called with:', {
+    wellExplainedCount: wellExplainedIds.length,
+    needRevisionCount: needRevisionIds.length,
+    featuresToScore: featureIds.length
+  })
+
+  const requestBody: Stage3QualityScoresRequest = {
+    well_explained_ids: wellExplainedIds,
+    need_revision_ids: needRevisionIds,
+    feature_ids: featureIds
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.STAGE3_QUALITY_SCORES}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Stage 3 quality scores error:', response.status, errorText)
+    throw new Error(`Failed to fetch Stage 3 quality scores: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getStage3QualityScores response:', {
+    totalItems: data.total_items,
+    scoresCount: data.scores ? Object.keys(data.scores).length : 0,
+    histogramBins: data.histogram?.bins?.length || 0,
+    statistics: data.statistics,
+    hasBimodality: !!data.bimodality
   })
 
   return data

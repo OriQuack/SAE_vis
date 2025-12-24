@@ -818,3 +818,23 @@ export interface CauseClassificationResponse {
   category_counts: Record<string, number>
 }
 
+// ============================================================================
+// STAGE 3 QUALITY SCORES TYPES (Using Stage 2 SVM)
+// ============================================================================
+
+/**
+ * Stage 3 Quality Scores Request - Request for Stage 3 quality histogram
+ *
+ * Trains an SVM on Stage 2's final Well-Explained vs Need Revision selections,
+ * then scores all specified feature_ids to determine their proximity to the
+ * Well-Explained decision boundary.
+ */
+export interface Stage3QualityScoresRequest {
+  well_explained_ids: number[]  // Stage 2 selected (SVM positive class)
+  need_revision_ids: number[]   // Stage 2 rejected (SVM negative class)
+  feature_ids: number[]         // Features to score (typically = need_revision_ids)
+}
+
+// Stage3QualityScoresResponse reuses SimilarityScoreHistogramResponse
+// (same structure: scores, histogram, statistics, bimodality, total_items)
+

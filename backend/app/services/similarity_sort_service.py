@@ -17,7 +17,8 @@ from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
-    MultiModalityRequest, MultiModalityResponse, MultiModalityInfo, CategoryBimodalityInfo
+    MultiModalityRequest, MultiModalityResponse, MultiModalityInfo, CategoryBimodalityInfo,
+    Stage3QualityScoresRequest
 )
 from .bimodality_service import BimodalityService
 
@@ -177,6 +178,125 @@ class SimilaritySortService:
         bimodality_result = self.bimodality_service.detect_bimodality(score_values)
 
         logger.info(f"Successfully generated histogram for {len(feature_scores)} features")
+
+        return SimilarityHistogramResponse(
+            scores=scores_dict,
+            histogram=HistogramData(
+                bins=bins.tolist(),
+                counts=counts.tolist(),
+                bin_edges=bin_edges.tolist()
+            ),
+            statistics=statistics,
+            total_items=len(feature_scores),
+            bimodality=BimodalityInfo(
+                dip_pvalue=bimodality_result.dip_pvalue,
+                bic_k1=bimodality_result.bic_k1,
+                bic_k2=bimodality_result.bic_k2,
+                gmm_components=[
+                    GMMComponentInfo(
+                        mean=comp.mean,
+                        variance=comp.variance,
+                        weight=comp.weight
+                    )
+                    for comp in bimodality_result.gmm_components
+                ],
+                sample_size=bimodality_result.sample_size
+            )
+        )
+
+    async def get_stage3_quality_scores(
+        self,
+        request: Stage3QualityScoresRequest
+    ) -> SimilarityHistogramResponse:
+        """
+        Calculate Stage 3 quality scores using Stage 2's SVM model.
+
+        Trains an SVM on Stage 2's Well-Explained (positive) vs Need Revision (negative)
+        features, then scores all specified feature_ids (typically the Need Revision set)
+        to determine their proximity to the Well-Explained decision boundary.
+
+        Features with higher scores are closer to the "Well-Explained" class,
+        indicating they may have been borderline cases that could be revisited.
+
+        Args:
+            request: Request containing well_explained_ids, need_revision_ids, and feature_ids
+
+        Returns:
+            Response with scores and histogram data (reuses SimilarityHistogramResponse)
+        """
+        if not self.data_service.is_ready():
+            raise RuntimeError("DataService not ready")
+
+        # We need metrics for all features involved:
+        # - Training: well_explained_ids + need_revision_ids
+        # - Scoring: feature_ids
+        all_feature_ids = list(set(
+            request.well_explained_ids +
+            request.need_revision_ids +
+            request.feature_ids
+        ))
+
+        logger.info(f"[Stage3QualityScores] Extracting metrics for {len(all_feature_ids)} features "
+                   f"(well_explained={len(request.well_explained_ids)}, "
+                   f"need_revision={len(request.need_revision_ids)}, "
+                   f"to_score={len(request.feature_ids)})")
+
+        metrics_df = await self._extract_metrics(all_feature_ids)
+
+        if metrics_df is None or len(metrics_df) == 0:
+            logger.warning("[Stage3QualityScores] No metrics extracted, returning empty histogram")
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Filter metrics_df to only feature_ids we want to score
+        feature_ids_set = set(request.feature_ids)
+        score_df = metrics_df.filter(pl.col("feature_id").is_in(feature_ids_set))
+
+        # Calculate similarity scores using SVM
+        # Well-Explained = selected (positive class)
+        # Need Revision = rejected (negative class)
+        logger.info("[Stage3QualityScores] Training SVM on Stage 2 selections")
+        feature_scores = self._calculate_similarity_scores_for_histogram(
+            score_df,
+            request.well_explained_ids,
+            request.need_revision_ids
+        )
+
+        # Create scores dictionary
+        scores_dict = {str(item.feature_id): item.score for item in feature_scores}
+
+        # Extract score values for histogram
+        score_values = np.array([item.score for item in feature_scores])
+
+        if len(score_values) == 0:
+            return SimilarityHistogramResponse(
+                scores={},
+                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
+                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
+                total_items=0
+            )
+
+        # Compute histogram (60 bins for good resolution)
+        counts, bin_edges = np.histogram(score_values, bins=60)
+        bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
+
+        # Compute statistics
+        statistics = HistogramStatistics(
+            min=float(np.min(score_values)),
+            max=float(np.max(score_values)),
+            mean=float(np.mean(score_values)),
+            median=float(np.median(score_values))
+        )
+
+        # Detect bimodality
+        bimodality_result = self.bimodality_service.detect_bimodality(score_values)
+
+        logger.info(f"[Stage3QualityScores] Generated histogram for {len(feature_scores)} features "
+                   f"(range: {statistics.min:.2f} to {statistics.max:.2f})")
 
         return SimilarityHistogramResponse(
             scores=scores_dict,
