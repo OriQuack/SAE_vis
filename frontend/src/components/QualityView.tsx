@@ -61,6 +61,10 @@ const QualityView: React.FC<QualityViewProps> = ({
   const isRevisitingStage2 = useVisualizationStore(state => state.isRevisitingStage2)
   const stage2FinalCommit = useVisualizationStore(state => state.stage2FinalCommit)
   const setStage2FinalCommit = useVisualizationStore(state => state.setStage2FinalCommit)
+  // Full commit history for restoration
+  const stage2CommitHistory = useVisualizationStore(state => state.stage2CommitHistory)
+  const stage2CommitData = useVisualizationStore(state => state.stage2CommitData)
+  const stage2CurrentCommitIndex = useVisualizationStore(state => state.stage2CurrentCommitIndex)
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
@@ -78,10 +82,53 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
   // COMMIT HISTORY - Using centralized hook
   // ============================================================================
-  // Build initial commit for revisiting (if applicable)
+  // Build full commit history for revisiting (if applicable)
+  const initialCommitsForRevisit = useMemo((): FeatureCommit[] | null => {
+    if (isRevisitingStage2 && stage2CommitData && stage2CommitData.size > 0 && stage2CommitHistory.length > 0) {
+      console.log('[QualityView] Building full commit history for revisit:', stage2CommitData.size, 'commits')
+
+      // Reconstruct full commit array from stored data
+      const commits: FeatureCommit[] = []
+      for (let i = 0; i < stage2CommitHistory.length; i++) {
+        const historyEntry = stage2CommitHistory[i]
+        const commitData = stage2CommitData.get(i)
+
+        if (historyEntry && commitData) {
+          commits.push({
+            id: historyEntry.id,
+            type: historyEntry.type,
+            states: new Map(commitData.states),
+            sources: new Map(commitData.sources),
+            counts: historyEntry.counts as QualityCommitCounts,
+            featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
+          })
+        }
+      }
+
+      if (commits.length > 0) {
+        console.log('[QualityView] Restored', commits.length, 'commits from history')
+        return commits
+      }
+    }
+    return null
+  }, [isRevisitingStage2, stage2CommitData, stage2CommitHistory])
+
+  // Saved current index for revisiting
+  const savedCurrentIndex = useMemo((): number | null => {
+    if (isRevisitingStage2 && stage2CurrentCommitIndex !== undefined) {
+      return stage2CurrentCommitIndex
+    }
+    return null
+  }, [isRevisitingStage2, stage2CurrentCommitIndex])
+
+  // Fallback: Build single initial commit for revisiting (backward compatibility)
   const initialCommitForRevisit = useMemo((): FeatureCommit | null => {
+    // Only use fallback if we don't have full history
+    if (initialCommitsForRevisit && initialCommitsForRevisit.length > 0) {
+      return null // Full history takes priority
+    }
     if (isRevisitingStage2 && stage2FinalCommit) {
-      console.log('[QualityView] Building initial commit for revisit')
+      console.log('[QualityView] Fallback: Building single initial commit for revisit')
       return {
         id: 1,
         type: 'tagAll',
@@ -92,7 +139,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
     }
     return null
-  }, [isRevisitingStage2, stage2FinalCommit])
+  }, [isRevisitingStage2, stage2FinalCommit, initialCommitsForRevisit])
 
   // Dependencies for selectedFeatureIds
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -207,9 +254,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   const {
     commits: tagCommitHistory,
     currentCommitIndex,
-    saveCurrentState,
+    updateCurrentCommit,
     createCommit,
-    createCommitAsync
+    restoreCommit
   } = useCommitHistory<Map<number, 'selected' | 'rejected'>, Map<number, 'manual' | 'auto'>, QualityCommitCounts>({
     ...createFeatureCommitHistoryOptions(
       () => featureSelectionStates,
@@ -227,23 +274,88 @@ const QualityView: React.FC<QualityViewProps> = ({
         counts: commit.counts || { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 }
       })
     },
+    // Full history restoration takes priority
+    initialCommits: initialCommitsForRevisit,
+    initialIndex: savedCurrentIndex,
+    // Fallback: single commit restoration (backward compatibility)
     initialCommit: initialCommitForRevisit
   })
 
-  // Sync local commit history to global store for SelectionPanel display in App.tsx
+  // Track when we're writing to store to avoid circular updates
+  const isWritingToStoreRef = useRef(false)
+
+  // Sync local commit history to global store for SelectionPanel display and restoration
   useEffect(() => {
+    // Mark that we're about to write to store
+    isWritingToStoreRef.current = true
+
     // Sync commits to store (convert to display format)
     const displayCommits = tagCommitHistory.map(c => ({
       id: c.id,
       type: c.type,
       counts: c.counts
     }))
-    // Update store with current commit history
+
+    // Also sync full commit data for restoration
+    const commitData = new Map<number, { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>()
+    tagCommitHistory.forEach((c, index) => {
+      commitData.set(index, {
+        states: new Map(c.states),
+        sources: new Map(c.sources),
+        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
+      })
+    })
+
+    // Update store with current commit history and data
     useVisualizationStore.setState({
       stage2CommitHistory: displayCommits,
-      stage2CurrentCommitIndex: currentCommitIndex
+      stage2CurrentCommitIndex: currentCommitIndex,
+      stage2CommitData: commitData
     })
-  }, [tagCommitHistory, currentCommitIndex])
+
+    // Also update stage2FinalCommit with current commit state (for stage revisiting)
+    // Note: Don't use selectedFeatureIds here - it changes when we leave the stage
+    // The commit already stores featureIds from when it was created
+    const currentCommit = tagCommitHistory[currentCommitIndex]
+    if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0) {
+      setStage2FinalCommit({
+        featureSelectionStates: new Map(currentCommit.states),
+        featureSelectionSources: new Map(currentCommit.sources),
+        featureIds: currentCommit.featureIds,
+        counts: currentCommit.counts || { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 }
+      })
+    }
+  }, [tagCommitHistory, currentCommitIndex, setStage2FinalCommit])
+
+  // Ref to hold the latest updateCurrentCommit function (avoids infinite loop)
+  const updateCurrentCommitRef = useRef(updateCurrentCommit)
+  useEffect(() => {
+    updateCurrentCommitRef.current = updateCurrentCommit
+  }, [updateCurrentCommit])
+
+  // Sync manual tag changes to current commit (debounced)
+  // This ensures current commit always reflects the latest manual tags
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      updateCurrentCommitRef.current()
+    }, 50)
+    return () => clearTimeout(timeoutId)
+    // Only re-run when selection states actually change, not when the function changes
+  }, [featureSelectionStates, featureSelectionSources])
+
+  // Sync from store's commit index when it changes externally (e.g., from SelectionPanel click)
+  // This ensures the hook's local currentCommitIndex stays in sync with the store
+  useEffect(() => {
+    // Skip if we just wrote to the store ourselves
+    if (isWritingToStoreRef.current) {
+      isWritingToStoreRef.current = false
+      return
+    }
+    if (stage2CurrentCommitIndex !== currentCommitIndex && stage2CurrentCommitIndex >= 0) {
+      console.log('[QualityView] Syncing commit index from store:', stage2CurrentCommitIndex, '(was:', currentCommitIndex, ')')
+      restoreCommit(stage2CurrentCommitIndex)
+    }
+  }, [stage2CurrentCommitIndex, currentCommitIndex, restoreCommit])
 
   // Pagination for the top row list
   const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
@@ -641,20 +753,19 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
 
   const handleApplyTags = useCallback(() => {
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    console.log('[QualityView] Apply Tags clicked')
 
-    // 2. Apply auto-tags based on current thresholds
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('apply')
+
+    // 2. Apply auto-tags (effect will sync to NEW commit)
     applySimilarityTags()
 
-    // 3. Create a new commit after store update (hook handles onCommitCreated callback)
-    setTimeout(() => createCommitAsync('apply'), 0)
-
-    // 4. Switch to decision margin sort and reset
+    // 3. Switch to decision margin sort and reset
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, saveCurrentState, createCommitAsync, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode])
 
   // ============================================================================
   // TAG ALL HANDLERS
@@ -674,9 +785,10 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleTagAllNeedRevision = useCallback(() => {
     console.log('[TagAll] Need Revision option clicked')
 
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
 
+    // 2. Build new states with all untagged features as rejected (Need Revision)
     const newStates = new Map(featureSelectionStates)
     const newSources = new Map(featureSelectionSources)
 
@@ -691,22 +803,18 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     console.log('[TagAll] Tagged', taggedCount, 'features as Need Revision')
 
-    // 2. Apply the new states to store
+    // 3. Apply the new states to store (effect will sync to current commit)
     restoreFeatureSelectionStates(newStates, newSources)
-
-    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
-    createCommit('tagAll')
-
-    console.log('[TagAll] Created tagAll commit')
-  }, [featureList, featureSelectionStates, featureSelectionSources, restoreFeatureSelectionStates, saveCurrentState, createCommit])
+  }, [featureList, featureSelectionStates, featureSelectionSources, restoreFeatureSelectionStates, createCommit])
 
   // Handle Tag All - By Decision Boundary
   const handleTagAllByBoundary = useCallback(() => {
     console.log('[TagAll] By Decision Boundary (score=0) option clicked')
 
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
 
+    // 2. Build new states using SVM decision boundary
     const newStates = new Map(featureSelectionStates)
     const newSources = new Map(featureSelectionSources)
 
@@ -739,14 +847,9 @@ const QualityView: React.FC<QualityViewProps> = ({
       needRevisionBelowZero: rejectedCount
     })
 
-    // 2. Apply the new states to store
+    // 3. Apply the new states to store (effect will sync to current commit)
     restoreFeatureSelectionStates(newStates, newSources)
-
-    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
-    createCommit('tagAll')
-
-    console.log('[TagAll] Created tagAll commit')
-  }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores, restoreFeatureSelectionStates, saveCurrentState, createCommit])
+  }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores, restoreFeatureSelectionStates, createCommit])
 
   // Unified Tag All handler
   const handleTagAll = useCallback((method: 'left' | 'byBoundary') => {

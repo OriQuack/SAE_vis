@@ -47,8 +47,12 @@ interface UseCommitHistoryOptions<TStates, TSources, TCounts = void> {
   getFeatureIds?: () => Set<number> | null
   /** Called after creating a commit (for stage-final saving) */
   onCommitCreated?: (commit: Commit<TStates, TSources, TCounts>) => void
-  /** Initial commit to restore from (for revisiting a stage) */
+  /** Initial commit to restore from (for revisiting a stage) - single commit, backward compatible */
   initialCommit?: Commit<TStates, TSources, TCounts> | null
+  /** Full commit array to restore from (for stage revisiting with history) - takes priority over initialCommit */
+  initialCommits?: Commit<TStates, TSources, TCounts>[] | null
+  /** Index to restore to (for stage revisiting with history) */
+  initialIndex?: number | null
 }
 
 interface UseCommitHistoryReturn<TStates, TSources, TCounts = void> {
@@ -56,13 +60,13 @@ interface UseCommitHistoryReturn<TStates, TSources, TCounts = void> {
   commits: Commit<TStates, TSources, TCounts>[]
   /** Current commit index */
   currentCommitIndex: number
-  /** Save current state to current commit (before switching) */
-  saveCurrentState: () => void
+  /** Update current commit in-place with current store state (for manual tag sync) */
+  updateCurrentCommit: () => void
   /** Create a new commit with current store state */
   createCommit: (type: 'apply' | 'tagAll') => void
   /** Restore state from a specific commit */
   restoreCommit: (index: number) => void
-  /** Combined handler: save current, restore target (for commit circle clicks) */
+  /** Combined handler: restore target commit (for commit circle clicks) */
   handleCommitClick: (index: number) => void
   /** Create commit after async operation (use in setTimeout) */
   createCommitAsync: (type: 'apply' | 'tagAll') => void
@@ -86,41 +90,71 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     calculateCounts,
     getFeatureIds,
     onCommitCreated,
-    initialCommit
+    initialCommit,
+    initialCommits,
+    initialIndex
   } = options
 
-  // Initial commit with empty state (or restored from initialCommit)
+  // Initialize with Commit 0 (hidden baseline) and Commit 1 (user's working commit)
+  // User always starts at Commit 1; Commit 0 is just an empty baseline
   const [commits, setCommits] = useState<Commit<TStates, TSources, TCounts>[]>(() => {
-    if (initialCommit) {
-      // If we have an initial commit (revisiting), start with initial + that commit
-      return [
-        {
-          id: 0,
-          type: 'initial',
-          states: createEmptyStates(),
-          sources: createEmptySources(),
-          counts: undefined,
-          featureIds: undefined
-        },
-        initialCommit
-      ]
+    // Priority 1: Full commit history restoration (for stage revisiting with full history)
+    if (initialCommits && initialCommits.length > 0) {
+      return initialCommits
     }
-    return [
-      {
-        id: 0,
-        type: 'initial',
-        states: createEmptyStates(),
-        sources: createEmptySources(),
-        counts: undefined,
-        featureIds: undefined
-      }
-    ]
+
+    // Commit 0: Hidden empty baseline
+    const commit0: Commit<TStates, TSources, TCounts> = {
+      id: 0,
+      type: 'initial',
+      states: createEmptyStates(),
+      sources: createEmptySources(),
+      counts: undefined,
+      featureIds: undefined
+    }
+
+    // Priority 2: Single commit restoration (backward compatible)
+    if (initialCommit) {
+      // If we have an initial commit (revisiting), use it as Commit 1
+      return [commit0, initialCommit]
+    }
+
+    // Default: Fresh start - Commit 1 is user's working commit (empty, ready for manual tags)
+    const commit1: Commit<TStates, TSources, TCounts> = {
+      id: 1,
+      type: 'initial',
+      states: createEmptyStates(),
+      sources: createEmptySources(),
+      counts: undefined,
+      featureIds: undefined
+    }
+
+    return [commit0, commit1]
   })
 
-  const [currentCommitIndex, setCurrentCommitIndex] = useState(() => initialCommit ? 1 : 0)
+  // Start at the specified index, or default to Commit 1
+  const [currentCommitIndex, setCurrentCommitIndex] = useState(() => {
+    if (initialIndex !== undefined && initialIndex !== null && initialIndex >= 0) {
+      return initialIndex
+    }
+    return 1
+  })
 
-  // Restore state from initialCommit on mount (for revisiting)
+  // Restore state from initial data on mount (for revisiting)
   useEffect(() => {
+    // Priority 1: Full history restoration - restore the commit at initialIndex
+    if (initialCommits && initialCommits.length > 0) {
+      const targetIndex = (initialIndex !== undefined && initialIndex !== null && initialIndex >= 0 && initialIndex < initialCommits.length)
+        ? initialIndex
+        : Math.min(1, initialCommits.length - 1) // Default to index 1 or last available
+      const targetCommit = initialCommits[targetIndex]
+      if (targetCommit) {
+        restoreToStore(targetCommit.states, targetCommit.sources)
+      }
+      return
+    }
+
+    // Priority 2: Single commit restoration (backward compatible)
     if (initialCommit) {
       restoreToStore(initialCommit.states, initialCommit.sources)
     }
@@ -156,8 +190,9 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     [cloneStates, cloneSources, calculateCounts, getFeatureIds]
   )
 
-  // Save current store state to current commit
-  const saveCurrentState = useCallback(() => {
+  // Update current commit in-place with current store state
+  // Called via effect when manual tags change (debounced in views)
+  const updateCurrentCommit = useCallback(() => {
     const currentStates = getStatesFromStore()
     const currentSources = getSourcesFromStore()
 
@@ -250,27 +285,25 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     [commits, restoreToStore]
   )
 
-  // Combined handler for commit circle clicks
+  // Handler for commit circle clicks
+  // No need to save current state - it's already up-to-date via effect sync
   const handleCommitClick = useCallback(
     (commitIndex: number) => {
       if (commitIndex < 0 || commitIndex >= commits.length) return
       if (commitIndex === currentCommitIndex) return
 
-      // Save current state to current commit before switching
-      saveCurrentState()
-
-      // Restore the target commit
+      // Simply restore the target commit
       const targetCommit = commits[commitIndex]
       restoreToStore(targetCommit.states, targetCommit.sources)
       setCurrentCommitIndex(commitIndex)
     },
-    [commits, currentCommitIndex, saveCurrentState, restoreToStore]
+    [commits, currentCommitIndex, restoreToStore]
   )
 
   return {
     commits,
     currentCommitIndex,
-    saveCurrentState,
+    updateCurrentCommit,
     createCommit,
     restoreCommit,
     handleCommitClick,

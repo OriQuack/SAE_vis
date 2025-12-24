@@ -63,6 +63,10 @@ const CauseView: React.FC<CauseViewProps> = ({
   const stage3FinalCommit = useVisualizationStore(state => state.stage3FinalCommit)
   const setStage3FinalCommit = useVisualizationStore(state => state.setStage3FinalCommit)
   const restoreCauseSelectionStates = useVisualizationStore(state => state.restoreCauseSelectionStates)
+  // Full commit history for restoration
+  const stage3CommitHistory = useVisualizationStore(state => state.stage3CommitHistory)
+  const stage3CommitData = useVisualizationStore(state => state.stage3CommitData)
+  const stage3CurrentCommitIndex = useVisualizationStore(state => state.stage3CurrentCommitIndex)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeMetricScores = useVisualizationStore(state => state.causeMetricScores)
@@ -113,9 +117,55 @@ const CauseView: React.FC<CauseViewProps> = ({
   // ============================================================================
   // COMMIT HISTORY - Using centralized hook
   // ============================================================================
-  // Build initial commit for revisiting (if applicable)
+  // Build full commit history for revisiting (if applicable)
+  const initialCommitsForRevisit = useMemo((): CauseCommit[] | null => {
+    if (isRevisitingStage3 && stage3CommitData && stage3CommitData.size > 0 && stage3CommitHistory.length > 0) {
+      console.log('[CauseView] Building full commit history for revisit:', stage3CommitData.size, 'commits')
+      // Mark as already auto-tagged since we're restoring
+      hasAutoTaggedRef.current = true
+
+      // Reconstruct full commit array from stored data
+      const commits: CauseCommit[] = []
+      for (let i = 0; i < stage3CommitHistory.length; i++) {
+        const historyEntry = stage3CommitHistory[i]
+        const commitData = stage3CommitData.get(i)
+
+        if (historyEntry && commitData) {
+          commits.push({
+            id: historyEntry.id,
+            type: historyEntry.type,
+            states: new Map(commitData.states),
+            sources: new Map(commitData.sources),
+            counts: historyEntry.counts as CauseCommitCounts,
+            featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
+          })
+        }
+      }
+
+      if (commits.length > 0) {
+        console.log('[CauseView] Restored', commits.length, 'commits from history')
+        return commits
+      }
+    }
+    return null
+  }, [isRevisitingStage3, stage3CommitData, stage3CommitHistory])
+
+  // Saved current index for revisiting
+  const savedCurrentIndex = useMemo((): number | null => {
+    if (isRevisitingStage3 && stage3CurrentCommitIndex !== undefined) {
+      return stage3CurrentCommitIndex
+    }
+    return null
+  }, [isRevisitingStage3, stage3CurrentCommitIndex])
+
+  // Fallback: Build single initial commit for revisiting (backward compatibility)
   const initialCommitForRevisit = useMemo((): CauseCommit | null => {
+    // Only use fallback if we don't have full history
+    if (initialCommitsForRevisit && initialCommitsForRevisit.length > 0) {
+      return null // Full history takes priority
+    }
     if (isRevisitingStage3 && stage3FinalCommit) {
+      console.log('[CauseView] Fallback: Building single initial commit for revisit')
       // Mark as already auto-tagged since we're restoring
       hasAutoTaggedRef.current = true
       return {
@@ -128,7 +178,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       }
     }
     return null
-  }, [isRevisitingStage3, stage3FinalCommit])
+  }, [isRevisitingStage3, stage3FinalCommit, initialCommitsForRevisit])
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
@@ -498,8 +548,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const {
     commits: tagCommitHistory,
     currentCommitIndex,
-    saveCurrentState,
-    createCommit
+    updateCurrentCommit,
+    createCommit,
+    restoreCommit
   } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>({
     ...createCauseCommitHistoryOptions(
       () => causeSelectionStates,
@@ -517,23 +568,88 @@ const CauseView: React.FC<CauseViewProps> = ({
         counts: commit.counts || { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 }
       })
     },
+    // Full history restoration takes priority
+    initialCommits: initialCommitsForRevisit,
+    initialIndex: savedCurrentIndex,
+    // Fallback: single commit restoration (backward compatibility)
     initialCommit: initialCommitForRevisit
   })
 
-  // Sync local commit history to global store for SelectionPanel display in App.tsx
+  // Track when we're writing to store to avoid circular updates
+  const isWritingToStoreRef = useRef(false)
+
+  // Sync local commit history to global store for SelectionPanel display and restoration
   useEffect(() => {
+    // Mark that we're about to write to store
+    isWritingToStoreRef.current = true
+
     // Sync commits to store (convert to display format)
     const displayCommits = tagCommitHistory.map(c => ({
       id: c.id,
       type: c.type,
       counts: c.counts
     }))
-    // Update store with current commit history
+
+    // Also sync full commit data for restoration
+    const commitData = new Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>()
+    tagCommitHistory.forEach((c, index) => {
+      commitData.set(index, {
+        states: new Map(c.states),
+        sources: new Map(c.sources),
+        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
+      })
+    })
+
+    // Update store with current commit history and data
     useVisualizationStore.setState({
       stage3CommitHistory: displayCommits,
-      stage3CurrentCommitIndex: currentCommitIndex
+      stage3CurrentCommitIndex: currentCommitIndex,
+      stage3CommitData: commitData
     })
-  }, [tagCommitHistory, currentCommitIndex])
+
+    // Also update stage3FinalCommit with current commit state (for stage revisiting)
+    // Note: Don't use selectedFeatureIds here - it changes when we leave the stage
+    // The commit already stores featureIds from when it was created
+    const currentCommit = tagCommitHistory[currentCommitIndex]
+    if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0) {
+      setStage3FinalCommit({
+        causeSelectionStates: new Map(currentCommit.states),
+        causeSelectionSources: new Map(currentCommit.sources),
+        featureIds: currentCommit.featureIds,
+        counts: currentCommit.counts || { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 }
+      })
+    }
+  }, [tagCommitHistory, currentCommitIndex, setStage3FinalCommit])
+
+  // Ref to hold the latest updateCurrentCommit function (avoids infinite loop)
+  const updateCurrentCommitRef = useRef(updateCurrentCommit)
+  useEffect(() => {
+    updateCurrentCommitRef.current = updateCurrentCommit
+  }, [updateCurrentCommit])
+
+  // Sync manual tag changes to current commit (debounced)
+  // This ensures current commit always reflects the latest manual tags
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      updateCurrentCommitRef.current()
+    }, 50)
+    return () => clearTimeout(timeoutId)
+    // Only re-run when selection states actually change, not when the function changes
+  }, [causeSelectionStates, causeSelectionSources])
+
+  // Sync from store's commit index when it changes externally (e.g., from SelectionPanel click)
+  // This ensures the hook's local currentCommitIndex stays in sync with the store
+  useEffect(() => {
+    // Skip if we just wrote to the store ourselves (prevents circular updates)
+    if (isWritingToStoreRef.current) {
+      isWritingToStoreRef.current = false
+      return
+    }
+    if (stage3CurrentCommitIndex !== currentCommitIndex && stage3CurrentCommitIndex >= 0) {
+      console.log('[CauseView] Syncing commit index from store:', stage3CurrentCommitIndex, '(was:', currentCommitIndex, ')')
+      restoreCommit(stage3CurrentCommitIndex)
+    }
+  }, [stage3CurrentCommitIndex, currentCommitIndex, restoreCommit])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Navigate through brushed/selected features
@@ -609,27 +725,26 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Tag all selected features with a specific cause category
   const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    console.log('[CauseView] Tag Selected As:', category)
 
-    // 2. Apply tags to all selected features
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
+
+    // 2. Apply tags to all selected features (effect will sync to current commit)
     umapBrushedFeatureIds.forEach(featureId => {
       setCauseCategory(featureId, category)
     })
-
-    // 3. Create new commit after tags are applied (hook handles onCommitCreated callback)
-    setTimeout(() => {
-      createCommit('tagAll')
-    }, 0)
-  }, [umapBrushedFeatureIds, setCauseCategory, saveCurrentState, createCommit])
+  }, [umapBrushedFeatureIds, setCauseCategory, createCommit])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
     if (!selectedFeatureIds) return
 
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    console.log('[CauseView] Tag Remaining By Boundary clicked')
+
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('apply')
 
     // 2. For each feature in selectedFeatureIds, if not manually tagged, assign highest margin category
     selectedFeatureIds.forEach(featureId => {
@@ -649,12 +764,8 @@ const CauseView: React.FC<CauseViewProps> = ({
       )
       setCauseCategory(featureId, bestCategory as CauseCategory)
     })
-
-    // 3. Create new commit after tags are applied (hook handles onCommitCreated callback)
-    setTimeout(() => {
-      createCommit('apply')
-    }, 0)
-  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, saveCurrentState, createCommit])
+    // Effect will sync changes to current commit
+  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, createCommit])
 
   // Handle next stage navigation (placeholder for Stage 4)
   const handleNextStage = useCallback(() => {

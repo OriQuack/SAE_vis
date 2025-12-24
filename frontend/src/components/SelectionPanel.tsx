@@ -595,31 +595,35 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             pairCount={pairCount}
           />
 
-          {/* Commit History Circles */}
-          {commitHistory && commitHistory.length > 0 && onCommitClick && (
+          {/* Commit History Circles - Skip Commit 0 (hidden baseline), start from Commit 1 */}
+          {commitHistory && commitHistory.length > 1 && onCommitClick && (
             <div className={`commit-history commit-history--${stage}`}>
               <div className="commit-history__label">History</div>
               <div className="commit-history__circles">
-                {commitHistory.map((commit, index) => (
-                  <button
-                    key={commit.id}
-                    className={`commit-history__circle ${
-                      index === currentCommitIndex ? 'commit-history__circle--active' : 'commit-history__circle--past'
-                    }`}
-                    onClick={() => onCommitClick(index)}
-                    onMouseEnter={(e) => {
-                      setHoveredCommitIndex(index)
-                      setCommitTooltipPosition({ x: e.clientX, y: e.clientY })
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredCommitIndex(null)
-                      setCommitTooltipPosition(null)
-                    }}
-                    aria-label={`Go to commit ${index + 1}`}
-                  >
-                    <span className="commit-history__circle-number">{index + 1}</span>
-                  </button>
-                ))}
+                {commitHistory.slice(1).map((commit, arrayIndex) => {
+                  // arrayIndex is 0-based from slice(1), actualIndex is the real commit index
+                  const actualIndex = arrayIndex + 1
+                  return (
+                    <button
+                      key={commit.id}
+                      className={`commit-history__circle ${
+                        actualIndex === currentCommitIndex ? 'commit-history__circle--active' : 'commit-history__circle--past'
+                      }`}
+                      onClick={() => onCommitClick(actualIndex)}
+                      onMouseEnter={(e) => {
+                        setHoveredCommitIndex(actualIndex)
+                        setCommitTooltipPosition({ x: e.clientX, y: e.clientY })
+                      }}
+                      onMouseLeave={() => {
+                        setHoveredCommitIndex(null)
+                        setCommitTooltipPosition(null)
+                      }}
+                      aria-label={`Go to commit ${actualIndex}`}
+                    >
+                      <span className="commit-history__circle-number">{actualIndex}</span>
+                    </button>
+                  )
+                })}
               </div>
 
               {/* Commit Hover Tooltip - shows mini vertical bar and counts */}

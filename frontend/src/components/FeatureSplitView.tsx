@@ -51,6 +51,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const isRevisitingStage1 = useVisualizationStore(state => state.isRevisitingStage1)
   const stage1FinalCommit = useVisualizationStore(state => state.stage1FinalCommit)
   const setStage1FinalCommit = useVisualizationStore(state => state.setStage1FinalCommit)
+  // Full commit history for restoration
+  const stage1CommitHistory = useVisualizationStore(state => state.stage1CommitHistory)
+  const stage1CommitData = useVisualizationStore(state => state.stage1CommitData)
+  const stage1CurrentCommitIndex = useVisualizationStore(state => state.stage1CurrentCommitIndex)
 
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
@@ -60,79 +64,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
-  // ============================================================================
-  // COMMIT HISTORY - Using centralized hook
-  // ============================================================================
-  // Build initial commit for revisiting (if applicable)
-  const initialCommitForRevisit = useMemo((): PairCommit | null => {
-    if (isRevisitingStage1 && stage1FinalCommit) {
-      console.log('[FeatureSplitView] Building initial commit for revisit:', stage1FinalCommit.pairSelectionStates.size, 'pairs')
-      return {
-        id: 1,
-        type: 'tagAll',
-        states: new Map(stage1FinalCommit.pairSelectionStates),
-        sources: new Map(stage1FinalCommit.pairSelectionSources),
-        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
-        featureIds: stage1FinalCommit.featureIds ? new Set(stage1FinalCommit.featureIds) : undefined
-      }
-    }
-    return null
-  }, [isRevisitingStage1, stage1FinalCommit])
-
-  // Calculate counts for commit storage
-  const calculateCommitCounts = useCallback((): CommitCounts => {
-    const c = getFeatureSplittingCounts()
-    return {
-      fragmented: c.fragmentedManual + c.fragmentedAuto,
-      monosemantic: c.monosematicManual + c.monosematicAuto,
-      unsure: c.unsure,
-      total: c.total
-    }
-  }, [getFeatureSplittingCounts])
-
-  // Use the commit history hook
-  const {
-    commits: tagCommitHistory,
-    currentCommitIndex,
-    saveCurrentState,
-    createCommit,
-    createCommitAsync
-  } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
-    ...createPairCommitHistoryOptions(
-      () => pairSelectionStates,
-      () => pairSelectionSources,
-      restorePairSelectionStates
-    ),
-    calculateCounts: calculateCommitCounts,
-    getFeatureIds: () => selectedFeatureIds,
-    onCommitCreated: (commit) => {
-      // Save to global store for Stage 1 revisit
-      setStage1FinalCommit({
-        pairSelectionStates: new Map(commit.states),
-        pairSelectionSources: new Map(commit.sources),
-        featureIds: commit.featureIds || new Set(),
-        counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
-      })
-    },
-    initialCommit: initialCommitForRevisit
-  })
-
-  // Sync local commit history to global store for SelectionPanel display in App.tsx
-  useEffect(() => {
-    // Sync commits to store (convert to display format)
-    const displayCommits = tagCommitHistory.map(c => ({
-      id: c.id,
-      type: c.type,
-      counts: c.counts
-    }))
-    // Update store with current commit history
-    useVisualizationStore.setState({
-      stage1CommitHistory: displayCommits,
-      stage1CurrentCommitIndex: currentCommitIndex
-    })
-  }, [tagCommitHistory, currentCommitIndex])
-
   // Dependencies for selectedFeatureIds - ensure it updates when Sankey selection changes
+  // MUST be defined before useCommitHistory which references selectedFeatureIds
   const sankeyStructure = leftPanel?.sankeyStructure
   const selectedSegment = useVisualizationStore(state => state.selectedSegment)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
@@ -153,6 +86,186 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
+
+  // ============================================================================
+  // COMMIT HISTORY - Using centralized hook
+  // ============================================================================
+  // Build full commit history for revisiting (if applicable)
+  const initialCommitsForRevisit = useMemo((): PairCommit[] | null => {
+    if (isRevisitingStage1 && stage1CommitData && stage1CommitData.size > 0 && stage1CommitHistory.length > 0) {
+      console.log('[FeatureSplitView] Building full commit history for revisit:', stage1CommitData.size, 'commits')
+
+      // Reconstruct full commit array from stored data
+      const commits: PairCommit[] = []
+      for (let i = 0; i < stage1CommitHistory.length; i++) {
+        const historyEntry = stage1CommitHistory[i]
+        const commitData = stage1CommitData.get(i)
+
+        if (historyEntry && commitData) {
+          commits.push({
+            id: historyEntry.id,
+            type: historyEntry.type,
+            states: new Map(commitData.states),
+            sources: new Map(commitData.sources),
+            counts: historyEntry.counts,
+            featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
+          })
+        }
+      }
+
+      if (commits.length > 0) {
+        console.log('[FeatureSplitView] Restored', commits.length, 'commits from history')
+        return commits
+      }
+    }
+    return null
+  }, [isRevisitingStage1, stage1CommitData, stage1CommitHistory])
+
+  // Saved current index for revisiting
+  const savedCurrentIndex = useMemo((): number | null => {
+    if (isRevisitingStage1 && stage1CurrentCommitIndex !== undefined) {
+      return stage1CurrentCommitIndex
+    }
+    return null
+  }, [isRevisitingStage1, stage1CurrentCommitIndex])
+
+  // Fallback: Build single initial commit for revisiting (backward compatibility)
+  const initialCommitForRevisit = useMemo((): PairCommit | null => {
+    // Only use fallback if we don't have full history
+    if (initialCommitsForRevisit && initialCommitsForRevisit.length > 0) {
+      return null // Full history takes priority
+    }
+    if (isRevisitingStage1 && stage1FinalCommit) {
+      console.log('[FeatureSplitView] Fallback: Building single initial commit for revisit:', stage1FinalCommit.pairSelectionStates.size, 'pairs')
+      return {
+        id: 1,
+        type: 'tagAll',
+        states: new Map(stage1FinalCommit.pairSelectionStates),
+        sources: new Map(stage1FinalCommit.pairSelectionSources),
+        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
+        featureIds: stage1FinalCommit.featureIds ? new Set(stage1FinalCommit.featureIds) : undefined
+      }
+    }
+    return null
+  }, [isRevisitingStage1, stage1FinalCommit, initialCommitsForRevisit])
+
+  // Calculate counts for commit storage
+  const calculateCommitCounts = useCallback((): CommitCounts => {
+    const c = getFeatureSplittingCounts()
+    return {
+      fragmented: c.fragmentedManual + c.fragmentedAuto,
+      monosemantic: c.monosematicManual + c.monosematicAuto,
+      unsure: c.unsure,
+      total: c.total
+    }
+  }, [getFeatureSplittingCounts])
+
+  // Use the commit history hook
+  const {
+    commits: tagCommitHistory,
+    currentCommitIndex,
+    updateCurrentCommit,
+    createCommit,
+    restoreCommit
+  } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
+    ...createPairCommitHistoryOptions(
+      () => pairSelectionStates,
+      () => pairSelectionSources,
+      restorePairSelectionStates
+    ),
+    calculateCounts: calculateCommitCounts,
+    getFeatureIds: () => selectedFeatureIds,
+    onCommitCreated: (commit) => {
+      // Save to global store for Stage 1 revisit
+      setStage1FinalCommit({
+        pairSelectionStates: new Map(commit.states),
+        pairSelectionSources: new Map(commit.sources),
+        featureIds: commit.featureIds || new Set(),
+        counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
+      })
+    },
+    // Full history restoration takes priority
+    initialCommits: initialCommitsForRevisit,
+    initialIndex: savedCurrentIndex,
+    // Fallback: single commit restoration (backward compatibility)
+    initialCommit: initialCommitForRevisit
+  })
+
+  // Track when we're writing to store to avoid circular updates
+  const isWritingToStoreRef = useRef(false)
+
+  // Sync local commit history to global store for SelectionPanel display and restoration
+  useEffect(() => {
+    // Mark that we're about to write to store
+    isWritingToStoreRef.current = true
+
+    // Sync commits to store (convert to display format)
+    const displayCommits = tagCommitHistory.map(c => ({
+      id: c.id,
+      type: c.type,
+      counts: c.counts
+    }))
+
+    // Also sync full commit data for restoration
+    const commitData = new Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number> }>()
+    tagCommitHistory.forEach((c, index) => {
+      commitData.set(index, {
+        states: new Map(c.states),
+        sources: new Map(c.sources),
+        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
+      })
+    })
+
+    // Update store with current commit history and data
+    useVisualizationStore.setState({
+      stage1CommitHistory: displayCommits,
+      stage1CurrentCommitIndex: currentCommitIndex,
+      stage1CommitData: commitData
+    })
+
+    // Also update stage1FinalCommit with current commit state (for stage revisiting)
+    // Note: Don't use selectedFeatureIds here - it changes when we leave the stage
+    // The commit already stores featureIds from when it was created
+    const currentCommit = tagCommitHistory[currentCommitIndex]
+    if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0) {
+      setStage1FinalCommit({
+        pairSelectionStates: new Map(currentCommit.states),
+        pairSelectionSources: new Map(currentCommit.sources),
+        featureIds: currentCommit.featureIds,
+        counts: currentCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
+      })
+    }
+  }, [tagCommitHistory, currentCommitIndex, setStage1FinalCommit])
+
+  // Ref to hold the latest updateCurrentCommit function (avoids infinite loop)
+  const updateCurrentCommitRef = useRef(updateCurrentCommit)
+  useEffect(() => {
+    updateCurrentCommitRef.current = updateCurrentCommit
+  }, [updateCurrentCommit])
+
+  // Sync manual tag changes to current commit (debounced)
+  // This ensures current commit always reflects the latest manual tags
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      updateCurrentCommitRef.current()
+    }, 50)
+    return () => clearTimeout(timeoutId)
+    // Only re-run when selection states actually change, not when the function changes
+  }, [pairSelectionStates, pairSelectionSources])
+
+  // Sync from store's commit index when it changes externally (e.g., from SelectionPanel click)
+  // This ensures the hook's local currentCommitIndex stays in sync with the store
+  useEffect(() => {
+    // Skip if we just wrote to the store ourselves
+    if (isWritingToStoreRef.current) {
+      isWritingToStoreRef.current = false
+      return
+    }
+    if (stage1CurrentCommitIndex !== currentCommitIndex && stage1CurrentCommitIndex >= 0) {
+      console.log('[FeatureSplitView] Syncing commit index from store:', stage1CurrentCommitIndex, '(was:', currentCommitIndex, ')')
+      restoreCommit(stage1CurrentCommitIndex)
+    }
+  }, [stage1CurrentCommitIndex, currentCommitIndex, restoreCommit])
 
   // Extract clustering threshold from Sankey structure
   const clusterThreshold = useMemo(() => {
@@ -586,23 +699,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handle Apply Tags button click
   const handleApplyTags = useCallback(() => {
-    // 1. Switch to decision margin sort mode after applying tags
-    setSortMode('decisionMargin')
-    console.log('[FeatureSplitView] Switching to decision margin sort mode')
+    console.log('[FeatureSplitView] Apply Tags clicked')
 
-    // 2. Save current state to current commit before applying new tags
-    saveCurrentState()
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('apply')
 
-    // 3. Apply auto-tags based on current thresholds
+    // 2. Apply auto-tags (effect will sync to NEW commit)
     applySimilarityTags()
 
-    // 4. Create a new commit after store update (hook handles onCommitCreated callback)
-    setTimeout(() => createCommitAsync('apply'), 0)
+    // 3. Switch to decision margin sort mode
+    setSortMode('decisionMargin')
 
-    // 5. Reset to first page/pair
+    // 4. Reset to first page/pair
     setCurrentPairIndex(0)
     setActiveListSource('all')
-  }, [applySimilarityTags, saveCurrentState, createCommitAsync, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode])
 
   // handleCommitClick is provided by the hook
 
@@ -628,14 +739,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     console.log('[TagAll] pairList length:', pairList.length)
     console.log('[TagAll] current pairSelectionStates size:', pairSelectionStates.size)
 
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
 
+    // 2. Build new states with all untagged pairs as rejected (Monosemantic)
     const newStates = new Map(pairSelectionStates)
     const newSources = new Map(pairSelectionSources)
 
     let taggedCount = 0
-    // Tag all untagged pairs as rejected (Monosemantic)
     pairList.forEach(pair => {
       if (!newStates.has(pair.pairKey)) {
         newStates.set(pair.pairKey, 'rejected')
@@ -646,22 +757,18 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     console.log('[TagAll] Tagged', taggedCount, 'pairs as Monosemantic')
 
-    // 2. Apply the new states to store
+    // 3. Apply the new states to store (effect will sync to current commit)
     restorePairSelectionStates(newStates, newSources)
-
-    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
-    createCommit('tagAll')
-
-    console.log('[TagAll] Created tagAll commit')
-  }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, saveCurrentState, createCommit])
+  }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, createCommit])
 
   // Handle Tag All - Option 2: Use SVM decision boundary (score >= 0 → Fragmented, score < 0 → Monosemantic)
   const handleTagAllByBoundary = useCallback(() => {
     console.log('[TagAll] By Decision Boundary (score=0) option clicked')
 
-    // 1. Save current state to current commit before applying new tags
-    saveCurrentState()
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
 
+    // 2. Build new states using SVM decision boundary
     const newStates = new Map(pairSelectionStates)
     const newSources = new Map(pairSelectionSources)
 
@@ -699,14 +806,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       totalNewStates: newStates.size
     })
 
-    // 2. Apply the new states to store
+    // 3. Apply the new states to store (effect will sync to current commit)
     restorePairSelectionStates(newStates, newSources)
-
-    // 3. Create commit (hook handles onCommitCreated callback for saving to global store)
-    createCommit('tagAll')
-
-    console.log('[TagAll] Created tagAll commit')
-  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, saveCurrentState, createCommit])
+  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, createCommit])
 
   // Unified Tag All handler for ThresholdTaggingPanel
   const handleTagAll = useCallback((method: 'left' | 'byBoundary') => {

@@ -28,6 +28,7 @@ import { createFeatureSplitActions } from './feature-split-actions'
 import { createQualityActions } from './quality-actions'
 import { createCauseActions } from './cause-actions'
 import { createActivationActions } from './activation-actions'
+import type { CommitType } from '../lib/tagging-hooks/useCommitHistory'
 
 type PanelSide = typeof PANEL_LEFT | typeof PANEL_RIGHT
 
@@ -297,15 +298,15 @@ interface AppState {
   // COMMIT HISTORY - Centralized for SelectionPanel display
   // ============================================================================
   // Stage 1 commit history (pair tagging)
-  stage1CommitHistory: Array<{id: number; type: string; counts?: CommitCounts}>
+  stage1CommitHistory: Array<{id: number; type: CommitType; counts?: CommitCounts}>
   stage1CurrentCommitIndex: number
   stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number>}>
   // Stage 2 commit history (feature tagging)
-  stage2CommitHistory: Array<{id: number; type: string; counts?: QualityCommitCounts}>
+  stage2CommitHistory: Array<{id: number; type: CommitType; counts?: QualityCommitCounts}>
   stage2CurrentCommitIndex: number
   stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
   // Stage 3 commit history (cause tagging)
-  stage3CommitHistory: Array<{id: number; type: string; counts?: CauseCommitCounts}>
+  stage3CommitHistory: Array<{id: number; type: CommitType; counts?: CauseCommitCounts}>
   stage3CurrentCommitIndex: number
   stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
   // Commit history actions
