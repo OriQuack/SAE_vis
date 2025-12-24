@@ -104,13 +104,18 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const hasAutoTaggedRef = useRef(false)
 
+  // Filter state: which categories to show (shared with UMAPScatter)
+  type FilterCategory = CauseCategory | 'unsure'
+  const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
+    new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'well-explained', 'unsure'])
+  )
+
   // ============================================================================
   // COMMIT HISTORY - Using centralized hook
   // ============================================================================
   // Build initial commit for revisiting (if applicable)
   const initialCommitForRevisit = useMemo((): CauseCommit | null => {
     if (isRevisitingStage3 && stage3FinalCommit) {
-      console.log('[CauseView] Building initial commit for revisit')
       // Mark as already auto-tagged since we're restoring
       hasAutoTaggedRef.current = true
       return {
@@ -129,15 +134,11 @@ const CauseView: React.FC<CauseViewProps> = ({
   const selectedFeatureIds = useMemo(() => {
     // If revisiting Stage 3 and we have stored feature IDs, use those
     if (isRevisitingStage3 && stage3FinalCommit?.featureIds) {
-      console.log('[CauseView] Using stored Stage 3 feature IDs:', stage3FinalCommit.featureIds.size)
       return stage3FinalCommit.featureIds
     }
 
-    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
-    void _deps
-    const features = getSelectedNodeFeatures()
-    console.log('[CauseView] Sankey segment features:', features?.size || 0)
-    return features
+    return getSelectedNodeFeatures()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- These trigger recalculation when Sankey selection changes
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3, stage3FinalCommit])
 
   // Extract well-explained feature IDs from Stage 3 segment (above quality threshold)
@@ -145,7 +146,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const wellExplainedFeatureIds = useMemo(() => {
     if (!sankeyStructure) return new Set<number>()
     const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
-    if (stage3Node?.segments?.[1]?.featureIds) {
+    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
       return stage3Node.segments[1].featureIds
     }
     return new Set<number>()
@@ -190,8 +191,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
     if (!tableData?.features) return
 
-    console.log('[CauseView] Initializing metric scores for', selectedFeatureIds.size, 'features (no auto-tagging)')
-
     // Calculate metric scores only (features start as unsure)
     initializeCauseMetricScores(selectedFeatureIds)
     hasAutoTaggedRef.current = true
@@ -216,7 +215,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Don't trigger if already loading
     if (causeClassificationLoading) return
 
-    console.log('[CauseView] Auto-triggering SVM classification with anchor points for', selectedFeatureIds.size, 'features')
     hasTriggeredClassificationRef.current = true
 
     // Trigger classification with empty selections (backend uses anchors as baseline)
@@ -244,15 +242,6 @@ const CauseView: React.FC<CauseViewProps> = ({
         else if (category === 'well-explained') wellExplained++
         else unsure++
       }
-
-      console.log('[CauseView] Initializing Stage 3 commit (all features start as unsure):', {
-        total: selectedFeatureIds.size,
-        noisyActivation,
-        missedContext,
-        missedNgram,
-        wellExplained,
-        unsure
-      })
 
       setStage3FinalCommit({
         causeSelectionStates: new Map(causeSelectionStates),
@@ -307,14 +296,22 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureList, decisionMarginMap, selectedSortDirection])
 
-  // Pagination for selected features list
-  const selectedTotalPages = Math.ceil(sortedSelectedFeatureList.length / ITEMS_PER_PAGE)
+  // Filter sorted selected features by visible categories
+  const filteredSelectedFeatureList = useMemo(() => {
+    return sortedSelectedFeatureList.filter(featureId => {
+      const effectiveCategory = getEffectiveCategory(featureId)
+      return visibleCategories.has(effectiveCategory)
+    })
+  }, [sortedSelectedFeatureList, getEffectiveCategory, visibleCategories])
+
+  // Pagination for selected features list (uses filtered list)
+  const selectedTotalPages = Math.ceil(filteredSelectedFeatureList.length / ITEMS_PER_PAGE)
   const paginatedSelectedFeatureList = useMemo(() => {
-    return sortedSelectedFeatureList.slice(
+    return filteredSelectedFeatureList.slice(
       selectedPage * ITEMS_PER_PAGE,
       (selectedPage + 1) * ITEMS_PER_PAGE
     )
-  }, [sortedSelectedFeatureList, selectedPage])
+  }, [filteredSelectedFeatureList, selectedPage])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -332,6 +329,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       }))
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
+
+  // Filtered feature list based on visible categories (for detail panel navigation)
+  const filteredFeatureList = useMemo(() => {
+    return featureListWithMetadata.filter(item => {
+      const effectiveCategory = getEffectiveCategory(item.featureId)
+      return visibleCategories.has(effectiveCategory)
+    })
+  }, [featureListWithMetadata, getEffectiveCategory, visibleCategories])
 
   // Check if all features are manually tagged (for enabling next stage button)
   const allTagged = useMemo(() => {
@@ -365,14 +370,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [featureSelectionStates, tableData, activationExamples])
 
-  // Reset feature index when selected list changes
+  // Reset feature index when filtered list changes
   useEffect(() => {
-    if (currentFeatureIndex >= featureListWithMetadata.length && featureListWithMetadata.length > 0) {
-      setCurrentFeatureIndex(featureListWithMetadata.length - 1)
-    } else if (featureListWithMetadata.length === 0) {
+    if (currentFeatureIndex >= filteredFeatureList.length && filteredFeatureList.length > 0) {
+      setCurrentFeatureIndex(filteredFeatureList.length - 1)
+    } else if (filteredFeatureList.length === 0) {
       setCurrentFeatureIndex(0)
     }
-  }, [featureListWithMetadata.length, currentFeatureIndex])
+  }, [filteredFeatureList.length, currentFeatureIndex])
 
   // Reset selected index when brushed features change (auto-select first feature)
   useEffect(() => {
@@ -392,9 +397,10 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [])
 
   // Get selected feature data for right panel (based on which list is active)
+  // Uses filtered lists to respect category filter
   const selectedFeatureData = useMemo(() => {
     if (activeListSource === 'all') {
-      const feature = featureListWithMetadata[currentFeatureIndex]
+      const feature = filteredFeatureList[currentFeatureIndex]
       if (!feature) return null
       return {
         featureId: feature.featureId,
@@ -402,8 +408,8 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     } else {
-      // activeListSource === 'selected'
-      const featureId = sortedSelectedFeatureList[currentSelectedIndex]
+      // activeListSource === 'selected' - uses filteredSelectedFeatureList
+      const featureId = filteredSelectedFeatureList[currentSelectedIndex]
       if (featureId === undefined) return null
       const feature = featureListWithMetadata.find(f => f.featureId === featureId)
       if (!feature) return null
@@ -413,7 +419,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     }
-  }, [activeListSource, featureListWithMetadata, currentFeatureIndex, sortedSelectedFeatureList, currentSelectedIndex, activationExamples])
+  }, [activeListSource, filteredFeatureList, currentFeatureIndex, filteredSelectedFeatureList, currentSelectedIndex, featureListWithMetadata, activationExamples])
 
   // Find the best explanation (max quality score)
   const bestExplanation = useMemo(() => {
@@ -547,7 +553,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const handleNavigateNext = useCallback(() => {
     setCurrentSelectedIndex(i => {
-      const newIndex = Math.min(sortedSelectedFeatureList.length - 1, i + 1)
+      const newIndex = Math.min(filteredSelectedFeatureList.length - 1, i + 1)
       // Update page if needed
       const newPage = Math.floor(newIndex / ITEMS_PER_PAGE)
       if (newPage !== selectedPage) {
@@ -555,7 +561,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       }
       return newIndex
     })
-  }, [sortedSelectedFeatureList.length, selectedPage])
+  }, [filteredSelectedFeatureList.length, selectedPage])
 
   // ============================================================================
   // TAG BUTTON HANDLERS
@@ -592,10 +598,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, category)
 
     // Auto-advance to next feature in selected list (only when tagging, not untagging)
-    if (currentSelectedIndex < sortedSelectedFeatureList.length - 1) {
+    if (currentSelectedIndex < filteredSelectedFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedSelectedFeatureList.length, handleNavigateNext])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, filteredSelectedFeatureList.length, handleNavigateNext])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -614,7 +620,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 3. Create new commit after tags are applied (hook handles onCommitCreated callback)
     setTimeout(() => {
       createCommit('tagAll')
-      console.log('[CauseView] Created new commit after tagging selected as', category)
     }, 0)
   }, [umapBrushedFeatureIds, setCauseCategory, saveCurrentState, createCommit])
 
@@ -648,13 +653,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 3. Create new commit after tags are applied (hook handles onCommitCreated callback)
     setTimeout(() => {
       createCommit('apply')
-      console.log('[CauseView] Created new commit after tagging by decision boundary')
     }, 0)
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, saveCurrentState, createCommit])
 
   // Handle next stage navigation (placeholder for Stage 4)
   const handleNextStage = useCallback(() => {
-    console.log('[CauseView] Next stage clicked - Stage 4 not yet implemented')
     // TODO: Implement Stage 4 navigation
   }, [])
 
@@ -762,13 +765,15 @@ const CauseView: React.FC<CauseViewProps> = ({
                 featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
                 className="cause-view__umap"
                 selectedFeatureId={selectedFeatureData?.featureId ?? null}
+                visibleCategories={visibleCategories}
+                onVisibleCategoriesChange={setVisibleCategories}
               />
 
               {/* Selected list - positioned inside UMAP wrapper */}
               <ScrollableItemList
                 className="cause-view__selected-overlay"
                 variant="causeBrushed"
-                badges={[{ label: 'Selected', count: sortedSelectedFeatureList.length }]}
+                badges={[{ label: 'Selected', count: filteredSelectedFeatureList.length }]}
                 columnHeader={{
                   label: 'Decision Margin',
                   sortDirection: selectedSortDirection,
@@ -904,7 +909,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigatePrevious}
-                        disabled={currentSelectedIndex === 0 || sortedSelectedFeatureList.length === 0}
+                        disabled={currentSelectedIndex === 0 || filteredSelectedFeatureList.length === 0}
                       >
                         ← Prev
                       </button>
@@ -943,7 +948,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigateNext}
-                        disabled={currentSelectedIndex >= sortedSelectedFeatureList.length - 1 || sortedSelectedFeatureList.length === 0}
+                        disabled={currentSelectedIndex >= filteredSelectedFeatureList.length - 1 || filteredSelectedFeatureList.length === 0}
                       >
                         Next →
                       </button>

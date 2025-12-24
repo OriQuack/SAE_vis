@@ -124,15 +124,10 @@ interface AppState {
   causeSelectionSources: Map<number, 'manual' | 'auto'>
   // Metric scores for each feature (for sorting/visualization)
   causeMetricScores: Map<number, CauseMetricScores>
-  toggleCauseCategory: (featureId: number) => void
   setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
   clearCauseSelection: () => void
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
-  // Cause table activation (similar to activeStageNodeId for other tables)
-  activeCauseStageNode: string | null
-  activateCauseTable: (nodeId: string) => void
-
   // Comparison view state
   showComparisonView: boolean
   toggleComparisonView: () => void
@@ -236,8 +231,7 @@ interface AppState {
   isLoadingDistributedPairs: boolean
 
   // Cause similarity sort state (for cause table - multi-class OvR)
-  causeSimilarityScores: Map<number, number>  // Legacy: single score per feature
-  causeCategoryDecisionMargins: Map<number, Record<string, number>>  // New: per-category decision margins
+  causeCategoryDecisionMargins: Map<number, Record<string, number>>  // Per-category decision margins
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-N-gram', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
   // Cause margin threshold for effective category calculation (shared across components)
@@ -436,8 +430,7 @@ const initialState = {
   isLoadingDistributedPairs: false,
 
   // Cause similarity sort state (for cause table - multi-class OvR)
-  causeSimilarityScores: new Map<number, number>(),  // Legacy
-  causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),  // New: per-category decision margins
+  causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),
   causeSortCategory: null,  // Sort by max decision margin by default
   isCauseSimilaritySortLoading: false,
   // Cause margin threshold for effective category calculation
@@ -524,7 +517,6 @@ const initialState = {
   causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   causeMetricScores: new Map<number, CauseMetricScores>(),
-  activeCauseStageNode: null,
 
   // Comparison view state
   showComparisonView: false,
@@ -971,39 +963,6 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   // Cause category selection actions (used by SelectionPanel for Stage 3)
-  // Three-state cycle: null -> noisy-activation -> missed-N-gram -> missed-context -> null
-  toggleCauseCategory: (featureId: number) => {
-    set((state) => {
-      const newStates = new Map(state.causeSelectionStates)
-      const newSources = new Map(state.causeSelectionSources)
-      const currentState = newStates.get(featureId)
-
-      // Three-state cycle
-      if (currentState === undefined) {
-        // null -> noisy-activation
-        newStates.set(featureId, 'noisy-activation')
-        newSources.set(featureId, 'manual')
-      } else if (currentState === 'noisy-activation') {
-        // noisy-activation -> missed-N-gram
-        newStates.set(featureId, 'missed-N-gram')
-        newSources.set(featureId, 'manual')
-      } else if (currentState === 'missed-N-gram') {
-        // missed-N-gram -> missed-context
-        newStates.set(featureId, 'missed-context')
-        newSources.set(featureId, 'manual')
-      } else if (currentState === 'missed-context') {
-        // missed-context -> null (remove from map)
-        newStates.delete(featureId)
-        newSources.delete(featureId)
-      }
-
-      return {
-        causeSelectionStates: newStates,
-        causeSelectionSources: newSources
-      }
-    })
-  },
-
   clearCauseSelection: () => {
     set({
       causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
@@ -1051,11 +1010,6 @@ export const useStore = create<AppState>((set, get) => {
         causeSelectionSources: newSources
       }
     })
-  },
-
-  activateCauseTable: (nodeId: string) => {
-    set({ activeCauseStageNode: nodeId })
-    console.log('[Store.activateCauseTable] Activated cause table for node:', nodeId)
   },
 
   // Comparison view actions

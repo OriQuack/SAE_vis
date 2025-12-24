@@ -22,12 +22,17 @@ import '../styles/UMAPScatter.css'
 // - Triangle grid for batch selection (click point → select cell)
 // - Adaptive hierarchical cell system that merges based on feature density
 
+// Filter categories (includes unsure)
+type FilterCategory = CauseCategory | 'unsure'
+
 interface UMAPScatterProps {
   featureIds: number[]
   width?: number
   height?: number
   className?: string
   selectedFeatureId?: number | null  // Feature to highlight with explainer positions
+  visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
+  onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
 }
 
 // Margin configuration
@@ -36,8 +41,6 @@ const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
 
-// Filter categories (includes unsure)
-type FilterCategory = CauseCategory | 'unsure'
 const FILTER_CATEGORIES: { id: FilterCategory; label: string }[] = [
   { id: 'noisy-activation', label: 'Noisy Activation' },
   { id: 'missed-N-gram', label: 'Pattern Miss' },
@@ -58,7 +61,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   width: propWidth,
   height: propHeight,
   className = '',
-  selectedFeatureId = null
+  selectedFeatureId = null,
+  visibleCategories: propVisibleCategories,
+  onVisibleCategoriesChange
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -93,23 +98,26 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const setCauseMarginThreshold = useVisualizationStore(state => state.setCauseMarginThreshold)
 
-  // Filter state: which categories to show
-  const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
+  // Filter state: use prop if provided, fallback to local state
+  const [localVisibleCategories, setLocalVisibleCategories] = useState<Set<FilterCategory>>(
     new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'well-explained', 'unsure'])
   )
+  const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
   // Toggle category visibility
   const toggleCategory = useCallback((category: FilterCategory) => {
-    setVisibleCategories(prev => {
-      const next = new Set(prev)
-      if (next.has(category)) {
-        next.delete(category)
-      } else {
-        next.add(category)
-      }
-      return next
-    })
-  }, [])
+    const next = new Set(visibleCategories)
+    if (next.has(category)) {
+      next.delete(category)
+    } else {
+      next.add(category)
+    }
+    if (onVisibleCategoriesChange) {
+      onVisibleCategoriesChange(next)
+    } else {
+      setLocalVisibleCategories(next)
+    }
+  }, [visibleCategories, onVisibleCategoriesChange])
 
   // Check if all 3 categories have at least one manual tag (for SVM classification)
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
@@ -282,7 +290,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     ctx.scale(dpr, dpr)
 
     // Point styling
-    const manualPointRadius = 4
     const brushedPointRadius = 2
     const manualPointAlpha = 1
     const untaggedPointAlpha = 0.2  // Alpha for untagged points
@@ -395,7 +402,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
       // Draw selected feature point (mean position) with blue highlight ring - LAST
       ctx.beginPath()
-      ctx.arc(meanX, meanY, manualPointRadius + 4, 0, Math.PI * 2)
+      ctx.arc(meanX, meanY, brushedPointRadius + 6, 0, Math.PI * 2)
       ctx.strokeStyle = selectionBlue
       ctx.lineWidth = 2.5
       ctx.globalAlpha = 1
@@ -405,7 +412,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const isSelectedManual = manuallyTaggedIds.has(selectedFeatureId!)
 
       ctx.beginPath()
-      ctx.arc(meanX, meanY, manualPointRadius + 1, 0, Math.PI * 2)
+      ctx.arc(meanX, meanY, brushedPointRadius + 3, 0, Math.PI * 2)
       ctx.globalAlpha = 1
 
       if (isSelectedManual) {
