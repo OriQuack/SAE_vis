@@ -153,6 +153,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
+  const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+  const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
@@ -189,6 +191,41 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     console.log('[SelectionPanel] filteredFeatureIds:', featureIds.size, 'features from getSelectedNodeFeatures()')
     return featureIds
   }, [propFilteredFeatureIds, getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
+
+  // Extract well-explained feature IDs from Stage 3 segment (for effective category)
+  const wellExplainedFeatureIds = useMemo(() => {
+    if (!sankeyStructure) return new Set<number>()
+    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
+    if (stage3Node?.segments?.[1]?.featureIds) {
+      return stage3Node.segments[1].featureIds
+    }
+    return new Set<number>()
+  }, [sankeyStructure])
+
+  // Helper: get effective category for a feature (considering margin threshold and well-explained segment)
+  type EffectiveCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | 'unsure'
+  const getEffectiveCategory = (featureId: number): EffectiveCategory => {
+    // Priority 1: Well-explained from Stage 3 segment
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
+
+    const category = causeSelectionStates.get(featureId)
+    const source = causeSelectionSources.get(featureId)
+    const isManual = source === 'manual'
+
+    // Priority 2: Manual tags respected
+    if (isManual && category) return category
+
+    // Priority 3: Auto-tagged with margin check
+    if (category && causeCategoryDecisionMargins) {
+      const categoryScores = causeCategoryDecisionMargins.get(featureId)
+      if (categoryScores) {
+        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+        if (margin < causeMarginThreshold) return 'unsure'
+      }
+    }
+
+    return category || 'unsure'
+  }
 
   // Track if threshold button should highlight (first time showing preview)
   const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
@@ -285,16 +322,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     let unsure = 0
 
     for (const featureId of featureSet) {
-      const category = causeSelectionStates.get(featureId)
+      const effectiveCategory = getEffectiveCategory(featureId)
       const source = causeSelectionSources.get(featureId)
+      // Auto: either explicitly auto-tagged OR well-explained from segment (not manually tagged)
+      const isAuto = source === 'auto' ||
+        (wellExplainedFeatureIds.has(featureId) && source !== 'manual')
 
-      if (!category) {
-        unsure++
-        continue
-      }
-
-      const isAuto = source === 'auto'
-      switch (category) {
+      switch (effectiveCategory) {
         case 'noisy-activation':
           isAuto ? noisyActivationAuto++ : noisyActivation++
           break
@@ -307,6 +341,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         case 'well-explained':
           isAuto ? wellExplainedAuto++ : wellExplained++
           break
+        default:
+          unsure++
       }
     }
 
@@ -318,7 +354,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       unsure,
       total: featureSet.size
     }
-  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, wellExplainedFeatureIds, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds

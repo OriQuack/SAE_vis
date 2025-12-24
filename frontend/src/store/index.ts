@@ -240,6 +240,9 @@ interface AppState {
   causeCategoryDecisionMargins: Map<number, Record<string, number>>  // New: per-category decision margins
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-N-gram', 'missed-context', or null for max)
   isCauseSimilaritySortLoading: boolean
+  // Cause margin threshold for effective category calculation (shared across components)
+  causeMarginThreshold: number
+  setCauseMarginThreshold: (threshold: number) => void
 
   // Tag automatic state (for automatic tagging feature with threshold controls)
   tagAutomaticState: {
@@ -437,6 +440,8 @@ const initialState = {
   causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),  // New: per-category decision margins
   causeSortCategory: null,  // Sort by max decision margin by default
   isCauseSimilaritySortLoading: false,
+  // Cause margin threshold for effective category calculation
+  causeMarginThreshold: 0.3,
 
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,
@@ -652,6 +657,9 @@ export const useStore = create<AppState>((set, get) => {
 
   // Threshold drag state action
   setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
+
+  // Cause margin threshold action
+  setCauseMarginThreshold: (threshold: number) => set({ causeMarginThreshold: threshold }),
 
   // Stage 1 revisiting state actions
   setStage1FinalCommit: (commit: Stage1FinalCommit | null) => {

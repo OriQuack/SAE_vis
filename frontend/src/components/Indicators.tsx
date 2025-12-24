@@ -1,7 +1,7 @@
 import React from 'react'
 import { getTagColor } from '../lib/tag-system'
 import { getStripeGradientWithOpacity } from '../lib/color-utils'
-import { UNSURE_GRAY, TAG_CATEGORY_CAUSE } from '../lib/constants'
+import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
 // ============================================================================
@@ -40,7 +40,12 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   isAuto = false
 }) => {
   // Get tag color from pre-computed colors (or gray for unselected)
-  const baseTagColor = getTagColor(tagCategoryId, tagName) || '#9ca3af'
+  // Special handling: Well-Explained uses TAG_CATEGORY_QUALITY, Unsure uses dark gray
+  const baseTagColor = tagName === 'Unsure'
+    ? '#6b7280'  // Dark gray for unsure
+    : tagName === 'Well-Explained'
+      ? getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green from quality category
+      : getTagColor(tagCategoryId, tagName) || '#9ca3af'
 
   // Use consistent styling regardless of selection state
   const selectionStyle = {

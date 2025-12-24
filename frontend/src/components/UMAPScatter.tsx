@@ -10,7 +10,7 @@ import {
   type CauseCategory
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_CAUSE } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 // Triangle grid for visual batch tagging
 import { computeTriangleGrid, cellToSvgPoints, THRESHOLD_DIVISOR } from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
@@ -87,14 +87,16 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
+
+  // Shared margin threshold from store
+  const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
+  const setCauseMarginThreshold = useVisualizationStore(state => state.setCauseMarginThreshold)
 
   // Filter state: which categories to show
   const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
     new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'well-explained', 'unsure'])
   )
-
-  // Decision margin threshold: features below this are treated as "unsure"
-  const [marginThreshold, setMarginThreshold] = useState(0.3)
 
   // Toggle category visibility
   const toggleCategory = useCallback((category: FilterCategory) => {
@@ -209,13 +211,27 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return new Set(Object.keys(manualCauseSelections).map(Number))
   }, [manualCauseSelections])
 
+  // Extract well-explained feature IDs from Stage 3 segment (above decision_margin threshold)
+  // stage3_segment.segments[1] = "Well-Explained" (above threshold)
+  const wellExplainedFeatureIds = useMemo(() => {
+    if (!sankeyStructure) return new Set<number>()
+    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
+    if (stage3Node?.segments?.[1]?.featureIds) {
+      return stage3Node.segments[1].featureIds
+    }
+    return new Set<number>()
+  }, [sankeyStructure])
+
   // Helper: get effective category for a feature (considering margin threshold)
-  // Features below threshold are treated as "unsure"
+  // Priority: well-explained (Stage 3 segment) > manual tags > auto-tags with margin check > unsure
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
+    // Well-explained from Stage 3 segment takes highest priority
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
+
     const isManual = manuallyTaggedIds.has(featureId)
     const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
 
-    // Manual tags are always respected
+    // Manual tags are respected
     if (isManual && category) return category
 
     // For auto-tagged features, check margin threshold
@@ -223,12 +239,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
         const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-        if (margin < marginThreshold) return 'unsure'
+        if (margin < causeMarginThreshold) return 'unsure'
       }
     }
 
     return category || 'unsure'
-  }, [manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, marginThreshold])
+  }, [wellExplainedFeatureIds, manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // Compute explainer label positions for HTML rendering (crisp text)
   const explainerLabels = useMemo(() => {
@@ -292,10 +308,15 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const cx = scales.xScale(point.x)
       const cy = scales.yScale(point.y)
 
-      // Use dark gray for points below margin threshold, otherwise use tag color
-      const color = effectiveCategory === 'unsure'
-        ? '#6b7280'
-        : getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
+      // Determine color based on effective category
+      let color: string
+      if (effectiveCategory === 'unsure') {
+        color = '#6b7280'  // Dark gray for unsure
+      } else if (effectiveCategory === 'well-explained') {
+        color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green
+      } else {
+        color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
+      }
 
       if (isManual) {
         // Manual points: solid filled circles with cause category color
@@ -326,9 +347,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     if (selectedPoint) {
       // Use effective category for selected point color too
       const selectedEffectiveCategory = getEffectiveCategory(selectedFeatureId!)
-      const categoryColor = selectedEffectiveCategory === 'unsure'
-        ? '#6b7280'
-        : getCauseColor(selectedFeatureId!, causeSelectionStates as Map<number, CauseCategory>)
+      let categoryColor: string
+      if (selectedEffectiveCategory === 'unsure') {
+        categoryColor = '#6b7280'
+      } else if (selectedEffectiveCategory === 'well-explained') {
+        categoryColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
+      } else {
+        categoryColor = getCauseColor(selectedFeatureId!, causeSelectionStates as Map<number, CauseCategory>)
+      }
       const selectionBlue = '#3b82f6'  // Blue highlight for selection indicator
       const meanX = scales.xScale(selectedPoint.x)
       const meanY = scales.yScale(selectedPoint.y)
@@ -574,7 +600,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               style={{
                 '--filter-color': cat.id === 'unsure'
                   ? '#6b7280'
-                  : getTagColor(TAG_CATEGORY_CAUSE, cat.label) || '#6b7280'
+                  : cat.id === 'well-explained'
+                    ? getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
+                    : getTagColor(TAG_CATEGORY_CAUSE, cat.label) || '#6b7280'
               } as React.CSSProperties}
             >
               {cat.label}
@@ -583,14 +611,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
         {/* Margin threshold slider */}
         <div className="umap-scatter__threshold-slider">
-          <label>Margin: {marginThreshold.toFixed(2)}</label>
+          <label>Margin: {causeMarginThreshold.toFixed(2)}</label>
           <input
             type="range"
             min={0}
             max={1}
             step={0.05}
-            value={marginThreshold}
-            onChange={(e) => setMarginThreshold(parseFloat(e.target.value))}
+            value={causeMarginThreshold}
+            onChange={(e) => setCauseMarginThreshold(parseFloat(e.target.value))}
           />
         </div>
       </div>

@@ -87,6 +87,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
 
+  // Shared margin threshold from store (used by UMAPScatter and SelectionPanel)
+  const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
+
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
@@ -98,6 +101,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Pagination for selected features list
   const ITEMS_PER_PAGE = 8
   const rightPanelRef = useRef<HTMLDivElement>(null)
+
   const hasAutoTaggedRef = useRef(false)
 
   // ============================================================================
@@ -135,6 +139,45 @@ const CauseView: React.FC<CauseViewProps> = ({
     console.log('[CauseView] Sankey segment features:', features?.size || 0)
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3, stage3FinalCommit])
+
+  // Extract well-explained feature IDs from Stage 3 segment (above quality threshold)
+  // stage3_segment.segments[1] = "Well-Explained" (above threshold)
+  const wellExplainedFeatureIds = useMemo(() => {
+    if (!sankeyStructure) return new Set<number>()
+    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
+    if (stage3Node?.segments?.[1]?.featureIds) {
+      return stage3Node.segments[1].featureIds
+    }
+    return new Set<number>()
+  }, [sankeyStructure])
+
+  // Helper type for effective category
+  type EffectiveCategory = CauseCategory | 'unsure'
+
+  // Get effective category for a feature (considering margin threshold and well-explained segment)
+  // Priority: well-explained (Stage 3 segment) > manual tags > auto-tags with margin check > unsure
+  const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
+    // Priority 1: Well-explained from Stage 3 segment
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
+
+    const category = causeSelectionStates.get(featureId)
+    const source = causeSelectionSources.get(featureId)
+    const isManual = source === 'manual'
+
+    // Priority 2: Manual tags respected
+    if (isManual && category) return category
+
+    // Priority 3: Auto-tagged with margin check
+    if (category && causeCategoryDecisionMargins) {
+      const categoryScores = causeCategoryDecisionMargins.get(featureId)
+      if (categoryScores) {
+        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+        if (margin < causeMarginThreshold) return 'unsure'
+      }
+    }
+
+    return category || 'unsure'
+  }, [wellExplainedFeatureIds, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // ============================================================================
   // METRIC SCORE INITIALIZATION - Calculate scores when entering Stage 3
@@ -422,16 +465,16 @@ const CauseView: React.FC<CauseViewProps> = ({
   // COMMIT HISTORY HELPERS
   // ============================================================================
 
-  // Helper function to compute cause counts from causeSelectionStates
+  // Helper function to compute cause counts using effective categories
   const getCauseCounts = useCallback((): CauseCommitCounts => {
     let noisyActivation = 0, missedNgram = 0, missedContext = 0, wellExplained = 0, unsure = 0
 
     featureListWithMetadata.forEach((f: typeof featureListWithMetadata[0]) => {
-      const category = causeSelectionStates.get(f.featureId)
-      if (category === 'noisy-activation') noisyActivation++
-      else if (category === 'missed-N-gram') missedNgram++
-      else if (category === 'missed-context') missedContext++
-      else if (category === 'well-explained') wellExplained++
+      const effectiveCategory = getEffectiveCategory(f.featureId)
+      if (effectiveCategory === 'noisy-activation') noisyActivation++
+      else if (effectiveCategory === 'missed-N-gram') missedNgram++
+      else if (effectiveCategory === 'missed-context') missedContext++
+      else if (effectiveCategory === 'well-explained') wellExplained++
       else unsure++
     })
 
@@ -443,7 +486,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       unsure,
       total: featureListWithMetadata.length
     }
-  }, [featureListWithMetadata, causeSelectionStates])
+  }, [featureListWithMetadata, getEffectiveCategory])
 
   // Use the commit history hook
   const {
@@ -518,11 +561,11 @@ const CauseView: React.FC<CauseViewProps> = ({
   // TAG BUTTON HANDLERS
   // ============================================================================
 
-  // Get current feature's cause selection state and source
+  // Get current feature's effective category (considering margin threshold and well-explained segment)
   const currentCauseCategory = useMemo(() => {
     if (!selectedFeatureData) return null
-    return causeSelectionStates.get(selectedFeatureData.featureId) || null
-  }, [selectedFeatureData, causeSelectionStates])
+    return getEffectiveCategory(selectedFeatureData.featureId)
+  }, [selectedFeatureData, getEffectiveCategory])
 
   const currentCauseSource = useMemo(() => {
     if (!selectedFeatureData) return null
@@ -663,11 +706,17 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Render feature item for selected ScrollableItemList
   const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
-    const causeCategory = causeSelectionStates.get(featureId)
+    const effectiveCategory = getEffectiveCategory(featureId)
     const causeSource = causeSelectionSources.get(featureId)
 
-    // All features must have a tag - use category name or default to Unsure
-    const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Unsure'
+    // Map effective category to tag name
+    const tagName = effectiveCategory === 'unsure'
+      ? 'Unsure'
+      : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
+
+    // Determine if auto (well-explained from segment or below-threshold auto-tags are considered "auto")
+    const isAuto = causeSource === 'auto' ||
+      (wellExplainedFeatureIds.has(featureId) && causeSource !== 'manual')
 
     return (
       <TagBadge
@@ -676,10 +725,10 @@ const CauseView: React.FC<CauseViewProps> = ({
         tagCategoryId={TAG_CATEGORY_CAUSE}
         onClick={() => handleSelectedListClick(index)}
         fullWidth={true}
-        isAuto={causeSource === 'auto'}
+        isAuto={isAuto}
       />
     )
-  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick])
+  }, [getEffectiveCategory, causeSelectionSources, wellExplainedFeatureIds, handleSelectedListClick])
 
   // ============================================================================
   // RENDER
