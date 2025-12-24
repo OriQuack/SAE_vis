@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
-import { TagBadge, TagButton, CauseMetricBars } from './Indicators'
+import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
@@ -624,33 +624,30 @@ const CauseView: React.FC<CauseViewProps> = ({
   const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
 
-  // Render feature item for selected ScrollableItemList (with click handler and CauseMetricBars)
+  // Get display score for sortConfig (decision margin)
+  const getDisplayScore = useCallback((featureId: number) => {
+    return decisionMarginMap.get(featureId)
+  }, [decisionMarginMap])
+
+  // Render feature item for selected ScrollableItemList
   const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
     const causeCategory = causeSelectionStates.get(featureId)
     const causeSource = causeSelectionSources.get(featureId)
-    const decisionMargin = decisionMarginMap.get(featureId)
-    const scores = causeMetricScores.get(featureId)
 
     // All features must have a tag - use category name or default to Unsure
     const tagName = causeCategory ? CAUSE_TAG_NAMES[causeCategory] : 'Unsure'
 
     return (
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flex: 1 }}>
-        <TagBadge
-          featureId={featureId}
-          tagName={tagName}
-          tagCategoryId={TAG_CATEGORY_CAUSE}
-          onClick={() => handleSelectedListClick(index)}
-          fullWidth={true}
-          isAuto={causeSource === 'auto'}
-        />
-        <CauseMetricBars scores={scores ?? null} selectedCategory={causeCategory} />
-        {decisionMargin != null && (
-          <span className="pair-similarity-score">{decisionMargin.toFixed(2)}</span>
-        )}
-      </div>
+      <TagBadge
+        featureId={featureId}
+        tagName={tagName}
+        tagCategoryId={TAG_CATEGORY_CAUSE}
+        onClick={() => handleSelectedListClick(index)}
+        fullWidth={true}
+        isAuto={causeSource === 'auto'}
+      />
     )
-  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick, decisionMarginMap, causeMetricScores])
+  }, [causeSelectionStates, causeSelectionSources, handleSelectedListClick])
 
   // ============================================================================
   // RENDER
@@ -698,6 +695,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 }}
                 items={paginatedSelectedFeatureList}
                 renderItem={renderBottomRowFeatureItem}
+                sortConfig={{ getDisplayScore }}
                 currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
                 isActive={activeListSource === 'selected'}
                 emptyMessage="Brush to select"
@@ -957,7 +955,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
-                        className="action-button action-button--primary"
+                        className="action-button"
                         onClick={handleTagRemainingByBoundary}
                         disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                         title="Auto-tag remaining features using SVM decision boundary"

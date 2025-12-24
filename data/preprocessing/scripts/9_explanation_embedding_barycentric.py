@@ -41,6 +41,7 @@ from typing import Dict, List, Optional, Any, Union
 from datetime import datetime
 import numpy as np
 import polars as pl
+import hdbscan
 
 # Enable string cache for categorical operations
 pl.enable_string_cache()
@@ -115,6 +116,13 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             "missed_ngram": [0.0, 0.0],
             "missed_context": [1.0, 0.0],
             "noisy_activation": [0.5, 0.866]
+        },
+        "hdbscan": {
+            "min_cluster_size": 5,
+            "min_samples": 3,
+            "metric": "euclidean",
+            "cluster_selection_epsilon": 0.1,
+            "cluster_selection_method": "eom"
         }
     }
 
@@ -163,6 +171,13 @@ class BarycentricEmbeddingProcessor:
         self.anchor_configs = config["anchors"]
         self.processing = config["processing"]
         self.triangle_vertices = config["triangle_vertices"]
+        self.hdbscan_config = config.get("hdbscan", {
+            "min_cluster_size": 5,
+            "min_samples": 3,
+            "metric": "euclidean",
+            "cluster_selection_epsilon": 0.1,
+            "cluster_selection_method": "eom"
+        })
 
         # Statistics tracking
         self.stats = {
@@ -453,6 +468,58 @@ class BarycentricEmbeddingProcessor:
         logger.info(f"Computed barycentric coordinates for {len(self.merged_df):,} explanations")
         logger.info(f"Anchor distribution: {self.stats['anchor_distribution']}")
 
+    def _compute_clusters(self):
+        """Run HDBSCAN clustering on mean metric vectors per feature.
+
+        Clusters features in the 5D standardized metric space for batch tagging.
+        Each feature gets a cluster_id (-1 for noise points).
+        """
+        logger.info("Computing HDBSCAN clusters...")
+
+        # Aggregate metrics to feature level (mean across 3 explainers)
+        std_cols = [f"{m}_std" for m in self.metrics_order]
+        feature_metrics = self.merged_df.group_by("feature_id").agg([
+            pl.col(col).mean() for col in std_cols
+        ])
+
+        # Build feature matrix
+        X = feature_metrics.select(std_cols).to_numpy()
+
+        # HDBSCAN clustering with config
+        hc = self.hdbscan_config
+        logger.info(f"HDBSCAN params: min_cluster_size={hc['min_cluster_size']}, "
+                   f"min_samples={hc['min_samples']}, epsilon={hc['cluster_selection_epsilon']}")
+        clusterer = hdbscan.HDBSCAN(
+            min_cluster_size=hc["min_cluster_size"],
+            min_samples=hc["min_samples"],
+            metric=hc["metric"],
+            cluster_selection_epsilon=hc["cluster_selection_epsilon"],
+            cluster_selection_method=hc.get("cluster_selection_method", "eom")
+        )
+        cluster_labels = clusterer.fit_predict(X)
+
+        # Map back to per-explanation rows
+        cluster_map = dict(zip(
+            feature_metrics["feature_id"].to_list(),
+            cluster_labels.tolist()
+        ))
+
+        # Add cluster_id column (-1 for noise points)
+        self.merged_df = self.merged_df.with_columns([
+            pl.col("feature_id").replace(cluster_map, default=-1).cast(pl.Int32).alias("cluster_id")
+        ])
+
+        # Log cluster stats
+        n_clusters = len(set(cluster_labels)) - (1 if -1 in cluster_labels else 0)
+        n_noise = int((cluster_labels == -1).sum())
+        n_clustered = len(cluster_labels) - n_noise
+
+        self.stats["n_clusters"] = n_clusters
+        self.stats["n_noise_features"] = n_noise
+        self.stats["n_clustered_features"] = n_clustered
+
+        logger.info(f"HDBSCAN: {n_clusters} clusters, {n_clustered} clustered features, {n_noise} noise features")
+
     def process(self) -> pl.DataFrame:
         """Run the full processing pipeline.
 
@@ -465,6 +532,7 @@ class BarycentricEmbeddingProcessor:
         self._build_anchors()
         self._standardize_metrics()
         self._compute_barycentric()
+        self._compute_clusters()
 
         return self.merged_df
 
@@ -482,6 +550,7 @@ class BarycentricEmbeddingProcessor:
             pl.col("feature_id").cast(pl.Int64),
             pl.col("llm_explainer").cast(pl.Utf8),
             pl.col("nearest_anchor").cast(pl.Utf8),
+            pl.col("cluster_id").cast(pl.Int32),
         ])
 
         # Cast float columns

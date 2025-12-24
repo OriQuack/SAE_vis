@@ -183,36 +183,22 @@
    TRIANGLE CELL GRID
    ============================================================================ */
 
-.umap-scatter__cell-grid {
-  pointer-events: auto;
-}
-
-.umap-scatter__cell {
+.umap-scatter__grid-cell {
   fill: transparent;
-  stroke: rgba(0, 0, 0, 0.25);
-  stroke-width: 0.75;
+  stroke: #000;
+  stroke-width: 0.5;
   cursor: pointer;
-  transition: fill 0.12s ease, stroke 0.12s ease, stroke-width 0.12s ease;
+  transition: fill 0.12s ease, stroke-width 0.12s ease;
 }
 
-.umap-scatter__cell:hover,
-.umap-scatter__cell--hovered {
-  fill: rgba(59, 130, 246, 0.12);
-  stroke: rgba(59, 130, 246, 0.6);
-  stroke-width: 1;
-}
-
-.umap-scatter__cell--selected {
-  fill: rgba(59, 130, 246, 0.18);
-  stroke: var(--color-primary, #3b82f6);
+.umap-scatter__grid-cell:hover {
+  fill: rgba(59, 130, 246, 0.15);
   stroke-width: 1.5;
 }
 
-.umap-scatter__cell--selected:hover,
-.umap-scatter__cell--selected.umap-scatter__cell--hovered {
-  fill: rgba(59, 130, 246, 0.25);
-  stroke: var(--color-primary-dark, #2563eb);
-  stroke-width: 2;
+.umap-scatter__grid-cell--selected {
+  stroke: #3b82f6;
+  stroke-width: 1.5;
 }
 
 /* ============================================================================
@@ -296,7 +282,7 @@
   background: linear-gradient(to right, #e5e7eb, #374151);
 }
 
-/* Explainer badge styling */
+/* Explainer badge styling (legend) */
 .umap-scatter__explainer-badge {
   display: inline-block;
   padding: 1px 6px;
@@ -306,4 +292,19 @@
   background-color: #374151;
   border-radius: 3px;
   white-space: nowrap;
+}
+
+/* Explainer position labels (on chart, above points) */
+.umap-scatter__explainer-label {
+  position: absolute;
+  transform: translate(-50%, -100%) translateY(-8px);
+  padding: 1px 3px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #fff;
+  background-color: #374151;
+  border-radius: 3px;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 15;
 }

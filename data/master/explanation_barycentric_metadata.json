@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-12-24T14:02:22.000647",
+  "created_at": "2025-12-24T15:20:21.255445",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 41758,
@@ -24,7 +24,8 @@
     "bary_noisy_activation": "Float32",
     "position_x": "Float32",
     "position_y": "Float32",
-    "nearest_anchor": "Utf8"
+    "nearest_anchor": "Utf8",
+    "cluster_id": "Int32"
   },
   "metrics_order": [
     "intra_feature_sim",
@@ -153,7 +154,10 @@
       "missed_ngram": 10155,
       "missed_context": 8425,
       "noisy_activation": 23178
-    }
+    },
+    "n_clusters": 8,
+    "n_noise_features": 6177,
+    "n_clustered_features": 8139
   },
   "config_used": {
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
@@ -214,6 +218,13 @@
         0.5,
         0.866
       ]
+    },
+    "hdbscan": {
+      "min_cluster_size": 10,
+      "min_samples": 5,
+      "metric": "euclidean",
+      "cluster_selection_epsilon": 0.2,
+      "cluster_selection_method": "eom"
     }
   }
 }

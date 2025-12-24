@@ -85,7 +85,7 @@ class UMAPService:
         df = self.data_service._barycentric_lazy.filter(
             pl.col("feature_id").is_in(feature_ids)
         ).select([
-            "feature_id", "llm_explainer", "position_x", "position_y", "nearest_anchor"
+            "feature_id", "llm_explainer", "position_x", "position_y", "nearest_anchor", "cluster_id"
         ]).collect()
 
         logger.info(f"Loaded {len(df)} rows for {df['feature_id'].n_unique()} features")
@@ -103,6 +103,9 @@ class UMAPService:
             anchor_counts = feature_rows["nearest_anchor"].value_counts()
             most_common_anchor = anchor_counts.sort("counts", descending=True)["nearest_anchor"][0]
 
+            # Get cluster_id (same for all explainers of a feature)
+            cluster_id = int(feature_rows["cluster_id"][0])
+
             # Collect explainer positions for detail view
             explainer_positions = [
                 ExplainerPosition(
@@ -118,6 +121,7 @@ class UMAPService:
                 feature_id=int(fid),
                 x=mean_x,
                 y=mean_y,
+                cluster_id=cluster_id,
                 nearest_anchor=most_common_anchor,
                 explainer_positions=explainer_positions
             ))

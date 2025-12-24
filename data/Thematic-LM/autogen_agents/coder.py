@@ -36,7 +36,7 @@ IMPORTANT RULES:
 - Generate SEPARATE codes for linguistic and contextual aspects
 - Do NOT combine both aspects in one code
 - Each code should be 1-6 words, noun phrase style
-- Include a meaningful quote extracted from the explanation
+- Quote must be a phrase or clause (3+ words), not a single word
 - Focus on meaningful patterns, not superficial characters
 
 EXAMPLE:

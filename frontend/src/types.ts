@@ -777,6 +777,7 @@ export interface UmapPoint {
   feature_id: number
   x: number  // Mean X across explainers
   y: number  // Mean Y across explainers
+  cluster_id: number  // HDBSCAN cluster ID (-1 for noise)
   decision_margin?: number  // Min distance to decision boundary (only for SVM classification)
   nearest_anchor?: string   // Most common anchor across explainers
   explainer_positions?: ExplainerPosition[]  // Individual positions per explainer (for detail view)

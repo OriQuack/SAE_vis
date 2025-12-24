@@ -121,7 +121,8 @@ class CodebookManager:
         self,
         code_text: str,
         top_k: int = 10,
-        min_similarity: float = 0.0
+        min_similarity: float = 0.0,
+        category: str = None
     ) -> List[Tuple[CodebookEntry, float]]:
         """Find top-k most similar existing codes above threshold.
 
@@ -132,6 +133,7 @@ class CodebookManager:
             code_text: Code text to search for
             top_k: Maximum number of similar codes to return (paper: 10)
             min_similarity: Minimum similarity threshold (default: 0.0)
+            category: If provided, only return codes matching this category
 
         Returns:
             List of (CodebookEntry, similarity_score) tuples, sorted by similarity
@@ -146,18 +148,23 @@ class CodebookManager:
         )[0]
 
         # Get indices sorted by similarity (descending)
-        top_indices = np.argsort(similarities)[::-1][:top_k]
+        sorted_indices = np.argsort(similarities)[::-1]
 
         # Map indices back to code IDs
         index_to_id = {v: k for k, v in self._id_to_index.items()}
 
         results = []
-        for idx in top_indices:
+        for idx in sorted_indices:
+            if len(results) >= top_k:
+                break
             sim_score = float(similarities[idx])
             if sim_score < min_similarity:
                 break  # Sorted descending, no more above threshold
             code_id = index_to_id[idx]
             entry = self.entries[code_id]
+            # Filter by category if specified
+            if category and entry.category != category:
+                continue
             results.append((entry, sim_score))
 
         return results
@@ -293,7 +300,7 @@ class CodebookManager:
             target_code_id: ID of code to consolidate into
 
         Returns:
-            True if successful, False if either code not found
+            True if successful, False if either code not found or category mismatch
         """
         if source_code_id not in self.entries or target_code_id not in self.entries:
             logger.warning(f"Cannot consolidate: code {source_code_id} or {target_code_id} not found")
@@ -304,6 +311,11 @@ class CodebookManager:
 
         source = self.entries[source_code_id]
         target = self.entries[target_code_id]
+
+        # Validate category match (skip if either is "unknown")
+        if source.category != target.category and source.category != "unknown" and target.category != "unknown":
+            logger.warning(f"Cannot consolidate: category mismatch ({source.category} vs {target.category})")
+            return False
 
         # Transfer frequency
         target.frequency += source.frequency

@@ -42,5 +42,12 @@
     "missed_ngram": [0.0, 0.0],
     "missed_context": [1.0, 0.0],
     "noisy_activation": [0.5, 0.866]
+  },
+  "hdbscan": {
+    "min_cluster_size": 10,
+    "min_samples": 5,
+    "metric": "euclidean",
+    "cluster_selection_epsilon": 0.2,
+    "cluster_selection_method": "eom"
   }
 }

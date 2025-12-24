@@ -83,7 +83,7 @@
   position: absolute;
   top: 0;
   right: 0;
-  width: 200px;
+  width: 210px;
   height: 320px;
   z-index: 10;
 }
@@ -336,12 +336,12 @@
  * FLOATING CONTROLS - Navigation and tag buttons at bottom
  * ============================================================================ */
 
-/* Base nav button styles */
+/* Base nav button styles - uses unified action-button styling from base.css */
 .cause-view__floating-controls .nav__button {
   padding: 3px 8px;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 500;
-  color: #374151;
+  color: #000000;
   background-color: white;
   border: 1px solid #d1d5db;
   border-radius: 3px;

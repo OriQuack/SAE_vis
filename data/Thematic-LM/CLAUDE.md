@@ -9,6 +9,8 @@ Implementation of the Thematic-LM paper (WWW '25) for SAE feature explanation an
 
 This implementation adapts Thematic-LM for analyzing SAE (Sparse Autoencoder) feature explanations. We implement only the **Coding Stage** (no Theme Development stage) using the **AutoGen framework** as specified in the paper.
 
+**Key Extension**: Codes are classified into two categories - `linguistic` (token patterns, morphology, syntax) and `contextual` (semantic meaning, domain, usage context).
+
 ## Architecture (Paper Section 3.1)
 
 ```
@@ -19,10 +21,10 @@ For each explanation:
 
 ### Data Flow Per Paper
 
-1. **Coders** independently analyze the SAME text item, outputting 1-3 codes + quotes each
-2. **Aggregator** merges similar codes from ALL coders for that item, retains differences
+1. **Coders** independently analyze the SAME text item, outputting 1-3 codes + quotes + category each
+2. **Aggregator** merges similar codes from ALL coders for that item (within same category), retains differences
 3. **Reviewer** retrieves top-k similar codes from codebook, decides merge/new
-4. **Codebook** stores codes with embeddings AND quotes WITH quote_ids
+4. **Codebook** stores codes with embeddings, categories, AND quotes WITH quote_ids
 
 ## Key Paper-Compliant Behaviors
 
@@ -38,68 +40,82 @@ For each explanation:
 | Quote storage with limit | 100 quotes (paper: 20), random replacement | Section 4 |
 | Quotes stored WITH quote_ids | `[{"quote": "...", "quote_id": "..."}]` | Section 3.1 |
 | Per-item processing | `process_explanation()` method | Section 3.1 |
-| Aggregator always called | Even with single coder | Section 3.1 |
+| Aggregator always called | Even with single coder (skipped if only 1) | Section 3.1 |
 
 ## File Structure
 
 ```
 data/Thematic-LM/
 ├── CLAUDE.md                 # This file
-├── config.json               # Configuration (paper parameters)
+├── config.json               # Configuration (paper parameters + run settings)
 ├── thematic_coding.py        # Main script (per-item processing)
 ├── autogen_pipeline.py       # AutoGen orchestration class
-├── codebook_manager.py       # Embedding-based codebook with quote_ids
+├── codebook_manager.py       # Embedding-based codebook with category support
 ├── parquet_to_json.py        # Convert parquet output to JSON
-├── codebook_history/         # Processing checkpoints (auto-saved)
+├── codebook_history/         # Processing checkpoints (auto-saved per run)
 └── autogen_agents/           # AutoGen agent factories
     ├── __init__.py
-    ├── coder.py              # CoderAgent with identity support
-    ├── aggregator.py         # AggregatorAgent
-    └── reviewer.py           # ReviewerAgent
+    ├── coder.py              # CoderAgent with SAE-specific prompt + category output
+    ├── aggregator.py         # AggregatorAgent with category-aware merging
+    └── reviewer.py           # ReviewerAgent with same-category merge constraint
 ```
 
 ## Agents (Paper Section 3.1, Appendix B)
 
-| Agent | Role | Paper Reference |
-|-------|------|-----------------|
-| **CoderAgent** | Generates 1-3 codes per explanation with supporting quotes | Appendix B |
-| **AggregatorAgent** | Merges similar codes from multiple coders | Appendix B |
-| **ReviewerAgent** | Maintains codebook consistency, decides merge/new | Appendix B |
+| Agent | Role | Key Behavior |
+|-------|------|--------------|
+| **CoderAgent** | Generates 1-3 codes per explanation | Outputs `category` field (linguistic/contextual) |
+| **AggregatorAgent** | Merges similar codes from multiple coders | Only merges within SAME category |
+| **ReviewerAgent** | Maintains codebook consistency | Only merges within SAME category |
 
-### Coder Identities (Paper Section 3.2)
+### Category Classification (SAE Extension)
 
-**Default: SAE-specific coder** (`identity: "sae"`)
-- Domain-guided prompt for identifying specific pattern types
-- Focuses on: lexical, morphological, syntactic, semantic, contextual, domain-specific patterns
-- Emphasizes specificity over generic codes
+Each code is classified into one of two categories:
 
-**Optional identities** (adapted from paper's climate change perspectives):
-- `linguist` - Grammatical structures, syntax, morphology
-- `semanticist` - Meaning, conceptual relationships
-- `pragmatist` - Language use in context, discourse functions
-- `domain_expert` - Specialized terminology
-- `cognitive` - Cognitive processes in language
+| Category | Description | Examples |
+|----------|-------------|----------|
+| **linguistic** | Token patterns, part-of-speech, morphology, syntax, punctuation | "prepositions", "tokens starting with 'Hor'", "verb phrases" |
+| **contextual** | Semantic meaning, domain, usage context, topic | "formal writing context", "sports terminology", "programming domain" |
 
-## Prompts (Paper Appendix B - Exact Wording)
+## Prompts (Adapted from Paper Appendix B)
 
-### Coder Prompt
-> "You are a coder in thematic analysis of SAE feature explanations. When given a feature explanation, write 1-3 codes for the explanation. The code should capture concepts or ideas with the most analytical **interests**. For each code, extract a quote from the explanation corresponding to the code. The quote needs to be an extract from a sentence."
+### Coder Prompt (SAE-Specific)
+```
+You are a coder in thematic analysis of neuron explanations.
+
+TASK: Generate 1-3 codes for each explanation. Each code must be classified into ONE category:
+- LINGUISTIC: Describes token pattern, part-of-speech, morphology, syntax, punctuation
+- CONTEXTUAL: Describes semantic meaning, domain, usage context, topic
+
+IMPORTANT RULES:
+- Generate SEPARATE codes for linguistic and contextual aspects
+- Do NOT combine both aspects in one code
+- Each code should be 1-6 words, noun phrase style
+```
 
 ### Aggregator Prompt
-> "Your job is to take the codes and corresponding quotes from other coders, merge the similar codes and retain the different ones. Store the quotes under the merged codes, and keep the top 20 most relevant quotes. Output the codes and quotes in JSON format. Don't output anything else. **Quote_id is the same as data_id.**"
+```
+MERGE RULES:
+- Merge codes with similar meaning AND same category
+- Do NOT merge codes from different categories (linguistic vs contextual)
+- When merging, keep the more descriptive code name
+```
 
-### Reviewer Prompt (CRITICAL)
-> "You will be given two items. The first contains new codes and quotes; the second contains similar codes and corresponding quotes to each new code. Decide if there are previously similar coded data with the same meaning that can be merged with the new codes. Update the new code according to the previous code if needed. **If the previous codes are all different or there are no similar codes, leave the merge_codes empty in the output.**"
+### Reviewer Prompt
+```
+WHEN TO MERGE (set merge_codes to existing code name):
+- New code describes the same underlying concept as an existing code
+- CRITICAL: Only merge codes within the SAME category
+```
 
-## Codebook Structure (Paper Section 3.1)
-
-Per paper: "This codebook stores previous codes, their corresponding quotes, **and quote IDs** in JSON format. Each entry in the codebook is a code, and its associated **quotes are nested below each code along with their quote IDs**."
+## Codebook Structure (Extended from Paper Section 3.1)
 
 ```python
 CodebookEntry:
     code_id: int
     code_text: str
     embedding: np.ndarray          # Sentence Transformer embedding
+    category: str                  # "linguistic" | "contextual" | "unknown"
     frequency: int
     variants: List[str]
     example_quotes: List[Dict]     # [{"quote": "...", "quote_id": "..."}]
@@ -108,13 +124,34 @@ CodebookEntry:
 
 ## Configuration Parameters
 
+### config.json Structure
+
+```json
+{
+  "run_config": {
+    "start_feature": null,     // Starting feature ID (inclusive)
+    "end_feature": null,       // Ending feature ID (inclusive)
+    "limit": 50,               // Max features to process
+    "mode": "overwrite",       // "overwrite" or "continue"
+    "load_codebook": "..."     // Path to existing codebook (for continue mode)
+  },
+  "llm_config": {...},
+  "embedding_config": {...},
+  "coder_config": {...},
+  "codebook_config": {...},
+  "processing_config": {...}
+}
+```
+
+### Key Parameters
+
 | Parameter | Paper Value | Our Value | Config Key |
 |-----------|-------------|-----------|------------|
 | LLM Model | GPT-4o | gpt-4o-mini | `llm_config.model` |
 | Temperature | 1.0 | 1.0 | `llm_config.temperature` |
 | Top-p | 1.0 | 1.0 | `llm_config.top_p` |
 | Top-k similar codes | 10 | 10 | `codebook_config.top_k_retrieval` |
-| Min similarity threshold | N/A | 0.85 | `codebook_config.min_similarity` |
+| Min similarity threshold | N/A | 0.3 | `codebook_config.min_similarity` |
 | Max quotes per code | 20 | 100 | `processing_config.max_quotes_per_code` |
 | Max codes per explanation | 3 | 3 | `processing_config.max_codes_per_explanation` |
 | Embedding model | N/A | all-MiniLM-L6-v2 | `embedding_config.model` |
@@ -127,53 +164,94 @@ cd /home/dohyun/interface/data/Thematic-LM
 # Install dependencies (including AutoGen)
 pip install pyautogen sentence-transformers polars tqdm
 
-# Quick test (5 features)
+# Quick test (5 features, overwrite mode)
 OPENAI_API_KEY=<key> python thematic_coding.py --limit 5
 
-# Full processing
-OPENAI_API_KEY=<key> python thematic_coding.py
+# Process feature range
+OPENAI_API_KEY=<key> python thematic_coding.py --start 0 --end 100
 
-# Resume from checkpoint
-OPENAI_API_KEY=<key> python thematic_coding.py --resume
+# Continue from existing codebook (set mode: "continue" in config.json)
+OPENAI_API_KEY=<key> python thematic_coding.py --load-codebook ../master/codebook.json
 
 # Convert parquet output to JSON
 python parquet_to_json.py
 ```
 
+### Run Modes
+
+| Mode | Behavior |
+|------|----------|
+| `overwrite` | Deletes existing output files before processing |
+| `continue` | Skips already processed explanations, appends to existing parquet |
+
 ### Checkpointing
-- Progress is auto-saved to `codebook_history/` after each item
-- Use `--resume` to continue from the last checkpoint
-- Each checkpoint contains: codebook state, processed items, timestamp
+- Progress is auto-saved every N items (`processing_config.save_every`)
+- Codebook history saved to `codebook_history/<timestamp>/codebook.json`
+- Use `--load-codebook` to continue from a specific codebook state
 
 ## Per-Item Processing (Paper Section 3.1)
-
-The implementation follows the paper's per-item processing architecture:
 
 ```
 For each explanation:
   1. ALL coders process the SAME item independently
-     → Each coder generates 1-3 codes with quotes
+     → Each coder generates 1-3 codes with quotes + category
 
   2. Aggregator receives ALL codes from ALL coders for this item
-     → Merges similar codes from different coders
+     → Merges similar codes WITHIN SAME CATEGORY
      → Retains different codes
      → Organizes into JSON with quote_ids
 
-  3. Reviewer processes EACH aggregated code
+  3. Pre-check: Exact code name match → auto-merge (optimization)
+     → Skips reviewer for duplicate code names
+
+  4. Reviewer processes EACH aggregated code
      → Retrieves top-10 similar codes from codebook
-     → Decides: merge with existing OR add as new
+     → Decides: merge with existing (SAME CATEGORY) OR add as new
      → Uses code NAMES for merge_codes output
 
-  4. Codebook updated with all decisions
+  5. Codebook updated with all decisions
      → Quotes stored WITH quote_ids for traceability
+     → Category preserved through merge operations
 ```
-
-This per-item approach ensures the aggregator merges codes from multiple coders analyzing the same text, maintaining consistency with the paper's methodology.
 
 ## Outputs
 
 - `data/master/thematic_codes.parquet` - Coded explanations with code assignments
-- `data/master/codebook.json` - Final codebook with all codes and quote_ids
+- `data/master/codebook.json` - Final codebook with all codes, categories, and quote_ids
+
+### Output Schema (thematic_codes.parquet)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `feature_id` | UInt32 | Feature identifier |
+| `llm_explainer` | Categorical | Explainer model name |
+| `explanation_text` | String | Original explanation text |
+| `codes` | JSON String | Array of assigned codes with category |
+| `coding_metadata` | JSON String | Processing metadata (model, timestamp, etc.) |
+
+### Codebook JSON Structure
+
+```json
+{
+  "metadata": {
+    "created_at": "2024-12-24T...",
+    "total_codes": 42,
+    "version": 123,
+    "paper": "Qiao et al. Thematic-LM (WWW '25)"
+  },
+  "entries": [
+    {
+      "code_id": 0,
+      "code_text": "prepositions and conjunctions",
+      "category": "linguistic",
+      "frequency": 5,
+      "variants": ["prepositions"],
+      "example_quotes": [{"quote": "...", "quote_id": "f7_llama"}],
+      "merged_from": []
+    }
+  ]
+}
+```
 
 ## Key Differences from Paper
 
@@ -182,23 +260,20 @@ This per-item approach ensures the aggregator merges codes from multiple coders 
 |--------|-------|-------------------|
 | Domain | Social media posts | SAE feature explanations |
 | Stage | Coding + Theme Development | Coding only |
-| Identities | Climate change perspectives | SAE analysis perspectives |
+| Identities | Climate change perspectives | SAE analysis (single coder) |
 | Default model | GPT-4o | gpt-4o-mini (configurable) |
 
-### Technical Modifications
+### Technical Extensions
 | Aspect | Paper | Our Implementation | Rationale |
 |--------|-------|-------------------|-----------|
+| Category classification | N/A | linguistic/contextual | Separate token patterns from semantic meaning |
+| Category-aware merging | N/A | Same-category constraint | Prevent mixing different code types |
 | Embedding model | Sentence Transformer | all-MiniLM-L6-v2 (22M params) | Faster, sufficient for code similarity |
-| Max quotes per code | 20 | 100 | Better representation without token cost (only 5 shown) |
+| Max quotes per code | 20 | 100 | Better representation without token cost |
 | Quote storage | First N | Random replacement when full | Representative sampling over time |
 | Quote display to reviewer | First 5 | Even spread sample of 5 | Show diversity across all stored quotes |
-| Similar codes filter | All top-k shown | Only similarity ≥ 0.85 | Reduce noise, save tokens |
-| Prompts | Paper Appendix B | Restructured with one-shot examples | Improved code quality and consistency |
-
-### Prompt Improvements
-**Coder**: Added structured format with TASK/EXAMPLE/OUTPUT sections. Clarified: capture pattern categories OR specific lexical patterns, avoid single-word instances and vague codes.
-
-**Reviewer**: Added structured RULES section. Clarified: choose code names that accurately cover merged concepts (not too narrow, not too broad).
+| Similar codes filter | All top-k shown | Only similarity >= 0.3 | Reduce noise, save tokens |
+| Exact name match | N/A | Auto-merge optimization | Skip reviewer for duplicate code names |
 
 ## Paper Alignment Checklist
 
@@ -206,7 +281,7 @@ This per-item approach ensures the aggregator merges codes from multiple coders 
 - [x] Multi-agent architecture: Coder → Aggregator → Reviewer → Codebook
 - [x] AutoGen framework (paper requirement, Section 3.1)
 - [x] Per-item processing (each item through full pipeline)
-- [x] Aggregator ALWAYS called (even with single coder)
+- [x] Aggregator ALWAYS called (skipped if only 1 coder for efficiency)
 - [x] ALL codes go through reviewer (no threshold-based skipping)
 - [x] Reviewer logic: `merge_codes empty = new code` (Appendix B)
 - [x] Reviewer uses code NAMES for merge_codes (not IDs)
@@ -215,24 +290,23 @@ This per-item approach ensures the aggregator merges codes from multiple coders 
 - [x] JSON mode enabled for consistent output (Section 4)
 - [x] Quote storage with max limit (Section 4) - increased to 100 for better sampling
 - [x] Max 1-3 codes per explanation (Appendix B)
-- [x] Multiple coder identities for diverse perspectives (Section 3.2)
-- [x] Prompts based on paper Appendix B - restructured for clarity
+- [x] Multiple coder identities supported (Section 3.2)
+- [x] Prompts based on paper Appendix B - adapted for SAE domain
 - [x] Quotes stored WITH quote_ids for traceability (Section 3.1)
-- [x] "Quote_id is the same as data_id" in aggregator prompt (Appendix B)
-- [x] "analytical interests" (plural) in coder prompt (Appendix B)
+- [x] "Quote_id is the same as data_id" logic (Appendix B)
 - [x] Single-shot agent calls via generate_reply() (proper AutoGen usage)
 
 ### Intentionally Omitted
 - **Theme Development Stage**: Not needed for our use case
 - **Evaluation Framework**: Credibility/dependability/transferability metrics not applicable
 
-### Domain Adaptations
-- **Domain**: Social media → SAE feature explanations
-- **Coder Identities**: Climate perspectives → SAE analysis perspectives
-- **Default Model**: GPT-4o → gpt-4o-mini (cost efficiency, configurable)
+### SAE-Specific Extensions
+- **Category classification**: Codes tagged as linguistic or contextual
+- **Category-aware processing**: Merging only within same category
+- **Exact name auto-merge**: Optimization to skip reviewer for duplicate names
+- **Run modes**: Overwrite vs continue for iterative processing
 
 ## References
 
 - Paper PDF: `/home/dohyun/interface/Themantic-LM.pdf`
 - Paper notes: `/home/dohyun/interface/Themantic-LM.md`
-- Implementation plan: `/home/dohyun/interface/THEMATIC_LM_CODEBOOK_IMPLEMENTATION_PLAN.md`

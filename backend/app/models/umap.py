@@ -50,6 +50,10 @@ class UmapPoint(BaseModel):
     feature_id: int = Field(..., description="Feature ID")
     x: float = Field(..., description="Mean X coordinate across explainers")
     y: float = Field(..., description="Mean Y coordinate across explainers")
+    cluster_id: int = Field(
+        default=-1,
+        description="HDBSCAN cluster ID (-1 for noise points)"
+    )
     decision_margin: Optional[float] = Field(
         default=None,
         description="Min distance to decision boundary (only for SVM Space UMAP)"

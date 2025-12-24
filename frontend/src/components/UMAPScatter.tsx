@@ -1,4 +1,4 @@
-import React, { useRef, useMemo, useCallback, useEffect, useState } from 'react'
+import React, { useRef, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { useResizeObserver } from '../lib/utils'
 import {
@@ -11,20 +11,16 @@ import {
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE } from '../lib/constants'
-import {
-  computeTriangleGrid,
-  cellToSvgPoints,
-  THRESHOLD_DIVISOR,
-  type TriangleCell
-} from '../lib/triangle-grid'
+// Triangle grid for visual batch tagging
+import { computeTriangleGrid, cellToSvgPoints, THRESHOLD_DIVISOR } from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
-// UMAP SCATTER PLOT COMPONENT - CELL-BASED VISUALIZATION
+// UMAP SCATTER PLOT COMPONENT - TRIANGLE GRID VISUALIZATION
 // ============================================================================
 // Displays 2D UMAP projection using:
-// - Triangle cell grid for region selection
-// - Individual points on cell selection (reveal on demand)
+// - Triangle grid for batch selection (click point → select cell)
+// - Adaptive hierarchical cell system that merges based on feature density
 
 interface UMAPScatterProps {
   featureIds: number[]
@@ -40,13 +36,6 @@ const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
 
-// Cell category info for SVM visualization
-interface CellCategoryInfo {
-  majorityCategory: CauseCategory | null
-  purity: number  // 0-1, percentage of features with majority category
-  totalFeatures: number
-}
-
 // Map category to display name for getTagColor lookup
 const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
@@ -55,47 +44,10 @@ const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
   'well-explained': 'Well-Explained'
 }
 
-// Get color for a cause category
-function getCauseCategoryColor(category: CauseCategory): string {
+// Get color for a cause category (kept for potential future use)
+function _getCauseCategoryColor(category: CauseCategory): string {
   const tagName = CATEGORY_TO_TAG_NAME[category]
   return getTagColor(TAG_CATEGORY_CAUSE, tagName) || '#9ca3af'
-}
-
-// Convert hex to HSL
-function hexToHsl(hex: string): [number, number, number] {
-  const r = parseInt(hex.slice(1, 3), 16) / 255
-  const g = parseInt(hex.slice(3, 5), 16) / 255
-  const b = parseInt(hex.slice(5, 7), 16) / 255
-
-  const max = Math.max(r, g, b)
-  const min = Math.min(r, g, b)
-  const l = (max + min) / 2
-
-  let h = 0
-  let s = 0
-
-  if (max !== min) {
-    const d = max - min
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
-    switch (max) {
-      case r: h = ((g - b) / d + (g < b ? 6 : 0)) / 6; break
-      case g: h = ((b - r) / d + 2) / 6; break
-      case b: h = ((r - g) / d + 4) / 6; break
-    }
-  }
-
-  return [h * 360, s * 100, l * 100]
-}
-
-// Adjust color brightness based on purity (0-1)
-// High purity = full color, low purity = lighter/washed out
-function adjustColorByPurity(hexColor: string, purity: number): string {
-  const [h, s, l] = hexToHsl(hexColor)
-  // Map purity to lightness: low purity = light (85%), high purity = normal lightness
-  // Also reduce saturation for low purity
-  const targetL = 85 - purity * (85 - l)  // Interpolate from 85% (light) to original
-  const targetS = 30 + purity * (s - 30)   // Interpolate from 30% to original saturation
-  return `hsl(${h}, ${targetS}%, ${targetL}%)`
 }
 
 // Short name mapping for each LLM explainer (using full model names from backend)
@@ -125,9 +77,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
   // Square proportion: use minimum of width/height to fit within container
   const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
-
-  // Cell grid state
-  const [hoveredCellKey, setHoveredCellKey] = useState<string | null>(null)
 
   // Store state
   const umapProjection = useVisualizationStore(state => state.umapProjection)
@@ -216,69 +165,18 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return spreadBarycentricPoints(umapProjection, 'barycentricPower')
   }, [umapProjection])
 
-  // Compute triangle grid for cell-based selection (with dynamic threshold)
+  // Compute triangle grid for batch selection
   const gridState = useMemo(() => {
     if (!spreadPoints || spreadPoints.length === 0) return null
-    const threshold = Math.max(1, Math.ceil(spreadPoints.length / THRESHOLD_DIVISOR))
-    return computeTriangleGrid(spreadPoints, threshold)
+    const mergeThreshold = Math.ceil(spreadPoints.length / THRESHOLD_DIVISOR)
+    return computeTriangleGrid(spreadPoints, mergeThreshold)
   }, [spreadPoints])
 
-  // Compute cell category info for SVM visualization (majority category + purity)
-  const cellCategoryInfo = useMemo(() => {
-    if (!gridState) return new Map<string, CellCategoryInfo>()
-
-    const info = new Map<string, CellCategoryInfo>()
-
-    for (const cellKey of gridState.leafCells) {
-      const cell = gridState.cells.get(cellKey)
-      if (!cell || cell.featureIds.size === 0) {
-        info.set(cellKey, { majorityCategory: null, purity: 0, totalFeatures: 0 })
-        continue
-      }
-
-      // Count features by category
-      const categoryCounts = new Map<CauseCategory, number>()
-
-      for (const featureId of cell.featureIds) {
-        const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
-        if (category) {
-          categoryCounts.set(category, (categoryCounts.get(category) || 0) + 1)
-        }
-      }
-
-      // Find majority category
-      let majorityCategory: CauseCategory | null = null
-      let maxCount = 0
-      for (const [cat, count] of categoryCounts) {
-        if (count > maxCount) {
-          maxCount = count
-          majorityCategory = cat
-        }
-      }
-
-      // Calculate purity (percentage of ALL features with majority category)
-      const purity = cell.featureIds.size > 0 ? maxCount / cell.featureIds.size : 0
-
-      info.set(cellKey, {
-        majorityCategory,
-        purity,
-        totalFeatures: cell.featureIds.size
-      })
-    }
-
-    return info
-  }, [gridState, causeSelectionStates])
-
-  // Cell click handler
-  const handleCellClick = useCallback((cell: TriangleCell) => {
-    setUmapBrushedFeatureIds(cell.featureIds)
-  }, [setUmapBrushedFeatureIds])
-
-  // Auto-select first cell on initial load (when grid is computed and no selection exists)
+  // Auto-select first grid cell on initial load (when no selection exists)
   useEffect(() => {
     if (!gridState || umapBrushedFeatureIds.size > 0) return
 
-    // Find the first leaf cell with features
+    // Find the first non-empty leaf cell
     for (const cellKey of gridState.leafCells) {
       const cell = gridState.cells.get(cellKey)
       if (cell && cell.featureIds.size > 0) {
@@ -292,6 +190,21 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const manuallyTaggedIds = useMemo(() => {
     return new Set(Object.keys(manualCauseSelections).map(Number))
   }, [manualCauseSelections])
+
+  // Compute explainer label positions for HTML rendering (crisp text)
+  const explainerLabels = useMemo(() => {
+    if (!scales || !spreadPoints || selectedFeatureId == null) return []
+
+    const selectedPoint = spreadPoints.find(p => p.feature_id === selectedFeatureId)
+    if (!selectedPoint?.explainer_positions) return []
+
+    return selectedPoint.explainer_positions.map(ep => ({
+      explainer: ep.explainer,
+      shortName: EXPLAINER_SHORT_NAMES[ep.explainer] || ep.explainer,
+      x: scales.xScale(ep.x),
+      y: scales.yScale(ep.y)
+    }))
+  }, [scales, spreadPoints, selectedFeatureId])
 
   // Draw points on canvas: manually tagged (always) + brushed (when brush active) + selected feature explainers
   useEffect(() => {
@@ -316,8 +229,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Point styling
     const manualPointRadius = 4
     const brushedPointRadius = 2
-    const manualPointAlpha = 0.85
-    const brushedPointAlpha = 0.2
+    const manualPointAlpha = 1
+    const untaggedPointAlpha = 0.2  // Alpha for untagged points
 
     // Find the selected feature's point for explainer positions
     const selectedPoint = selectedFeatureId != null
@@ -338,26 +251,26 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
 
       if (isManual) {
-        // Manual points: solid filled circles
+        // Manual points: solid filled circles with cause category color
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
         ctx.globalAlpha = manualPointAlpha
         ctx.fill()
       } else if (isAutoTagged) {
-        // Auto-tagged points: hollow circles (ring only)
+        // Auto-tagged points: hollow circles (ring only) with cause category color
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.strokeStyle = color
-        ctx.lineWidth = 1.5
-        ctx.globalAlpha = manualPointAlpha
+        ctx.lineWidth = 0.5
+        ctx.globalAlpha = untaggedPointAlpha
         ctx.stroke()
       } else {
-        // Untagged points: smaller filled circles
+        // Untagged points: simple gray
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
-        ctx.fillStyle = color
-        ctx.globalAlpha = brushedPointAlpha
+        ctx.fillStyle = '#6b7280'  // Dark gray for untagged
+        ctx.globalAlpha = untaggedPointAlpha
         ctx.fill()
       }
     }
@@ -389,12 +302,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
         ctx.setLineDash([])
 
-        // Draw explainer points with text labels
-        const badgeGray = '#374151'  // Dark gray for badge background
+        // Draw explainer points (circles only - labels rendered as HTML)
         for (const ep of selectedPoint.explainer_positions) {
           const epX = scales.xScale(ep.x)
           const epY = scales.yScale(ep.y)
-          const shortName = EXPLAINER_SHORT_NAMES[ep.explainer] || ep.explainer
 
           // Draw small circle at explainer position (blue)
           ctx.beginPath()
@@ -402,27 +313,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           ctx.fillStyle = selectionBlue
           ctx.globalAlpha = 1
           ctx.fill()
-
-          // Draw text label with background (above the point)
-          ctx.font = '10px system-ui, -apple-system, sans-serif'
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'bottom'
-          const textWidth = ctx.measureText(shortName).width
-          const padding = 3
-          const labelX = epX
-          const labelY = epY - 8  // Position above the point
-
-          // Draw badge background (dark gray)
-          ctx.fillStyle = badgeGray
-          ctx.globalAlpha = 0.9
-          ctx.beginPath()
-          ctx.roundRect(labelX - textWidth / 2 - padding, labelY - 12, textWidth + padding * 2, 14, 3)
-          ctx.fill()
-
-          // Draw text
-          ctx.fillStyle = '#fff'
-          ctx.globalAlpha = 1
-          ctx.fillText(shortName, labelX, labelY)
         }
       }
 
@@ -512,78 +402,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       >
         {/* Chart area */}
         <div className="umap-scatter__chart">
-        {/* SVG for cell grid */}
-        <svg
-          ref={svgRef}
-          className="umap-scatter__svg"
-          width={chartWidth}
-          height={chartHeight}
-        >
-          {/* Triangle outline */}
-          {trianglePath && (
-            <path
-              d={trianglePath}
-              fill="none"
-              stroke="#d1d5db"
-              strokeWidth={1.5}
-              className="umap-scatter__triangle-outline"
-            />
-          )}
-
-          {/* Triangle cell grid */}
-          {gridState && scales && (
-            <g className="umap-scatter__cell-grid">
-              {Array.from(gridState.leafCells).map(key => {
-                const cell = gridState.cells.get(key)
-                if (!cell) return null
-                const isHovered = hoveredCellKey === key
-                const hasSelection = umapBrushedFeatureIds.size > 0
-                const isSelected = hasSelection &&
-                  Array.from(cell.featureIds).some(fid => umapBrushedFeatureIds.has(fid))
-
-                // Get category info for SVM visualization
-                const catInfo = cellCategoryInfo.get(key)
-                const hasCategoryData = catInfo?.majorityCategory != null
-
-                // Compute brightness-adjusted color based on purity
-                let adjustedColor: string | undefined
-                if (hasCategoryData) {
-                  const baseColor = getCauseCategoryColor(catInfo!.majorityCategory!)
-                  const purity = catInfo!.purity
-                  // On hover, boost purity slightly for visual feedback
-                  const effectivePurity = isHovered ? Math.min(purity + 0.15, 1) : purity
-                  adjustedColor = adjustColorByPurity(baseColor, effectivePurity)
-                }
-
-                // Build inline style for category coloring
-                const cellStyle: React.CSSProperties | undefined = hasCategoryData && !isSelected
-                  ? {
-                      fill: adjustedColor,
-                      stroke: isHovered ? 'rgba(59, 130, 246, 0.6)' : undefined,
-                      strokeWidth: isHovered ? 1 : undefined
-                    }
-                  : undefined
-
-                return (
-                  <polygon
-                    key={key}
-                    points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
-                    className={`umap-scatter__cell ${isHovered && !hasCategoryData ? 'umap-scatter__cell--hovered' : ''} ${isSelected ? 'umap-scatter__cell--selected' : ''}`}
-                    style={cellStyle}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleCellClick(cell)
-                    }}
-                    onMouseEnter={() => setHoveredCellKey(key)}
-                    onMouseLeave={() => setHoveredCellKey(null)}
-                  />
-                )
-              })}
-            </g>
-          )}
-        </svg>
-
-        {/* Canvas for brushed points (overlays SVG) */}
+        {/* Canvas for points (rendered first, below SVG) */}
         <canvas
           ref={canvasRef}
           width={chartWidth * (window.devicePixelRatio || 1)}
@@ -591,6 +410,47 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           className="umap-scatter__canvas"
           style={{ width: chartWidth, height: chartHeight }}
         />
+
+        {/* SVG for grid cells and triangle outline (on top of canvas) */}
+        <svg
+          ref={svgRef}
+          className="umap-scatter__svg umap-scatter__svg--interactive"
+          width={chartWidth}
+          height={chartHeight}
+          style={{ pointerEvents: 'none' }}
+        >
+          {/* Triangle outline */}
+          {trianglePath && (
+            <path
+              d={trianglePath}
+              fill="none"
+              stroke="#000"
+              strokeWidth={1.5}
+              className="umap-scatter__triangle-outline"
+            />
+          )}
+
+          {/* Triangle cell grid for batch selection */}
+          {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
+            const cell = gridState.cells.get(cellKey)
+            if (!cell || cell.featureIds.size === 0) return null
+
+            // Check if this cell is selected (its features match brushed features)
+            const isSelected = umapBrushedFeatureIds.size > 0 &&
+              cell.featureIds.size === umapBrushedFeatureIds.size &&
+              [...cell.featureIds].every(id => umapBrushedFeatureIds.has(id))
+
+            return (
+              <polygon
+                key={cell.key}
+                points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
+                className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
+              />
+            )
+          })}
+        </svg>
 
         {/* Vertex labels (positioned at triangle corners) */}
         {scales && (
@@ -633,6 +493,20 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             </div>
           </>
         )}
+
+        {/* Explainer position labels (rendered as HTML for crisp text) */}
+        {explainerLabels.map(label => (
+          <div
+            key={label.explainer}
+            className="umap-scatter__explainer-label"
+            style={{
+              left: label.x,
+              top: label.y
+            }}
+          >
+            {label.shortName}
+          </div>
+        ))}
         </div>
       </div>
 

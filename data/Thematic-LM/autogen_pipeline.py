@@ -356,27 +356,34 @@ Merge similar codes, retain different ones. Output in JSON format."""
             # LLM reviewer judgment based on quote content differences
             exact_match_id = self._find_code_id_by_name(code_text)
             if exact_match_id is not None:
-                # Auto-merge with exact name match - no reviewer needed
-                code_id = self.codebook.merge_code(
-                    code_text,
-                    quotes,
-                    exact_match_id,
-                    update_code_text=False,  # Keep existing name
-                    category=code_category  # Pass category
-                )
-                self.stats["merged_codes"] += 1
-                final_codes.append(CodeResult(
-                    code_id=code_id,
-                    code_text=self.codebook.entries[code_id].code_text,
-                    category=code_category,  # Pass category
-                    quotes=quotes,
-                    is_new=False,
-                    merged_with=[self.codebook.entries[code_id].code_text],
-                ))
-                logger.debug(f"Auto-merged exact match: '{code_text}' → code_id {code_id}")
-                continue
-            # Find top-k similar codes in codebook
-            similar = self.codebook.find_similar(code_text, top_k=top_k, min_similarity=min_similarity)
+                # Only auto-merge if categories match
+                existing_category = self.codebook.entries[exact_match_id].category
+                if existing_category == code_category or existing_category == "unknown" or code_category == "unknown":
+                    # Auto-merge with exact name match - no reviewer needed
+                    code_id = self.codebook.merge_code(
+                        code_text,
+                        quotes,
+                        exact_match_id,
+                        update_code_text=False,  # Keep existing name
+                        category=code_category  # Pass category
+                    )
+                    self.stats["merged_codes"] += 1
+                    final_codes.append(CodeResult(
+                        code_id=code_id,
+                        code_text=self.codebook.entries[code_id].code_text,
+                        category=code_category,  # Pass category
+                        quotes=quotes,
+                        is_new=False,
+                        merged_with=[self.codebook.entries[code_id].code_text],
+                    ))
+                    logger.debug(f"Auto-merged exact match: '{code_text}' → code_id {code_id}")
+                    continue
+                else:
+                    # Same name but different category - skip auto-merge, let reviewer decide
+                    logger.debug(f"Skipping auto-merge for '{code_text}': category mismatch ({code_category} vs {existing_category})")
+
+            # Find top-k similar codes in codebook (filtered by same category)
+            similar = self.codebook.find_similar(code_text, top_k=top_k, min_similarity=min_similarity, category=code_category)
 
             # Build reviewer prompt (shows code NAMES, not IDs)
             reviewer_message = self._build_reviewer_prompt(code_text, quotes, similar, explanation_text)
@@ -397,32 +404,41 @@ Merge similar codes, retain different ones. Output in JSON format."""
                     # This catches duplicates from reviewer returning a code name that exists
                     inner_match_id = self._find_code_id_by_name(updated_code)
                     if inner_match_id is not None and not merge_code_names:
-                        # Auto-merge - exact name match
-                        code_id = self.codebook.merge_code(
-                            updated_code, item_quotes, inner_match_id,
-                            update_code_text=False, category=code_category
-                        )
-                        self.stats["merged_codes"] += 1
-                        final_codes.append(CodeResult(
-                            code_id=code_id,
-                            code_text=self.codebook.entries[code_id].code_text,
-                            category=code_category,  # Pass category
-                            quotes=item_quotes,
-                            is_new=False,
-                            merged_with=[self.codebook.entries[code_id].code_text],
-                        ))
-                        logger.debug(f"Inner auto-merged: '{updated_code}' → code_id {code_id}")
-                        continue
+                        # Only auto-merge if categories match
+                        inner_existing_cat = self.codebook.entries[inner_match_id].category
+                        if inner_existing_cat == code_category or inner_existing_cat == "unknown" or code_category == "unknown":
+                            # Auto-merge - exact name match with compatible category
+                            code_id = self.codebook.merge_code(
+                                updated_code, item_quotes, inner_match_id,
+                                update_code_text=False, category=code_category
+                            )
+                            self.stats["merged_codes"] += 1
+                            final_codes.append(CodeResult(
+                                code_id=code_id,
+                                code_text=self.codebook.entries[code_id].code_text,
+                                category=code_category,  # Pass category
+                                quotes=item_quotes,
+                                is_new=False,
+                                merged_with=[self.codebook.entries[code_id].code_text],
+                            ))
+                            logger.debug(f"Inner auto-merged: '{updated_code}' → code_id {code_id}")
+                            continue
 
                     # Paper: merge_codes empty = new code, non-empty = merge
                     if merge_code_names:
                         # Merge with existing code(s) - lookup by NAME
                         # Per plan (lines 724-743): iterate through ALL merge targets
+                        # Only merge with codes of the same category
                         merged_ids = []
                         for code_name in merge_code_names:
-                            code_id = self._find_code_id_by_name(code_name)
-                            if code_id is not None:
-                                merged_ids.append(code_id)
+                            found_id = self._find_code_id_by_name(code_name)
+                            if found_id is not None:
+                                target_cat = self.codebook.entries[found_id].category
+                                # Only allow merge if categories are compatible
+                                if target_cat == code_category or target_cat == "unknown" or code_category == "unknown":
+                                    merged_ids.append(found_id)
+                                else:
+                                    logger.debug(f"Skipping merge target '{code_name}': category mismatch ({code_category} vs {target_cat})")
 
                         if merged_ids:
                             # Use first target as the canonical entry
