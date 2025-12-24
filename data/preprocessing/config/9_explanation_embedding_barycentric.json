@@ -14,24 +14,24 @@
   "anchors": {
     "missed_ngram": {
       "intra_feature_sim": "p50",
-      "score_embedding": "p50",
-      "score_fuzz": 0.025,
+      "score_embedding": "p5",
+      "score_fuzz": "p5",
       "score_detection": "p50",
       "explanation_semantic_sim": "p50"
     },
     "missed_context": {
       "intra_feature_sim": "p50",
-      "score_embedding": 0.0075,
+      "score_embedding": "p5",
       "score_fuzz": "p50",
-      "score_detection": 0.025,
+      "score_detection": "p5",
       "explanation_semantic_sim": "p50"
     },
     "noisy_activation": {
-      "intra_feature_sim": 0.1,
-      "score_embedding": "p50",
-      "score_fuzz": "p50",
-      "score_detection": "p50",
-      "explanation_semantic_sim": "min"
+      "intra_feature_sim": "p5",
+      "score_embedding": 0.50,
+      "score_fuzz": 0.50,
+      "score_detection": 0.50,
+      "explanation_semantic_sim": "p5"
     }
   },
   "processing": {

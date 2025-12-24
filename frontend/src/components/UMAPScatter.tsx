@@ -210,10 +210,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return getTrianglePathString(scales)
   }, [scales])
 
-  // Transform points to spread across triangle (stretch to fill bounding box)
+  // Transform points using barycentric power transform (spreads toward vertices)
   const spreadPoints = useMemo(() => {
     if (!umapProjection || umapProjection.length === 0) return null
-    return spreadBarycentricPoints(umapProjection, 'stretch')
+    return spreadBarycentricPoints(umapProjection, 'barycentricPower')
   }, [umapProjection])
 
   // Compute triangle grid for cell-based selection (with dynamic threshold)
@@ -315,24 +315,21 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Point styling
     const manualPointRadius = 4
-    const brushedPointRadius = 2.5
+    const brushedPointRadius = 2
     const manualPointAlpha = 0.85
-    const brushedPointAlpha = 0.4
+    const brushedPointAlpha = 0.2
 
     // Find the selected feature's point for explainer positions
     const selectedPoint = selectedFeatureId != null
       ? spreadPoints.find(p => p.feature_id === selectedFeatureId)
       : null
 
-    // Draw manually tagged and brushed points (auto-tagged only shown if brushed)
+    // Draw all feature points
     for (const point of spreadPoints) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
-      const isBrushed = umapBrushedFeatureIds.has(point.feature_id)
       const isAutoTagged = !isManual && causeSelectionSources.get(point.feature_id) === 'auto'
       const isSelected = point.feature_id === selectedFeatureId
 
-      // Skip if not in brushed selection (manual points always shown, auto only if brushed)
-      if (!isManual && !isBrushed) continue
       // Skip selected feature here - will draw it last on top
       if (isSelected) continue
 
@@ -355,8 +352,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         ctx.lineWidth = 1.5
         ctx.globalAlpha = manualPointAlpha
         ctx.stroke()
-      } else if (isBrushed) {
-        // Brushed (untagged) points: smaller filled circles
+      } else {
+        // Untagged points: smaller filled circles
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.fillStyle = color
@@ -461,7 +458,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [spreadPoints, scales, causeSelectionStates, causeSelectionSources, umapBrushedFeatureIds, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
+  }, [spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight])
 
 
   // ============================================================================

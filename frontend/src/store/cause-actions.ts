@@ -471,54 +471,131 @@ export const createCauseActions = (set: any, get: any) => ({
    * which were NOT manually reviewed - these are the features in the need_revision node.
    *
    * This is called when transitioning from Stage 2 to Stage 3.
+   *
+   * SKIP MODE (Stage 2 → Stage 3 without tagging):
+   * When skipping Stage 2 tagging (no stage2FinalCommit), we simulate training data by
+   * randomly sampling from above-threshold features and splitting them 50/50:
+   * - Half → "selected" (Well-Explained training class)
+   * - Half → "rejected" (Need Revision training class)
+   *
+   * Classification uses below-threshold features (need_revision) - same as normal flow.
+   * This ensures no overlap between training and classification data.
    */
   fetchStage3QualityScores: async () => {
     const state = get()
     const { stage2FinalCommit, leftPanel } = state
     const { sankeyStructure } = leftPanel
 
-    if (!stage2FinalCommit) {
-      console.warn('[Store.fetchStage3QualityScores] No Stage 2 commit available')
-      return
-    }
+    console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: Function called')
+    console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: stage2FinalCommit:', stage2FinalCommit ? {
+      hasStates: stage2FinalCommit.featureSelectionStates?.size > 0,
+      statesSize: stage2FinalCommit.featureSelectionStates?.size,
+      featureIdsSize: stage2FinalCommit.featureIds?.size
+    } : 'NULL')
 
     if (!sankeyStructure) {
       console.warn('[Store.fetchStage3QualityScores] No Sankey structure available')
       return
     }
 
-    const { featureSelectionStates } = stage2FinalCommit
-
-    // TRAINING DATA: Stage 2 ABOVE-threshold features that were manually tagged
-    // These are the "Well-Explained Candidates" that the user reviewed in Stage 2
-    const wellExplainedIds: number[] = []
-    const needRevisionTrainingIds: number[] = []
-
-    featureSelectionStates.forEach((selectionState, featureId) => {
-      // Use all labeled features (both manual and auto) for SVM training
-      // because the user has already approved these via threshold application
-      if (selectionState === 'selected') {
-        wellExplainedIds.push(featureId)
-      } else if (selectionState === 'rejected') {
-        needRevisionTrainingIds.push(featureId)
-      }
+    console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: sankeyStructure:', {
+      currentStage: sankeyStructure.currentStage,
+      nodeCount: sankeyStructure.nodes.length,
+      nodeIds: sankeyStructure.nodes.map(n => n.id)
     })
 
-    // CLASSIFICATION INPUT: Stage 2 BELOW-threshold features (the need_revision node)
-    // These are the features that were NOT reviewed in Stage 2 and need SVM classification
+    // Get nodes for Stage 3
     const needRevisionNode = sankeyStructure.nodes.find(n => n.id === 'need_revision')
+    const wellExplainedNode = sankeyStructure.nodes.find(n => n.id === 'well_explained_terminal')
+
+    console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: Found nodes:', {
+      needRevisionNode: needRevisionNode ? {
+        id: needRevisionNode.id,
+        featureCount: needRevisionNode.featureCount,
+        hasFeatureIds: !!needRevisionNode.featureIds,
+        featureIdsSize: needRevisionNode.featureIds?.size
+      } : 'NOT FOUND',
+      wellExplainedNode: wellExplainedNode ? {
+        id: wellExplainedNode.id,
+        featureCount: wellExplainedNode.featureCount,
+        hasFeatureIds: !!wellExplainedNode.featureIds,
+        featureIdsSize: wellExplainedNode.featureIds?.size
+      } : 'NOT FOUND'
+    })
+
     if (!needRevisionNode || !needRevisionNode.featureIds) {
       console.warn('[Store.fetchStage3QualityScores] need_revision node not found in structure')
       return
     }
 
-    const classificationFeatureIds = Array.from(needRevisionNode.featureIds)
+    // Determine training data and classification features based on whether Stage 2 was completed manually
+    let wellExplainedIds: number[] = []
+    let needRevisionTrainingIds: number[] = []
+    let classificationFeatureIds: number[] = []
 
-    console.log('[Store.fetchStage3QualityScores] Starting quality score fetch:', {
-      trainingWellExplained: wellExplainedIds.length,
-      trainingNeedRevision: needRevisionTrainingIds.length,
-      classificationFeatures: classificationFeatureIds.length
-    })
+    // Check if stage2FinalCommit has actual tagged features (not just exists)
+    const hasTaggedFeatures = stage2FinalCommit &&
+      stage2FinalCommit.featureSelectionStates &&
+      stage2FinalCommit.featureSelectionStates.size > 0
+
+    if (hasTaggedFeatures) {
+      // NORMAL FLOW: Use manual tags from Stage 2
+      // Training data comes from features that were manually reviewed in Stage 2
+      const { featureSelectionStates } = stage2FinalCommit!
+
+      featureSelectionStates.forEach((selectionState, featureId) => {
+        // Use all labeled features (both manual and auto) for SVM training
+        // because the user has already approved these via threshold application
+        if (selectionState === 'selected') {
+          wellExplainedIds.push(featureId)
+        } else if (selectionState === 'rejected') {
+          needRevisionTrainingIds.push(featureId)
+        }
+      })
+
+      // In normal flow, classify only the need_revision features (below-threshold)
+      // These are the features that weren't manually reviewed in Stage 2
+      classificationFeatureIds = Array.from(needRevisionNode.featureIds)
+    } else {
+      // SKIP-TO-STAGE-3 DEVELOPMENT SHORTCUT (Stage 2 → Stage 3 without tagging):
+      // No manual Stage 2 tagging was done. Simulate training data by randomly
+      // sampling from above-threshold features (well_explained_terminal) and
+      // splitting them into "selected" and "rejected" for SVM training.
+      //
+      // This mimics the normal flow where users review above-threshold features
+      // and tag some as Well-Explained (selected) and some as Need Revision (rejected).
+      //
+      // Classification: Use below-threshold features (need_revision) - same as normal flow.
+
+      if (!wellExplainedNode || !wellExplainedNode.featureIds || wellExplainedNode.featureIds.size === 0) {
+        console.warn('[Store.fetchStage3QualityScores] No above-threshold features for training')
+        return
+      }
+
+      // Get all above-threshold features and shuffle them
+      const aboveThresholdFeatures = Array.from(wellExplainedNode.featureIds)
+
+      // Fisher-Yates shuffle for random sampling
+      for (let i = aboveThresholdFeatures.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[aboveThresholdFeatures[i], aboveThresholdFeatures[j]] =
+          [aboveThresholdFeatures[j], aboveThresholdFeatures[i]]
+      }
+
+      // Split 50/50 into selected (Well-Explained) and rejected (Need Revision)
+      const splitIndex = Math.floor(aboveThresholdFeatures.length / 2)
+      wellExplainedIds = aboveThresholdFeatures.slice(0, splitIndex)
+      needRevisionTrainingIds = aboveThresholdFeatures.slice(splitIndex)
+
+      // Ensure we have at least 1 feature in each class
+      if (wellExplainedIds.length === 0 || needRevisionTrainingIds.length === 0) {
+        console.warn('[Store.fetchStage3QualityScores] Not enough above-threshold features for training split')
+        return
+      }
+
+      // Classification: use below-threshold features (same as normal flow)
+      classificationFeatureIds = Array.from(needRevisionNode.featureIds)
+    }
 
     // Validate: need at least some examples of each class for training
     if (wellExplainedIds.length === 0 || needRevisionTrainingIds.length === 0) {
@@ -541,13 +618,6 @@ export const createCauseActions = (set: any, get: any) => ({
         needRevisionTrainingIds,    // Training: Need Revision class
         classificationFeatureIds    // Classification input: below-threshold features
       )
-
-      console.log('[Store.fetchStage3QualityScores] API response:', {
-        scoresCount: Object.keys(response.scores).length,
-        totalItems: response.total_items,
-        statistics: response.statistics,
-        hasBimodality: !!response.bimodality
-      })
 
       // Convert scores to Map
       const scoresMap = new Map<number, number>()

@@ -252,19 +252,24 @@ class SimilaritySortService:
                 total_items=0
             )
 
-        # Filter metrics_df to only feature_ids we want to score
-        feature_ids_set = set(request.feature_ids)
-        score_df = metrics_df.filter(pl.col("feature_id").is_in(feature_ids_set))
-
-        # Calculate similarity scores using SVM
+        # Calculate similarity scores using SVM on ALL features (training + classification)
         # Well-Explained = selected (positive class)
         # Need Revision = rejected (negative class)
+        # NOTE: We pass metrics_df (not filtered) because SVM needs training features
+        # to extract their vectors for training. We filter results afterward.
         logger.info("[Stage3QualityScores] Training SVM on Stage 2 selections")
-        feature_scores = self._calculate_similarity_scores_for_histogram(
-            score_df,
+        all_feature_scores = self._calculate_similarity_scores_for_histogram(
+            metrics_df,  # Full dataframe with training + classification features
             request.well_explained_ids,
             request.need_revision_ids
         )
+
+        # Filter to only return scores for classification features (request.feature_ids)
+        feature_ids_set = set(request.feature_ids)
+        feature_scores = [fs for fs in all_feature_scores if fs.feature_id in feature_ids_set]
+
+        logger.info(f"[Stage3QualityScores] SVM scored {len(all_feature_scores)} total, "
+                   f"filtered to {len(feature_scores)} classification features")
 
         # Create scores dictionary
         scores_dict = {str(item.feature_id): item.score for item in feature_scores}

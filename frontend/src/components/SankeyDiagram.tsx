@@ -347,7 +347,9 @@ const VerticalBarSankeyNode: React.FC<{
       {/* Selection border - either on specific segment or entire bar */}
       {isSelected && (() => {
         // V2: If a specific segment is selected for this node, highlight only that segment
-        if (selectedSegment && selectedSegment.nodeId === node.id && stageSegments.length > 0) {
+        // Exception: stage3_segment always shows entire bar selection (whole node selection for Stage 3)
+        const isStage3WholeNode = node.id === 'stage3_segment'
+        if (!isStage3WholeNode && selectedSegment && selectedSegment.nodeId === node.id && stageSegments.length > 0) {
           const segment = stageSegments[selectedSegment.segmentIndex]
           if (segment) {
             return (
@@ -709,16 +711,24 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
   // Get tag color and name for header badge based on current stage
   const currentStage = sankeyStructure?.currentStage || 1
-  const isStage2 = currentStage >= 2
-  const tagCategory = isStage2 ? TAG_CATEGORY_QUALITY : TAG_CATEGORY_FEATURE_SPLITTING
-  const tagName = isStage2 ? 'Well-Explained' : 'Fragmented'
-  const tagColor = getTagColor(tagCategory, tagName) || (isStage2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
+  let tagCategory, tagName
+  if (currentStage >= 3) {
+    tagCategory = TAG_CATEGORY_QUALITY
+    tagName = 'Need Revision'
+  } else if (currentStage >= 2) {
+    tagCategory = TAG_CATEGORY_QUALITY
+    tagName = 'Well-Explained'
+  } else {
+    tagCategory = TAG_CATEGORY_FEATURE_SPLITTING
+    tagName = 'Fragmented'
+  }
+  const tagColor = getTagColor(tagCategory, tagName) || (currentStage >= 2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
 
   return (
     <div className={`sankey-diagram ${className}`}>
       <div className="view-header">
         <span className="view-title">Filter</span>
-        <span className="view-description" style={currentStage >= 3 ? { visibility: 'hidden' } : undefined}>
+        <span className="view-description">
           Drag the{' '}
           <svg
             className="view-threshold-icon"

@@ -46,7 +46,54 @@ export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-conte
 // ============================================================================
 
 /** Spread method for barycentric points */
-export type SpreadMethod = 'radial' | 'minmax' | 'stretch'
+export type SpreadMethod = 'radial' | 'minmax' | 'stretch' | 'barycentricPower'
+
+/** Default power for barycentric transform (> 1 spreads outward toward vertices) */
+const BARYCENTRIC_POWER_DEFAULT = 2
+
+// ============================================================================
+// BARYCENTRIC COORDINATE CONVERSION
+// ============================================================================
+
+/**
+ * Convert Cartesian coordinates to barycentric coordinates.
+ * For our equilateral triangle with vertices at:
+ * - v₁ = missedNgram = (0, 0)
+ * - v₂ = missedContext = (1, 0)
+ * - v₃ = noisyActivation = (0.5, 0.866)
+ *
+ * @param x - X coordinate in Cartesian space
+ * @param y - Y coordinate in Cartesian space
+ * @returns Tuple [λ₁, λ₂, λ₃] of barycentric weights (sum to 1)
+ */
+function cartesianToBarycentric(x: number, y: number): [number, number, number] {
+  const sqrt3 = Math.sqrt(3)
+  // λ₃ is proportional to height (y coordinate)
+  const lambda3 = y * 2 / sqrt3
+  // λ₂ is x coordinate minus contribution from λ₃
+  const lambda2 = x - y / sqrt3
+  // λ₁ is the remainder
+  const lambda1 = 1 - lambda2 - lambda3
+  return [lambda1, lambda2, lambda3]
+}
+
+/**
+ * Convert barycentric coordinates back to Cartesian.
+ * Inverse of cartesianToBarycentric.
+ *
+ * @param l1 - Weight for missedNgram vertex (0, 0)
+ * @param l2 - Weight for missedContext vertex (1, 0)
+ * @param l3 - Weight for noisyActivation vertex (0.5, 0.866)
+ * @returns Object with x, y Cartesian coordinates
+ */
+function barycentricToCartesian(l1: number, l2: number, l3: number): { x: number, y: number } {
+  // Suppress unused variable warning - l1 is implicit (1 - l2 - l3)
+  void l1
+  return {
+    x: l2 + 0.5 * l3,
+    y: BARYCENTRIC_TRIANGLE.vertices.noisyActivation[1] * l3  // 0.866 * l3
+  }
+}
 
 /**
  * Compute where a ray from origin in given direction intersects the triangle boundary.
@@ -155,8 +202,15 @@ function computeNormalizedRadius(
  *   - Maximizes spread but distorts aspect ratios
  *   - Some points may end up outside triangle edges (in bounding box corners)
  *
+ * 'barycentricPower' (barycentric weight power transform):
+ *   - Applies power transform directly to barycentric coordinates
+ *   - p > 1: amplifies dominant weight → spreads toward vertices
+ *   - p < 1: equalizes weights → contracts toward centroid
+ *   - Preserves angular relationships and triangle bounds
+ *   - Most semantically meaningful for category-based visualization
+ *
  * @param points - Array of UMAP points with barycentric coordinates
- * @param method - 'radial', 'minmax', or 'stretch'
+ * @param method - 'radial', 'minmax', 'stretch', or 'barycentricPower'
  * @returns Transformed points with spread coordinates
  */
 export function spreadBarycentricPoints(
@@ -171,6 +225,8 @@ export function spreadBarycentricPoints(
     return spreadMinMax(points, cx, cy)
   } else if (method === 'stretch') {
     return spreadStretch(points)
+  } else if (method === 'barycentricPower') {
+    return spreadBarycentricPower(points)
   } else {
     return spreadRadial(points, cx, cy)
   }
@@ -355,6 +411,69 @@ function spreadStretch(points: UmapPoint[]): UmapPoint[] {
     x: xScale > 0 ? x * xScale + xOffset : xOffset,
     y: yScale > 0 ? y * yScale + yOffset : yOffset
   })
+
+  return points.map(p => {
+    const newPos = transformPoint(p.x, p.y)
+    return {
+      ...p,
+      x: newPos.x,
+      y: newPos.y,
+      explainer_positions: p.explainer_positions?.map(ep => {
+        const epPos = transformPoint(ep.x, ep.y)
+        return { ...ep, x: epPos.x, y: epPos.y }
+      })
+    }
+  })
+}
+
+/**
+ * Barycentric power transform - spreads points by amplifying dominant weights.
+ *
+ * Works directly on barycentric coordinates (λ₁, λ₂, λ₃):
+ *   1. Convert Cartesian → Barycentric
+ *   2. Apply power: λ'ᵢ = λᵢ^p
+ *   3. Renormalize: λ''ᵢ = λ'ᵢ / Σλ'ⱼ
+ *   4. Convert back to Cartesian
+ *
+ * Effect:
+ *   - p < 1: Equalizes weights → points move toward centroid
+ *   - p = 1: Identity transform (no change)
+ *   - p > 1: Amplifies dominant weight → points move toward vertices (spreads outward)
+ *
+ * @param points - Array of UMAP points with barycentric coordinates
+ * @param power - Power exponent (default 1.5, use > 1 to spread outward)
+ */
+function spreadBarycentricPower(
+  points: UmapPoint[],
+  power: number = BARYCENTRIC_POWER_DEFAULT
+): UmapPoint[] {
+  if (points.length === 0) return points
+
+  const transformPoint = (x: number, y: number): { x: number, y: number } => {
+    // 1. Convert to barycentric coordinates
+    let [l1, l2, l3] = cartesianToBarycentric(x, y)
+
+    // 2. Clamp to valid range (handle numerical errors at boundaries)
+    l1 = Math.max(0, l1)
+    l2 = Math.max(0, l2)
+    l3 = Math.max(0, l3)
+
+    // 3. Apply power transform
+    const l1p = Math.pow(l1, power)
+    const l2p = Math.pow(l2, power)
+    const l3p = Math.pow(l3, power)
+
+    // 4. Renormalize to sum to 1
+    const sum = l1p + l2p + l3p
+    if (sum < 1e-10) {
+      // Edge case: point exactly at a vertex (one λ = 1, others = 0)
+      // After power, still (1, 0, 0) → return original position
+      return { x, y }
+    }
+
+    // 5. Convert back to Cartesian
+    return barycentricToCartesian(l1p / sum, l2p / sum, l3p / sum)
+  }
 
   return points.map(p => {
     const newPos = transformPoint(p.x, p.y)

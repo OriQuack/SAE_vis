@@ -5,7 +5,7 @@
     "description": "Run-specific settings. Edit these before each run.",
     "start_feature": null,
     "end_feature": null,
-    "limit": 10,
+    "limit": 50,
     "mode": "overwrite",
     "load_codebook": "../master/codebook.json"
   },
