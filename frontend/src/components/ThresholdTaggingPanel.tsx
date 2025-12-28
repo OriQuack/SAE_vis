@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useCallback, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
@@ -89,6 +89,46 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+
+  // Sort direction state for boundary lists (independent)
+  const [leftSortDirection, setLeftSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [rightSortDirection, setRightSortDirection] = useState<'asc' | 'desc'>('asc')
+
+  // Toggle callbacks
+  const toggleLeftSortDirection = useCallback(() => {
+    setLeftSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
+  }, [])
+
+  const toggleRightSortDirection = useCallback(() => {
+    setRightSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
+  }, [])
+
+  // Sort boundary items based on direction
+  const sortedLeftItems = useMemo(() => {
+    const items = mode === 'pair' ? leftItems : leftFeatures
+    const scores = mode === 'pair' ? pairSimilarityScores : similarityScores
+
+    return [...items].sort((a, b) => {
+      const keyA = mode === 'pair' ? (a as PairItemWithMetadata).pairKey : (a as FeatureItemWithMetadata).featureId
+      const keyB = mode === 'pair' ? (b as PairItemWithMetadata).pairKey : (b as FeatureItemWithMetadata).featureId
+      const scoreA = scores.get(keyA as any) ?? 0
+      const scoreB = scores.get(keyB as any) ?? 0
+      return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+    })
+  }, [mode, leftItems, leftFeatures, pairSimilarityScores, similarityScores, leftSortDirection])
+
+  const sortedRightItems = useMemo(() => {
+    const items = mode === 'pair' ? rightItems : rightFeatures
+    const scores = mode === 'pair' ? pairSimilarityScores : similarityScores
+
+    return [...items].sort((a, b) => {
+      const keyA = mode === 'pair' ? (a as PairItemWithMetadata).pairKey : (a as FeatureItemWithMetadata).featureId
+      const keyB = mode === 'pair' ? (b as PairItemWithMetadata).pairKey : (b as FeatureItemWithMetadata).featureId
+      const scoreA = scores.get(keyA as any) ?? 0
+      const scoreB = scores.get(keyB as any) ?? 0
+      return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+    })
+  }, [mode, rightItems, rightFeatures, pairSimilarityScores, similarityScores, rightSortDirection])
 
   // Get tag colors
   const leftTagColor = getTagColor(tagCategoryId, leftListLabel) || '#9ca3af'
@@ -348,8 +388,13 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             badges={[
               { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
             ]}
-            columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-            items={(mode === 'pair' ? leftItems : leftFeatures) as PairItemWithMetadata[]}
+            columnHeader={{
+              label: 'Decision Margin',
+              sortDirection: leftSortDirection,
+              onClick: toggleLeftSortDirection,
+              isSortable: true
+            }}
+            items={sortedLeftItems as PairItemWithMetadata[]}
             currentIndex={activeListSource === 'reject' ? currentIndex : -1}
             isActive={activeListSource === 'reject'}
             renderItem={(item, index) => mode === 'pair'
@@ -364,8 +409,13 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             badges={[
               { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
             ]}
-            columnHeader={{ label: 'Decision Margin', sortDirection: 'asc' }}
-            items={(mode === 'pair' ? rightItems : rightFeatures) as PairItemWithMetadata[]}
+            columnHeader={{
+              label: 'Decision Margin',
+              sortDirection: rightSortDirection,
+              onClick: toggleRightSortDirection,
+              isSortable: true
+            }}
+            items={sortedRightItems as PairItemWithMetadata[]}
             currentIndex={activeListSource === 'select' ? currentIndex : -1}
             isActive={activeListSource === 'select'}
             renderItem={(item, index) => mode === 'pair'

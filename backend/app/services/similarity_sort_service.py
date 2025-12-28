@@ -31,11 +31,10 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 6 metrics used for SINGLE FEATURE SVM similarity calculation
-    # Combines activation-level metrics, scores, and explanation similarity
+    # 5 metrics used for SINGLE FEATURE SVM similarity calculation
+    # Same as Stage 3 (Cause) for uniformity - uses composite intra_feature_sim
     METRICS = [
-        'intra_ngram_jaccard',       # Activation-level: lexical consistency within activations (max of char/word)
-        'intra_semantic_sim',        # Activation-level: semantic consistency within activations
+        'intra_feature_sim',         # Activation-level: max(char_ngram, word_ngram, semantic) - composite consistency
         'score_embedding',           # Score: embedding-based scoring
         'score_fuzz',                # Score: fuzzy matching score
         'score_detection',           # Score: detection score
@@ -489,17 +488,17 @@ class SimilaritySortService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 6 metrics for the specified features.
+        Extract all 5 metrics for the specified features.
 
-        Metrics extracted:
-        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
+        Metrics extracted (same as Stage 3 for uniformity):
+        - From activation_display: intra_feature_sim (composite: max of char_ngram, word_ngram, semantic)
         - From main dataframe: score_embedding, score_fuzz, score_detection, explanation_semantic_sim
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 6 metrics
+            DataFrame with feature_id and all 5 metrics
         """
         try:
             logger.info(f"[_extract_metrics] Starting extraction for {len(feature_ids)} features")
@@ -575,11 +574,14 @@ class SimilaritySortService:
         """
         Extract intra-feature activation metrics.
 
+        Computes composite intra_feature_sim = max(char_ngram, word_ngram, semantic)
+        for uniformity with Stage 3 (Cause) classification.
+
         Args:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim
+            DataFrame with feature_id, intra_feature_sim
         """
         try:
             # Try optimized activation_display file first
@@ -588,17 +590,14 @@ class SimilaritySortService:
                     pl.col("feature_id").is_in(feature_ids)
                 ).collect()
 
-                # Extract metrics
+                # Compute composite intra_feature_sim = max(char, word, semantic)
                 df = df.select([
                     "feature_id",
-                    # Max of char and word ngram jaccard
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    # Semantic similarity
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim")
+                    pl.max_horizontal(
+                        "char_ngram_max_jaccard",
+                        "word_ngram_max_jaccard",
+                        "semantic_similarity"
+                    ).fill_null(0.0).alias("intra_feature_sim")
                 ]).unique(subset=["feature_id"])
 
                 logger.info(f"Extracted activation metrics from optimized file for {len(df)} features")
@@ -612,12 +611,11 @@ class SimilaritySortService:
 
                 df = df.select([
                     "feature_id",
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim")
+                    pl.max_horizontal(
+                        "char_ngram_max_jaccard",
+                        "word_ngram_max_jaccard",
+                        "semantic_similarity"
+                    ).fill_null(0.0).alias("intra_feature_sim")
                 ]).unique(subset=["feature_id"])
 
                 logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")

@@ -67,7 +67,8 @@ export function useSortableList<T, K>({
   const columnHeaderProps = useMemo(() => ({
     label: sortMode === 'decisionMargin' ? 'Decision Margin' : defaultLabel,
     sortDirection: (sortMode === 'decisionMargin' ? 'asc' : defaultDirection) as 'asc' | 'desc',
-    onClick: toggleSortMode
+    onClick: toggleSortMode,
+    isModeSwitch: true
   }), [sortMode, defaultLabel, defaultDirection, toggleSortMode])
 
   const getDisplayScore = useCallback((item: T): number | undefined => {

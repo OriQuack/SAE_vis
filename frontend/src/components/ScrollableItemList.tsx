@@ -40,6 +40,8 @@ interface ColumnHeader {
   label: string
   sortDirection?: 'asc' | 'desc'
   onClick?: () => void
+  isSortable?: boolean    // true = direction toggle (shows ⇅)
+  isModeSwitch?: boolean  // true = mode switch (shows ⇄)
 }
 
 interface HeaderStripe {
@@ -167,13 +169,16 @@ export function ScrollableItemList<T = any>({
         <div
           className={`scrollable-list__column-header ${columnHeader.onClick ? 'scrollable-list__column-header--clickable' : ''}`}
           onClick={columnHeader.onClick}
-          title={columnHeader.onClick ? 'Click to switch sort mode' : undefined}
+          title={columnHeader.onClick ? (columnHeader.isSortable ? 'Click to toggle sort direction' : 'Click to switch sort mode') : undefined}
         >
           <span className="column-header__label">
             {columnHeader.sortDirection === 'asc' ? '▲' : '▼'} {columnHeader.label}
           </span>
-          {columnHeader.onClick && (
+          {columnHeader.isSortable && (
             <span className="column-header__switch-badge">⇅</span>
+          )}
+          {columnHeader.isModeSwitch && (
+            <span className="column-header__switch-badge">↔</span>
           )}
         </div>
       )}

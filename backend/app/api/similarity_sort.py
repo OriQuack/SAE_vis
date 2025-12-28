@@ -68,23 +68,20 @@ async def similarity_sort(
     service: "SimilaritySortService" = Depends(get_similarity_sort_service)
 ) -> SimilaritySortResponse:
     """
-    Sort features by similarity to selected features and dissimilarity to rejected features.
+    Sort features by SVM-based similarity scoring.
 
-    This endpoint calculates weighted Euclidean distance across 9 metrics:
-    1. decoder_similarity_count - Count of similar features
-    2. intra_ngram_jaccard - Max of char and word ngram jaccard
-    3. intra_semantic_sim - Semantic similarity from activation examples
-    4. inter_ngram_jaccard - Inter-feature ngram jaccard
-    5. inter_semantic_sim - Inter-feature semantic similarity
-    6. embed_score - Embedding alignment score
-    7. fuzz_score - Fuzzing robustness score
-    8. detection_score - Detection utility score
-    9. llm_explainer_semantic_sim - LLM explainer semantic similarity
+    Trains an SVM classifier on selected (positive) vs rejected (negative) features,
+    then scores all features by signed distance from decision boundary.
 
-    Weights are calculated as inverse of (std * 2), normalized to sum = 1.
+    Uses 5 metrics (same as Stage 3 Cause classification for uniformity):
+    1. intra_feature_sim - Composite activation consistency: max(char_ngram, word_ngram, semantic)
+    2. score_embedding - Embedding-based scoring
+    3. score_fuzz - Fuzzy matching score
+    4. score_detection - Detection score
+    5. explanation_semantic_sim - Semantic similarity between LLM explanations
 
-    Final score = avg_distance_to_selected - avg_distance_to_rejected
-    (Higher score = more similar to selected, less similar to rejected)
+    Final score = signed distance from SVM decision boundary
+    (Positive = more similar to selected, Negative = more similar to rejected)
 
     Args:
         request: Request with selected_ids, rejected_ids, and feature_ids

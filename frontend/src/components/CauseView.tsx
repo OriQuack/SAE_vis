@@ -888,7 +888,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                 columnHeader={{
                   label: 'Decision Margin',
                   sortDirection: selectedSortDirection,
-                  onClick: toggleSelectedSortDirection
+                  onClick: toggleSelectedSortDirection,
+                  isSortable: true
                 }}
                 items={paginatedSelectedFeatureList}
                 renderItem={renderBottomRowFeatureItem}
