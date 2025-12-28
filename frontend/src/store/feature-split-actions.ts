@@ -280,15 +280,30 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
    *                   If not provided, defaults to 0.5. Should match Sankey segment threshold.
    */
   fetchSimilarityHistogram: async (selectedFeatureIds?: Set<number>, threshold?: number) => {
-    const { pairSelectionStates } = get()
-    console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
+    const { pairSelectionStates, pairSelectionSources, allClusterPairs } = get()
+    console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', availablePairs:', allClusterPairs?.length || 0)
 
     try {
       // Extract selected and rejected pair keys
+      // IMPORTANT: Only include pairs that exist in allClusterPairs to avoid using stale
+      // selection data from previous sessions with different clustering thresholds
       const selectedPairKeys: string[] = []
       const rejectedPairKeys: string[] = []
 
+      // Create a set of available pair keys for efficient lookup
+      // Note: allClusterPairs uses snake_case from API (pair_key), not camelCase
+      const availablePairKeys = allClusterPairs
+        ? new Set(allClusterPairs.map(p => p.pair_key))
+        : null
+
       pairSelectionStates.forEach((state: string | null, pairKey: string) => {
+        // Only include pairs that exist in the current cluster pairs list
+        if (availablePairKeys && !availablePairKeys.has(pairKey)) return
+
+        // Only include manual selections for SVM training
+        const source = pairSelectionSources.get(pairKey)
+        if (source !== 'manual') return
+
         if (state === 'selected') selectedPairKeys.push(pairKey)
         else if (state === 'rejected') rejectedPairKeys.push(pairKey)
       })

@@ -108,6 +108,27 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [getFeatureSplittingCounts])
 
+  // Extract clustering threshold from Sankey structure
+  // MOVED UP: Needed by setFinalCommitFromHook and onCommitCreated
+  const clusterThreshold = useMemo(() => {
+    if (!sankeyStructure) return 0.5
+
+    const stage1Segment = sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
+    if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
+      // Sankey threshold is already a similarity value, use it directly
+      return stage1Segment.threshold
+    }
+    return 0.5
+  }, [sankeyStructure])
+
+  // Convert Sankey threshold to clustering distance threshold
+  // Sankey threshold is similarity-based (lower = less similar)
+  // Clustering threshold is distance-based (higher = more dissimilar allowed)
+  // Inversion: similarity 0.4 → distance 0.6 (looser clustering)
+  const clusteringThreshold = useMemo(() => {
+    return 1 - clusterThreshold
+  }, [clusterThreshold])
+
   // Store sync setters (inline functions that use setState)
   const setStoreCommitHistory = useCallback((commits: DisplayCommit<CommitCounts>[]) => {
     useVisualizationStore.setState({ stage1CommitHistory: commits })
@@ -122,13 +143,42 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [])
 
   const setFinalCommitFromHook = useCallback((data: { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds: Set<number>; counts: CommitCounts }) => {
+    // Get current state to preserve histogram and cluster pairs
+    const state = useVisualizationStore.getState()
+    const currentTagState = state.tagAutomaticState
+    const existingCommit = state.stage1FinalCommit
+
+    // When revisiting Stage 1, preserve existing clusterPairsState and histogramState
+    // because they may have been cleared in the store during Stage 2
+    const isRevisiting = state.isRevisitingStage1
+
+    // Determine histogram state: use current if available, otherwise preserve existing when revisiting
+    const histogramState = (currentTagState && currentTagState.mode === 'pair' && currentTagState.histogramData)
+      ? {
+          histogramData: currentTagState.histogramData,
+          selectThreshold: currentTagState.selectThreshold,
+          rejectThreshold: currentTagState.rejectThreshold
+        }
+      : (isRevisiting ? existingCommit?.histogramState : undefined)
+
+    // Determine cluster pairs state: use current if available, otherwise preserve existing when revisiting
+    const clusterPairsState = (state.allClusterPairs && state.clusterGroups)
+      ? {
+          allClusterPairs: state.allClusterPairs,
+          clusterGroups: state.clusterGroups,
+          clusteringThreshold: clusteringThreshold
+        }
+      : (isRevisiting ? existingCommit?.clusterPairsState : undefined)
+
     setStage1FinalCommit({
       pairSelectionStates: new Map(data.states),
       pairSelectionSources: new Map(data.sources),
       featureIds: data.featureIds,
-      counts: data.counts
+      counts: data.counts,
+      histogramState,
+      clusterPairsState
     })
-  }, [setStage1FinalCommit])
+  }, [setStage1FinalCommit, clusteringThreshold])
 
   // Memoize storeSync to prevent infinite loops (object reference stability)
   const storeSync = useMemo(() => ({
@@ -152,12 +202,38 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     calculateCounts: calculateCommitCounts,
     getFeatureIds: () => selectedFeatureIds,
     onCommitCreated: (commit) => {
+      // Get current state to preserve histogram and cluster pairs
+      const state = useVisualizationStore.getState()
+      const currentTagState = state.tagAutomaticState
+      const existingCommit = state.stage1FinalCommit
+      const isRevisiting = state.isRevisitingStage1
+
+      // Determine histogram state: use current if available, otherwise preserve existing when revisiting
+      const histogramState = (currentTagState && currentTagState.mode === 'pair' && currentTagState.histogramData)
+        ? {
+            histogramData: currentTagState.histogramData,
+            selectThreshold: currentTagState.selectThreshold,
+            rejectThreshold: currentTagState.rejectThreshold
+          }
+        : (isRevisiting ? existingCommit?.histogramState : undefined)
+
+      // Determine cluster pairs state: use current if available, otherwise preserve existing when revisiting
+      const clusterPairsState = (state.allClusterPairs && state.clusterGroups)
+        ? {
+            allClusterPairs: state.allClusterPairs,
+            clusterGroups: state.clusterGroups,
+            clusteringThreshold: clusteringThreshold
+          }
+        : (isRevisiting ? existingCommit?.clusterPairsState : undefined)
+
       // Save to global store for Stage 1 revisit
       setStage1FinalCommit({
         pairSelectionStates: new Map(commit.states),
         pairSelectionSources: new Map(commit.sources),
         featureIds: commit.featureIds || new Set(),
-        counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
+        counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
+        histogramState,
+        clusterPairsState
       })
     },
     // Store sync - handles all store synchronization automatically
@@ -165,26 +241,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     selectionStates: pairSelectionStates,
     selectionSources: pairSelectionSources
   })
-
-  // Extract clustering threshold from Sankey structure
-  const clusterThreshold = useMemo(() => {
-    if (!sankeyStructure) return 0.5
-
-    const stage1Segment = sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
-    if (stage1Segment && 'threshold' in stage1Segment && stage1Segment.threshold !== null) {
-      // Sankey threshold is already a similarity value, use it directly
-      return stage1Segment.threshold
-    }
-    return 0.5
-  }, [sankeyStructure])
-
-  // Convert Sankey threshold to clustering distance threshold
-  // Sankey threshold is similarity-based (lower = less similar)
-  // Clustering threshold is distance-based (higher = more dissimilar allowed)
-  // Inversion: similarity 0.4 → distance 0.6 (looser clustering)
-  const clusteringThreshold = useMemo(() => {
-    return 1 - clusterThreshold
-  }, [clusterThreshold])
 
   // Filter tableData to only include selected features
   const filteredTableData = useMemo(() => {
@@ -200,14 +256,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [tableData, selectedFeatureIds])
 
   // Clear cluster groups when threshold or selected features change
+  // Skip clearing when revisiting Stage 1 - we want to preserve restored data
   useEffect(() => {
+    // Read stage1FinalCommit directly from store to avoid triggering on commit save
+    const currentCommit = useVisualizationStore.getState().stage1FinalCommit
+
+    // Skip clearing when revisiting Stage 1 with saved cluster pairs state
+    if (isRevisitingStage1 && currentCommit?.clusterPairsState) {
+      return
+    }
     if (clusterGroups) {
-      console.log('[FeatureSplitView] Threshold or features changed, clearing cluster groups')
       clearDistributedPairs()
     }
     // NOTE: clearDistributedPairs and clusterGroups NOT in dependencies to avoid triggering on clear
+    // NOTE: stage1FinalCommit is read directly from store to avoid triggering on commit save
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusterThreshold, selectedFeatureIds])
+  }, [clusterThreshold, selectedFeatureIds, isRevisitingStage1])
 
   // Initialize stage1FinalCommit with initial state when first entering Stage 1
   // This ensures we can restore even if user does nothing and moves to Stage 2
@@ -224,23 +288,61 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [isRevisitingStage1, stage1FinalCommit, selectedFeatureIds, setStage1FinalCommit])
 
-  // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
+  // Restore cluster pairs and histogram state when revisiting Stage 1
   useEffect(() => {
+    if (isRevisitingStage1 && stage1FinalCommit) {
+      // Restore cluster pairs FIRST (before histogram, so counts are correct)
+      if (stage1FinalCommit.clusterPairsState) {
+        const { allClusterPairs, clusterGroups } = stage1FinalCommit.clusterPairsState
+        useVisualizationStore.setState({
+          allClusterPairs,
+          clusterGroups
+        })
+      }
+
+      // Restore histogram state
+      if (stage1FinalCommit.histogramState) {
+        const { histogramData, selectThreshold, rejectThreshold } = stage1FinalCommit.histogramState
+        if (histogramData) {
+          useVisualizationStore.setState({
+            tagAutomaticState: {
+              visible: false,
+              minimized: false,
+              mode: 'pair',
+              position: { x: 0, y: 0 },
+              histogramData,
+              selectThreshold,
+              rejectThreshold,
+              tagLabel: 'Fragmented',
+              isLoading: false
+            }
+          })
+        }
+      }
+    }
+  }, [isRevisitingStage1, stage1FinalCommit])
+
+  // Fetch ALL cluster pairs when features change or when groups are cleared (Simplified Flow)
+  // Skip if revisiting with saved cluster pairs state
+  useEffect(() => {
+    // Read stage1FinalCommit directly from store to avoid triggering on commit save
+    const currentCommit = useVisualizationStore.getState().stage1FinalCommit
+
+    // Skip fetch when revisiting Stage 1 - cluster pairs are restored from commit
+    if (isRevisitingStage1 && currentCommit?.clusterPairsState) {
+      return
+    }
+
     if (selectedFeatureIds && selectedFeatureIds.size > 0 && !clusterGroups && !isLoadingDistributedPairs) {
       const featureIdsArray = Array.from(selectedFeatureIds)
-      console.log('[FeatureSplitView] [SIMPLIFIED FLOW] Fetching ALL cluster pairs:', {
-        featureCount: selectedFeatureIds.size,
-        sankeyThreshold: clusterThreshold,
-        clusteringThreshold: clusteringThreshold
-      })
-      // Call simplified API - returns ALL pairs (no sampling)
       fetchAllClusterPairs(featureIdsArray, clusteringThreshold)
     }
     // NOTE: clusterGroups IS in dependencies to fetch after clearing
     // NOTE: isLoadingDistributedPairs NOT in dependencies to avoid infinite loop
     // NOTE: clusterThreshold IS in dependencies to refetch when threshold changes
+    // NOTE: stage1FinalCommit is read directly from store to avoid triggering on commit save
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFeatureIds, clusterGroups, clusterThreshold, clusteringThreshold, fetchAllClusterPairs])
+  }, [selectedFeatureIds, clusterGroups, clusterThreshold, clusteringThreshold, fetchAllClusterPairs, isRevisitingStage1])
 
   // Clear cluster groups on unmount
   useEffect(() => {
@@ -359,15 +461,16 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const currentSignature = `selected:${currentSelectedKeys.sort().join(',')}|rejected:${currentRejectedKeys.sort().join(',')}`
     const scoresAreStale = lastPairSortedSelectionSignature !== currentSignature
 
-    // Need to compute scores if: (1) empty OR (2) selection signature changed
-    const needsScores = (pairSimilarityScores.size === 0 || scoresAreStale) && pairList.length > 0
+    // Only compute scores if signature changed (not just because scores are empty)
+    // This prevents infinite loop when API returns 0 scores - we don't want to retry
+    const needsScores = scoresAreStale && pairList.length > 0
 
     if (hasRequiredSelections && needsScores) {
       const allPairKeys = pairList.map(p => p.pairKey)
       console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
       sortPairsBySimilarity(allPairKeys)
     }
-  }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
+  }, [pairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
 
   // ============================================================================
   // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)

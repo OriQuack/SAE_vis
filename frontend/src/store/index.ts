@@ -46,6 +46,18 @@ export interface Stage1FinalCommit {
   pairSelectionSources: Map<string, 'manual' | 'auto'>
   featureIds: Set<number>  // Original Stage 1 feature IDs for pair fetching
   counts?: CommitCounts    // Optional: Counts at commit time for hover preview
+  // Histogram state preservation for stage revisiting
+  histogramState?: {
+    histogramData: SimilarityScoreHistogramResponse | null
+    selectThreshold: number
+    rejectThreshold: number
+  }
+  // Cluster pairs state for stage revisiting
+  clusterPairsState?: {
+    allClusterPairs: Array<{main_id: number, similar_id: number, pair_key: string, cluster_id: number}>
+    clusterGroups: Array<{cluster_id: number, feature_ids: number[]}>
+    clusteringThreshold: number
+  }
 }
 
 // Stage 2 commit counts for hover preview

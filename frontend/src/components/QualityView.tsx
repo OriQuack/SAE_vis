@@ -286,14 +286,15 @@ const QualityView: React.FC<QualityViewProps> = ({
     const currentSignature = `selected:${currentSelectedIds.sort((a, b) => a - b).join(',')}|rejected:${currentRejectedIds.sort((a, b) => a - b).join(',')}`
     const scoresAreStale = lastSortedSelectionSignature !== currentSignature
 
-    // Need to compute scores if: (1) empty OR (2) selection signature changed
-    const needsScores = (similarityScores.size === 0 || scoresAreStale) && featureList.length > 0
+    // Only compute scores if signature changed (not just because scores are empty)
+    // This prevents infinite loop when API returns 0 scores - we don't want to retry
+    const needsScores = scoresAreStale && featureList.length > 0
 
     if (hasRequiredSelections && needsScores) {
       console.log('[QualityView] Computing similarity scores for', featureList.length, 'features (stale:', scoresAreStale, ')')
       sortBySimilarity()
     }
-  }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores.size, lastSortedSelectionSignature, sortBySimilarity])
+  }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])
 
   // Track right panel width for ActivationExample
   useEffect(() => {

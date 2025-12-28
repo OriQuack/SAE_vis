@@ -48,6 +48,9 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const setTagAutomaticHistogramData = useVisualizationStore(state => state.setTagAutomaticHistogramData)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
+  // Stage 1 revisiting state - used to skip histogram clearing when returning to Stage 1
+  const isRevisitingStage1 = useVisualizationStore(state => state.isRevisitingStage1)
+  const stage1FinalCommit = useVisualizationStore(state => state.stage1FinalCommit)
   const clearTagAutomaticHistogram = useVisualizationStore(state => state.clearTagAutomaticHistogram)
   const setDraggingThreshold = useVisualizationStore(state => state.setDraggingThreshold)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
@@ -96,11 +99,23 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   const isLoading = (tagAutomaticState?.mode === mode && tagAutomaticState?.isLoading) || isLocalLoading
 
   // Calculate selection counts for current mode (manual selections only for SVM training)
+  // IMPORTANT: For pair mode, only count pairs that exist in availablePairs to avoid
+  // using stale selection data from previous sessions with different clustering thresholds
   const selectionCounts = useMemo(() => {
     if (mode === 'pair') {
       let selectedCount = 0
       let rejectedCount = 0
+
+      // Create a set of available pair keys for efficient lookup
+      const availablePairKeys = availablePairs
+        ? new Set(availablePairs.map(p => p.pairKey))
+        : null
+
       pairSelectionStates.forEach((state, pairKey) => {
+        // Only count pairs that exist in the current available pairs list
+        // This prevents counting stale selections from previous clustering thresholds
+        if (availablePairKeys && !availablePairKeys.has(pairKey)) return
+
         const source = pairSelectionSources.get(pairKey)
         // Only count manual selections for training (matches feature mode behavior)
         if (source === 'manual') {
@@ -125,7 +140,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
       })
       return { selectedCount, rejectedCount }
     }
-  }, [mode, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds])
+  }, [mode, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, availablePairs])
 
   // Sync local thresholds with store state when store changes
   // This ensures user-adjusted thresholds are preserved after histogram refetch
@@ -149,6 +164,12 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   useEffect(() => {
     // Debounce the fetch to avoid excessive API calls
     const timeoutId = setTimeout(async () => {
+      // Skip histogram fetch/clear when revisiting Stage 1 with saved histogram state
+      // This prevents overwriting the restored histogram while cluster pairs are being restored
+      if (mode === 'pair' && isRevisitingStage1 && stage1FinalCommit?.histogramState) {
+        return
+      }
+
       // Need at least 3 selected and 3 rejected for meaningful histogram
       if (selectionCounts.selectedCount < 3 || selectionCounts.rejectedCount < 3) {
         // Clear histogram from both local state and store
@@ -234,36 +255,34 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
     return () => clearTimeout(timeoutId)
     // Note: selectionCounts object excluded - we use the specific count values to avoid unnecessary refetches
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, threshold, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, clearTagAutomaticHistogram, filteredFeatureIds, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources])
+  }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, threshold, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, clearTagAutomaticHistogram, filteredFeatureIds, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, isRevisitingStage1, stage1FinalCommit])
 
-  // Calculate histogram layout and bars with symmetric domain
+  // Calculate histogram layout and bars
   const histogramChart = useMemo(() => {
     if (!histogramData) return null
 
-    const { statistics } = histogramData
+    // Get the actual data range from bin_edges
+    const binEdges = histogramData.histogram.bin_edges
+    const dataMin = binEdges[0]
+    const dataMax = binEdges[binEdges.length - 1]
 
-    // Validate statistics - handle NaN or invalid values
-    const minValue = isFinite(statistics.min) ? statistics.min : -1
-    const maxValue = isFinite(statistics.max) ? statistics.max : 1
+    // Extend domain to include 0 (decision boundary) while preserving bin_edges
+    // This ensures: 1) bars are sized correctly, 2) center line at 0 is visible
+    const domainMin = Math.min(dataMin, 0)
+    const domainMax = Math.max(dataMax, 0)
 
-    // Calculate symmetric domain around zero for visual centering
-    const maxAbsValue = Math.max(Math.abs(minValue), Math.abs(maxValue))
-
-    // Ensure maxAbsValue is valid and non-zero
-    const validMaxAbsValue = isFinite(maxAbsValue) && maxAbsValue > 0 ? maxAbsValue : 1
-
-    // Create modified histogram data with symmetric domain
-    const symmetricHistogramData = {
+    // Create histogram data with extended domain but original bin_edges
+    const extendedHistogramData = {
       ...histogramData,
       statistics: {
-        ...statistics,
-        min: -validMaxAbsValue,
-        max: validMaxAbsValue
+        ...histogramData.statistics,
+        min: domainMin,
+        max: domainMax
       }
     }
 
     const histogramDataMap = {
-      similarity: symmetricHistogramData
+      similarity: extendedHistogramData
     }
 
     // Pass full container size and custom margin to calculateHistogramLayout
@@ -489,9 +508,10 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   return (
     <div className="tag-automatic-panel">
       <div className="tag-panel__content">
-        {/* Histogram container - always rendered if we have data, dimmed when loading */}
-        {histogramChart ? (
-            <div ref={containerRef} className={`tag-panel__histogram-container ${isLoading ? 'tag-panel__histogram-container--loading' : ''}`}>
+        {/* Container is always rendered for accurate size measurement via ResizeObserver */}
+        <div ref={containerRef} className={`tag-panel__histogram-container ${isLoading ? 'tag-panel__histogram-container--loading' : ''}`}>
+          {histogramChart ? (
+            <>
               {/* Loading overlay - shown on top of dimmed histogram */}
               {isLoading && (
                 <div className="tag-panel__loading-overlay">
@@ -502,6 +522,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
               <svg
                 ref={svgRef}
                 className="tag-panel__svg"
+                width={containerSize.width}
+                height={containerSize.height}
                 style={{ overflow: 'visible' }}
               >
                 {/* Define stripe patterns for preview */}
@@ -781,18 +803,19 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                   </div>
                 )
               })()}
+            </>
+          ) : isLoading ? (
+            /* Initial loading state - no previous data to show */
+            <div className="tag-panel__loading">
+              <div className="spinner" />
+              <span>Calculating similarity scores...</span>
             </div>
-        ) : isLoading ? (
-          /* Initial loading state - no previous data to show */
-          <div className="tag-panel__loading">
-            <div className="spinner" />
-            <span>Calculating similarity scores...</span>
-          </div>
-        ) : (
-          <div className="tag-panel__error">
-            Failed to load histogram data
-          </div>
-        )}
+          ) : (
+            <div className="tag-panel__error">
+              Failed to load histogram data
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )
