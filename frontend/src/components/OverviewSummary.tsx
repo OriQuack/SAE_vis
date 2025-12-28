@@ -29,20 +29,8 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
     manuallyTaggedCauses,
     pairSelectionStates,
     featureSelectionStates,
-    causeSelectionStates,
-    causeSelectionSources,
-    sankeyStructure
+    causeSelectionStates
   } = useVisualizationStore()
-
-  // Extract well-explained feature IDs from Stage 3 segment
-  const wellExplainedFeatureIds = useMemo(() => {
-    if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n) => n.id === 'stage3_segment')
-    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
-      return stage3Node.segments[1].featureIds
-    }
-    return new Set<number>()
-  }, [sankeyStructure])
 
   // Stage 1: Count by tag (Fragmented / Monosemantic)
   const stage1Counts = useMemo(() => {

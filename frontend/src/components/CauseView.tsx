@@ -11,7 +11,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
-import { useCommitHistory, createCauseCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
+import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './CauseMetricParallelCoords'
 import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
 import '../styles/CauseView.css'
@@ -30,9 +30,6 @@ export interface CauseCommitCounts {
   unsure: number
   total: number
 }
-
-// Local type alias for cause commit with CauseCommitCounts
-type CauseCommit = Commit<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>
 
 // Map CauseCategory to display tag names
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
@@ -122,71 +119,12 @@ const CauseView: React.FC<CauseViewProps> = ({
     new Set(['well-explained'])
   )
 
-  // ============================================================================
-  // COMMIT HISTORY - Using centralized hook
-  // ============================================================================
-  // Build full commit history for revisiting (if applicable)
-  const initialCommitsForRevisit = useMemo((): CauseCommit[] | null => {
-    if (isRevisitingStage3 && stage3CommitData && stage3CommitData.size > 0 && stage3CommitHistory.length > 0) {
-      console.log('[CauseView] Building full commit history for revisit:', stage3CommitData.size, 'commits')
-      // Mark as already auto-tagged since we're restoring
+  // Mark as already auto-tagged when revisiting (prevents re-initialization)
+  useEffect(() => {
+    if (isRevisitingStage3) {
       hasAutoTaggedRef.current = true
-
-      // Reconstruct full commit array from stored data
-      const commits: CauseCommit[] = []
-      for (let i = 0; i < stage3CommitHistory.length; i++) {
-        const historyEntry = stage3CommitHistory[i]
-        const commitData = stage3CommitData.get(i)
-
-        if (historyEntry && commitData) {
-          commits.push({
-            id: historyEntry.id,
-            type: historyEntry.type,
-            states: new Map(commitData.states),
-            sources: new Map(commitData.sources),
-            counts: historyEntry.counts as CauseCommitCounts,
-            featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
-          })
-        }
-      }
-
-      if (commits.length > 0) {
-        console.log('[CauseView] Restored', commits.length, 'commits from history')
-        return commits
-      }
     }
-    return null
-  }, [isRevisitingStage3, stage3CommitData, stage3CommitHistory])
-
-  // Saved current index for revisiting
-  const savedCurrentIndex = useMemo((): number | null => {
-    if (isRevisitingStage3 && stage3CurrentCommitIndex !== undefined) {
-      return stage3CurrentCommitIndex
-    }
-    return null
-  }, [isRevisitingStage3, stage3CurrentCommitIndex])
-
-  // Fallback: Build single initial commit for revisiting (backward compatibility)
-  const initialCommitForRevisit = useMemo((): CauseCommit | null => {
-    // Only use fallback if we don't have full history
-    if (initialCommitsForRevisit && initialCommitsForRevisit.length > 0) {
-      return null // Full history takes priority
-    }
-    if (isRevisitingStage3 && stage3FinalCommit) {
-      console.log('[CauseView] Fallback: Building single initial commit for revisit')
-      // Mark as already auto-tagged since we're restoring
-      hasAutoTaggedRef.current = true
-      return {
-        id: 1,
-        type: 'tagAll',
-        states: new Map(stage3FinalCommit.causeSelectionStates),
-        sources: new Map(stage3FinalCommit.causeSelectionSources),
-        counts: stage3FinalCommit.counts || { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 },
-        featureIds: stage3FinalCommit.featureIds ? new Set(stage3FinalCommit.featureIds) : undefined
-      }
-    }
-    return null
-  }, [isRevisitingStage3, stage3FinalCommit, initialCommitsForRevisit])
+  }, [isRevisitingStage3])
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
@@ -555,14 +493,46 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [featureListWithMetadata, getEffectiveCategory])
 
-  // Use the commit history hook
-  const {
-    commits: tagCommitHistory,
-    currentCommitIndex,
-    updateCurrentCommit,
-    createCommit,
-    restoreCommit
-  } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>({
+  // ============================================================================
+  // COMMIT HISTORY - Using centralized hook with storeSync
+  // ============================================================================
+
+  // Store sync setters (inline functions that use setState)
+  const setStoreCommitHistory = useCallback((commits: DisplayCommit<CauseCommitCounts>[]) => {
+    useVisualizationStore.setState({ stage3CommitHistory: commits })
+  }, [])
+
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>) => {
+    useVisualizationStore.setState({ stage3CommitData: data })
+  }, [])
+
+  const setStoreCurrentCommitIndex = useCallback((index: number) => {
+    useVisualizationStore.setState({ stage3CurrentCommitIndex: index })
+  }, [])
+
+  const setFinalCommitFromHook = useCallback((data: { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds: Set<number>; counts: CauseCommitCounts }) => {
+    setStage3FinalCommit({
+      causeSelectionStates: new Map(data.states),
+      causeSelectionSources: new Map(data.sources),
+      featureIds: data.featureIds,
+      counts: data.counts
+    })
+  }, [setStage3FinalCommit])
+
+  // Memoize storeSync to prevent infinite loops (object reference stability)
+  const storeSync = useMemo(() => ({
+    isRevisiting: isRevisitingStage3,
+    stageCommitHistory: stage3CommitHistory,
+    stageCommitData: stage3CommitData,
+    stageCurrentCommitIndex: stage3CurrentCommitIndex,
+    setStoreCommitHistory,
+    setStoreCommitData,
+    setStoreCurrentCommitIndex,
+    setFinalCommit: setFinalCommitFromHook
+  }), [isRevisitingStage3, stage3CommitHistory, stage3CommitData, stage3CurrentCommitIndex, setStoreCommitHistory, setStoreCommitData, setStoreCurrentCommitIndex, setFinalCommitFromHook])
+
+  // Use the commit history hook with store sync
+  const { createCommit } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>({
     ...createCauseCommitHistoryOptions(
       () => causeSelectionStates,
       () => causeSelectionSources,
@@ -579,88 +549,11 @@ const CauseView: React.FC<CauseViewProps> = ({
         counts: commit.counts || { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 }
       })
     },
-    // Full history restoration takes priority
-    initialCommits: initialCommitsForRevisit,
-    initialIndex: savedCurrentIndex,
-    // Fallback: single commit restoration (backward compatibility)
-    initialCommit: initialCommitForRevisit
+    // Store sync - handles all store synchronization automatically
+    storeSync,
+    selectionStates: causeSelectionStates,
+    selectionSources: causeSelectionSources
   })
-
-  // Track when we're writing to store to avoid circular updates
-  const isWritingToStoreRef = useRef(false)
-
-  // Sync local commit history to global store for SelectionPanel display and restoration
-  useEffect(() => {
-    // Mark that we're about to write to store
-    isWritingToStoreRef.current = true
-
-    // Sync commits to store (convert to display format)
-    const displayCommits = tagCommitHistory.map(c => ({
-      id: c.id,
-      type: c.type,
-      counts: c.counts
-    }))
-
-    // Also sync full commit data for restoration
-    const commitData = new Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>()
-    tagCommitHistory.forEach((c, index) => {
-      commitData.set(index, {
-        states: new Map(c.states),
-        sources: new Map(c.sources),
-        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
-      })
-    })
-
-    // Update store with current commit history and data
-    useVisualizationStore.setState({
-      stage3CommitHistory: displayCommits,
-      stage3CurrentCommitIndex: currentCommitIndex,
-      stage3CommitData: commitData
-    })
-
-    // Also update stage3FinalCommit with current commit state (for stage revisiting)
-    // Note: Don't use selectedFeatureIds here - it changes when we leave the stage
-    // The commit already stores featureIds from when it was created
-    const currentCommit = tagCommitHistory[currentCommitIndex]
-    if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0) {
-      setStage3FinalCommit({
-        causeSelectionStates: new Map(currentCommit.states),
-        causeSelectionSources: new Map(currentCommit.sources),
-        featureIds: currentCommit.featureIds,
-        counts: currentCommit.counts || { noisyActivation: 0, missedNgram: 0, missedContext: 0, wellExplained: 0, unsure: 0, total: 0 }
-      })
-    }
-  }, [tagCommitHistory, currentCommitIndex, setStage3FinalCommit])
-
-  // Ref to hold the latest updateCurrentCommit function (avoids infinite loop)
-  const updateCurrentCommitRef = useRef(updateCurrentCommit)
-  useEffect(() => {
-    updateCurrentCommitRef.current = updateCurrentCommit
-  }, [updateCurrentCommit])
-
-  // Sync manual tag changes to current commit (debounced)
-  // This ensures current commit always reflects the latest manual tags
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      updateCurrentCommitRef.current()
-    }, 50)
-    return () => clearTimeout(timeoutId)
-    // Only re-run when selection states actually change, not when the function changes
-  }, [causeSelectionStates, causeSelectionSources])
-
-  // Sync from store's commit index when it changes externally (e.g., from SelectionPanel click)
-  // This ensures the hook's local currentCommitIndex stays in sync with the store
-  useEffect(() => {
-    // Skip if we just wrote to the store ourselves (prevents circular updates)
-    if (isWritingToStoreRef.current) {
-      isWritingToStoreRef.current = false
-      return
-    }
-    if (stage3CurrentCommitIndex !== currentCommitIndex && stage3CurrentCommitIndex >= 0) {
-      console.log('[CauseView] Syncing commit index from store:', stage3CurrentCommitIndex, '(was:', currentCommitIndex, ')')
-      restoreCommit(stage3CurrentCommitIndex)
-    }
-  }, [stage3CurrentCommitIndex, currentCommitIndex, restoreCommit])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Navigate through brushed/selected features

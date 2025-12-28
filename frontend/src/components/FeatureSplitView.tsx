@@ -5,7 +5,8 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createPairCommitHistoryOptions, type Commit } from '../lib/tagging-hooks'
+import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
+import { useListNavigation } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
@@ -15,8 +16,6 @@ import '../styles/FeatureSplitView.css'
 // ============================================================================
 // Layout: [Top: pair list + viewer] | [Bottom: left boundary + histogram + right boundary]
 
-// Local type alias for pair commit with CommitCounts
-type PairCommit = Commit<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>
 
 interface FeatureSplitViewProps {
   className?: string
@@ -58,8 +57,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
-  // Which list is currently controlling the viewer: 'all', 'reject' (Monosemantic), or 'select' (Fragmented)
-  const [activeListSource, setActiveListSource] = useState<'all' | 'reject' | 'select'>('all')
 
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -88,66 +85,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
 
   // ============================================================================
-  // COMMIT HISTORY - Using centralized hook
+  // LIST NAVIGATION - Using centralized hook
   // ============================================================================
-  // Build full commit history for revisiting (if applicable)
-  const initialCommitsForRevisit = useMemo((): PairCommit[] | null => {
-    if (isRevisitingStage1 && stage1CommitData && stage1CommitData.size > 0 && stage1CommitHistory.length > 0) {
-      console.log('[FeatureSplitView] Building full commit history for revisit:', stage1CommitData.size, 'commits')
+  const resetPairIndex = useCallback(() => setCurrentPairIndex(0), [])
+  const { activeListSource, setActiveListSource } = useListNavigation({
+    isDraggingThreshold,
+    onReset: resetPairIndex
+  })
 
-      // Reconstruct full commit array from stored data
-      const commits: PairCommit[] = []
-      for (let i = 0; i < stage1CommitHistory.length; i++) {
-        const historyEntry = stage1CommitHistory[i]
-        const commitData = stage1CommitData.get(i)
-
-        if (historyEntry && commitData) {
-          commits.push({
-            id: historyEntry.id,
-            type: historyEntry.type,
-            states: new Map(commitData.states),
-            sources: new Map(commitData.sources),
-            counts: historyEntry.counts,
-            featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
-          })
-        }
-      }
-
-      if (commits.length > 0) {
-        console.log('[FeatureSplitView] Restored', commits.length, 'commits from history')
-        return commits
-      }
-    }
-    return null
-  }, [isRevisitingStage1, stage1CommitData, stage1CommitHistory])
-
-  // Saved current index for revisiting
-  const savedCurrentIndex = useMemo((): number | null => {
-    if (isRevisitingStage1 && stage1CurrentCommitIndex !== undefined) {
-      return stage1CurrentCommitIndex
-    }
-    return null
-  }, [isRevisitingStage1, stage1CurrentCommitIndex])
-
-  // Fallback: Build single initial commit for revisiting (backward compatibility)
-  const initialCommitForRevisit = useMemo((): PairCommit | null => {
-    // Only use fallback if we don't have full history
-    if (initialCommitsForRevisit && initialCommitsForRevisit.length > 0) {
-      return null // Full history takes priority
-    }
-    if (isRevisitingStage1 && stage1FinalCommit) {
-      console.log('[FeatureSplitView] Fallback: Building single initial commit for revisit:', stage1FinalCommit.pairSelectionStates.size, 'pairs')
-      return {
-        id: 1,
-        type: 'tagAll',
-        states: new Map(stage1FinalCommit.pairSelectionStates),
-        sources: new Map(stage1FinalCommit.pairSelectionSources),
-        counts: stage1FinalCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
-        featureIds: stage1FinalCommit.featureIds ? new Set(stage1FinalCommit.featureIds) : undefined
-      }
-    }
-    return null
-  }, [isRevisitingStage1, stage1FinalCommit, initialCommitsForRevisit])
+  // ============================================================================
+  // COMMIT HISTORY - Using centralized hook with storeSync
+  // ============================================================================
 
   // Calculate counts for commit storage
   const calculateCommitCounts = useCallback((): CommitCounts => {
@@ -160,14 +108,42 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [getFeatureSplittingCounts])
 
-  // Use the commit history hook
-  const {
-    commits: tagCommitHistory,
-    currentCommitIndex,
-    updateCurrentCommit,
-    createCommit,
-    restoreCommit
-  } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
+  // Store sync setters (inline functions that use setState)
+  const setStoreCommitHistory = useCallback((commits: DisplayCommit<CommitCounts>[]) => {
+    useVisualizationStore.setState({ stage1CommitHistory: commits })
+  }, [])
+
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number> }>) => {
+    useVisualizationStore.setState({ stage1CommitData: data })
+  }, [])
+
+  const setStoreCurrentCommitIndex = useCallback((index: number) => {
+    useVisualizationStore.setState({ stage1CurrentCommitIndex: index })
+  }, [])
+
+  const setFinalCommitFromHook = useCallback((data: { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds: Set<number>; counts: CommitCounts }) => {
+    setStage1FinalCommit({
+      pairSelectionStates: new Map(data.states),
+      pairSelectionSources: new Map(data.sources),
+      featureIds: data.featureIds,
+      counts: data.counts
+    })
+  }, [setStage1FinalCommit])
+
+  // Memoize storeSync to prevent infinite loops (object reference stability)
+  const storeSync = useMemo(() => ({
+    isRevisiting: isRevisitingStage1,
+    stageCommitHistory: stage1CommitHistory,
+    stageCommitData: stage1CommitData,
+    stageCurrentCommitIndex: stage1CurrentCommitIndex,
+    setStoreCommitHistory,
+    setStoreCommitData,
+    setStoreCurrentCommitIndex,
+    setFinalCommit: setFinalCommitFromHook
+  }), [isRevisitingStage1, stage1CommitHistory, stage1CommitData, stage1CurrentCommitIndex, setStoreCommitHistory, setStoreCommitData, setStoreCurrentCommitIndex, setFinalCommitFromHook])
+
+  // Use the commit history hook with store sync
+  const { createCommit } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
     ...createPairCommitHistoryOptions(
       () => pairSelectionStates,
       () => pairSelectionSources,
@@ -184,88 +160,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
       })
     },
-    // Full history restoration takes priority
-    initialCommits: initialCommitsForRevisit,
-    initialIndex: savedCurrentIndex,
-    // Fallback: single commit restoration (backward compatibility)
-    initialCommit: initialCommitForRevisit
+    // Store sync - handles all store synchronization automatically
+    storeSync,
+    selectionStates: pairSelectionStates,
+    selectionSources: pairSelectionSources
   })
-
-  // Track when we're writing to store to avoid circular updates
-  const isWritingToStoreRef = useRef(false)
-
-  // Sync local commit history to global store for SelectionPanel display and restoration
-  useEffect(() => {
-    // Mark that we're about to write to store
-    isWritingToStoreRef.current = true
-
-    // Sync commits to store (convert to display format)
-    const displayCommits = tagCommitHistory.map(c => ({
-      id: c.id,
-      type: c.type,
-      counts: c.counts
-    }))
-
-    // Also sync full commit data for restoration
-    const commitData = new Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number> }>()
-    tagCommitHistory.forEach((c, index) => {
-      commitData.set(index, {
-        states: new Map(c.states),
-        sources: new Map(c.sources),
-        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
-      })
-    })
-
-    // Update store with current commit history and data
-    useVisualizationStore.setState({
-      stage1CommitHistory: displayCommits,
-      stage1CurrentCommitIndex: currentCommitIndex,
-      stage1CommitData: commitData
-    })
-
-    // Also update stage1FinalCommit with current commit state (for stage revisiting)
-    // Note: Don't use selectedFeatureIds here - it changes when we leave the stage
-    // The commit already stores featureIds from when it was created
-    const currentCommit = tagCommitHistory[currentCommitIndex]
-    if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0) {
-      setStage1FinalCommit({
-        pairSelectionStates: new Map(currentCommit.states),
-        pairSelectionSources: new Map(currentCommit.sources),
-        featureIds: currentCommit.featureIds,
-        counts: currentCommit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 }
-      })
-    }
-  }, [tagCommitHistory, currentCommitIndex, setStage1FinalCommit])
-
-  // Ref to hold the latest updateCurrentCommit function (avoids infinite loop)
-  const updateCurrentCommitRef = useRef(updateCurrentCommit)
-  useEffect(() => {
-    updateCurrentCommitRef.current = updateCurrentCommit
-  }, [updateCurrentCommit])
-
-  // Sync manual tag changes to current commit (debounced)
-  // This ensures current commit always reflects the latest manual tags
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      updateCurrentCommitRef.current()
-    }, 50)
-    return () => clearTimeout(timeoutId)
-    // Only re-run when selection states actually change, not when the function changes
-  }, [pairSelectionStates, pairSelectionSources])
-
-  // Sync from store's commit index when it changes externally (e.g., from SelectionPanel click)
-  // This ensures the hook's local currentCommitIndex stays in sync with the store
-  useEffect(() => {
-    // Skip if we just wrote to the store ourselves
-    if (isWritingToStoreRef.current) {
-      isWritingToStoreRef.current = false
-      return
-    }
-    if (stage1CurrentCommitIndex !== currentCommitIndex && stage1CurrentCommitIndex >= 0) {
-      console.log('[FeatureSplitView] Syncing commit index from store:', stage1CurrentCommitIndex, '(was:', currentCommitIndex, ')')
-      restoreCommit(stage1CurrentCommitIndex)
-    }
-  }, [stage1CurrentCommitIndex, currentCommitIndex, restoreCommit])
 
   // Extract clustering threshold from Sankey structure
   const clusterThreshold = useMemo(() => {
@@ -469,17 +368,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       sortPairsBySimilarity(allPairKeys)
     }
   }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores.size, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
-
-  // When threshold dragging starts, switch to 'all' list if currently in boundary lists
-  // This prevents the selected pair from becoming invalid as boundary items change
-  useEffect(() => {
-    if (isDraggingThreshold && (activeListSource === 'reject' || activeListSource === 'select')) {
-      console.log('[FeatureSplitView] Threshold drag started, switching from', activeListSource, 'to all list')
-      setActiveListSource('all')
-      setCurrentPairIndex(0)
-    }
-  }, [isDraggingThreshold, activeListSource])
-
 
   // ============================================================================
   // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)

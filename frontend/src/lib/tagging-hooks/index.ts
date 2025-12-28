@@ -24,7 +24,9 @@ export type {
   SelectionSource,
   CommitType,
   Commit,
-  CauseCategory
+  CauseCategory,
+  DisplayCommit,
+  StoreSyncOptions
 } from './useCommitHistory'
 
 export { useBimodalStatus } from './useBimodalStatus'
