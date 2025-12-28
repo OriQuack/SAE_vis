@@ -264,3 +264,94 @@ export function getConnectedFlowIds(
     .filter(flow => flow.targetCategory === category)
     .map(flow => flow.id)
 }
+
+// ============================================================================
+// CAUSE STAGE FLOW CALCULATION
+// ============================================================================
+
+/**
+ * Calculate flow from ALL segments of a Sankey node to the SelectionBar
+ * Used for Stage 3 (CauseView) where both segment 0 and segment 1 flow to the bar
+ * @param segmentRefs - Array of DOM references to segment SVG elements
+ * @param nodeId - The node ID (e.g., 'stage3_segment')
+ * @param totalFeatureCount - Total features across all segments
+ * @param containerRect - Container bounding rect
+ * @returns Array with single flow path data spanning all segments
+ */
+export function calculateCauseStageFlows(
+  segmentRefs: SVGRectElement[],
+  nodeId: string,
+  totalFeatureCount: number,
+  containerRect: DOMRect
+): FlowPathData[] {
+  if (segmentRefs.length === 0) return []
+
+  // Get positions of all segments
+  const positions = segmentRefs
+    .map(ref => getSankeySegmentPosition(ref, containerRect))
+    .filter((pos): pos is NonNullable<typeof pos> => pos !== null)
+
+  if (positions.length === 0) return []
+
+  // Filter out segments with zero dimensions (empty segments or not positioned yet)
+  // Instead of returning early, we skip individual zero-height segments
+  const validPositions = positions.filter(pos => pos.width > 0 && pos.height > 0)
+  if (validPositions.length === 0) return []
+
+  // Calculate combined bounding box spanning all valid segments
+  const sourceX = Math.max(...validPositions.map(p => p.x + p.width)) // Right edge
+  const sourceTopY = Math.min(...validPositions.map(p => p.y))
+  const sourceBottomY = Math.max(...validPositions.map(p => p.y + p.height))
+
+  // Get the entire SelectionBar bounds
+  const barElement = document.querySelector('.selection-state-bar__bar') as HTMLElement
+  if (!barElement) return []
+
+  const barRect = barElement.getBoundingClientRect()
+
+  // Don't show flow if bar hasn't been positioned yet
+  if (barRect.width === 0 || barRect.height === 0) return []
+
+  const barTop = barRect.top - containerRect.top
+  const barBottom = barRect.bottom - containerRect.top
+  const barLeft = barRect.left - containerRect.left
+
+  // Calculate target positions (left edge of bar)
+  const targetX = barLeft
+  const targetTopY = barTop
+  const targetBottomY = barBottom
+
+  // Create single flow spanning all segments
+  const flow: SankeyToSelectionFlow = {
+    id: `${nodeId}_all_segments_to_bar`,
+    sourceNodeId: nodeId,
+    sourceSegmentIndex: -1, // -1 indicates all segments
+    targetCategory: 'confirmed', // Dummy value
+    featureCount: totalFeatureCount,
+    featureIds: [],
+    color: '#9ca3af', // Gray color for combined flow
+    opacity: FLOW_OPACITY.default
+  }
+
+  // Generate path for flow band
+  const pathD = generateFlowPath(
+    sourceX,
+    sourceTopY,
+    sourceBottomY,
+    targetX,
+    targetTopY,
+    targetBottomY
+  )
+
+  const flowPath: FlowPathData = {
+    ...flow,
+    pathD,
+    strokeWidth: 0,
+    sourceX,
+    sourceY: (sourceTopY + sourceBottomY) / 2,
+    targetX,
+    targetY: (targetTopY + targetBottomY) / 2
+  }
+
+  return [flowPath]
+}

@@ -134,7 +134,7 @@ export type SimplifiedSankeyNode = RegularSankeyNode | TerminalSankeyNode | Segm
 export interface SankeyStructure {
   nodes: SimplifiedSankeyNode[]
   links: SankeyLink[]
-  currentStage: 1 | 2 | 3
+  currentStage: 1 | 2 | 3 | 4
 }
 
 export interface FilterOptions {

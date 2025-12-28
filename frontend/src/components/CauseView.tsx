@@ -627,21 +627,26 @@ const CauseView: React.FC<CauseViewProps> = ({
   // SELECTED TAGGING HANDLERS
   // ============================================================================
 
-  // Tag all selected features with a specific cause category
+  // Tag all selected features with a specific cause category (excluding manually tagged)
   const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
     console.log('[CauseView] Tag Selected As:', category)
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
-    // 2. Apply tags to all selected features (effect will sync to current commit)
+    // 2. Apply tags to selected features that aren't manually tagged
     // isActualManual=false because this is a batch operation (lasso selection)
     umapBrushedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features - preserve user's explicit choices
+      if (source === 'manual') return
       setCauseCategory(featureId, category, false)
     })
-  }, [umapBrushedFeatureIds, setCauseCategory, createCommit])
+  }, [umapBrushedFeatureIds, causeSelectionSources, setCauseCategory, createCommit])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
+  // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
+  // Well-Explained is determined by threshold verification, not SVM
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
     if (!selectedFeatureIds) return
@@ -651,8 +656,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('apply')
 
-    // 2. Collect all updates in a batch map
-    const batchUpdates = new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>()
+    // 2. Collect all updates in a batch map (only cause categories, not well-explained)
+    const batchUpdates = new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context'>()
+
+    // SVM cause categories (excludes well-explained)
+    const svmCategories = ['noisy-activation', 'missed-N-gram', 'missed-context']
 
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
@@ -662,14 +670,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       const categoryMargins = causeCategoryDecisionMargins.get(featureId)
       if (!categoryMargins) return
 
-      // Find category with highest margin
-      const entries = Object.entries(categoryMargins)
+      // Find category with highest margin among SVM categories only
+      const entries = Object.entries(categoryMargins).filter(([cat]) => svmCategories.includes(cat))
       if (entries.length === 0) return
 
       const [bestCategory] = entries.reduce((best, curr) =>
         curr[1] > best[1] ? curr : best
       )
-      batchUpdates.set(featureId, bestCategory as CauseCategory)
+      batchUpdates.set(featureId, bestCategory as 'noisy-activation' | 'missed-N-gram' | 'missed-context')
     })
 
     // 3. Apply all updates in a single state change
@@ -711,15 +719,18 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
 
   // Count how many remaining features will be tagged to each category by decision boundary
+  // Note: SVM only predicts cause categories (excludes well-explained)
   const boundaryTagCounts = useMemo(() => {
     const counts = {
       'noisy-activation': 0,
       'missed-context': 0,
-      'missed-N-gram': 0,
-      'well-explained': 0
+      'missed-N-gram': 0
     }
 
     if (!causeCategoryDecisionMargins || !selectedFeatureIds) return counts
+
+    // SVM cause categories (excludes well-explained)
+    const svmCategories = ['noisy-activation', 'missed-N-gram', 'missed-context']
 
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
@@ -729,8 +740,8 @@ const CauseView: React.FC<CauseViewProps> = ({
       const categoryMargins = causeCategoryDecisionMargins.get(featureId)
       if (!categoryMargins) return
 
-      // Find category with highest margin
-      const entries = Object.entries(categoryMargins)
+      // Find category with highest margin among SVM categories only
+      const entries = Object.entries(categoryMargins).filter(([cat]) => svmCategories.includes(cat))
       if (entries.length === 0) return
 
       const [bestCategory] = entries.reduce((best, curr) =>
@@ -745,6 +756,34 @@ const CauseView: React.FC<CauseViewProps> = ({
     return counts
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources])
 
+  // Compute composition of remaining features (non-manually-tagged) by current effective category
+  // Used for "Tag All Remaining by SVM" button legend
+  // Note: Excludes well-explained (they are handled by threshold verification, not SVM)
+  const remainingComposition = useMemo(() => {
+    let patternMiss = 0, contextMiss = 0, noisyActivation = 0, unsure = 0
+
+    if (!selectedFeatureIds) return { patternMiss, contextMiss, noisyActivation, unsure, total: 0 }
+
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features - they won't be re-tagged
+      if (source === 'manual') return
+      // Skip well-explained features - they are handled by threshold verification
+      const effectiveCategory = getEffectiveCategory(featureId)
+      if (effectiveCategory === 'well-explained') return
+
+      switch (effectiveCategory) {
+        case 'missed-N-gram': patternMiss++; break
+        case 'missed-context': contextMiss++; break
+        case 'noisy-activation': noisyActivation++; break
+        default: unsure++
+      }
+    })
+
+    const total = patternMiss + contextMiss + noisyActivation + unsure
+    return { patternMiss, contextMiss, noisyActivation, unsure, total }
+  }, [selectedFeatureIds, causeSelectionSources, getEffectiveCategory])
+
   // Count how many features will be verified as well-explained
   const verifyWellExplainedCount = useMemo(() => {
     let count = 0
@@ -757,6 +796,36 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
     return count
   }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates])
+
+  // Compute composition of selected cell (brushed features) by category
+  // Only counts non-manually-tagged features (these are what batch tagging will affect)
+  // Note: Excludes well-explained (they are handled by threshold verification, not batch tagging)
+  const selectedCellComposition = useMemo(() => {
+    let patternMiss = 0, contextMiss = 0, noisyActivation = 0, unsure = 0
+    let manualCount = 0
+
+    umapBrushedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features - they won't be re-tagged
+      if (source === 'manual') {
+        manualCount++
+        return
+      }
+      // Skip well-explained features - they are handled by threshold verification
+      const effectiveCategory = getEffectiveCategory(featureId)
+      if (effectiveCategory === 'well-explained') return
+
+      switch (effectiveCategory) {
+        case 'missed-N-gram': patternMiss++; break
+        case 'missed-context': contextMiss++; break
+        case 'noisy-activation': noisyActivation++; break
+        default: unsure++
+      }
+    })
+
+    const taggableCount = patternMiss + contextMiss + noisyActivation + unsure
+    return { patternMiss, contextMiss, noisyActivation, unsure, manualCount, taggableCount }
+  }, [umapBrushedFeatureIds, causeSelectionSources, getEffectiveCategory])
 
   // Memoize featureIds array to prevent unnecessary UMAPScatter re-renders
   // Array.from creates a new array reference on every call, so we memoize it
@@ -811,7 +880,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       <div className="view-header">
         <span className="view-title">Cause Analysis</span>
         <span className="view-description">
-          Determine root cause for features that{' '}
+          Update{' '}
+          <span
+            className="view-tag-badge"
+            style={{ backgroundColor: wellExplainedColor }}
+          >
+            Well-Explained
+          </span>
+          {' '}features. Then, identify root cause for features that{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: needRevisionColor }}
@@ -1048,7 +1124,10 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </button>
                       <div className="action-button__legend">
                         <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span
+                            className="action-button__legend-swatch action-button__legend-swatch--striped"
+                            style={{ '--swatch-color': wellExplainedColor } as React.CSSProperties}
+                          />
                           <span className="action-button__legend-count">{verifyWellExplainedCount}</span>
                         </span>
                         <span className="action-button__legend-arrow">→</span>
@@ -1062,6 +1141,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 </div>
 
                 {/* Row 2: Tag Selected Cell (multiple buttons, keep subheader) */}
+                {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
                 <div className="cause-view__action-section">
                   <span className="cause-view__action-header">Tag Selected Cell as</span>
                   <div className="cause-view__action-row">
@@ -1069,20 +1149,42 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('missed-N-gram')}
-                        disabled={umapBrushedFeatureIds.size === 0}
-                        title="Tag all selected features as Pattern Miss"
+                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
+                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Pattern Miss'}
                       >
                         Pattern Miss
                       </button>
                       <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                        </span>
+                        {/* Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
+                        {/* Note: Well-Explained excluded - handled by threshold verification */}
+                        {selectedCellComposition.patternMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.contextMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.noisyActivation > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.unsure > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
+                          </span>
+                        )}
                         <span className="action-button__legend-arrow">→</span>
                         <span className="action-button__legend-item">
                           <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
                         </span>
                       </div>
                     </div>
@@ -1090,20 +1192,40 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('missed-context')}
-                        disabled={umapBrushedFeatureIds.size === 0}
-                        title="Tag all selected features as Context Miss"
+                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
+                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Context Miss'}
                       >
                         Context Miss
                       </button>
                       <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                        </span>
+                        {selectedCellComposition.patternMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.contextMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.noisyActivation > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.unsure > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
+                          </span>
+                        )}
                         <span className="action-button__legend-arrow">→</span>
                         <span className="action-button__legend-item">
                           <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
                         </span>
                       </div>
                     </div>
@@ -1111,20 +1233,40 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={umapBrushedFeatureIds.size === 0}
-                        title="Tag all selected features as Noisy Activation"
+                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
+                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Noisy Activation'}
                       >
                         Noisy Activation
                       </button>
                       <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
-                        </span>
+                        {selectedCellComposition.patternMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.contextMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.noisyActivation > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
+                          </span>
+                        )}
+                        {selectedCellComposition.unsure > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
+                          </span>
+                        )}
                         <span className="action-button__legend-arrow">→</span>
                         <span className="action-button__legend-item">
                           <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                          <span className="action-button__legend-count">{umapBrushedFeatureIds.size}</span>
+                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
                         </span>
                       </div>
                     </div>
@@ -1132,35 +1274,67 @@ const CauseView: React.FC<CauseViewProps> = ({
                 </div>
 
                 {/* Row 3: Tag All Remaining (single button, no subheader) */}
+                {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
                 <div className="cause-view__action-section">
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
                         className="action-button"
                         onClick={handleTagRemainingByBoundary}
-                        disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                        title="Auto-tag remaining features using SVM decision boundary"
+                        disabled={!hasVerifiedWellExplained || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Auto-tag remaining features using SVM decision boundary'}
                       >
                         Tag All Remaining by SVM
                       </button>
                       <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                          <span className="action-button__legend-count">{(selectedFeatureIds?.size || 0) - causeSelectionStates.size}</span>
-                        </span>
+                        {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
+                        {/* Note: Well-Explained excluded - handled by threshold verification, not SVM */}
+                        {remainingComposition.patternMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{remainingComposition.patternMiss}</span>
+                          </span>
+                        )}
+                        {remainingComposition.contextMiss > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{remainingComposition.contextMiss}</span>
+                          </span>
+                        )}
+                        {remainingComposition.noisyActivation > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                            <span className="action-button__legend-count">{remainingComposition.noisyActivation}</span>
+                          </span>
+                        )}
+                        {remainingComposition.unsure > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                            <span className="action-button__legend-count">{remainingComposition.unsure}</span>
+                          </span>
+                        )}
+                        {/* Arrow */}
                         <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                          <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
-                        </span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                          <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                        </span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                          <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
-                        </span>
+                        {/* Output composition (by SVM prediction) - Order: Pattern Miss, Context Miss, Noisy Activation */}
+                        {/* Note: Well-Explained is NOT predicted by SVM - it's determined by threshold verification */}
+                        {boundaryTagCounts['missed-N-gram'] > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                            <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
+                          </span>
+                        )}
+                        {boundaryTagCounts['missed-context'] > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                            <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
+                          </span>
+                        )}
+                        {boundaryTagCounts['noisy-activation'] > 0 && (
+                          <span className="action-button__legend-item">
+                            <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                            <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

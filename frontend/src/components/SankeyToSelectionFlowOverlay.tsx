@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react'
 import { useStore as useVisualizationStore } from '../store'
 import {
-  calculateSankeyToSelectionFlows
+  calculateSankeyToSelectionFlows,
+  calculateCauseStageFlows
 } from '../lib/sankey-selection-flow-utils'
 import type { SelectionCategory, FlowPathData } from '../types'
 import '../styles/SankeyToSelectionFlowOverlay.css'
@@ -122,15 +123,44 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       return []
     }
 
+    const containerRect = containerElement.getBoundingClientRect()
+    const nodes = sankeyStructure?.nodes || []
+
+    // Special handling for stage3_segment: show flows from ALL segments
+    // In Stage 3 (CauseView), both segment 0 ("Need Revision") and segment 1 ("Well-Explained") flow to the bar
+    // Note: We check nodeId directly instead of tableMode because activeCauseStageNode may not be set
+    if (selectedSankeySegment.nodeId === 'stage3_segment') {
+      // Find the stage3_segment node to get total feature count
+      const stage3Node = nodes.find((n: { id: string }) => n.id === 'stage3_segment')
+      const totalFeatureCount = stage3Node?.featureCount || 0
+
+      // Gather ALL segment refs for stage3_segment
+      const allSegmentRefs: SVGRectElement[] = []
+      segmentRefs.forEach((ref, key) => {
+        if (key.startsWith('stage3_segment_')) {
+          allSegmentRefs.push(ref)
+        }
+      })
+
+      if (allSegmentRefs.length === 0) {
+        return []
+      }
+
+      return calculateCauseStageFlows(
+        allSegmentRefs,
+        'stage3_segment',
+        totalFeatureCount,
+        containerRect
+      )
+    }
+
+    // Default behavior: single segment flow
     const segmentKey = `${selectedSankeySegment.nodeId}_${selectedSankeySegment.segmentIndex}`
     const segmentRef = segmentRefs.get(segmentKey)
 
     if (!segmentRef) {
       return []
     }
-
-    const containerRect = containerElement.getBoundingClientRect()
-    const nodes = sankeyStructure?.nodes || []
 
     return calculateSankeyToSelectionFlows(
       selectedSankeySegment,

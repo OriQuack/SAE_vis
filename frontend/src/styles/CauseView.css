@@ -521,6 +521,13 @@
   letter-spacing: 0.025em;
 }
 
+.cause-view__action-hint {
+  font-weight: 400;
+  font-style: italic;
+  text-transform: none;
+  color: #9ca3af;
+}
+
 .cause-view__action-row {
   display: flex;
   flex-direction: row;
