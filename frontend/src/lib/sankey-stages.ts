@@ -14,11 +14,12 @@ import {
   TAG_CATEGORIES,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE
+  TAG_CATEGORY_CAUSE,
+  TAG_CATEGORY_REGENERATION
 } from './constants'
 
 export interface StageConfig {
-  stageNumber: 1 | 2 | 3
+  stageNumber: 1 | 2 | 3 | 4
   categoryId: string
   label: string
   metric: string | null
@@ -70,14 +71,24 @@ export const STAGE_CONFIGS: StageConfig[] = [
     defaultThreshold: getDefaultThreshold(TAG_CATEGORY_CAUSE),
     tags: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].tags as unknown as string[],
     parentTag: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].parentTag,
-    terminalTags: []  // All cause tags are terminal (no stage 4)
+    terminalTags: []  // Cause tags continue to Stage 4
+  },
+  {
+    stageNumber: 4,
+    categoryId: TAG_CATEGORY_REGENERATION,
+    label: TAG_CATEGORIES[TAG_CATEGORY_REGENERATION].label,
+    metric: null,
+    defaultThreshold: null,
+    tags: [],
+    parentTag: 'NeedRevision',  // Continues from need_revision node
+    terminalTags: []  // All cause category nodes are terminal in Stage 4
   }
 ]
 
 /**
  * Get configuration for a specific stage
  */
-export function getStageConfig(stageNumber: 1 | 2 | 3): StageConfig {
+export function getStageConfig(stageNumber: 1 | 2 | 3 | 4): StageConfig {
   return STAGE_CONFIGS[stageNumber - 1]
 }
 
@@ -91,7 +102,7 @@ export function getTagCategory(categoryId: string) {
 /**
  * Check if a tag is terminal for a given stage
  */
-export function isTerminalTag(stageNumber: 1 | 2 | 3, tagName: string): boolean {
+export function isTerminalTag(stageNumber: 1 | 2 | 3 | 4, tagName: string): boolean {
   const config = getStageConfig(stageNumber)
   return config.terminalTags.includes(tagName)
 }
@@ -99,8 +110,9 @@ export function isTerminalTag(stageNumber: 1 | 2 | 3, tagName: string): boolean 
 /**
  * Get the next stage number, or null if at final stage
  */
-export function getNextStage(currentStage: 1 | 2 | 3): 2 | 3 | null {
+export function getNextStage(currentStage: 1 | 2 | 3 | 4): 2 | 3 | 4 | null {
   if (currentStage === 1) return 2
   if (currentStage === 2) return 3
+  if (currentStage === 3) return 4
   return null
 }

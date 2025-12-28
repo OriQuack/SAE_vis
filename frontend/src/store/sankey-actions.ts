@@ -15,6 +15,7 @@ import {
   buildStage2,
   buildStage2FromTaggedStates,
   buildStage3,
+  buildStage4FromTaggedStates,
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
 import { convertToD3Format } from '../lib/sankey-utils'
@@ -420,6 +421,76 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       state.setError(errorKey, errorMessage)
       state.setLoading(loadingKey, false)
       console.error('[activateStage3] ❌ Error:', error)
+    }
+  },
+
+  /**
+   * Activate Stage 4: Regeneration
+   * Expands the Stage 3 segment into terminal nodes for each cause category,
+   * using actual cause selection states (from CauseView tagging).
+   */
+  activateStage4: async (panel: PanelSide = PANEL_LEFT) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyStructure } = state[panelKey]
+    const { causeSelectionStates } = state
+    const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+    const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
+
+    console.log(`[activateStage4] 🚀 Activating Stage 4 for ${panel}`)
+
+    if (!sankeyStructure) {
+      console.error('[activateStage4] ❌ No Sankey structure found')
+      state.setError(errorKey, 'Sankey not initialized')
+      return
+    }
+
+    if (sankeyStructure.currentStage < 3) {
+      console.error('[activateStage4] ❌ Must activate Stage 3 first')
+      state.setError(errorKey, 'Stage 3 must be active before Stage 4')
+      return
+    }
+
+    if (sankeyStructure.currentStage >= 4) {
+      console.log('[activateStage4] ⚠️  Stage 4 already active')
+      return
+    }
+
+    state.setLoading(loadingKey, true)
+    state.clearError(errorKey)
+
+    try {
+      // Build Stage 4 from cause selection states
+      const stage4Structure = buildStage4FromTaggedStates(
+        sankeyStructure,
+        causeSelectionStates
+      )
+
+      console.log(`[activateStage4] ✅ Stage 4 built:`, {
+        nodes: stage4Structure.nodes.length,
+        links: stage4Structure.links.length,
+        currentStage: stage4Structure.currentStage
+      })
+
+      // Store the updated structure
+      set((state: any) => ({
+        [panelKey]: {
+          ...state[panelKey],
+          sankeyStructure: stage4Structure
+        }
+      }))
+
+      // Recompute D3 layout
+      get().recomputeD3StructureV2(panel)
+
+      state.setLoading(loadingKey, false)
+      console.log('[activateStage4] ✅ Stage 4 activated successfully')
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to activate Stage 4'
+      state.setError(errorKey, errorMessage)
+      state.setLoading(loadingKey, false)
+      console.error('[activateStage4] ❌ Error:', error)
     }
   },
 

@@ -135,9 +135,10 @@ export function getSelectionColors(stage: TableStage): {
  * Table stage types
  * - stage1: Feature Splitting (pairs)
  * - stage2: Quality Assessment (features)
- * - stage3: Cause Analysis (features) - TODO
+ * - stage3: Cause Analysis (features)
+ * - stage4: Regeneration
  */
-export type TableStage = 'stage1' | 'stage2' | 'stage3'
+export type TableStage = 'stage1' | 'stage2' | 'stage3' | 'stage4'
 
 /**
  * @deprecated Use TableStage instead

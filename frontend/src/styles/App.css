@@ -104,6 +104,12 @@
   background: #ffffff;
 }
 
+/* Full-width layout for Stage 4 (Regeneration) */
+.sankey-view__main-content--full-width {
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* Sankey Column - Left side (now contains Sankey + SelectionPanel side by side) */
 .sankey-view__sankey-column {
   flex: 1.7;

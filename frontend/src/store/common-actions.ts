@@ -9,7 +9,8 @@ import {
   TAG_CATEGORIES,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE
+  TAG_CATEGORY_CAUSE,
+  TAG_CATEGORY_REGENERATION
 } from '../lib/constants'
 
 // ============================================================================
@@ -511,6 +512,16 @@ export const createCommonActions = (set: any, get: any) => ({
         }
         // Then activate Stage 3
         await get().activateStage3(PANEL_LEFT)
+      } else if (stageNumber === 4) {
+        // Need to activate earlier stages first if not already active
+        if (currentStage === 1) {
+          await get().activateStage2(PANEL_LEFT)
+        }
+        if (currentStage < 3) {
+          await get().activateStage3(PANEL_LEFT)
+        }
+        // Then activate Stage 4
+        await get().activateStage4(PANEL_LEFT)
       }
 
       console.log(`[Store.activateCategoryTable] ✅ Stage ${stageNumber} activated, now activating table`)
@@ -552,10 +563,23 @@ export const createCommonActions = (set: any, get: any) => ({
         set({ isRevisitingStage1: false, isRevisitingStage2: false })
       }
     } else if (stageNumber === 3) {
-      selectedNodeId = 'stage3_segment'
-      segmentIndex = 0  // Use segment 0 for flow overlay; selection border handled specially for stage3_segment
-      // Clear revisiting flags when moving to Stage 3
-      set({ isRevisitingStage1: false, isRevisitingStage2: false })
+      // Check if we're in Stage 4 (stage3_segment no longer exists)
+      if (currentStage >= 4) {
+        selectedNodeId = 'root'
+        segmentIndex = 0
+        set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: true })
+        console.log('[Store.activateCategoryTable] Returning to Stage 3 from Stage 4, selecting root, setting revisiting flag')
+      } else {
+        selectedNodeId = 'stage3_segment'
+        segmentIndex = 0  // Use segment 0 for flow overlay; selection border handled specially for stage3_segment
+        // Clear revisiting flags when moving to Stage 3
+        set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: false })
+      }
+    } else if (stageNumber === 4) {
+      selectedNodeId = null  // Stage 4: no node selection
+      segmentIndex = 0
+      // Clear all revisiting flags when moving to Stage 4
+      set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: false })
     } else {
       selectedNodeId = 'root'  // Fallback
       segmentIndex = 0
@@ -568,6 +592,14 @@ export const createCommonActions = (set: any, get: any) => ({
       segmentIndex,
       metric: category.metric
     })
+
+    // Stage 4: No node selection, just clear any existing selection
+    if (selectedNodeId === null) {
+      get().selectSingleNode(null)
+      get().setActiveStageNode(null, categoryId)
+      console.log('[Store.activateCategoryTable] ✅ Stage 4: No node selected, category activated')
+      return
+    }
 
     // BIDIRECTIONAL LINKING: 1. Select the specific segment for table filtering
     get().selectSingleNode(selectedNodeId, segmentIndex)
@@ -597,6 +629,11 @@ export const createCommonActions = (set: any, get: any) => ({
       // Next step is Cause
       console.log('[Store.moveToNextStep] Transitioning from Quality to Cause')
       state.activateCategoryTable(TAG_CATEGORY_CAUSE)
+    } else if (activeStageCategory === TAG_CATEGORY_CAUSE) {
+      // This is the cause table (multi-class feature selection)
+      // Next step is Regeneration
+      console.log('[Store.moveToNextStep] Transitioning from Cause to Regeneration')
+      state.activateCategoryTable(TAG_CATEGORY_REGENERATION)
     } else {
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
     }

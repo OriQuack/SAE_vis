@@ -52,14 +52,14 @@ export type TagColorMode = 'hierarchical' | 'constant' | 'treecolors'
 export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const
 export const TAG_CATEGORY_QUALITY = "quality" as const
 export const TAG_CATEGORY_CAUSE = "cause" as const
-export const TAG_CATEGORY_TEMP = "temp" as const
+export const TAG_CATEGORY_REGENERATION = "regeneration" as const
 
 // Table Panel Titles - Display names for table panels corresponding to each stage
 export const TAG_CATEGORY_TABLE_TITLES: Record<string, string> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]: "Feature Splitting Detection",
   [TAG_CATEGORY_QUALITY]: "Quality Assessment",
   [TAG_CATEGORY_CAUSE]: "Root Cause Analysis",
-  [TAG_CATEGORY_TEMP]: "Temp Analysis"
+  [TAG_CATEGORY_REGENERATION]: "Regeneration"
 }
 
 // Table Panel Instructions - Instruction text shown below table panel titles
@@ -67,7 +67,7 @@ export const TAG_CATEGORY_TABLE_INSTRUCTIONS: Record<string, string> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]: "Select table feature columns to tag",
   [TAG_CATEGORY_QUALITY]: "Select feature table rows to tag",
   [TAG_CATEGORY_CAUSE]: "Select feature table rows to tag",
-  [TAG_CATEGORY_TEMP]: "Experimental analysis placeholder"
+  [TAG_CATEGORY_REGENERATION]: "Regeneration stage"
 }
 
 // Tag Category Configuration Interface
@@ -182,20 +182,20 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },
 
-  [TAG_CATEGORY_TEMP]: {
-    id: TAG_CATEGORY_TEMP,
-    label: "Temp",
+  [TAG_CATEGORY_REGENERATION]: {
+    id: TAG_CATEGORY_REGENERATION,
+    label: "Regeneration",
     stageOrder: 4,
-    metric: null,  // Placeholder, no metric-based logic
+    metric: null,
     defaultThresholds: [],
     showHistogram: false,
-    tags: [],  // No tags - only stage tab
+    tags: [],
     relatedMetrics: [],
-    description: "Temporary placeholder stage for testing",
+    description: "Regeneration stage for feature explanation improvement",
     parentTagForNextStage: null,
-    instruction: "Placeholder stage",
-    tagColors: {},  // Populated by tag-system.ts
-    parentTag: null  // Placeholder, no parent relationship
+    instruction: "Regeneration stage",
+    tagColors: {},
+    parentTag: null
   }
 } as const
 

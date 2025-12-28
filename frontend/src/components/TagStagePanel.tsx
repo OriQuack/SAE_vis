@@ -153,10 +153,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   // Compute tag nodes for each stage
   const nodesByStage = useMemo(() => {
-    const grouped: Record<number, TagNode[]> = { 1: [], 2: [], 3: [] };
+    const grouped: Record<number, TagNode[]> = { 1: [], 2: [], 3: [], 4: [] };
 
     for (const stage of stages) {
-      if (stage.stageOrder > 3) continue;
       const counts = allTagCounts[stage.id] || {};
 
       stage.tags.forEach((tag) => {

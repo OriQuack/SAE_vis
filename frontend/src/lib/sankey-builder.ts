@@ -19,7 +19,7 @@ import type {
 } from '../types'
 import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse, groupFeaturesByScoresMap, calculateSegmentProportions } from './threshold-utils'
-import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY } from './constants'
+import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './constants'
 import { getBadgeColors } from './tag-system'
 import * as api from '../api'
 
@@ -723,5 +723,121 @@ export function updateStage3Threshold(
   return {
     ...structure,
     nodes: updatedNodes
+  }
+}
+
+// ============================================================================
+// STAGE 4 BUILDERS
+// ============================================================================
+
+/**
+ * Derive feature sets from cause selection states.
+ * Groups features by their cause category tag.
+ *
+ * @param parentFeatureIds - Features from parent node (need_revision)
+ * @param causeSelectionStates - Map of feature_id -> cause category
+ * @returns Record of cause category -> Set of feature IDs
+ */
+export function deriveFeatureSetsFromCauseSelections(
+  parentFeatureIds: Set<number>,
+  causeSelectionStates: Map<number, string>
+): Record<string, Set<number>> {
+  const causeSets: Record<string, Set<number>> = {
+    'well-explained': new Set<number>(),
+    'noisy-activation': new Set<number>(),
+    'missed-context': new Set<number>(),
+    'missed-N-gram': new Set<number>()
+  }
+
+  for (const featureId of parentFeatureIds) {
+    const causeTag = causeSelectionStates.get(featureId)
+    if (causeTag && causeSets[causeTag]) {
+      causeSets[causeTag].add(featureId)
+    }
+    // Features without a cause tag are not included (unsure)
+  }
+
+  return causeSets
+}
+
+/**
+ * Build Stage 4: Regeneration
+ *
+ * Expands the Stage 3 segment node into terminal nodes for each cause category.
+ * Uses actual cause selection states (from CauseView tagging) to determine
+ * which features belong to which cause category.
+ *
+ * @param stage3Structure - Previous stage structure
+ * @param causeSelectionStates - Map of feature_id -> cause category
+ * @returns Sankey structure for Stage 4
+ */
+export function buildStage4FromTaggedStates(
+  stage3Structure: SankeyStructure,
+  causeSelectionStates: Map<number, string>
+): SankeyStructure {
+  // Get the need_revision node (parent of stage3_segment)
+  const needRevisionNode = stage3Structure.nodes.find(n => n.id === 'need_revision')
+  if (!needRevisionNode || !needRevisionNode.featureIds) {
+    throw new Error('need_revision node not found')
+  }
+
+  // Derive feature sets from cause selections
+  const causeSets = deriveFeatureSetsFromCauseSelections(
+    needRevisionNode.featureIds,
+    causeSelectionStates
+  )
+
+  console.log('[buildStage4FromTaggedStates] Feature sets derived from cause selections:', {
+    wellExplained: causeSets['well-explained'].size,
+    noisyActivation: causeSets['noisy-activation'].size,
+    missedContext: causeSets['missed-context'].size,
+    missedNgram: causeSets['missed-N-gram'].size,
+    total: needRevisionNode.featureIds.size
+  })
+
+  // Get tag colors for cause categories
+  const causeColors = getTagColors(TAG_CATEGORY_CAUSE)
+
+  // Copy existing nodes except stage3_segment
+  const nodes: SimplifiedSankeyNode[] = stage3Structure.nodes.filter(n => n.id !== 'stage3_segment')
+  const links: SankeyLink[] = [...stage3Structure.links.filter(l => l.target !== 'stage3_segment')]
+
+  // Create terminal nodes for each cause category (only if they have features)
+  const causeCategories = [
+    { id: 'well_explained_cause_terminal', tagName: 'Well-Explained', key: 'well-explained' },
+    { id: 'noisy_activation_terminal', tagName: 'Noisy Activation', key: 'noisy-activation' },
+    { id: 'context_miss_terminal', tagName: 'Context Miss', key: 'missed-context' },
+    { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' }
+  ]
+
+  for (const category of causeCategories) {
+    const featureIds = causeSets[category.key]
+    if (featureIds.size > 0) {
+      const terminalNode: TerminalSankeyNode = {
+        id: category.id,
+        type: 'terminal',
+        position: 'rightmost',
+        featureIds: featureIds,
+        featureCount: featureIds.size,
+        parentId: 'need_revision',
+        depth: 3,
+        tagName: category.tagName,
+        color: causeColors[category.tagName] || '#999999'
+      }
+      nodes.push(terminalNode)
+
+      // Link: need_revision → terminal node
+      links.push({
+        source: 'need_revision',
+        target: category.id,
+        value: featureIds.size
+      })
+    }
+  }
+
+  return {
+    nodes,
+    links,
+    currentStage: 4
   }
 }

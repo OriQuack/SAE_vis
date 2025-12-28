@@ -623,7 +623,13 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       return
     }
 
-    // 2. Only allow rightmost vertical bar nodes
+    // 2. Disable selection at Stage 4
+    if (sankeyStructure.currentStage === 4) {
+      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - selection disabled at Stage 4')
+      return
+    }
+
+    // 3. Only allow rightmost vertical bar nodes
     if (node.node_type !== 'vertical_bar') {
       console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not a vertical bar node')
       return
@@ -640,7 +646,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       return
     }
 
-    // 3. Skip root and placeholder nodes
+    // 4. Skip root and placeholder nodes
     if (node.id === 'root' || node.id === 'placeholder_vertical_bar') {
       console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - root or placeholder node')
       return
@@ -648,7 +654,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
     event.stopPropagation()
 
-    // 4. Check if this node is already selected (toggle behavior)
+    // 5. Check if this node is already selected (toggle behavior)
     const isAlreadySelected = tableSelectedNodeIds.includes(node.id)
 
     if (isAlreadySelected) {
@@ -674,7 +680,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     // 6. Select node and activate category (atomic operation with single-select)
     selectNodeWithCategory(node.id, category)
     console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Selected node with category:', node.id, category)
-  }, [panel, data, tableSelectedNodeIds, selectNodeWithCategory, getNodeCategory])
+  }, [panel, data, tableSelectedNodeIds, selectNodeWithCategory, getNodeCategory, sankeyStructure.currentStage])
 
   // Render
   if (error) {
@@ -709,57 +715,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     return null
   }
 
-  // Get tag color and name for header badge based on current stage
-  const currentStage = sankeyStructure?.currentStage || 1
-  let tagCategory, tagName
-  if (currentStage >= 3) {
-    tagCategory = TAG_CATEGORY_QUALITY
-    tagName = 'Need Revision'
-  } else if (currentStage >= 2) {
-    tagCategory = TAG_CATEGORY_QUALITY
-    tagName = 'Well-Explained'
-  } else {
-    tagCategory = TAG_CATEGORY_FEATURE_SPLITTING
-    tagName = 'Fragmented'
-  }
-  const tagColor = getTagColor(tagCategory, tagName) || (currentStage >= 2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
-
   return (
     <div className={`sankey-diagram ${className}`}>
       <div className="view-header">
-        <span className="view-title">Filter</span>
-        <span className="view-description">
-          Drag the{' '}
-          <svg
-            className="view-threshold-icon"
-            width="24"
-            height="16"
-            viewBox="0 0 24 16"
-            style={{ verticalAlign: 'middle', marginRight: '0px' }}
-          >
-            <rect
-              x="1"
-              y="1"
-              width="22"
-              height="14"
-              rx="3"
-              fill={SANKEY_COLORS.THRESHOLD_ICON_FILL}
-              stroke={SANKEY_COLORS.THRESHOLD_ICON_STROKE}
-              strokeWidth="1.5"
-            />
-            <line x1="6" y1="5" x2="18" y2="5" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-            <line x1="6" y1="8" x2="18" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-            <line x1="6" y1="11" x2="18" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-          {' '}to set a threshold for potential{' '}
-          <span
-            className="view-tag-badge"
-            style={{ backgroundColor: tagColor }}
-          >
-            {tagName}
-          </span>
-          {' '}features
-        </span>
+        <span className="view-title">Overview</span>
       </div>
       <div
         ref={setContainerRef}
@@ -905,7 +864,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       onClick={(e) => handleNodeSelectionClick(e, node)}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
-                      currentStage={currentStage}
+                      currentStage={sankeyStructure.currentStage}
                     />
                   )
                 })

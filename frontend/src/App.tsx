@@ -6,10 +6,11 @@ import AlluvialDiagram from './components/AlluvialDiagram'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
 import CauseView from './components/CauseView'
+import RegenerationView from './components/RegenerationView'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
 import SelectionPanel from './components/SelectionPanel'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_REGENERATION } from './lib/constants'
 import type { SelectionCategory } from './types'
 import type { TableStage } from './lib/color-utils'
 import * as api from './api'
@@ -114,6 +115,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   const currentStage: TableStage = activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? 'stage1'
     : activeStageCategory === TAG_CATEGORY_QUALITY ? 'stage2'
     : activeStageCategory === TAG_CATEGORY_CAUSE ? 'stage3'
+    : activeStageCategory === TAG_CATEGORY_REGENERATION ? 'stage4'
     : 'stage1'
 
   const commitHistory = currentStage === 'stage1' ? stage1CommitHistory
@@ -229,82 +231,90 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           />
         </div>
 
-        {/* Bottom Section - Sankey + Selection Panel + Table */}
-        <div className="sankey-view__main-content">
-          {/* Left Column - Sankey + SelectionPanel (side by side) */}
-          <div className="sankey-view__sankey-column">
-            <div className="sankey-view__sankey-left">
-              <SankeyDiagram
-                flowDirection="left-to-right"
-                panel="left"
-                onSegmentRefsReady={setSankeySegmentRefs}
-              />
-            </div>
-            <div className="sankey-view__selection-panel">
-              <SelectionPanel
-                stage={currentStage}
-                onCategoryRefsReady={setSelectionCategoryRefs}
-                filteredFeatureIds={selectedFeatureIds || undefined}
-                commitHistory={commitHistory}
-                currentCommitIndex={currentCommitIndex}
-                onCommitClick={handleCommitClick}
-              />
-            </div>
+        {/* Bottom Section - Conditional layout based on active stage */}
+        {activeStageCategory === TAG_CATEGORY_REGENERATION ? (
+          /* Stage 4: Full-width two-row layout */
+          <div className="sankey-view__main-content sankey-view__main-content--full-width">
+            <RegenerationView />
           </div>
-
-          {/* Right Column - Table */}
-          <div className="sankey-view__table-column">
-            <div className="sankey-view__center-left">
-              {/* Conditional Rendering: Feature Split View, Quality View, or Cause View */}
-              {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
-                <FeatureSplitView />
-              ) : activeStageCategory === TAG_CATEGORY_QUALITY ? (
-                <QualityView />
-              ) : activeStageCategory === TAG_CATEGORY_CAUSE ? (
-                <CauseView />
-              ) : (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
-                  Select a stage to begin
-                </div>
-              )}
-
-              {/* Comparison Overlay - Alluvial + Right Sankey */}
-              {showComparisonView && (
-                <div className="comparison-overlay">
-                  {/* Alluvial Panel */}
-                  <div className="comparison-overlay__alluvial">
-                    <AlluvialDiagram
-                      className="sankey-view__alluvial"
-                    />
-                  </div>
-
-                  {/* Right Sankey Diagram */}
-                  <div className="comparison-overlay__sankey">
-                    <SankeyDiagram
-                      flowDirection="right-to-left"
-                      panel="right"
-                    />
-                  </div>
-
-                  {/* Close Button */}
-                  <button
-                    className="comparison-overlay__close"
-                    onClick={toggleComparisonView}
-                    title="Hide comparison view"
-                  >
-                    ◀
-                  </button>
-                </div>
-              )}
+        ) : (
+          /* Stages 1-3: Two-column layout (Sankey left + View right) */
+          <div className="sankey-view__main-content">
+            {/* Left Column - Sankey + SelectionPanel (side by side) */}
+            <div className="sankey-view__sankey-column">
+              <div className="sankey-view__sankey-left">
+                <SankeyDiagram
+                  flowDirection="left-to-right"
+                  panel="left"
+                  onSegmentRefsReady={setSankeySegmentRefs}
+                />
+              </div>
+              <div className="sankey-view__selection-panel">
+                <SelectionPanel
+                  stage={currentStage}
+                  onCategoryRefsReady={setSelectionCategoryRefs}
+                  filteredFeatureIds={selectedFeatureIds || undefined}
+                  commitHistory={commitHistory}
+                  currentCommitIndex={currentCommitIndex}
+                  onCommitClick={handleCommitClick}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Flow Overlay - Visualizes flows from Sankey segments to SelectionBar */}
-          <SankeyToSelectionFlowOverlay
-            segmentRefs={sankeySegmentRefs}
-            categoryRefs={selectionCategoryRefs}
-          />
-        </div>
+            {/* Right Column - Table */}
+            <div className="sankey-view__table-column">
+              <div className="sankey-view__center-left">
+                {/* Conditional Rendering: Feature Split View, Quality View, or Cause View */}
+                {activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? (
+                  <FeatureSplitView />
+                ) : activeStageCategory === TAG_CATEGORY_QUALITY ? (
+                  <QualityView />
+                ) : activeStageCategory === TAG_CATEGORY_CAUSE ? (
+                  <CauseView />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
+                    Select a stage to begin
+                  </div>
+                )}
+
+                {/* Comparison Overlay - Alluvial + Right Sankey */}
+                {showComparisonView && (
+                  <div className="comparison-overlay">
+                    {/* Alluvial Panel */}
+                    <div className="comparison-overlay__alluvial">
+                      <AlluvialDiagram
+                        className="sankey-view__alluvial"
+                      />
+                    </div>
+
+                    {/* Right Sankey Diagram */}
+                    <div className="comparison-overlay__sankey">
+                      <SankeyDiagram
+                        flowDirection="right-to-left"
+                        panel="right"
+                      />
+                    </div>
+
+                    {/* Close Button */}
+                    <button
+                      className="comparison-overlay__close"
+                      onClick={toggleComparisonView}
+                      title="Hide comparison view"
+                    >
+                      ◀
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Flow Overlay - Visualizes flows from Sankey segments to SelectionBar */}
+            <SankeyToSelectionFlowOverlay
+              segmentRefs={sankeySegmentRefs}
+              categoryRefs={selectionCategoryRefs}
+            />
+          </div>
+        )}
       </div>
 
     </div>
