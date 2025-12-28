@@ -122,10 +122,6 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
 
   return (
     <div className={`overview-summary ${className}`}>
-      <div className="view-header">
-        <span className="view-title">Summary</span>
-      </div>
-
       <div className="overview-summary__content">
         {/* Stage 1 */}
         <div className="overview-summary__stage">
