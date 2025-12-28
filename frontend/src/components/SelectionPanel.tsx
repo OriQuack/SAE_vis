@@ -195,25 +195,26 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   // Extract well-explained feature IDs from Stage 3 segment (for effective category)
   const wellExplainedFeatureIds = useMemo(() => {
     if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
-    if (stage3Node?.segments?.[1]?.featureIds) {
+    const stage3Node = sankeyStructure.nodes.find((n) => n.id === 'stage3_segment')
+    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
       return stage3Node.segments[1].featureIds
     }
     return new Set<number>()
   }, [sankeyStructure])
 
   // Helper: get effective category for a feature (considering margin threshold and well-explained segment)
+  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
   type EffectiveCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | 'unsure'
   const getEffectiveCategory = (featureId: number): EffectiveCategory => {
-    // Priority 1: Well-explained from Stage 3 segment
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
     const category = causeSelectionStates.get(featureId)
     const source = causeSelectionSources.get(featureId)
     const isManual = source === 'manual'
 
-    // Priority 2: Manual tags respected
+    // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
+
+    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
 
     // Priority 3: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {

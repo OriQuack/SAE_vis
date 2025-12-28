@@ -214,17 +214,17 @@ const CauseView: React.FC<CauseViewProps> = ({
   type EffectiveCategory = CauseCategory | 'unsure'
 
   // Get effective category for a feature (considering margin threshold and well-explained segment)
-  // Priority: well-explained (Stage 3 segment) > manual tags > auto-tags with margin check > unsure
+  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
   const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
-    // Priority 1: Well-explained from Stage 3 segment
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
     const category = causeSelectionStates.get(featureId)
     const source = causeSelectionSources.get(featureId)
     const isManual = source === 'manual'
 
-    // Priority 2: Manual tags respected
+    // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
+
+    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
 
     // Priority 3: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
@@ -742,8 +742,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     createCommit('tagAll')
 
     // 2. Apply tags to all selected features (effect will sync to current commit)
+    // isActualManual=false because this is a batch operation (lasso selection)
     umapBrushedFeatureIds.forEach(featureId => {
-      setCauseCategory(featureId, category)
+      setCauseCategory(featureId, category, false)
     })
   }, [umapBrushedFeatureIds, setCauseCategory, createCommit])
 
@@ -779,8 +780,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
 
     // 3. Apply all updates in a single state change
+    // isActualManual=false because this is a batch operation (decision boundary)
     if (batchUpdates.size > 0) {
-      setCauseCategoriesBatch(batchUpdates)
+      setCauseCategoriesBatch(batchUpdates, false)
     }
     // Effect will sync changes to current commit
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategoriesBatch, createCommit])
@@ -798,13 +800,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     createCommit('verify')
 
     // 2. Tag all wellExplainedFeatureIds that don't have a different manual tag
+    // isActualManual=false because this is a batch operation (verify all candidates)
     wellExplainedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip if manually tagged as something else
       if (source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained') {
         return
       }
-      setCauseCategory(featureId, 'well-explained')
+      setCauseCategory(featureId, 'well-explained', false)
     })
 
     // 3. Switch filter to show cause categories (hide well-explained, show causes + unsure)

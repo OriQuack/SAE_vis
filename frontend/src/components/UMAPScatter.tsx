@@ -233,18 +233,18 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }, [sankeyStructure])
 
   // Helper: get effective category for a feature (considering margin threshold)
-  // Priority: well-explained (Stage 3 segment) > manual tags > auto-tags with margin check > unsure
+  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
-    // Well-explained from Stage 3 segment takes highest priority
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
     const isManual = manuallyTaggedIds.has(featureId)
     const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
 
-    // Manual tags are respected
+    // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // For auto-tagged features, check margin threshold
+    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
+    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
+
+    // Priority 3: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {

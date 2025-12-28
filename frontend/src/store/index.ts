@@ -125,8 +125,8 @@ interface AppState {
   causeSelectionSources: Map<number, 'manual' | 'auto'>
   // Metric scores for each feature (for sorting/visualization)
   causeMetricScores: Map<number, CauseMetricScores>
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
-  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => void
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null, isActualManual?: boolean) => void
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>, isActualManual?: boolean) => void
   clearCauseSelection: () => void
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
@@ -1014,7 +1014,7 @@ export const useStore = create<AppState>((set, get) => {
     console.log('[Store.initializeCauseMetricScores] Metric scores calculated, all features start as unsure')
   },
 
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => {
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null, isActualManual: boolean = true) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
@@ -1029,7 +1029,10 @@ export const useStore = create<AppState>((set, get) => {
         // Set the specific category
         newStates.set(featureId, category)
         newSources.set(featureId, 'manual')
-        newManuallyTagged.add(featureId)
+        // Only add to manuallyTaggedCauses if truly manual (direct user click)
+        if (isActualManual) {
+          newManuallyTagged.add(featureId)
+        }
       }
 
       return {
@@ -1040,7 +1043,7 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => {
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>, isActualManual: boolean = true) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
@@ -1049,7 +1052,10 @@ export const useStore = create<AppState>((set, get) => {
       updates.forEach((category, featureId) => {
         newStates.set(featureId, category)
         newSources.set(featureId, 'manual')
-        newManuallyTagged.add(featureId)
+        // Only add to manuallyTaggedCauses if truly manual (direct user click)
+        if (isActualManual) {
+          newManuallyTagged.add(featureId)
+        }
       })
 
       return {
