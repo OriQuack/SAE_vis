@@ -172,7 +172,7 @@ async def get_cause_classification(feature_ids, cause_selections):
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (11 files)
+│   ├── api/                       # API endpoints (9 files)
 │   │   ├── __init__.py           # Router aggregation
 │   │   ├── feature_groups.py     # Feature grouping
 │   │   ├── cluster_candidates.py # Clustering endpoint
@@ -181,13 +181,11 @@ backend/
 │   │   ├── histogram.py          # Histogram data
 │   │   ├── table.py              # Table data
 │   │   ├── activation_examples.py # Activation data
-│   │   ├── comparison.py         # Comparison view data
-│   │   ├── llm_comparison.py     # LLM comparison
 │   │   └── umap.py               # UMAP projections
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
 │   │   └── responses.py          # Response models
-│   └── services/                  # Business logic (11 files)
+│   └── services/                  # Business logic (13 files)
 │       ├── data_service.py           # Data loading + initialization
 │       ├── data_constants.py         # Metric definitions
 │       ├── feature_group_service.py  # Feature grouping
@@ -199,7 +197,8 @@ backend/
 │       ├── alignment_service.py      # Explanation alignment
 │       ├── activation_cache_service.py # Cached activation data
 │       ├── umap_service.py           # Barycentric projection + SVM classification
-│       └── consistency_service.py    # Consistency metrics
+│       ├── consistency_service.py    # Consistency metrics
+│       └── pair_similarity_service.py # Pair SVM scoring (19-dimensional vectors)
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
 └── requirements.txt               # Dependencies

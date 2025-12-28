@@ -74,15 +74,16 @@ store/
 └── utils.ts                          # Store helper functions
 ```
 
-## 3-Stage Tagging Workflow
+## 4-Stage Tagging Workflow
 
-The application implements a 3-stage workflow for tagging features:
+The application implements a 4-stage workflow for tagging features:
 
 | Stage | Component | Mode | Items | Tags |
 |-------|-----------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
 | 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+| 4. Summary/Regeneration | `RegenerationView.tsx` | Summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis (CauseView)
 - **UMAP Scatter**: Barycentric projection visualization with density contours
@@ -91,6 +92,11 @@ The application implements a 3-stage workflow for tagging features:
 - **Manual Tagging**: Click features to assign cause categories
 - **SVM Classification**: After tagging 1+ feature per category, SVM predicts remaining
 - **Contour Update**: Contours show predicted category distributions after classification
+
+### Stage 4: Summary/Regeneration (RegenerationView)
+- **OverviewSummary**: Shows manual vs auto tagging breakdown per tag across all stages
+- **SankeyDiagram**: Final flow visualization with all stages
+- **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category
 
 ### Shared Components Across Stages
 Both Stage 1 and Stage 2 share the same layout pattern:
@@ -102,7 +108,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (25 files)
+├── components/                    # React Components (27 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -128,7 +134,9 @@ frontend/src/
 │   ├── QualityScoreBreakdown.tsx # Score breakdown
 │   ├── ModalityIndicator.tsx     # Modality detection display
 │   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
-│   └── FlowPanel.tsx             # Flow panel for stage transitions
+│   ├── FlowPanel.tsx             # Flow panel for stage transitions
+│   ├── RegenerationView.tsx      # Stage 4: Regeneration overview
+│   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
 ├── lib/                          # Utilities (32 files)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
@@ -172,7 +180,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (24 files)
+├── styles/                       # CSS Files (25 files)
 │   ├── base.css                  # Base styles, CSS variables
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
@@ -196,7 +204,9 @@ frontend/src/
 │   ├── ExplainerComparisonGrid.css # Comparison grid styles
 │   ├── FlowPanel.css             # Flow panel styles
 │   ├── TagAutomaticPopover.css   # Legacy popover styles
-│   └── AppHeader.css             # Header styles
+│   ├── AppHeader.css             # Header styles
+│   ├── RegenerationView.css      # Stage 4 regeneration styles
+│   └── OverviewSummary.css       # Stage 4 summary styles
 ├── types.ts                      # TypeScript types
 ├── api.ts                        # API client
 └── main.tsx                      # Entry point
@@ -260,6 +270,16 @@ frontend/src/
 - Cross-explainer flow visualization
 - Appears in comparison overlay
 - Hover interaction with Sankey diagrams
+
+**RegenerationView.tsx** - Stage 4: Summary
+- Layout with SankeyDiagram + OverviewSummary
+- Shows final tagging results overview
+- Displays Sankey with all completed stages
+
+**OverviewSummary.tsx** - Tagging Statistics
+- Manual vs auto tagging breakdown per tag
+- Aggregates counts across all 3 tagging stages
+- Shows fragmented/monosemantic, well-explained/need-revision, cause categories
 
 ### Selection & Tagging
 

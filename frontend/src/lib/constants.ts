@@ -193,7 +193,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     relatedMetrics: [],
     description: "Regeneration stage for feature explanation improvement",
     parentTagForNextStage: null,
-    instruction: "Regeneration stage",
+    instruction: "Regenerate explanations with identified causes",
     tagColors: {},
     parentTag: null
   }

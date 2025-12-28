@@ -46,7 +46,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
 │  • D3.js Visualizations (Sankey, Histograms, Alluvial, Flow Overlay)     │
-│  • 3-Stage Tag Workflow: Feature Splitting → Quality → Cause              │
+│  • 4-Stage Tag Workflow: Feature Splitting → Quality → Cause → Summary   │
 │  • SVM-Based Similarity Scoring with Bimodality Detection                 │
 │  • Commit History for tagging state snapshots                             │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -154,18 +154,18 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (26 files)
-│   │   ├── lib/          # D3 utilities, helpers (19 files)
+│   │   ├── components/    # UI components (27 files)
+│   │   ├── lib/          # D3 utilities, helpers (32 files)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (23 files)
+│   │   ├── styles/       # CSS files (25 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (11 files)
+│   │   ├── api/          # Endpoints (9 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (11 files)
+│   │   └── services/     # Business logic (13 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── master/           # Primary parquet files
@@ -203,16 +203,17 @@ npm run dev -- --port 3003
 - **Quality View**: Stage 2 - Feature quality assessment
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
-- **Tag Stage Panel**: 3-stage navigation (Feature Splitting → Quality → Cause)
+- **Tag Stage Panel**: 4-stage navigation (Feature Splitting → Quality → Cause → Summary)
 - **Commit History**: Save and restore tagging state snapshots
 
-### 3-Stage Tagging Workflow
+### 4-Stage Tagging Workflow
 
 | Stage | View | Mode | Items | Tags |
 |-------|------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
 | 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+| 4. Summary | `RegenerationView` | Summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis
 - **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 5D metric space)
@@ -220,6 +221,11 @@ npm run dev -- --port 3003
 - **Manual Tagging**: User tags features into cause categories
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
 - **Contour Visualization**: Shows category distributions on UMAP after classification
+
+### Stage 4: Summary/Regeneration
+- **OverviewSummary**: Manual vs auto tagging breakdown per tag across all stages
+- **SankeyDiagram**: Final flow visualization with all completed stages
+- **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category
 
 ### SVM-Based Similarity Scoring
 Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
