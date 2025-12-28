@@ -495,6 +495,117 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
   },
 
   /**
+   * Update Stage 3 Sankey structure when user verifies well-explained features.
+   * Merges verified features into well_explained_terminal node and creates
+   * a link from need_revision → well_explained_terminal.
+   *
+   * @param verifiedFeatureIds - Feature IDs verified as well-explained
+   * @param panel - Which panel to update
+   */
+  updateStage3WithVerifiedWellExplained: (
+    verifiedFeatureIds: Set<number>,
+    panel: PanelSide = PANEL_LEFT
+  ) => {
+    const state = get()
+    const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
+    const { sankeyStructure } = state[panelKey]
+
+    console.log('[updateStage3WithVerifiedWellExplained] 🔄 Updating Sankey with verified features:', {
+      verifiedCount: verifiedFeatureIds.size
+    })
+
+    if (!sankeyStructure || verifiedFeatureIds.size === 0) {
+      console.warn('[updateStage3WithVerifiedWellExplained] ⚠️ No structure or no features to verify')
+      return
+    }
+
+    // Find relevant nodes
+    const wellExplainedTerminal = sankeyStructure.nodes.find(n => n.id === 'well_explained_terminal')
+    const _stage3Segment = sankeyStructure.nodes.find(n => n.id === 'stage3_segment')
+
+    if (!wellExplainedTerminal) {
+      console.warn('[updateStage3WithVerifiedWellExplained] ⚠️ well_explained_terminal node not found')
+      return
+    }
+
+    // 1. Merge verified features into well_explained_terminal
+    const mergedFeatureIds = new Set([...wellExplainedTerminal.featureIds, ...verifiedFeatureIds])
+
+    // 2. Update stage3_segment.segments[1] to remove verified features (if exists)
+    let updatedNodes = sankeyStructure.nodes.map(node => {
+      if (node.id === 'well_explained_terminal') {
+        return {
+          ...node,
+          featureIds: mergedFeatureIds,
+          featureCount: mergedFeatureIds.size
+        }
+      }
+      if (node.id === 'stage3_segment' && node.type === 'segment' && node.segments) {
+        // Remove verified features from segments[1] (above threshold / well-explained candidates)
+        const updatedSegments = node.segments.map((seg, idx) => {
+          if (idx === 1) {
+            const remainingFeatures = new Set<number>()
+            seg.featureIds.forEach(id => {
+              if (!verifiedFeatureIds.has(id)) {
+                remainingFeatures.add(id)
+              }
+            })
+            return {
+              ...seg,
+              featureIds: remainingFeatures,
+              featureCount: remainingFeatures.size
+            }
+          }
+          return seg
+        })
+        return {
+          ...node,
+          segments: updatedSegments
+        }
+      }
+      return node
+    })
+
+    // 3. Add link from need_revision → well_explained_terminal if not exists
+    let updatedLinks = [...sankeyStructure.links]
+    const existingLink = updatedLinks.find(
+      l => l.source === 'need_revision' && l.target === 'well_explained_terminal'
+    )
+
+    if (existingLink) {
+      // Update existing link value
+      existingLink.value += verifiedFeatureIds.size
+    } else {
+      // Add new link
+      updatedLinks.push({
+        source: 'need_revision',
+        target: 'well_explained_terminal',
+        value: verifiedFeatureIds.size
+      })
+    }
+
+    // Store updated structure
+    set((storeState: any) => ({
+      [panelKey]: {
+        ...storeState[panelKey],
+        sankeyStructure: {
+          ...sankeyStructure,
+          nodes: updatedNodes,
+          links: updatedLinks
+        }
+      }
+    }))
+
+    // Recompute D3 layout
+    get().recomputeD3StructureV2(panel)
+
+    console.log('[updateStage3WithVerifiedWellExplained] ✅ Sankey updated:', {
+      wellExplainedCount: mergedFeatureIds.size,
+      newLinkAdded: !existingLink
+    })
+  },
+
+  /**
    * Update threshold for a specific stage without rebuilding downstream stages.
    * Only recalculates segments for the affected stage.
    *

@@ -84,6 +84,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Cause category selection action
   const setCauseCategory = useVisualizationStore(state => state.setCauseCategory)
+  const setCauseCategoriesBatch = useVisualizationStore(state => state.setCauseCategoriesBatch)
   const initializeCauseMetricScores = useVisualizationStore(state => state.initializeCauseMetricScores)
 
   // SVM decision margins for auto-tagging by decision boundary
@@ -111,10 +112,14 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const hasAutoTaggedRef = useRef(false)
 
+  // Track if well-explained verification has been done (disable button after click)
+  const [hasVerifiedWellExplained, setHasVerifiedWellExplained] = useState(false)
+
   // Filter state: which categories to show (shared with UMAPScatter)
+  // Initially show only well-explained (above threshold) for user to verify
   type FilterCategory = CauseCategory | 'unsure'
   const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
-    new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'well-explained', 'unsure'])
+    new Set(['well-explained'])
   )
 
   // ============================================================================
@@ -752,7 +757,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('apply')
 
-    // 2. For each feature in selectedFeatureIds, if not manually tagged, assign highest margin category
+    // 2. Collect all updates in a batch map
+    const batchUpdates = new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>()
+
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip manually tagged features
@@ -768,15 +775,44 @@ const CauseView: React.FC<CauseViewProps> = ({
       const [bestCategory] = entries.reduce((best, curr) =>
         curr[1] > best[1] ? curr : best
       )
-      setCauseCategory(featureId, bestCategory as CauseCategory)
+      batchUpdates.set(featureId, bestCategory as CauseCategory)
     })
+
+    // 3. Apply all updates in a single state change
+    if (batchUpdates.size > 0) {
+      setCauseCategoriesBatch(batchUpdates)
+    }
     // Effect will sync changes to current commit
-  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, createCommit])
+  }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategoriesBatch, createCommit])
 
   // Handle next stage navigation (Stage 3 -> Stage 4)
   const handleNextStage = useCallback(() => {
     moveToNextStep()
   }, [moveToNextStep])
+
+  // Verify well-explained: tag all above-threshold candidates that aren't already tagged differently
+  const handleVerifyWellExplained = useCallback(() => {
+    console.log('[CauseView] Verify Well-Explained clicked')
+
+    // 1. Create new commit
+    createCommit('verify')
+
+    // 2. Tag all wellExplainedFeatureIds that don't have a different manual tag
+    wellExplainedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip if manually tagged as something else
+      if (source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained') {
+        return
+      }
+      setCauseCategory(featureId, 'well-explained')
+    })
+
+    // 3. Switch filter to show cause categories (hide well-explained, show causes + unsure)
+    setVisibleCategories(new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'unsure']))
+
+    // 4. Disable button after click
+    setHasVerifiedWellExplained(true)
+  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
 
   // Count how many remaining features will be tagged to each category by decision boundary
   const boundaryTagCounts = useMemo(() => {
@@ -812,6 +848,19 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     return counts
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources])
+
+  // Count how many features will be verified as well-explained
+  const verifyWellExplainedCount = useMemo(() => {
+    let count = 0
+    wellExplainedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Count if not already manually tagged as something else
+      if (!(source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained')) {
+        count++
+      }
+    })
+    return count
+  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates])
 
   // Memoize featureIds array to prevent unnecessary UMAPScatter re-renders
   // Array.from creates a new array reference on every call, so we memoize it
@@ -908,7 +957,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 sortConfig={{ getDisplayScore }}
                 currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
                 isActive={activeListSource === 'selected'}
-                emptyMessage="Brush to select"
+                emptyMessage="Select a cell with features"
                 pageNavigation={{
                   currentPage: selectedPage,
                   totalPages: selectedTotalPages,
@@ -1089,9 +1138,36 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
-                {/* Row 1: Tag Selected Cell */}
+                {/* Row 1: Verify Well-Explained (single button, no subheader) */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header">Tag Remaining in Selected Cell as</span>
+                  <div className="cause-view__action-row">
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
+                        onClick={handleVerifyWellExplained}
+                        disabled={wellExplainedFeatureIds.size === 0 || hasVerifiedWellExplained}
+                        title="Confirm above-threshold features as Well-Explained"
+                      >
+                        Verify Threshold as Well-Explained
+                      </button>
+                      <div className="action-button__legend">
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                          <span className="action-button__legend-count">{verifyWellExplainedCount}</span>
+                        </span>
+                        <span className="action-button__legend-arrow">→</span>
+                        <span className="action-button__legend-item">
+                          <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
+                          <span className="action-button__legend-count">{verifyWellExplainedCount}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 2: Tag Selected Cell (multiple buttons, keep subheader) */}
+                <div className="cause-view__action-section">
+                  <span className="cause-view__action-header">Tag Selected Cell as</span>
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
@@ -1159,9 +1235,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Row 2: Tag All Remaining */}
+                {/* Row 3: Tag All Remaining (single button, no subheader) */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header">Tag All Remaining</span>
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
@@ -1170,7 +1245,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         disabled={!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                         title="Auto-tag remaining features using SVM decision boundary"
                       >
-                        By SVM Boundary
+                        Tag All Remaining by SVM
                       </button>
                       <div className="action-button__legend">
                         <span className="action-button__legend-item">

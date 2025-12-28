@@ -7,7 +7,7 @@ import { useState, useCallback, useEffect } from 'react'
 
 export type SelectionState = 'selected' | 'rejected'
 export type SelectionSource = 'manual' | 'auto'
-export type CommitType = 'initial' | 'apply' | 'tagAll'
+export type CommitType = 'initial' | 'apply' | 'tagAll' | 'verify'
 
 // CauseCategory for Stage 3 (multi-class instead of binary)
 export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
@@ -63,13 +63,13 @@ interface UseCommitHistoryReturn<TStates, TSources, TCounts = void> {
   /** Update current commit in-place with current store state (for manual tag sync) */
   updateCurrentCommit: () => void
   /** Create a new commit with current store state */
-  createCommit: (type: 'apply' | 'tagAll') => void
+  createCommit: (type: 'apply' | 'tagAll' | 'verify') => void
   /** Restore state from a specific commit */
   restoreCommit: (index: number) => void
   /** Combined handler: restore target commit (for commit circle clicks) */
   handleCommitClick: (index: number) => void
   /** Create commit after async operation (use in setTimeout) */
-  createCommitAsync: (type: 'apply' | 'tagAll') => void
+  createCommitAsync: (type: 'apply' | 'tagAll' | 'verify') => void
 }
 
 const DEFAULT_MAX_COMMITS = 10

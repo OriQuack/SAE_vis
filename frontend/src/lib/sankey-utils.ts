@@ -760,11 +760,13 @@ export function convertToD3Format(
   }
 
   // 4. Create D3 sankey generator
+  // nodeSort(null) preserves original node order and prevents reordering when links change
   const sankeyGenerator = sankey<any, any>()
     .nodeWidth(15)
     .nodePadding(10)
     .extent([[1, 1], [innerWidth - 1, innerHeight - 1]])
     .nodeAlign((node: any) => node.stage || 0)
+    .nodeSort(null)
 
   // 5. Process with D3
   const sankeyLayout = sankeyGenerator({

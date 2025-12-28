@@ -126,6 +126,7 @@ interface AppState {
   // Metric scores for each feature (for sorting/visualization)
   causeMetricScores: Map<number, CauseMetricScores>
   setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => void
   clearCauseSelection: () => void
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
@@ -1030,6 +1031,26 @@ export const useStore = create<AppState>((set, get) => {
         newSources.set(featureId, 'manual')
         newManuallyTagged.add(featureId)
       }
+
+      return {
+        causeSelectionStates: newStates,
+        causeSelectionSources: newSources,
+        manuallyTaggedCauses: newManuallyTagged
+      }
+    })
+  },
+
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => {
+    set((state) => {
+      const newStates = new Map(state.causeSelectionStates)
+      const newSources = new Map(state.causeSelectionSources)
+      const newManuallyTagged = new Set(state.manuallyTaggedCauses)
+
+      updates.forEach((category, featureId) => {
+        newStates.set(featureId, category)
+        newSources.set(featureId, 'manual')
+        newManuallyTagged.add(featureId)
+      })
 
       return {
         causeSelectionStates: newStates,

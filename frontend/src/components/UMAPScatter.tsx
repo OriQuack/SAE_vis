@@ -225,8 +225,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // stage3_segment.segments[1] = "Well-Explained" (above threshold)
   const wellExplainedFeatureIds = useMemo(() => {
     if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
-    if (stage3Node?.segments?.[1]?.featureIds) {
+    const stage3Node = sankeyStructure.nodes.find((n) => n.id === 'stage3_segment')
+    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
       return stage3Node.segments[1].featureIds
     }
     return new Set<number>()
@@ -620,7 +620,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
         {/* Margin threshold slider */}
         <div className="umap-scatter__threshold-slider">
-          <label>Margin: {causeMarginThreshold.toFixed(2)}</label>
+          <label>Unsure Boundary: {causeMarginThreshold.toFixed(2)}</label>
           <input
             type="range"
             min={0}

@@ -835,6 +835,14 @@ export function buildStage4FromTaggedStates(
     { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' }
   ]
 
+  // Find index of first terminal node to insert cause terminals before it
+  // This ensures cause terminals appear ABOVE existing terminals (well_explained, fragmented)
+  const firstTerminalIndex = nodes.findIndex(n => n.type === 'terminal')
+  const insertIndex = firstTerminalIndex >= 0 ? firstTerminalIndex : nodes.length
+
+  // Collect all cause terminal nodes first
+  const causeTerminalNodes: TerminalSankeyNode[] = []
+
   for (const category of causeCategories) {
     const featureIds = causeSets[category.key]
     if (featureIds.size > 0) {
@@ -849,7 +857,7 @@ export function buildStage4FromTaggedStates(
         tagName: category.tagName,
         color: causeColors[category.tagName] || '#999999'
       }
-      nodes.push(terminalNode)
+      causeTerminalNodes.push(terminalNode)
 
       // Link: need_revision → terminal node
       links.push({
@@ -859,6 +867,9 @@ export function buildStage4FromTaggedStates(
       })
     }
   }
+
+  // Insert cause terminals before existing terminals
+  nodes.splice(insertIndex, 0, ...causeTerminalNodes)
 
   return {
     nodes,
