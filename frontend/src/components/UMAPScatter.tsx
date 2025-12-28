@@ -157,7 +157,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Store handles memoization: skips API call if same featureIds already fetched
     fetchUmapProjection(featureIds)
-  }, [featureIds, fetchUmapProjection, clearUmapProjection])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
+  }, [featureIds])
 
   // Fetch SVM classification when manual tags change (separate from positions)
   useEffect(() => {
@@ -171,7 +172,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     if (featureIds.length >= 3 && canUseDecisionSpace) {
       fetchCauseClassification(featureIds, manualCauseSelections)
     }
-  }, [featureIds, canUseDecisionSpace, manualCauseSelections, fetchCauseClassification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
+  }, [featureIds, canUseDecisionSpace, manualCauseSelections])
 
   // Compute D3 scales using fixed barycentric triangle bounds
   const scales = useMemo(() => {

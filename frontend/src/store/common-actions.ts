@@ -491,6 +491,10 @@ export const createCommonActions = (set: any, get: any) => ({
       metric: category.metric
     })
 
+    // Set activeStageCategory immediately to ensure React components render with correct stage
+    // This must happen BEFORE activating stages to prevent race conditions
+    set({ activeStageCategory: categoryId })
+
     // V2: Check if stage is already active in v2 system, activate if needed
     const sankeyStructure = get().leftPanel.sankeyStructure
     const currentStage = sankeyStructure?.currentStage || 1

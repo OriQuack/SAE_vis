@@ -91,6 +91,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
 
+  // Stage navigation
+  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
+
   // Shared margin threshold from store (used by UMAPScatter and SelectionPanel)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
 
@@ -244,7 +247,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Calculate metric scores only (features start as unsure)
     initializeCauseMetricScores(selectedFeatureIds)
     hasAutoTaggedRef.current = true
-  }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples, initializeCauseMetricScores])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
+  }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples])
 
   // ============================================================================
   // AUTO-TRIGGER SVM CLASSIFICATION - Train with anchor points on entry
@@ -269,7 +273,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     // Trigger classification with empty selections (backend uses anchors as baseline)
     fetchCauseClassification(Array.from(selectedFeatureIds), {})
-  }, [isRevisitingStage3, selectedFeatureIds, causeClassificationLoading, fetchCauseClassification])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
+  }, [isRevisitingStage3, selectedFeatureIds, causeClassificationLoading])
 
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
@@ -307,7 +312,8 @@ const CauseView: React.FC<CauseViewProps> = ({
         }
       })
     }
-  }, [isRevisitingStage3, stage3FinalCommit, selectedFeatureIds, setStage3FinalCommit, causeSelectionStates, causeSelectionSources])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
+  }, [isRevisitingStage3, stage3FinalCommit, selectedFeatureIds, causeSelectionStates, causeSelectionSources])
 
 
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
@@ -767,10 +773,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Effect will sync changes to current commit
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategory, createCommit])
 
-  // Handle next stage navigation (placeholder for Stage 4)
+  // Handle next stage navigation (Stage 3 -> Stage 4)
   const handleNextStage = useCallback(() => {
-    // TODO: Implement Stage 4 navigation
-  }, [])
+    moveToNextStep()
+  }, [moveToNextStep])
 
   // Count how many remaining features will be tagged to each category by decision boundary
   const boundaryTagCounts = useMemo(() => {
@@ -806,6 +812,12 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     return counts
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources])
+
+  // Memoize featureIds array to prevent unnecessary UMAPScatter re-renders
+  // Array.from creates a new array reference on every call, so we memoize it
+  const stableFeatureIds = useMemo(() => {
+    return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
+  }, [selectedFeatureIds])
 
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
@@ -873,7 +885,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             {/* UMAP wrapper - contains scatter and overlay */}
             <div className="cause-view__umap-wrapper">
               <UMAPScatter
-                featureIds={selectedFeatureIds ? Array.from(selectedFeatureIds) : []}
+                featureIds={stableFeatureIds}
                 className="cause-view__umap"
                 selectedFeatureId={selectedFeatureData?.featureId ?? null}
                 visibleCategories={visibleCategories}

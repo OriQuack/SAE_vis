@@ -21,3 +21,14 @@
   display: flex;
   overflow: hidden;
 }
+
+/* Sankey takes 3/4, Summary takes 1/4 */
+.regeneration-view__bottom .sankey-diagram {
+  flex: 3;
+  min-width: 0;
+}
+
+.regeneration-view__bottom .overview-summary {
+  flex: 1;
+  min-width: 220px;
+}

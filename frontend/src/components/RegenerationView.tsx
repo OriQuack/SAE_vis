@@ -1,5 +1,6 @@
 import React from 'react'
 import SankeyDiagram from './SankeyDiagram'
+import OverviewSummary from './OverviewSummary'
 import '../styles/RegenerationView.css'
 
 interface RegenerationViewProps {
@@ -17,6 +18,7 @@ const RegenerationView: React.FC<RegenerationViewProps> = ({ className = '' }) =
           flowDirection="left-to-right"
           panel="left"
         />
+        <OverviewSummary />
       </div>
     </div>
   )

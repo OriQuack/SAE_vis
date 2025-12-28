@@ -798,13 +798,38 @@ export function buildStage4FromTaggedStates(
   // Get tag colors for cause categories
   const causeColors = getTagColors(TAG_CATEGORY_CAUSE)
 
-  // Copy existing nodes except stage3_segment
-  const nodes: SimplifiedSankeyNode[] = stage3Structure.nodes.filter(n => n.id !== 'stage3_segment')
+  // Get features tagged 'well-explained' in Stage 3 - these merge back to Stage 2's Well-Explained
+  const wellExplainedFromCause = causeSets['well-explained']
+
+  // Copy existing nodes except stage3_segment, merging well-explained cause features
+  const nodes: SimplifiedSankeyNode[] = stage3Structure.nodes
+    .filter(n => n.id !== 'stage3_segment')
+    .map(n => {
+      // Merge Stage 3 well-explained features into existing well_explained_terminal
+      if (n.id === 'well_explained_terminal' && wellExplainedFromCause.size > 0) {
+        const mergedFeatureIds = new Set([...n.featureIds, ...wellExplainedFromCause])
+        return {
+          ...n,
+          featureIds: mergedFeatureIds,
+          featureCount: mergedFeatureIds.size
+        } as SimplifiedSankeyNode
+      }
+      return n
+    })
+
   const links: SankeyLink[] = [...stage3Structure.links.filter(l => l.target !== 'stage3_segment')]
 
-  // Create terminal nodes for each cause category (only if they have features)
+  // Add link from need_revision → well_explained_terminal for cause well-explained features
+  if (wellExplainedFromCause.size > 0) {
+    links.push({
+      source: 'need_revision',
+      target: 'well_explained_terminal',
+      value: wellExplainedFromCause.size
+    })
+  }
+
+  // Create terminal nodes for cause categories (excluding well-explained, which merges to Stage 2)
   const causeCategories = [
-    { id: 'well_explained_cause_terminal', tagName: 'Well-Explained', key: 'well-explained' },
     { id: 'noisy_activation_terminal', tagName: 'Noisy Activation', key: 'noisy-activation' },
     { id: 'context_miss_terminal', tagName: 'Context Miss', key: 'missed-context' },
     { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' }

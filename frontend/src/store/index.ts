@@ -129,6 +129,13 @@ interface AppState {
   clearCauseSelection: () => void
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
+
+  // Truly manually tagged items (direct user clicks, not threshold-applied)
+  // Used for Stage 4 summary to distinguish manual vs auto tagging
+  manuallyTaggedPairs: Set<string>      // Stage 1: pair keys
+  manuallyTaggedFeatures: Set<number>   // Stage 2: feature IDs
+  manuallyTaggedCauses: Set<number>     // Stage 3: feature IDs
+
   // Comparison view state
   showComparisonView: boolean
   toggleComparisonView: () => void
@@ -519,6 +526,11 @@ const initialState = {
   causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
   causeMetricScores: new Map<number, CauseMetricScores>(),
 
+  // Truly manually tagged items (direct user clicks, not threshold-applied)
+  manuallyTaggedPairs: new Set<string>(),
+  manuallyTaggedFeatures: new Set<number>(),
+  manuallyTaggedCauses: new Set<number>(),
+
   // Comparison view state
   showComparisonView: false,
 
@@ -877,20 +889,24 @@ export const useStore = create<AppState>((set, get) => {
     set((state) => {
       const newStates = new Map(state.featureSelectionStates)
       const newSources = new Map(state.featureSelectionSources)
+      const newManuallyTagged = new Set(state.manuallyTaggedFeatures)
       const currentState = newStates.get(featureId)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(featureId, 'selected')
         newSources.set(featureId, 'manual')
+        newManuallyTagged.add(featureId)
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(featureId, 'rejected')
         newSources.set(featureId, 'manual')
+        newManuallyTagged.add(featureId)
       } else {
         // rejected -> null (remove from map)
         newStates.delete(featureId)
         newSources.delete(featureId)
+        newManuallyTagged.delete(featureId)
       }
 
       // Clear last sorted selection signature when selection changes
@@ -898,6 +914,7 @@ export const useStore = create<AppState>((set, get) => {
       return {
         featureSelectionStates: newStates,
         featureSelectionSources: newSources,
+        manuallyTaggedFeatures: newManuallyTagged,
         lastSortedSelectionSignature: null,
         doneFeatureSelectionStates: null
       }
@@ -914,25 +931,30 @@ export const useStore = create<AppState>((set, get) => {
         : `${similarFeatureId}-${mainFeatureId}`
       const newStates = new Map(state.pairSelectionStates)
       const newSources = new Map(state.pairSelectionSources)
+      const newManuallyTagged = new Set(state.manuallyTaggedPairs)
       const currentState = newStates.get(pairKey)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(pairKey, 'selected')
         newSources.set(pairKey, 'manual')
+        newManuallyTagged.add(pairKey)
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(pairKey, 'rejected')
         newSources.set(pairKey, 'manual')
+        newManuallyTagged.add(pairKey)
       } else {
         // rejected -> null (remove from map)
         newStates.delete(pairKey)
         newSources.delete(pairKey)
+        newManuallyTagged.delete(pairKey)
       }
 
       return {
         pairSelectionStates: newStates,
         pairSelectionSources: newSources,
+        manuallyTaggedPairs: newManuallyTagged,
         donePairSelectionStates: null
       }
     })
@@ -995,20 +1017,24 @@ export const useStore = create<AppState>((set, get) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
+      const newManuallyTagged = new Set(state.manuallyTaggedCauses)
 
       if (category === null) {
         // Clear the selection
         newStates.delete(featureId)
         newSources.delete(featureId)
+        newManuallyTagged.delete(featureId)
       } else {
         // Set the specific category
         newStates.set(featureId, category)
         newSources.set(featureId, 'manual')
+        newManuallyTagged.add(featureId)
       }
 
       return {
         causeSelectionStates: newStates,
-        causeSelectionSources: newSources
+        causeSelectionSources: newSources,
+        manuallyTaggedCauses: newManuallyTagged
       }
     })
   },
