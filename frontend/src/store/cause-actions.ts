@@ -11,6 +11,64 @@ import { PANEL_LEFT } from '../lib/constants'
  */
 export const createCauseActions = (set: any, get: any) => ({
   // ============================================================================
+  // CAUSE COUNTS GETTER
+  // ============================================================================
+
+  /**
+   * Get feature counts from cause selection states
+   * Returns: { noisyActivation, missedNgram, missedContext, wellExplained, unsure, total } + manual/auto breakdown
+   * Used by TagStagePanel for consistent counts
+   *
+   * NOTE: Stage 3 is different from Stage 1 & 2:
+   * - Stage 1 & 2 use getSelectedNodeFeatures() because selection states map to threshold segments
+   * - Stage 3 iterates causeSelectionStates directly (features from need_revision node are fixed)
+   */
+  getCauseCounts: () => {
+    const state = get()
+    const { causeSelectionStates, causeSelectionSources } = state
+
+    let noisyActivation = 0, missedNgram = 0, missedContext = 0, wellExplained = 0
+    let noisyActivationManual = 0, noisyActivationAuto = 0
+    let missedNgramManual = 0, missedNgramAuto = 0
+    let missedContextManual = 0, missedContextAuto = 0
+    let wellExplainedManual = 0, wellExplainedAuto = 0
+
+    // Iterate directly over causeSelectionStates (not filtered by current selection)
+    // This matches how OverviewSummary.tsx counts Stage 3 tags
+    causeSelectionStates.forEach((category, featureId) => {
+      const source = causeSelectionSources.get(featureId) || 'manual'
+
+      if (category === 'noisy-activation') {
+        noisyActivation++
+        if (source === 'manual') noisyActivationManual++
+        else noisyActivationAuto++
+      } else if (category === 'missed-N-gram') {
+        missedNgram++
+        if (source === 'manual') missedNgramManual++
+        else missedNgramAuto++
+      } else if (category === 'missed-context') {
+        missedContext++
+        if (source === 'manual') missedContextManual++
+        else missedContextAuto++
+      } else if (category === 'well-explained') {
+        wellExplained++
+        if (source === 'manual') wellExplainedManual++
+        else wellExplainedAuto++
+      }
+    })
+
+    return {
+      noisyActivation, missedNgram, missedContext, wellExplained,
+      unsure: 0,  // No "unsure" in causeSelectionStates (only tagged features are stored)
+      total: causeSelectionStates.size,
+      noisyActivationManual, noisyActivationAuto,
+      missedNgramManual, missedNgramAuto,
+      missedContextManual, missedContextAuto,
+      wellExplainedManual, wellExplainedAuto
+    }
+  },
+
+  // ============================================================================
   // CAUSE SIMILARITY SORT ACTION
   // ============================================================================
 

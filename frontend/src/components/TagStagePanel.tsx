@@ -39,12 +39,14 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Get store getters for consistent counts with SelectionBar
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts);
   const getQualityCounts = useVisualizationStore(state => state.getQualityCounts);
+  const getCauseCounts = useVisualizationStore(state => state.getCauseCounts);
 
   // Subscribe to selection states to trigger re-render when tagging changes
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates);
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates);
+  const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates);
 
-  // Get sankeyStructure for threshold-filtered counts (non-selected portion)
+  // Get sankeyStructure for threshold-filtered counts (auto-considered features)
   const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure);
 
   // Check if threshold preview is active
@@ -72,17 +74,19 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return counts;
   };
 
-  // Calculate tag counts: selection states + non-selected threshold-filtered features
+  /**
+   * Calculate tag counts with hierarchical structure:
+   * - Below threshold (continuation tag) = explicitly tagged + ALL features in segment (auto-considered)
+   * - Above threshold (terminal tag) = ONLY explicitly tagged
+   */
   const getTagCounts = (category: TagCategoryConfig): Record<string, number> => {
     if (category.id === 'feature_splitting') {
       const fsCounts = getFeatureSplittingCounts();
-
-      // Try segment counts first (stage 1 active), then fixed node counts (stage 2+)
       const segmentCounts = getSegmentCounts('stage1_segment');
       const hasSegments = Object.keys(segmentCounts).length > 0;
 
       if (hasSegments) {
-        // Stage 1 active: use segment counts
+        // Stage 1 active: Monosemantic segment (below threshold) is auto-considered
         return {
           'Fragmented': fsCounts.fragmented,
           'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
@@ -90,7 +94,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       } else {
         // Stage 2+: stage 1 completed, use fixed node counts
         return {
-          'Fragmented': fsCounts.fragmented + getNodeFeatureCount('fragmented'),
+          'Fragmented': fsCounts.fragmented + getNodeFeatureCount('fragmented_terminal'),
           'Monosemantic': fsCounts.monosemantic + getNodeFeatureCount('monosemantic')
         };
       }
@@ -98,13 +102,11 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
     if (category.id === 'quality') {
       const qCounts = getQualityCounts();
-
-      // Try segment counts first (stage 2 active), then fixed node counts (stage 3+)
       const segmentCounts = getSegmentCounts('stage2_segment');
       const hasSegments = Object.keys(segmentCounts).length > 0;
 
       if (hasSegments) {
-        // Stage 2 active: use segment counts
+        // Stage 2 active: Need Revision segment (below threshold) is auto-considered
         return {
           'Well-Explained': qCounts.wellExplained,
           'Need Revision': qCounts.needRevision + (segmentCounts['Need Revision'] || 0)
@@ -112,13 +114,37 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       } else {
         // Stage 3+: stage 2 completed, use fixed node counts
         return {
-          'Well-Explained': qCounts.wellExplained + getNodeFeatureCount('well_explained'),
+          'Well-Explained': qCounts.wellExplained + getNodeFeatureCount('well_explained_terminal'),
           'Need Revision': qCounts.needRevision + getNodeFeatureCount('need_revision')
         };
       }
     }
 
-    // Stage 3 (cause): TODO - use causeSelectionStates when implemented
+    if (category.id === 'cause') {
+      const cCounts = getCauseCounts();
+      const segmentCounts = getSegmentCounts('stage3_segment');
+      const hasSegments = Object.keys(segmentCounts).length > 0;
+
+      if (hasSegments) {
+        // Stage 3 active: Well-Explained segment (above threshold) is auto-considered
+        return {
+          'Noisy Activation': cCounts.noisyActivation,
+          'Pattern Miss': cCounts.missedNgram,
+          'Context Miss': cCounts.missedContext,
+          'Well-Explained': segmentCounts['Well-Explained'] || 0
+        };
+      } else {
+        // Stage 4: use tagged counts
+        return {
+          'Noisy Activation': cCounts.noisyActivation,
+          'Pattern Miss': cCounts.missedNgram,
+          'Context Miss': cCounts.missedContext,
+          'Well-Explained': cCounts.wellExplained
+        };
+      }
+    }
+
+    // Stage 4 (regeneration) or unknown: return empty counts
     const counts: Record<string, number> = {};
     category.tags.forEach((tag) => {
       counts[tag] = 0;
@@ -140,8 +166,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return selectedStage ? stageOrder > selectedStage.stageOrder : true;
   };
 
-  // Compute tag counts for ALL stages
-  // Combines selection states + threshold-filtered counts from Sankey
+  // Compute tag counts for ALL stages with hierarchical structure
   const allTagCounts = useMemo(() => {
     const counts: Record<string, Record<string, number>> = {};
     for (const stage of stages) {
@@ -149,7 +174,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     }
     return counts;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stages, getFeatureSplittingCounts, getQualityCounts, pairSelectionStates, featureSelectionStates, sankeyStructure]);
+  }, [stages, getFeatureSplittingCounts, getQualityCounts, getCauseCounts, pairSelectionStates, featureSelectionStates, causeSelectionStates, sankeyStructure]);
 
   // Compute tag nodes for each stage
   const nodesByStage = useMemo(() => {

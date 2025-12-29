@@ -585,6 +585,128 @@ export function buildStage3(
 }
 
 /**
+ * Build Stage 3 using actual tagged feature states instead of threshold segments.
+ *
+ * This should be called when transitioning from Quality to Cause stage with existing tags.
+ * Uses featureSelectionStates to derive:
+ * - Well-Explained: features tagged as 'selected'
+ * - Need Revision: features tagged as 'rejected' OR untagged
+ *
+ * @param stage2Structure - Previous stage structure
+ * @param featureSelectionStates - Map of feature_id -> 'selected' | 'rejected'
+ * @param monosematicFeatureIds - Features from monosemantic node (Stage 1 → Stage 2)
+ * @returns Sankey structure for Stage 3
+ */
+export function buildStage3FromTaggedStates(
+  stage2Structure: SankeyStructure,
+  featureSelectionStates: Map<number, 'selected' | 'rejected'>,
+  monosematicFeatureIds: Set<number>
+): SankeyStructure {
+  // 1. Derive Well-Explained and Need Revision sets from feature selection states
+  const wellExplainedIds = new Set<number>()
+  const needRevisionIds = new Set<number>()
+
+  for (const featureId of monosematicFeatureIds) {
+    const state = featureSelectionStates.get(featureId)
+    if (state === 'selected') {
+      wellExplainedIds.add(featureId)
+    } else {
+      // 'rejected' or untagged → Need Revision
+      needRevisionIds.add(featureId)
+    }
+  }
+
+  console.log('[buildStage3FromTaggedStates] Feature sets derived from tagged states:', {
+    wellExplained: wellExplainedIds.size,
+    needRevision: needRevisionIds.size,
+    total: monosematicFeatureIds.size
+  })
+
+  // Get tag colors from quality category
+  const qualityColors = getTagColors(TAG_CATEGORY_QUALITY)
+
+  // Copy existing nodes except the stage2 segment
+  const nodes: SimplifiedSankeyNode[] = stage2Structure.nodes.filter(n => n.id !== 'stage2_segment')
+  const links: SankeyLink[] = [...stage2Structure.links.filter(l => l.target !== 'stage2_segment')]
+
+  // 2. Create Need Revision node (regular)
+  const needRevisionNode: RegularSankeyNode = {
+    id: 'need_revision',
+    type: 'regular',
+    featureIds: needRevisionIds,
+    featureCount: needRevisionIds.size,
+    parentId: 'monosemantic',
+    depth: 2,
+    tagName: 'Need Revision',
+    color: qualityColors['Need Revision'] || '#999999'
+  }
+  nodes.push(needRevisionNode)
+
+  // Link: monosemantic → need_revision
+  links.push({
+    source: 'monosemantic',
+    target: 'need_revision',
+    value: needRevisionIds.size
+  })
+
+  // 3. Create Well-Explained terminal node
+  const wellExplainedNode: TerminalSankeyNode = {
+    id: 'well_explained_terminal',
+    type: 'terminal',
+    position: 'rightmost',
+    featureIds: wellExplainedIds,
+    featureCount: wellExplainedIds.size,
+    parentId: 'monosemantic',
+    depth: 2,
+    tagName: 'Well-Explained',
+    color: qualityColors['Well-Explained'] || '#4CAF50'
+  }
+  nodes.push(wellExplainedNode)
+
+  // Link: monosemantic → well_explained
+  links.push({
+    source: 'monosemantic',
+    target: 'well_explained_terminal',
+    value: wellExplainedIds.size
+  })
+
+  // 4. Create Cause segment node (only if need_revision has features)
+  // Initially empty segments - will be populated when threshold is applied via updateStage3Threshold
+  if (needRevisionNode.featureCount > 0) {
+    const causeSegmentNode: SegmentSankeyNode = {
+      id: 'stage3_segment',
+      type: 'segment',
+      metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for histogram display
+      threshold: null,  // Will be set when quality scores are fetched
+      parentId: 'need_revision',
+      depth: 3,
+      featureIds: needRevisionIds,
+      featureCount: needRevisionIds.size,
+      segments: []  // Empty initially - populated by updateStage3Threshold when threshold is applied
+    }
+    nodes.push(causeSegmentNode)
+
+    // Link: need_revision → cause segment
+    links.push({
+      source: 'need_revision',
+      target: 'stage3_segment',
+      value: needRevisionIds.size
+    })
+  }
+
+  // Filter out nodes with 0 features and their associated links
+  const filteredNodes = nodes.filter(n => n.featureCount > 0)
+  const filteredNodeIds = new Set(filteredNodes.map(n => n.id))
+  const filteredLinks = links.filter(l => filteredNodeIds.has(l.source) && filteredNodeIds.has(l.target))
+
+  return {
+    nodes: filteredNodes,
+    links: filteredLinks,
+    currentStage: 3
+  }
+}
+
+/**
  * Update threshold for a specific stage without rebuilding downstream stages.
  * Only recalculates segments for the affected stage using API.
  *

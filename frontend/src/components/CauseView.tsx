@@ -887,7 +887,7 @@ const CauseView: React.FC<CauseViewProps> = ({
           >
             Well-Explained
           </span>
-          {' '}features. Then, identify root cause for features that{' '}
+          {' '}features. Identify root cause for features that{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: needRevisionColor }}
@@ -1352,7 +1352,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             disabled={!allTagged}
             title={allTagged ? 'Proceed to Stage 4' : `Tag all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
           >
-            Move to Stage 4 Summary ↑
+            Move to Stage 4 Regeneration ↑
           </button>
         </div>
       </div>

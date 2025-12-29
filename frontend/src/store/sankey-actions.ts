@@ -15,6 +15,7 @@ import {
   buildStage2,
   buildStage2FromTaggedStates,
   buildStage3,
+  buildStage3FromTaggedStates,
   buildStage4FromTaggedStates,
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
@@ -362,6 +363,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     const state = get()
     const panelKey = panel === PANEL_LEFT ? 'leftPanel' : 'rightPanel'
     const { sankeyStructure } = state[panelKey]
+    const { featureSelectionStates } = state
     const loadingKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
     const errorKey = panel === PANEL_LEFT ? 'sankeyLeft' : 'sankeyRight'
 
@@ -388,8 +390,30 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     state.clearError(errorKey)
 
     try {
-      // Build Stage 3 from current structure
-      const stage3Structure = buildStage3(sankeyStructure)
+      // Build Stage 3 using tagged feature states OR fallback to threshold-based
+      let stage3Structure: SankeyStructure
+
+      // Get monosemantic node to know which features to consider
+      const monosematicNode = sankeyStructure.nodes.find(n => n.id === 'monosemantic')
+
+      console.log('[activateStage3] DEBUG: Feature selection states:', {
+        size: featureSelectionStates.size,
+        monosematicFeatures: monosematicNode?.featureCount || 0
+      })
+
+      if (monosematicNode && featureSelectionStates.size > 0) {
+        // Use tagged states for the Well-Explained/Need Revision split
+        console.log('[activateStage3] Using tagged states for Well-Explained/Need Revision split')
+        stage3Structure = buildStage3FromTaggedStates(
+          sankeyStructure,
+          featureSelectionStates,
+          monosematicNode.featureIds
+        )
+      } else {
+        // Fallback to threshold-based split (for initialization or when no tags exist)
+        console.log('[activateStage3] Fallback: Using threshold-based split (no feature selections)')
+        stage3Structure = buildStage3(sankeyStructure)
+      }
 
       console.log(`[activateStage3] ✅ Stage 3 built:`, {
         nodes: stage3Structure.nodes.length,

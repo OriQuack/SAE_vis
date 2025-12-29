@@ -187,6 +187,7 @@ interface AppState {
   sortPairsBySimilarity: (allPairKeys: string[]) => Promise<void>
   getFeatureSplittingCounts: () => { fragmented: number; monosemantic: number; unsure: number; total: number; fragmentedManual: number; fragmentedAuto: number; monosematicManual: number; monosematicAuto: number }
   getQualityCounts: () => { wellExplained: number; needRevision: number; unsure: number; total: number; wellExplainedManual: number; wellExplainedAuto: number; needRevisionManual: number; needRevisionAuto: number }
+  getCauseCounts: () => { noisyActivation: number; missedNgram: number; missedContext: number; wellExplained: number; unsure: number; total: number; noisyActivationManual: number; noisyActivationAuto: number; missedNgramManual: number; missedNgramAuto: number; missedContextManual: number; missedContextAuto: number; wellExplainedManual: number; wellExplainedAuto: number }
   sortCauseBySimilarity: () => Promise<void>
   fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
@@ -649,6 +650,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose Cause actions (Stage 3 - Multi-class)
   sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
+  getCauseCounts: causeActions.getCauseCounts,
 
   // Compose UMAP actions (Stage 3 - Scatter plot)
   fetchUmapProjection: causeActions.fetchUmapProjection,
