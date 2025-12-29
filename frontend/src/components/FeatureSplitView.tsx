@@ -653,7 +653,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [pairList, currentPage, fetchActivationExamples])
+  }, [pairList, currentPage, fetchActivationExamples, setActiveListSource])
 
   // Unified boundary list click handler (for ThresholdTaggingPanel)
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
@@ -667,7 +667,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples])
+  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples, setActiveListSource])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Work with active list
@@ -701,7 +701,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // 4. Reset to first page/pair
     setCurrentPairIndex(0)
     setActiveListSource('all')
-  }, [createCommit, applySimilarityTags, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode, setActiveListSource])
 
   // handleCommitClick is provided by the hook
 

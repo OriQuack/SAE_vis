@@ -92,10 +92,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
         };
       } else {
-        // Stage 2+: stage 1 completed, use fixed node counts
+        // Stage 2+: stage 1 completed, use fixed node counts only
+        // Don't add fsCounts because when revisiting Stage 1, getSelectedNodeFeatures()
+        // returns restored feature IDs, causing double-counting
         return {
-          'Fragmented': fsCounts.fragmented + getNodeFeatureCount('fragmented_terminal'),
-          'Monosemantic': fsCounts.monosemantic + getNodeFeatureCount('monosemantic')
+          'Fragmented': getNodeFeatureCount('fragmented_terminal'),
+          'Monosemantic': getNodeFeatureCount('monosemantic')
         };
       }
     }
@@ -112,10 +114,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           'Need Revision': qCounts.needRevision + (segmentCounts['Need Revision'] || 0)
         };
       } else {
-        // Stage 3+: stage 2 completed, use fixed node counts
+        // Stage 3+: stage 2 completed, use fixed node counts only
+        // Don't add qCounts because getSelectedNodeFeatures() returns current stage's features (need_revision),
+        // not Stage 2's features, causing double-counting of features that have 'rejected' state
         return {
-          'Well-Explained': qCounts.wellExplained + getNodeFeatureCount('well_explained_terminal'),
-          'Need Revision': qCounts.needRevision + getNodeFeatureCount('need_revision')
+          'Well-Explained': getNodeFeatureCount('well_explained_terminal'),
+          'Need Revision': getNodeFeatureCount('need_revision')
         };
       }
     }

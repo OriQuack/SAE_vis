@@ -490,12 +490,12 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleNavigatePrevious = useCallback(() => {
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
     setActiveListSource('all')
-  }, [])
+  }, [setActiveListSource])
 
   const handleNavigateNext = useCallback(() => {
     setCurrentFeatureIndex(i => Math.min(sortedFeatures.length - 1, i + 1))
     setActiveListSource('all')
-  }, [sortedFeatures.length])
+  }, [sortedFeatures.length, setActiveListSource])
 
   // ============================================================================
   // TAG BUTTON HANDLERS
@@ -585,7 +585,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     const globalIndex = currentPage * ITEMS_PER_PAGE + index
     setCurrentFeatureIndex(globalIndex)
     setActiveListSource('all')
-  }, [currentPage, ITEMS_PER_PAGE])
+  }, [currentPage, ITEMS_PER_PAGE, setActiveListSource])
 
   // Render feature item for the ScrollableItemList
   // Score display is handled by ScrollableItemList's sortConfig
@@ -630,7 +630,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentFeatureIndex(index)
     }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove])
+  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, setActiveListSource])
 
   // ============================================================================
   // APPLY TAGS HANDLER
@@ -649,7 +649,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [createCommit, applySimilarityTags, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode, setActiveListSource])
 
   // ============================================================================
   // TAG ALL HANDLERS
