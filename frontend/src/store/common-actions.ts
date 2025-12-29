@@ -262,12 +262,6 @@ export const createCommonActions = (set: any, get: any) => ({
 
         const segment = segmentNode.segments[selectedSegment.segmentIndex]
         if (segment) {
-          console.log('[Store.getSelectedNodeFeatures] V2: Got features from selected segment:', {
-            nodeId: selectedSegment.nodeId,
-            segmentIndex: selectedSegment.segmentIndex,
-            segmentTag: segment.tagName,
-            featureCount: segment.featureIds.size
-          })
           return segment.featureIds
         }
       }

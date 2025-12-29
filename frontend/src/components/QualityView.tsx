@@ -91,14 +91,12 @@ const QualityView: React.FC<QualityViewProps> = ({
   const selectedFeatureIds = useMemo(() => {
     // If revisiting Stage 2 and we have stored feature IDs, use those
     if (isRevisitingStage2 && stage2FinalCommit?.featureIds) {
-      console.log('[QualityView] Using stored Stage 2 feature IDs:', stage2FinalCommit.featureIds.size)
       return stage2FinalCommit.featureIds
     }
 
     const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
     void _deps
     const features = getSelectedNodeFeatures()
-    console.log('[QualityView] Sankey segment features:', features?.size || 0)
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage2, stage2FinalCommit])
 
@@ -107,7 +105,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   useEffect(() => {
     // Only initialize when: not revisiting, no saved commit yet, and we have features
     if (!isRevisitingStage2 && !stage2FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0) {
-      console.log('[QualityView] Initializing Stage 2 commit with initial state:', selectedFeatureIds.size, 'features')
       setStage2FinalCommit({
         featureSelectionStates: new Map(),
         featureSelectionSources: new Map(),
@@ -280,7 +277,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
     })
 
-    const hasRequiredSelections = currentSelectedIds.length >= 1 && currentRejectedIds.length >= 1
+    const hasRequiredSelections = currentSelectedIds.length >= 3 && currentRejectedIds.length >= 3
 
     // Compute current signature to detect if scores are stale
     const currentSignature = `selected:${currentSelectedIds.sort((a, b) => a - b).join(',')}|rejected:${currentRejectedIds.sort((a, b) => a - b).join(',')}`
@@ -291,7 +288,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     const needsScores = scoresAreStale && featureList.length > 0
 
     if (hasRequiredSelections && needsScores) {
-      console.log('[QualityView] Computing similarity scores for', featureList.length, 'features (stale:', scoresAreStale, ')')
       sortBySimilarity()
     }
   }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])

@@ -162,20 +162,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
-  // Dependencies that change when thresholds update
+  // Dependencies for Stage 3 well-explained feature IDs
   const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
-  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
-  const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
 
   // Get filtered feature IDs - prefer prop if provided, otherwise use store's method
   const filteredFeatureIds = useMemo(() => {
-    // These dependencies are necessary to trigger recalculation when Sankey selection changes
-    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
-    void _deps  // Consume the variable to avoid unused-vars warning
-
-    // If prop is provided, use it (from FeatureSplitView)
+    // If prop is provided, use it directly (parent handles recalculation)
     if (propFilteredFeatureIds) {
-      console.log('[SelectionPanel] Using prop filteredFeatureIds:', propFilteredFeatureIds.size, 'features')
       return propFilteredFeatureIds
     }
 
@@ -184,13 +177,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     const featureIds = getSelectedNodeFeatures()
 
     if (!featureIds || featureIds.size === 0) {
-      console.log('[SelectionPanel] No selection or empty - showing all features')
       return null
     }
 
-    console.log('[SelectionPanel] filteredFeatureIds:', featureIds.size, 'features from getSelectedNodeFeatures()')
     return featureIds
-  }, [propFilteredFeatureIds, getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds])
+  }, [propFilteredFeatureIds, getSelectedNodeFeatures])
 
   // Extract well-explained feature IDs from Stage 3 segment (for effective category)
   const wellExplainedFeatureIds = useMemo(() => {
@@ -241,8 +232,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   // Calculate category counts
   const counts = useMemo((): CategoryCounts => {
-    console.log('[SelectionPanel.counts] useMemo triggered - stage:', stage, ', pairSelectionStates.size:', pairSelectionStates.size)
-
     let confirmed = 0
     let autoSelected = 0
     let rejected = 0
@@ -258,15 +247,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       rejected = fsCounts.monosematicManual
       autoRejected = fsCounts.monosematicAuto
       unsure = fsCounts.unsure
-
-      console.log('[SelectionPanel] Stage 1 counts from store:', fsCounts)
     } else if (stage === 'stage2' && tableData?.features) {
       // Stage 2: Quality Assessment - show feature counts directly
       const features = filteredFeatureIds
         ? tableData.features.filter((f: any) => filteredFeatureIds!.has(f.feature_id))
         : tableData.features
-
-      console.log('[SelectionPanel] Stage 2 - Total features:', tableData.features.length, ', Filtered features:', features.length, ', filteredFeatureIds:', filteredFeatureIds ? `${filteredFeatureIds.size} IDs` : 'null')
 
       features.forEach((feature: any) => {
         const featureId = feature.feature_id
@@ -301,7 +286,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     }
 
     const total = confirmed + autoSelected + rejected + autoRejected + unsure
-    console.log('[SelectionPanel] Final counts:', { confirmed, autoSelected, rejected, autoRejected, unsure, total })
     return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
   // Note: allClusterPairs and pairSelectionSources are needed because getFeatureSplittingCounts depends on them internally
   // eslint-disable-next-line react-hooks/exhaustive-deps

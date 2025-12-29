@@ -80,7 +80,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
     void _deps  // Consume the variable to avoid unused-vars warning
     const features = getSelectedNodeFeatures()
-    console.log('[FeatureSplitView] Sankey segment features:', features?.size || 0)
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
 
@@ -431,11 +430,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       featureIds.add(pair.similarFeatureId)
     })
 
-    console.log('[FeatureSplitView] Pre-fetching activation examples for page', currentPage + 1, ':', featureIds.size, 'features')
-
     // Fetch all at once (the store handles caching, won't re-fetch already cached)
     fetchActivationExamples(Array.from(featureIds))
-  }, [currentPagePairs, currentPage, fetchActivationExamples])
+  }, [currentPagePairs, fetchActivationExamples])
 
   // Auto-populate similarity scores when pair list is ready or selection states change
   useEffect(() => {
@@ -455,7 +452,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       }
     })
 
-    const hasRequiredSelections = currentSelectedKeys.length >= 1 && currentRejectedKeys.length >= 1
+    const hasRequiredSelections = currentSelectedKeys.length >= 3 && currentRejectedKeys.length >= 3
 
     // Compute current signature to detect if scores are stale
     const currentSignature = `selected:${currentSelectedKeys.sort().join(',')}|rejected:${currentRejectedKeys.sort().join(',')}`

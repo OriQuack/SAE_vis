@@ -75,6 +75,9 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
 
   const svgRef = useRef<SVGSVGElement>(null)
 
+  // Track last fetch signature to prevent duplicate fetches from cascading state updates
+  const lastFetchSignatureRef = useRef<string>('')
+
   // Use resize observer for responsive sizing (same pattern as SankeyDiagram)
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: 800,
@@ -175,15 +178,27 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
         // Clear histogram from both local state and store
         setLocalHistogramData(null)
         clearTagAutomaticHistogram()
+        lastFetchSignatureRef.current = ''  // Reset signature when cleared
         return
       }
 
+      // Compute signature based on fetch parameters to prevent duplicate fetches
+      // This handles cascading state updates (e.g., pairSelectionStates → stage1FinalCommit)
+      const fetchSignature = mode === 'pair'
+        ? `pair:${selectionCounts.selectedCount}:${selectionCounts.rejectedCount}:${filteredFeatureIds?.size || 0}:${threshold}`
+        : `feature:${selectionCounts.selectedCount}:${selectionCounts.rejectedCount}:${filteredFeatureIds?.size || 0}`
+
+      // Skip if we already fetched with these exact parameters
+      if (fetchSignature === lastFetchSignatureRef.current) {
+        return
+      }
+
+      lastFetchSignatureRef.current = fetchSignature
       setIsLocalLoading(true)
 
       try {
         if (mode === 'pair') {
           // Pair mode: Use existing fetchSimilarityHistogram from store
-          console.log('[DecisionMarginHistogram] Fetching pair histogram - features:', filteredFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', counts:', selectionCounts)
           const result = await fetchSimilarityHistogram(filteredFeatureIds, threshold)
           if (result) {
             setLocalHistogramData(result.histogramData)
@@ -198,8 +213,6 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
           }
         } else {
           // Feature mode: Call API directly for feature similarity histogram
-          console.log('[DecisionMarginHistogram] Fetching feature histogram - filtered features:', filteredFeatureIds?.size || 0, ', counts:', selectionCounts)
-
           // Extract selected and rejected feature IDs
           const selectedIds: number[] = []
           const rejectedIds: number[] = []
@@ -254,7 +267,6 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
 
     return () => clearTimeout(timeoutId)
     // Note: selectionCounts object excluded - we use the specific count values to avoid unnecessary refetches
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, selectionCounts.selectedCount, selectionCounts.rejectedCount, threshold, fetchSimilarityHistogram, updateBothSimilarityThresholds, setTagAutomaticHistogramData, clearTagAutomaticHistogram, filteredFeatureIds, featureSelectionStates, featureSelectionSources, pairSelectionStates, pairSelectionSources, isRevisitingStage1, stage1FinalCommit])
 
   // Calculate histogram layout and bars
