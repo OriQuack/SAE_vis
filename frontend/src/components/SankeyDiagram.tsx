@@ -115,7 +115,6 @@ const SankeyNode: React.FC<{
   node: D3SankeyNode
   onMouseEnter: (e: React.MouseEvent) => void
   onMouseLeave: () => void
-  onClick?: (e: React.MouseEvent) => void
   isHovered: boolean
   isHighlighted: boolean
   isSelected?: boolean
@@ -126,9 +125,8 @@ const SankeyNode: React.FC<{
   node,
   onMouseEnter,
   onMouseLeave,
-  onClick,
-  isHovered,
-  isHighlighted,
+  isHovered: _isHovered,
+  isHighlighted: _isHighlighted,
   isSelected = false,
   flowDirection: _flowDirection,
   animationDuration: _animationDuration,
@@ -162,13 +160,8 @@ const SankeyNode: React.FC<{
         fillOpacity={SANKEY_COLORS.NODE_OPACITY}
         stroke={isSelected ? SANKEY_COLORS.NODE_BORDER_SELECTED : SANKEY_COLORS.NODE_BORDER}
         strokeWidth={isSelected ? 3 : 1}
-        style={{
-          cursor: onClick ? 'pointer' : 'default',
-          filter: (isHovered || isHighlighted) ? 'brightness(1.1)' : 'none'
-        }}
         onMouseEnter={onMouseEnter}
         onMouseLeave={onMouseLeave}
-        onClick={onClick}
       />
     </g>
   )
@@ -209,7 +202,6 @@ const VerticalBarSankeyNode: React.FC<{
   node: D3SankeyNode
   scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
   flowDirection: 'left-to-right' | 'right-to-left'
-  onClick?: (e: React.MouseEvent) => void
   onMouseEnter?: (e: React.MouseEvent) => void
   onMouseLeave?: () => void
   isSelected?: boolean
@@ -219,9 +211,8 @@ const VerticalBarSankeyNode: React.FC<{
   sankeyStructure?: any | null  // V2: simplified structure
   selectedSegment?: { nodeId: string; segmentIndex: number } | null  // V2: segment selection
   optimisticSegments?: any[]  // V2: preview segments during threshold drag
-  onSegmentClick?: (nodeId: string, segmentIndex: number) => void  // Segment click handler
   segmentRefs?: React.MutableRefObject<Map<string, SVGRectElement>>  // Ref map for segments
-}> = ({ node, scrollState, flowDirection: _flowDirection, onClick, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments, onSegmentClick, segmentRefs }) => {
+}> = ({ node, scrollState, flowDirection: _flowDirection, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments, segmentRefs }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
@@ -258,10 +249,8 @@ const VerticalBarSankeyNode: React.FC<{
   return (
     <g
       className={`sankey-vertical-bar-node ${isSelected ? 'sankey-vertical-bar-node--selected' : ''} ${isHovered ? 'sankey-vertical-bar-node--hovered' : ''}`}
-      onClick={onClick}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      style={{ cursor: onClick ? 'pointer' : 'default' }}
     >
       {/* Render vertical bar with stage segments or as single unified rectangle */}
       {stageSegments.length > 0 ? (
@@ -290,15 +279,8 @@ const VerticalBarSankeyNode: React.FC<{
                 opacity={SANKEY_COLORS.NODE_OPACITY}
                 stroke={SANKEY_COLORS.SEGMENT_STROKE}
                 strokeWidth={1}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  if (onSegmentClick) {
-                    onSegmentClick(node.id, index)
-                  }
-                }}
                 style={{
-                  transition: 'all 300ms ease-out',
-                  cursor: onSegmentClick ? 'pointer' : 'default'
+                  transition: 'all 300ms ease-out'
                 }}
               >
                 <title>{`${segment.label}\n${segment.featureCount} features`}</title>
@@ -442,10 +424,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const tableData = useVisualizationStore(state => state.tableData)
   const {
     updateStageThreshold,
-    updateStage3QualityThreshold,
-    selectNodeWithCategory,
-    getNodeCategory,
-    setSelectedSankeySegment
+    updateStage3QualityThreshold
   } = useVisualizationStore()
 
   // Store refs to segment rectangles for external access (e.g., flow overlays)
@@ -607,80 +586,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
       updateStage3QualityThreshold(newThreshold)
     }
   }, [updateStageThreshold, updateStage3QualityThreshold, panel])
-
-  const handleNodeSelectionClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-    console.log('[SankeyDiagram.handleNodeSelectionClick] ⚡ CLICK EVENT FIRED!')
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🔍 Node clicked:', {
-      id: node.id,
-      node_type: node.node_type,
-      stage: node.stage,
-      panel: panel
-    })
-
-    // 1. Only allow selection in left panel
-    if (panel !== PANEL_LEFT) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not left panel')
-      return
-    }
-
-    // 2. Disable selection at Stage 4
-    if (sankeyStructure?.currentStage === 4) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - selection disabled at Stage 4')
-      return
-    }
-
-    // 3. Only allow rightmost vertical bar nodes
-    if (node.node_type !== 'vertical_bar') {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not a vertical bar node')
-      return
-    }
-
-    if (!data || !data.nodes) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ No data available')
-      return
-    }
-
-    const maxStage = Math.max(...data.nodes.map((n: any) => n.stage))
-    if (node.stage !== maxStage) {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - not a rightmost node (stage:', node.stage, ', maxStage:', maxStage, ')')
-      return
-    }
-
-    // 4. Skip root and placeholder nodes
-    if (node.id === 'root' || node.id === 'placeholder_vertical_bar') {
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Ignoring click - root or placeholder node')
-      return
-    }
-
-    event.stopPropagation()
-
-    // 5. Check if this node is already selected (toggle behavior)
-    const isAlreadySelected = tableSelectedNodeIds.includes(node.id)
-
-    if (isAlreadySelected) {
-      // Deselect: clear selection and active stage
-      console.log('[SankeyDiagram.handleNodeSelectionClick] 🔄 Node already selected - deselecting')
-      const { selectSingleNode, setActiveStageNode } = useVisualizationStore.getState()
-      selectSingleNode(null)
-      setActiveStageNode(null, null)
-      console.log('[SankeyDiagram.handleNodeSelectionClick] ✅ Node deselected, showing all features')
-      return
-    }
-
-    // 5. Get node category from tree
-    const category = getNodeCategory(node.id)
-
-    if (!category) {
-      console.warn('[SankeyDiagram.handleNodeSelectionClick] ⚠️ Cannot determine category for node:', node.id)
-      return
-    }
-
-    console.log('[SankeyDiagram.handleNodeSelectionClick] ✅ Category determined:', category)
-
-    // 6. Select node and activate category (atomic operation with single-select)
-    selectNodeWithCategory(node.id, category)
-    console.log('[SankeyDiagram.handleNodeSelectionClick] 🎯 Selected node with category:', node.id, category)
-  }, [panel, data, tableSelectedNodeIds, selectNodeWithCategory, getNodeCategory, sankeyStructure?.currentStage])
 
   // Render
   if (error) {
@@ -848,20 +753,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {(() => {
-                // Calculate maxStage once for all nodes
-                const maxStage = Math.max(...layout.nodes.map((n: any) => n.stage))
-
                 return layout.nodes.map((node) => {
                   const isHighlighted = hoveredAlluvialNodeId === node.id &&
                                       hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
                   const isSelected = panel === PANEL_LEFT && tableSelectedNodeIds.includes(node.id)
-
-                  // Determine if node is clickable (only rightmost vertical bars in left panel)
-                  const isClickable = panel === PANEL_LEFT &&
-                                      node.node_type === 'vertical_bar' &&
-                                      node.stage === maxStage &&
-                                      node.id !== 'root' &&
-                                      node.id !== 'placeholder_vertical_bar'
 
                   // Check if this is a vertical bar node
                   if (node.node_type === 'vertical_bar') {
@@ -870,15 +765,11 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     const shouldShowIndicator = isSelected
 
                     return (
-                      <g
-                        key={node.id}
-                        style={{ cursor: isClickable ? 'pointer' : 'not-allowed' }}
-                      >
+                      <g key={node.id}>
                         <VerticalBarSankeyNode
                           node={node}
                           scrollState={shouldShowIndicator ? tableScrollState : null}
                           flowDirection={flowDirection}
-                          onClick={(e) => handleNodeSelectionClick(e, node)}
                           onMouseEnter={() => setHoveredNodeId(node.id)}
                           onMouseLeave={() => setHoveredNodeId(null)}
                           isSelected={isSelected}
@@ -888,16 +779,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           sankeyStructure={sankeyStructure}
                           selectedSegment={selectedSegment}
                           optimisticSegments={optimisticSegments[node.id || '']}
-                          onSegmentClick={(nodeId, segmentIndex) => {
-                            // Only allow segment selection for left panel
-                            if (panel === PANEL_LEFT && setSelectedSankeySegment) {
-                              setSelectedSankeySegment({
-                                nodeId,
-                                segmentIndex,
-                                panel
-                              })
-                            }
-                          }}
                           segmentRefs={segmentRefs}
                         />
                       </g>
@@ -914,7 +795,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                       isSelected={isSelected}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
-                      onClick={(e) => handleNodeSelectionClick(e, node)}
                       flowDirection={flowDirection}
                       animationDuration={animationDuration}
                       currentStage={sankeyStructure?.currentStage}

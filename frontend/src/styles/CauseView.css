@@ -303,7 +303,7 @@
 .cause-view__explainer-block {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   gap: 6px;
 }
 

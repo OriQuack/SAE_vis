@@ -880,7 +880,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       <div className="view-header">
         <span className="view-title">Cause Analysis</span>
         <span className="view-description">
-          Update{' '}
+          Validate{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: wellExplainedColor }}

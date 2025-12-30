@@ -161,8 +161,12 @@ function assignConstantColors(): void {
       }
     }
 
-    // Store colors in TAG_CATEGORIES (mutate the object)
-    ;(TAG_CATEGORIES[category.id] as any).tagColors = colors
+    // Apply brightness adjustment to all colors and store in TAG_CATEGORIES
+    const brightenedColors: Record<string, string> = {}
+    for (const [tag, color] of Object.entries(colors)) {
+      brightenedColors[tag] = chroma(color).brighten(0.4).hex()
+    }
+    ;(TAG_CATEGORIES[category.id] as any).tagColors = brightenedColors
   }
 }
 

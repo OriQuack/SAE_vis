@@ -766,7 +766,7 @@ export function convertToD3Format(
     .nodePadding(10)
     .extent([[1, 1], [innerWidth - 1, innerHeight - 1]])
     .nodeAlign((node: any) => node.stage || 0)
-    .nodeSort(null)
+    .nodeSort(null as any)
 
   // 5. Process with D3
   const sankeyLayout = sankeyGenerator({

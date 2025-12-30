@@ -387,7 +387,7 @@ export const SANKEY_COLORS = {
   NODE_BORDER: '#d1d5db',             // Gray border for nodes (--border-thick)
   NODE_BORDER_SELECTED: '#2563eb',    // Blue border for selected nodes
   ROOT_FILL: '#e0e0e0',               // Root node fill (same as UNSURE_GRAY without alpha)
-  NODE_OPACITY: 0.85,                 // Slightly transparent for softer appearance
+  NODE_OPACITY: 1,                 // Slightly transparent for softer appearance
 
   // Segment colors
   SEGMENT_STROKE: '#ffffff',          // White stroke between segments
