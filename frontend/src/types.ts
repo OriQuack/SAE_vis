@@ -640,6 +640,15 @@ export interface SimilarityScoreHistogramResponse {
 }
 
 /**
+ * Flip Tracking Info - Tracks decision boundary stability over tagging iterations
+ */
+export interface FlipTrackingInfo {
+  flipHistory: Array<{ flipRate: number; isBatch: boolean }>  // max 15 iterations
+  flippedBins: Set<number>      // Bin indices with flips (current iteration)
+  previousPredictions: Map<number | string, 'selected' | 'rejected'>  // For next flip calc
+}
+
+/**
  * Similarity Histogram Request - Request for feature similarity histogram
  */
 export interface SimilarityHistogramRequest {

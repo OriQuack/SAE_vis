@@ -196,7 +196,8 @@ export const createQualityActions = (set: any, get: any) => ({
           selectThreshold: 0.1,
           rejectThreshold: -0.1,
           tagLabel,
-          isLoading: true
+          isLoading: true,
+          flipTracking: null
         }
       })
 
@@ -244,6 +245,24 @@ export const createQualityActions = (set: any, get: any) => ({
 
       // Update state with histogram data
       // Initialize with dual thresholds for auto-selecting and auto-rejecting
+      // Initialize flipTracking with empty history and current predictions
+      const currentState = get()
+      const existingFlipTracking = currentState.tagAutomaticState?.flipTracking
+
+      // Build initial predictions map based on SVM decision boundary (score >= 0)
+      // Use decision boundary not thresholds to track actual prediction changes
+      const initialPredictions = new Map<number, 'selected' | 'rejected'>()
+      Object.entries(histogramData.scores).forEach(([idStr, score]) => {
+        const featureId = parseInt(idStr, 10)
+        if (typeof score === 'number') {
+          if (score >= 0) {
+            initialPredictions.set(featureId, 'selected')
+          } else {
+            initialPredictions.set(featureId, 'rejected')
+          }
+        }
+      })
+
       set({
         tagAutomaticState: {
           visible: true,
@@ -254,7 +273,12 @@ export const createQualityActions = (set: any, get: any) => ({
           selectThreshold,
           rejectThreshold,
           tagLabel,
-          isLoading: false
+          isLoading: false,
+          flipTracking: existingFlipTracking || {
+            flipHistory: [],
+            flippedBins: new Set<number>(),
+            previousPredictions: initialPredictions
+          }
         }
       })
 
@@ -297,9 +321,62 @@ export const createQualityActions = (set: any, get: any) => ({
   /**
    * Set histogram data for feature mode (called by DecisionMarginHistogram)
    * Creates tagAutomaticState if it doesn't exist
+   * Also updates flip tracking to show Decision Stability indicator
    */
   setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => {
     const { tagAutomaticState } = get()
+
+    // Build current predictions from new scores
+    // Use decision boundary (score >= 0) not user thresholds, to track actual SVM prediction changes
+    const currentPredictions = new Map<number, 'selected' | 'rejected'>()
+    if (histogramData?.scores) {
+      Object.entries(histogramData.scores).forEach(([idStr, score]) => {
+        const featureId = parseInt(idStr, 10)
+        if (typeof score === 'number') {
+          // Track based on SVM decision boundary, not user thresholds
+          if (score >= 0) {
+            currentPredictions.set(featureId, 'selected')
+          } else {
+            currentPredictions.set(featureId, 'rejected')
+          }
+        }
+      })
+    }
+
+    // Calculate flip tracking update
+    const existingFlipTracking = tagAutomaticState?.flipTracking
+    let updatedFlipTracking: {
+      flipHistory: Array<{ flipRate: number; isBatch: boolean }>
+      flippedBins: Set<number>
+      previousPredictions: Map<number, 'selected' | 'rejected'>
+    }
+
+    if (existingFlipTracking && existingFlipTracking.previousPredictions.size > 0) {
+      // Calculate flips compared to previous predictions
+      let flips = 0
+      let total = 0
+      currentPredictions.forEach((curr, featureId) => {
+        const prev = existingFlipTracking.previousPredictions.get(featureId)
+        if (prev) {
+          total++
+          if (prev !== curr) flips++
+        }
+      })
+      const flipRate = total > 0 ? flips / total : 0
+
+      updatedFlipTracking = {
+        flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: false }].slice(-15),
+        flippedBins: new Set<number>(),
+        previousPredictions: currentPredictions
+      }
+    } else {
+      // First time - just initialize predictions
+      updatedFlipTracking = {
+        flipHistory: [],
+        flippedBins: new Set<number>(),
+        previousPredictions: currentPredictions
+      }
+    }
 
     set({
       tagAutomaticState: {
@@ -311,7 +388,8 @@ export const createQualityActions = (set: any, get: any) => ({
         selectThreshold,
         rejectThreshold,
         tagLabel: tagAutomaticState?.tagLabel ?? 'Well-Explained',
-        isLoading: false
+        isLoading: false,
+        flipTracking: updatedFlipTracking
       }
     })
   },
@@ -324,7 +402,7 @@ export const createQualityActions = (set: any, get: any) => ({
       return
     }
 
-    const { mode, selectThreshold, rejectThreshold, histogramData } = tagAutomaticState
+    const { mode, selectThreshold, rejectThreshold, histogramData, flipTracking } = tagAutomaticState
 
     // Only handle feature mode in this file
     if (mode !== 'feature') {
@@ -339,7 +417,61 @@ export const createQualityActions = (set: any, get: any) => ({
       reject: rejectThreshold
     })
 
-    // Apply tags to features (dual thresholds: auto-select and auto-reject)
+    // ============================================================================
+    // FLIP RATE CALCULATION - Before applying tags
+    // ============================================================================
+    let flips = 0
+    let totalEligible = 0
+    const flippedBins = new Set<number>()
+    const newPredictions = new Map<number, 'selected' | 'rejected'>()
+    const previousPredictions = flipTracking?.previousPredictions || new Map()
+
+    // Calculate current predictions and detect flips
+    // Use decision boundary (score >= 0) for consistent flip tracking
+    Object.entries(scores).forEach(([idStr, score]) => {
+      const featureId = parseInt(idStr, 10)
+      if (featureSelectionStates.has(featureId)) return // Skip already tagged
+
+      if (typeof score === 'number') {
+        // Track based on SVM decision boundary, not user thresholds
+        const currPred: 'selected' | 'rejected' = score >= 0 ? 'selected' : 'rejected'
+        newPredictions.set(featureId, currPred)
+        totalEligible++
+
+        // Check for flip
+        const prevPred = previousPredictions.get(featureId)
+        if (prevPred && prevPred !== currPred) {
+          flips++
+          // Calculate bin index (approximate based on histogram)
+          const binCount = histogramData.histogram?.counts?.length || 20
+          const { min, max } = histogramData.statistics
+          const range = max - min
+          if (range > 0) {
+            const binIndex = Math.floor(((score - min) / range) * (binCount - 1))
+            flippedBins.add(Math.max(0, Math.min(binIndex, binCount - 1)))
+          }
+        }
+      }
+    })
+
+    const flipRate = totalEligible > 0 ? flips / totalEligible : 0
+
+    // Update flip history (max 15 entries)
+    const updatedFlipHistory = [
+      ...(flipTracking?.flipHistory || []),
+      { flipRate, isBatch: true }
+    ].slice(-15)
+
+    console.log('[Store.applySimilarityTags] Flip tracking:', {
+      flipRate: (flipRate * 100).toFixed(1) + '%',
+      flips,
+      totalEligible,
+      historyLength: updatedFlipHistory.length
+    })
+
+    // ============================================================================
+    // APPLY TAGS
+    // ============================================================================
     const newSelectionStates = new Map(featureSelectionStates)
     const newSelectionSources = new Map(featureSelectionSources)
     let selectedCount = 0
@@ -386,13 +518,16 @@ export const createQualityActions = (set: any, get: any) => ({
       featureSelectionSources: newSelectionSources
     })
 
-    // Preserve thresholds but clear histogram data (will be refetched with updated selections)
-    // Don't set tagAutomaticState to null - we want to preserve the user-adjusted thresholds
-    // The histogram will be refetched automatically when selection counts change
+    // Preserve thresholds and update flip tracking
     set({
       tagAutomaticState: {
         ...tagAutomaticState,
-        histogramData: null  // Clear histogram to trigger refetch
+        histogramData: null,  // Clear histogram to trigger refetch
+        flipTracking: {
+          flipHistory: updatedFlipHistory,
+          flippedBins,
+          previousPredictions: newPredictions
+        }
       }
     })
   },

@@ -88,6 +88,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
+  const umapLoading = useVisualizationStore(state => state.umapLoading)
 
   // Stage navigation
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
@@ -873,6 +874,21 @@ const CauseView: React.FC<CauseViewProps> = ({
   // ============================================================================
   // RENDER
   // ============================================================================
+
+  // Block UI until initial classification is complete
+  const isInitializing = causeClassificationLoading || umapLoading ||
+    (causeCategoryDecisionMargins.size === 0 && !isRevisitingStage3)
+
+  if (isInitializing) {
+    return (
+      <div className={`cause-view cause-view--loading ${className}`}>
+        <div className="cause-view__loading-overlay">
+          <div className="spinner" />
+          <span>Training SVM classifier...</span>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className={`cause-view ${className}`}>

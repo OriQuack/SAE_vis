@@ -20,6 +20,26 @@
 }
 
 /* ============================================================================
+ * LOADING STATE - Shown while SVM classifier is training
+ * Uses shared .spinner class from DecisionMarginHistogram.css
+ * ============================================================================ */
+
+.cause-view--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+}
+
+.cause-view__loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+}
+
+/* ============================================================================
  * HEADER - Uses shared .view-header, .view-title, .view-description from base.css
  * ============================================================================ */
 

@@ -248,7 +248,7 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
               {/* Top tick label (1.0) */}
               {i === 0 && (
                 <text
-                  x={axis.x - 8}
+                  x={axis.x - 4}
                   y={4}
                   className="cause-metric-parallel-coords__tick-label"
                 >
@@ -258,8 +258,8 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
               {/* Bottom tick label (0.0) */}
               {i === 0 && (
                 <text
-                  x={axis.x - 8}
-                  y={innerHeight + 4}
+                  x={axis.x - 4}
+                  y={innerHeight}
                   className="cause-metric-parallel-coords__tick-label"
                 >
                   0

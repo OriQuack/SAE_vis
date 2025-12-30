@@ -3,7 +3,8 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
 import ScrollableItemList from './ScrollableItemList'
-import BimodalityIndicator from './ModalityIndicator'
+import ConvergenceIndicator from './ConvergenceIndicator'
+// Backup: import BimodalityIndicator from './ModalityIndicator'
 import { TagBadge } from './Indicators'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/ThresholdTaggingPanel.css'
@@ -275,9 +276,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         />
       </div>
 
-      {/* Buttons section with modality indicator above */}
+      {/* Buttons section with convergence indicator above */}
       <div className="threshold-tagging-panel__buttons-section">
-        <BimodalityIndicator bimodality={tagAutomaticState?.histogramData?.bimodality} />
+        <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
         <div className="threshold-tagging-panel__buttons">
           {/* Button 1: Tag by Threshold */}
           <div className="action-button-item">

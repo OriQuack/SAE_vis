@@ -362,9 +362,13 @@ export function calculateHistogramYAxisTicks(
   // Generate ticks using D3's intelligent tick algorithm
   const tickValues = yScale.ticks(tickCount)
 
-  return tickValues.map(value => ({
-    value,
-    position: yScale(value),
-    label: value.toFixed(2)  // Format with 2 decimal places like popover
-  }))
+  // Filter ticks to only include those within the domain bounds
+  // D3's ticks() can generate values outside the domain for "nice" rounding
+  return tickValues
+    .filter(value => value >= domainMin && value <= domainMax)
+    .map(value => ({
+      value,
+      position: yScale(value),
+      label: value.toFixed(2)  // Format with 2 decimal places like popover
+    }))
 }

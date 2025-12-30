@@ -12,7 +12,8 @@ import type {
   FlowPathData,
   UmapPoint,
   MultiModalityInfo,
-  SimilarityScoreHistogramResponse
+  SimilarityScoreHistogramResponse,
+  FlipTrackingInfo
 } from '../types'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -271,6 +272,7 @@ interface AppState {
     rejectThreshold: number  // Threshold for auto-rejecting (light red, left side)
     tagLabel: string  // Tag name (e.g., "well-explained", "fragmented")
     isLoading: boolean
+    flipTracking: FlipTrackingInfo | null  // Decision flip rate tracking
   } | null
 
   // Whether threshold handle is currently being dragged (to prevent rapid updates)
@@ -321,11 +323,11 @@ interface AppState {
   // Stage 1 commit history (pair tagging)
   stage1CommitHistory: Array<{id: number; type: CommitType; counts?: CommitCounts}>
   stage1CurrentCommitIndex: number
-  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
   // Stage 2 commit history (feature tagging)
   stage2CommitHistory: Array<{id: number; type: CommitType; counts?: QualityCommitCounts}>
   stage2CurrentCommitIndex: number
-  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
   // Stage 3 commit history (cause tagging)
   stage3CommitHistory: Array<{id: number; type: CommitType; counts?: CauseCommitCounts}>
   stage3CurrentCommitIndex: number
@@ -456,7 +458,7 @@ const initialState = {
   causeSortCategory: null,  // Sort by max decision margin by default
   isCauseSimilaritySortLoading: false,
   // Cause margin threshold for effective category calculation
-  causeMarginThreshold: 0.3,
+  causeMarginThreshold: 0.25,
 
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,
@@ -492,13 +494,13 @@ const initialState = {
   stage3FinalCommit: null,
 
   // Commit history state (centralized for SelectionPanel)
-  stage1CommitHistory: [{id: 0, type: 'initial'}],
+  stage1CommitHistory: [{id: 0, type: 'initial' as const}],
   stage1CurrentCommitIndex: 0,
   stage1CommitData: new Map(),
-  stage2CommitHistory: [{id: 0, type: 'initial'}],
+  stage2CommitHistory: [{id: 0, type: 'initial' as const}],
   stage2CurrentCommitIndex: 0,
   stage2CommitData: new Map(),
-  stage3CommitHistory: [{id: 0, type: 'initial'}],
+  stage3CommitHistory: [{id: 0, type: 'initial' as const}],
   stage3CurrentCommitIndex: 0,
   stage3CommitData: new Map(),
 
@@ -778,7 +780,7 @@ export const useStore = create<AppState>((set, get) => {
 
   clearStage1Commits: () => {
     set({
-      stage1CommitHistory: [{id: 0, type: 'initial'}],
+      stage1CommitHistory: [{id: 0, type: 'initial' as const}],
       stage1CurrentCommitIndex: 0,
       stage1CommitData: new Map()
     })
@@ -835,7 +837,7 @@ export const useStore = create<AppState>((set, get) => {
 
   clearStage2Commits: () => {
     set({
-      stage2CommitHistory: [{id: 0, type: 'initial'}],
+      stage2CommitHistory: [{id: 0, type: 'initial' as const}],
       stage2CurrentCommitIndex: 0,
       stage2CommitData: new Map()
     })
@@ -892,7 +894,7 @@ export const useStore = create<AppState>((set, get) => {
 
   clearStage3Commits: () => {
     set({
-      stage3CommitHistory: [{id: 0, type: 'initial'}],
+      stage3CommitHistory: [{id: 0, type: 'initial' as const}],
       stage3CurrentCommitIndex: 0,
       stage3CommitData: new Map()
     })

@@ -622,6 +622,33 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     />
                   ))}
 
+                  {/* Flip markers - triangles above bins with flipped items */}
+                  {tagAutomaticState?.flipTracking?.flippedBins && histogramChart.bins.map((bin, binIndex) => {
+                    if (!tagAutomaticState.flipTracking!.flippedBins.has(binIndex)) return null
+
+                    // Calculate bin center position
+                    const binX = histogramChart.xScale(bin.x0)
+                    const binX1 = histogramChart.xScale(bin.x1)
+                    const binCenterX = (binX + binX1) / 2
+
+                    // Find highest point of bar for this bin
+                    const segmentsInBin = categoryBars.filter(s => s.binIndex === binIndex)
+                    const maxY = segmentsInBin.length > 0
+                      ? Math.min(...segmentsInBin.map(s => s.y))
+                      : histogramChart.height
+
+                    // Render triangle marker above bar
+                    const markerY = Math.max(4, maxY - 8)
+                    return (
+                      <polygon
+                        key={`flip-${binIndex}`}
+                        points={`${binCenterX},${markerY} ${binCenterX - 5},${markerY - 8} ${binCenterX + 5},${markerY - 8}`}
+                        fill="#f59e0b"
+                        stroke="#fff"
+                        strokeWidth={1}
+                      />
+                    )
+                  })}
 
                   {/* Center line at 0 */}
                   <line

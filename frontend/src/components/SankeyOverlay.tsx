@@ -219,9 +219,6 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                     height={segment.height}
                     fill={baseFill}
                     fillOpacity={1}
-                    stroke="white"
-                    strokeWidth={0.3}
-                    strokeOpacity={0.6}
                   />
                   {/* Colored stripe overlay for terminal segments */}
                   {isTerminal && stripePattern && (
@@ -280,17 +277,6 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
       {/* Y-axis: metric value labels and ticks */}
       {yAxisTicks.length > 0 && (
         <g>
-          {/* Vertical axis line */}
-          <line
-            x1={0}
-            x2={0}
-            y1={0}
-            y2={layout.height}
-            stroke={axisColor}
-            strokeWidth={1}
-            style={{ pointerEvents: 'none' }}
-          />
-
           {/* Tick marks and labels */}
           {yAxisTicks.map((tick) => (
             <g
@@ -315,7 +301,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 fontSize={12}
-                fill={axisColor}
+                fill={SANKEY_COLORS.LABEL_TEXT}
                 transform="rotate(90)"
               >
                 {tick.label}
