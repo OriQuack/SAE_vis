@@ -1,5 +1,5 @@
 {
-  "created_at": "2025-12-30T13:18:04.248183",
+  "created_at": "2025-12-30T15:03:23.147398",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16384,
@@ -12,12 +12,12 @@
   "processing_stats": {
     "features_processed": 16384,
     "features_with_no_activations": 1,
-    "total_examples_embedded": 254803,
-    "total_embeddings_generated": 254803
+    "total_examples_embedded": 255037,
+    "total_embeddings_generated": 255037
   },
   "result_stats": {
     "features_with_embeddings": 16383,
-    "mean_examples_per_feature": 15.55194091796875,
+    "mean_examples_per_feature": 15.56622314453125,
     "embedding_dimension": 768
   },
   "config_used": {

@@ -212,7 +212,10 @@ class InterFeatureSimilarityProcessor:
                 for item in decoder_sim[:top_n]]
 
     def _select_top_quantile_examples(self, feature_df: pl.DataFrame) -> List[Tuple[int, float, List[str], int]]:
-        """Select max 2 examples per quantile based on max_activation.
+        """Select examples using rank-based sampling for even distribution.
+
+        Uses rank-based (positional) sampling instead of value-based quantiles
+        to handle degenerate distributions where activation values cluster.
 
         Args:
             feature_df: DataFrame with activation examples for a single feature
@@ -229,49 +232,32 @@ class InterFeatureSimilarityProcessor:
         num_examples = len(feature_df)
         num_quantiles = self.proc_params["num_quantiles"]
         samples_per_quantile = self.proc_params["samples_per_quantile"]
+        total_target = samples_per_quantile * num_quantiles
 
-        if num_examples < num_quantiles:
-            # Not enough examples for quantiles, return all
-            selected = feature_df.select([
-                "prompt_id",
-                "max_activation",
-                "prompt_tokens",
-                "activation_pairs"
-            ]).to_dicts()
+        # Sort by activation descending
+        sorted_df = feature_df.sort("max_activation", descending=True).select([
+            "prompt_id",
+            "max_activation",
+            "prompt_tokens",
+            "activation_pairs"
+        ])
+
+        if num_examples <= total_target:
+            # Return all if we have fewer than target
+            selected = sorted_df.to_dicts()
         else:
-            # Calculate quantile boundaries
-            quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
-            q_values = [
-                feature_df.select(
-                    pl.col("max_activation").quantile(q, interpolation="linear")
-                ).item()
-                for q in quantiles
-            ]
-
-            # Assign quantile groups and select top N from each
-            conditions = []
-            for i, q_val in enumerate(q_values):
-                if i == 0:
-                    conditions.append(pl.col("max_activation") <= q_val)
-                else:
-                    conditions.append(
-                        (pl.col("max_activation") > q_values[i-1]) &
-                        (pl.col("max_activation") <= q_val)
-                    )
-            # Last quantile
-            conditions.append(pl.col("max_activation") > q_values[-1])
-
-            # Select top N examples from each quantile
+            # Rank-based sampling: divide into equal-sized groups by position
+            group_size = num_examples // num_quantiles
             selected = []
-            for condition in conditions:
-                quantile_df = feature_df.filter(condition).sort("max_activation", descending=True)
-                top_n = quantile_df.head(samples_per_quantile).select([
-                    "prompt_id",
-                    "max_activation",
-                    "prompt_tokens",
-                    "activation_pairs"
-                ]).to_dicts()
-                selected.extend(top_n)
+
+            for i in range(num_quantiles):
+                start_idx = i * group_size
+                # Last group gets any remainder
+                end_idx = start_idx + group_size if i < num_quantiles - 1 else num_examples
+                group = sorted_df.slice(start_idx, end_idx - start_idx)
+                # Take top k from each group (already sorted by activation desc)
+                top_k = group.head(samples_per_quantile).to_dicts()
+                selected.extend(top_k)
 
         # Extract max token position from activation_pairs
         result = []
@@ -294,38 +280,42 @@ class InterFeatureSimilarityProcessor:
         return result
 
     def _select_top_k_per_quantile(self, examples: List[Tuple], k: int) -> List[Tuple]:
-        """Select top k examples per quantile by activation strength.
+        """Select top k examples per quantile using rank-based sampling.
+
+        Uses rank-based (positional) sampling instead of value-based quantiles
+        to handle degenerate distributions where activation values cluster.
 
         Args:
             examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
             k: Number to select per quantile
 
         Returns:
-            Top k*num_quantiles examples sorted by quantile and activation
+            Top k*num_quantiles examples distributed across activation range
         """
         if len(examples) == 0:
             return []
 
-        # Calculate quantile boundaries
-        activations = [ex[1] for ex in examples]
         num_quantiles = self.proc_params["num_quantiles"]
-        quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
-        q_values = [float(np.quantile(activations, q)) for q in quantiles]
+        total_target = k * num_quantiles
 
-        # Assign examples to quantiles and select top k from each
+        # Sort by activation descending
+        sorted_examples = sorted(examples, key=lambda x: x[1], reverse=True)
+        num_examples = len(sorted_examples)
+
+        if num_examples <= total_target:
+            return sorted_examples
+
+        # Rank-based sampling: divide into equal-sized groups by position
+        group_size = num_examples // num_quantiles
         selected = []
-        for q_idx in range(num_quantiles):
-            # Filter examples for this quantile
-            if q_idx == 0:
-                q_examples = [ex for ex in examples if ex[1] <= q_values[0]]
-            elif q_idx < num_quantiles - 1:
-                q_examples = [ex for ex in examples if q_values[q_idx-1] < ex[1] <= q_values[q_idx]]
-            else:
-                q_examples = [ex for ex in examples if ex[1] > q_values[-1]]
 
-            # Sort by activation (descending) and take top k
-            q_examples.sort(key=lambda x: x[1], reverse=True)
-            selected.extend(q_examples[:k])
+        for i in range(num_quantiles):
+            start_idx = i * group_size
+            # Last group gets any remainder
+            end_idx = start_idx + group_size if i < num_quantiles - 1 else num_examples
+            group = sorted_examples[start_idx:end_idx]
+            # Take top k from each group (already sorted by activation desc)
+            selected.extend(group[:k])
 
         return selected
 

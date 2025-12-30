@@ -171,7 +171,10 @@ class ActivationEmbeddingProcessor:
                 logger.warning(f"Could not set device: {e}")
 
     def _select_quantile_examples(self, feature_df: pl.DataFrame) -> List[Tuple[int, float, List[str], int]]:
-        """Select examples from quantiles based on max_activation.
+        """Select examples using rank-based sampling for even distribution.
+
+        Uses rank-based (positional) sampling instead of value-based quantiles
+        to handle degenerate distributions where activation values cluster.
 
         Args:
             feature_df: DataFrame with activation examples for a single feature
@@ -188,50 +191,32 @@ class ActivationEmbeddingProcessor:
         num_examples = len(feature_df)
         target_per_quantile = self.proc_params["examples_per_quantile"]
         num_quantiles = self.proc_params["num_quantiles"]
+        total_target = target_per_quantile * num_quantiles
 
-        if num_examples < num_quantiles:
-            # Not enough examples for quantiles, return all
-            selected = feature_df.select([
-                "prompt_id",
-                "max_activation",
-                "prompt_tokens",
-                "activation_pairs"
-            ]).to_dicts()
+        # Sort by activation descending
+        sorted_df = feature_df.sort("max_activation", descending=True).select([
+            "prompt_id",
+            "max_activation",
+            "prompt_tokens",
+            "activation_pairs"
+        ])
+
+        if num_examples <= total_target:
+            # Return all if we have fewer than target
+            selected = sorted_df.to_dicts()
         else:
-            # Calculate quantile boundaries
-            quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
-            # Compute quantiles one at a time to avoid duplicate column names
-            q_values = [
-                feature_df.select(
-                    pl.col("max_activation").quantile(q, interpolation="linear")
-                ).item()
-                for q in quantiles
-            ]
-
-            # Assign quantile groups
-            conditions = []
-            for i, q_val in enumerate(q_values):
-                if i == 0:
-                    conditions.append(pl.col("max_activation") <= q_val)
-                else:
-                    conditions.append(
-                        (pl.col("max_activation") > q_values[i-1]) &
-                        (pl.col("max_activation") <= q_val)
-                    )
-            # Last quantile
-            conditions.append(pl.col("max_activation") > q_values[-1])
-
-            # Select top examples from each quantile
+            # Rank-based sampling: divide into equal-sized groups by position
+            group_size = num_examples // num_quantiles
             selected = []
-            for i, condition in enumerate(conditions):
-                quantile_df = feature_df.filter(condition).sort("max_activation", descending=True)
-                top_n = quantile_df.head(target_per_quantile).select([
-                    "prompt_id",
-                    "max_activation",
-                    "prompt_tokens",
-                    "activation_pairs"
-                ]).to_dicts()
-                selected.extend(top_n)
+
+            for i in range(num_quantiles):
+                start_idx = i * group_size
+                # Last group gets any remainder
+                end_idx = start_idx + group_size if i < num_quantiles - 1 else num_examples
+                group = sorted_df.slice(start_idx, end_idx - start_idx)
+                # Take top k from each group (already sorted by activation desc)
+                top_k = group.head(target_per_quantile).to_dicts()
+                selected.extend(top_k)
 
         # Extract max token position from activation_pairs
         result = []

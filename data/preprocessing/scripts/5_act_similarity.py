@@ -240,38 +240,42 @@ class ActivationSimilarityProcessor:
         return result
 
     def _select_top_k_per_quantile(self, examples: List[Tuple], k: int) -> List[Tuple]:
-        """Select top k examples per quantile by activation strength.
+        """Select top k examples per quantile using rank-based sampling.
+
+        Uses rank-based (positional) sampling instead of value-based quantiles
+        to handle degenerate distributions where activation values cluster.
 
         Args:
             examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
             k: Number to select per quantile
 
         Returns:
-            Top k*num_quantiles examples sorted by quantile and activation
+            Top k*num_quantiles examples distributed across activation range
         """
         if len(examples) == 0:
             return []
 
-        # Calculate quantile boundaries
-        activations = [ex[1] for ex in examples]
         num_quantiles = self.proc_params["num_quantiles"]
-        quantiles = [i / num_quantiles for i in range(1, num_quantiles)]
-        q_values = [float(np.quantile(activations, q)) for q in quantiles]
+        total_target = k * num_quantiles
 
-        # Assign examples to quantiles and select top k from each
+        # Sort by activation descending
+        sorted_examples = sorted(examples, key=lambda x: x[1], reverse=True)
+        num_examples = len(sorted_examples)
+
+        if num_examples <= total_target:
+            return sorted_examples
+
+        # Rank-based sampling: divide into equal-sized groups by position
+        group_size = num_examples // num_quantiles
         selected = []
-        for q_idx in range(num_quantiles):
-            # Filter examples for this quantile
-            if q_idx == 0:
-                q_examples = [ex for ex in examples if ex[1] <= q_values[0]]
-            elif q_idx < num_quantiles - 1:
-                q_examples = [ex for ex in examples if q_values[q_idx-1] < ex[1] <= q_values[q_idx]]
-            else:
-                q_examples = [ex for ex in examples if ex[1] > q_values[-1]]
 
-            # Sort by activation (descending) and take top k
-            q_examples.sort(key=lambda x: x[1], reverse=True)
-            selected.extend(q_examples[:k])
+        for i in range(num_quantiles):
+            start_idx = i * group_size
+            # Last group gets any remainder
+            end_idx = start_idx + group_size if i < num_quantiles - 1 else num_examples
+            group = sorted_examples[start_idx:end_idx]
+            # Take top k from each group (already sorted by activation desc)
+            selected.extend(group[:k])
 
         return selected
 
