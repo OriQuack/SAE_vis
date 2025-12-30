@@ -7,6 +7,8 @@ interface HighlightedExplanationProps {
   explainerNames?: string[]  // e.g., ['Llama', 'Qwen', 'OpenAI']
   // Truncation props
   truncated?: boolean  // Enable truncation mode (default: false) - shows all highlighted segments ordered by similarity
+  // If true, force display "No Explanation available" (for features with 0 activations)
+  hasNoActivations?: boolean
 }
 
 /**
@@ -31,10 +33,23 @@ interface HighlightedExplanationProps {
 export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = React.memo(({
   segments,
   explainerNames = ['Llama', 'Qwen', 'OpenAI'],
-  truncated = false
+  truncated = false,
+  hasNoActivations = false
 }) => {
+  // If feature has no activations, any explanation is hallucinated
+  if (hasNoActivations) {
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  // Check for empty segments
   if (!segments || segments.length === 0) {
-    return <span>-</span>
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  // Check for hallucinated/placeholder explanations from Neuronpedia
+  const fullText = segments.map(s => s.text).join('')
+  if (fullText.includes('No explanation available from Neuronpedia')) {
+    return <span className="explanation--unavailable">No Explanation available</span>
   }
 
   /**

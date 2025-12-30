@@ -356,10 +356,27 @@ class DataService:
         if len(examples_df) == 0:
             return []
 
-        # Validate quantile_boundaries has 3 elements
-        if not quantile_boundaries or len(quantile_boundaries) != 3:
-            logger.warning(f"[_organize_by_quantile] Invalid quantile_boundaries: {quantile_boundaries}, expected 3 elements")
-            return []
+        # Check if we have valid quantile boundaries
+        has_valid_boundaries = quantile_boundaries and len(quantile_boundaries) == 3
+
+        if not has_valid_boundaries:
+            # Assign all examples to quantile 0 when boundaries unavailable
+            logger.debug(f"[_organize_by_quantile] Empty/invalid boundaries, assigning all to quantile 0")
+            result = []
+            for row in examples_df.to_dicts():
+                max_act = row["max_activation"]
+                if max_act is None or not row["activation_pairs"] or len(row["activation_pairs"]) == 0:
+                    continue
+                max_pair = max(row["activation_pairs"], key=lambda p: p["activation_value"])
+                result.append({
+                    "quantile_index": 0,
+                    "prompt_id": row["prompt_id"],
+                    "prompt_tokens": row["prompt_tokens"],
+                    "activation_pairs": row["activation_pairs"],
+                    "max_activation": float(max_act),
+                    "max_activation_position": int(max_pair["token_position"])
+                })
+            return result
 
         # Add quantile label using when().then() expressions (vectorized)
         df = examples_df.with_columns([
@@ -527,11 +544,9 @@ class DataService:
             # Organize by feature_id → quantile → example
             result = {}
             for feature_id, data in prompt_ids_by_feature.items():
-                # Validate quantile_boundaries before processing
+                # Get quantile_boundaries (may be empty for features with 1-3 activations)
                 quantile_boundaries = data["quantile_boundaries"]
-                if not quantile_boundaries or len(quantile_boundaries) != 3:
-                    logger.debug(f"[get_activation_examples] Skipping feature {feature_id}: invalid quantile_boundaries {quantile_boundaries}")
-                    continue
+                # Note: _organize_by_quantile now handles empty boundaries by assigning all to Q0
 
                 # Filter examples for this feature
                 feature_examples = examples_df.filter(

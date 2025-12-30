@@ -989,6 +989,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
 
+                    {/* Parallel Coordinates - between activation and explanation */}
+                    <div className="cause-view__metrics-container">
+                      <CauseMetricParallelCoords
+                        wellExplainedScores={wellExplainedScores}
+                        currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                      />
+                    </div>
+
                     {/* Best Explanation Header */}
                     <div className="cause-view__explanation-header">
                       <h4 className="subheader">Best Explanation</h4>
@@ -1025,6 +1033,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                                 <HighlightedExplanation
                                   segments={bestExplanation.highlightedExplanation.segments}
                                   truncated={false}
+                                  hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
                                 />
                               ) : (
                                 <span className="cause-view__no-explanation">
@@ -1037,15 +1046,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                           <span className="cause-view__no-explanation">No explanations available</span>
                         )}
                       </div>
-                    </div>
-
-                    {/* Parallel Coordinates - below explanation */}
-                    <div className="cause-view__metrics-container">
-                      <CauseMetricParallelCoords
-                        wellExplainedScores={wellExplainedScores}
-                        currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                        currentCategory={causeSelectionStates.get(selectedFeatureData.featureId) ?? null}
-                      />
                     </div>
 
                     {/* Floating control panel at bottom */}

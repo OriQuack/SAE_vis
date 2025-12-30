@@ -15,10 +15,9 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
-import type { CauseCategory } from '../lib/umap-utils'
 import '../styles/CauseMetricParallelCoords.css'
 
 // ============================================================================
@@ -30,8 +29,6 @@ export interface CauseMetricParallelCoordsProps {
   wellExplainedScores: Map<number, CauseMetricScores>
   /** Scores of the currently selected feature for foreground line */
   currentScores: CauseMetricScores | null
-  /** Current feature's cause category (for foreground line color) */
-  currentCategory?: CauseCategory | null
   /** Optional className for container */
   className?: string
 }
@@ -53,17 +50,9 @@ const METRICS: MetricConfig[] = [
 ]
 
 // Layout constants
-const MARGIN = { top: 0, right: 15, bottom: 25, left: 20 }
-const HEIGHT = 150
+const MARGIN = { top: 5, right: 25, bottom: 30, left: 25 }
 const MIN_WIDTH = 250
-
-// Map cause category to display name for color lookup
-const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
-  'noisy-activation': 'Noisy Activation',
-  'missed-N-gram': 'Pattern Miss',
-  'missed-context': 'Context Miss',
-  'well-explained': 'Well-Explained'
-}
+const MIN_HEIGHT = 80
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -105,39 +94,38 @@ function generatePolylinePoints(
 export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps> = ({
   wellExplainedScores,
   currentScores,
-  currentCategory = null,
   className = ''
 }) => {
-  // Container ref and width tracking for full-width responsiveness
-  const containerRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(MIN_WIDTH)
+  // SVG wrapper ref for size tracking (excludes legend)
+  const svgWrapperRef = useRef<HTMLDivElement>(null)
+  const [svgSize, setSvgSize] = useState({ width: MIN_WIDTH, height: MIN_HEIGHT })
 
-  // Track container width with ResizeObserver
+  // Track SVG wrapper size with ResizeObserver
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!svgWrapperRef.current) return
     const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width || MIN_WIDTH
-      setContainerWidth(Math.max(width, MIN_WIDTH))
+      const rect = entries[0]?.contentRect
+      if (rect) {
+        setSvgSize({
+          width: Math.max(rect.width, MIN_WIDTH),
+          height: Math.max(rect.height, MIN_HEIGHT)
+        })
+      }
     })
-    observer.observe(containerRef.current)
+    observer.observe(svgWrapperRef.current)
     return () => observer.disconnect()
   }, [])
 
-  // Get colors
+  // Line colors
+  const lineColor = '#000000'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#22c55e'
-  const foregroundColor = useMemo(() => {
-    if (currentCategory) {
-      const tagName = CATEGORY_TO_TAG_NAME[currentCategory]
-      return getTagColor(TAG_CATEGORY_CAUSE, tagName) || '#374151'
-    }
-    return '#374151' // Neutral dark gray for unsure
-  }, [currentCategory])
 
-  // Calculate dimensions and scales (responsive to container width)
-  const { width, innerHeight, xScale, yScale } = useMemo(() => {
-    const w = containerWidth
+  // Calculate dimensions and scales (responsive to SVG wrapper size)
+  const { width, height, innerHeight, xScale, yScale } = useMemo(() => {
+    const w = svgSize.width
+    const h = svgSize.height
     const iw = w - MARGIN.left - MARGIN.right
-    const ih = HEIGHT - MARGIN.top - MARGIN.bottom
+    const ih = h - MARGIN.top - MARGIN.bottom
 
     // X scale: map axis index (0-4) to x position
     const xs = scaleLinear()
@@ -151,11 +139,12 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
 
     return {
       width: w,
+      height: h,
       innerHeight: ih,
       xScale: (i: number) => xs(i) ?? 0,
       yScale: (v: number) => ys(v) ?? 0
     }
-  }, [containerWidth])
+  }, [svgSize])
 
   // Generate background lines (well-explained features)
   const backgroundLines = useMemo(() => {
@@ -188,7 +177,7 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
   // Empty state
   if (wellExplainedScores.size === 0 && !currentScores) {
     return (
-      <div ref={containerRef} className={`cause-metric-parallel-coords ${className}`.trim()}>
+      <div className={`cause-metric-parallel-coords ${className}`.trim()}>
         <div className="cause-metric-parallel-coords__placeholder">
           No metric data available
         </div>
@@ -197,9 +186,11 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
   }
 
   return (
-    <div ref={containerRef} className={`cause-metric-parallel-coords ${className}`.trim()}>
-      {/* Legend */}
-      <div className="cause-metric-parallel-coords__legend">
+    <div className={`cause-metric-parallel-coords ${className}`.trim()}>
+      {/* Header row with title and legend */}
+      <div className="cause-metric-parallel-coords__header">
+        <h4 className="subheader">Metrics</h4>
+        <div className="cause-metric-parallel-coords__legend">
         <div className="cause-metric-parallel-coords__legend-item">
           <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
             <line
@@ -217,24 +208,25 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
           <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
             <line
               x1="0" y1="6" x2="24" y2="6"
-              stroke={foregroundColor}
+              stroke={lineColor}
               strokeWidth="2.5"
               strokeLinecap="round"
             />
-            <circle cx="12" cy="6" r="3" fill={foregroundColor} stroke="white" strokeWidth="1" />
+            <circle cx="12" cy="6" r="3" fill={lineColor} stroke="white" strokeWidth="1" />
           </svg>
           <span className="cause-metric-parallel-coords__legend-label">
             Current Feature
           </span>
         </div>
+        </div>
       </div>
-      <svg
-        width="100%"
-        height={HEIGHT}
-        viewBox={`0 0 ${width} ${HEIGHT}`}
-        preserveAspectRatio="xMidYMid meet"
-        className="cause-metric-parallel-coords__svg"
-      >
+      {/* SVG wrapper for size measurement */}
+      <div ref={svgWrapperRef} className="cause-metric-parallel-coords__svg-wrapper">
+        <svg
+          width={width}
+          height={height}
+          className="cause-metric-parallel-coords__svg"
+        >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
           {/* Axis lines */}
           {axes.map((axis, i) => (
@@ -291,7 +283,7 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
             <polyline
               points={foregroundLine}
               className="cause-metric-parallel-coords__foreground-line"
-              style={{ stroke: foregroundColor }}
+              style={{ stroke: lineColor }}
             />
           )}
 
@@ -306,12 +298,13 @@ export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps>
                 cy={yScale(value)}
                 r={4}
                 className="cause-metric-parallel-coords__foreground-point"
-                style={{ fill: foregroundColor }}
+                style={{ fill: lineColor }}
               />
             )
           })}
         </g>
-      </svg>
+        </svg>
+      </div>
     </div>
   )
 }

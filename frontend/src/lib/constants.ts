@@ -110,7 +110,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     label: "Detect Feature Splitting",
     stageOrder: 1,
     metric: METRIC_DECODER_SIMILARITY,
-    defaultThresholds: [0.4],
+    defaultThresholds: [0.45],
     showHistogram: true,
     tags: [
       "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)

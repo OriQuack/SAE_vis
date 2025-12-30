@@ -138,10 +138,14 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   examplesPerQuantile,  // Custom examples per quantile, e.g., [2, 2, 1, 1]
   disableHover = false  // Disable hover popover
 }) => {
+  // All hooks must be called unconditionally before any early returns
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
   const containerRef = useRef<HTMLDivElement>(null)
+
+  // Check if we have empty examples (used for conditional rendering below)
+  const hasExamples = examples?.quantile_examples && examples.quantile_examples.length > 0
 
   // Show popover if either locally hovered or parent says this pair is hovered (unless disabled)
   const effectiveShowPopover = !disableHover && (showPopover || (isHovered ?? false))
@@ -177,13 +181,15 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const maxLength = useMemo(() => Math.floor(containerWidth / CHAR_WIDTH), [containerWidth])
 
   // Determine which n-gram type to underline (char vs word) and get Jaccard score
-  const ngramInfo = useMemo(() => getNgramUnderlineType(examples), [examples])
+  // Only compute if we have examples
+  const ngramInfo = useMemo(() => hasExamples ? getNgramUnderlineType(examples) : { type: null, jaccard: 0 }, [examples, hasExamples])
   const underlineType = ngramInfo.type
   const ngramJaccard = ngramInfo.jaccard
 
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type
   const quantileGroups = useMemo(() => {
+    if (!hasExamples) return []
     const groups = Array.from({ length: numQuantiles }, (_, qIndex) => {
       const filtered = examples.quantile_examples.filter(ex => ex.quantile_index === qIndex)
       // Sort to put examples with winning type positions first
@@ -197,7 +203,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       return sorted.slice(0, 2)
     })
     return groups
-  }, [examples.quantile_examples, underlineType, numQuantiles])
+  }, [examples, hasExamples, underlineType, numQuantiles])
 
   // Recalculate popover position when isHovered becomes true
   // This handles the case where the main feature's popover is shown
@@ -214,6 +220,15 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const totalRows = examplesPerQuantile
     ? examplesPerQuantile.reduce((sum, n) => sum + n, 0)
     : numQuantiles
+
+  // Handle empty activation examples (features with 0 activations)
+  if (!hasExamples) {
+    return (
+      <div className="activation-example activation-example--empty">
+        <span className="activation-example__empty-text">No activation example</span>
+      </div>
+    )
+  }
 
   // Determine CSS class based on total rows
   // Use rows-N for custom row counts, otherwise fall back to quantiles-based class

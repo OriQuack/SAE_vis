@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react'
+import React, { useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
@@ -16,14 +16,25 @@ import '../styles/FeatureSplitPairViewer.css'
 // ============================================================================
 interface ExplanationWithPopoverProps {
   text: string
+  hasNoActivations?: boolean  // If true, show "No Explanation available" instead
 }
 
-const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text }) => {
+const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text, hasNoActivations = false }) => {
   const [showPopover, setShowPopover] = useState(false)
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const handleMouseEnter = useCallback(() => {
+  // If feature has no activations, any explanation is hallucinated
+  if (hasNoActivations) {
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  // Check for hallucinated/placeholder explanations from Neuronpedia
+  if (text.includes('No explanation available from Neuronpedia')) {
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  const handleMouseEnter = () => {
     if (!containerRef.current) return
     // Get the parent header element for full width
     const header = containerRef.current.closest('.panel-header__content')
@@ -39,7 +50,7 @@ const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text })
       zIndex: 10000
     })
     setShowPopover(true)
-  }, [])
+  }
 
   return (
     <div
@@ -381,7 +392,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             <div className="panel-header__content">
               <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
               {mainExplanation && (
-                <ExplanationWithPopover text={mainExplanation} />
+                <ExplanationWithPopover
+                  text={mainExplanation}
+                  hasNoActivations={!mainActivation?.quantile_examples?.length}
+                />
               )}
             </div>
           </div>
@@ -407,7 +421,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             <div className="panel-header__content">
               <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               {similarExplanation && (
-                <ExplanationWithPopover text={similarExplanation} />
+                <ExplanationWithPopover
+                  text={similarExplanation}
+                  hasNoActivations={!similarActivation?.quantile_examples?.length}
+                />
               )}
             </div>
           </div>

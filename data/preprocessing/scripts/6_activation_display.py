@@ -123,6 +123,7 @@ class ActivationDisplayProcessor:
             "features_processed": 0,
             "features_with_no_data": 0,
             "features_with_invalid_boundaries": 0,
+            "features_with_limited_examples": 0,
             "total_examples_processed": 0,
             "semantic_patterns": 0,
             "lexical_patterns": 0,
@@ -270,7 +271,19 @@ class ActivationDisplayProcessor:
         if len(feature_sim) == 0:
             self.stats["features_with_no_data"] += 1
             logger.debug(f"No similarity data for feature {feature_id}")
-            return None
+            # Return empty entry for features with no activation data
+            # Frontend will show "No activation example"
+            return {
+                "feature_id": feature_id,
+                "sae_id": self.sae_id,
+                "pattern_type": "None",
+                "semantic_similarity": None,
+                "char_ngram_max_jaccard": 0.0,
+                "word_ngram_max_jaccard": 0.0,
+                "top_char_ngram_text": None,
+                "top_word_ngram_text": None,
+                "quantile_examples": []
+            }
 
         sim_row = feature_sim.to_dicts()[0]
 
@@ -291,15 +304,28 @@ class ActivationDisplayProcessor:
         top_char_ngram = sim_row.get("top_char_ngram")
         top_word_ngram = sim_row.get("top_word_ngram")
 
-        # Validate data
+        # Validate data - features with no prompt_ids have 0 activations
         if not prompt_ids or len(prompt_ids) == 0:
             self.stats["features_with_no_data"] += 1
-            return None
+            # Return empty entry for features with no activation data
+            # Frontend will show "No activation example"
+            return {
+                "feature_id": feature_id,
+                "sae_id": self.sae_id,
+                "pattern_type": "None",
+                "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
+                "char_ngram_max_jaccard": float(char_ngram_jaccard),
+                "word_ngram_max_jaccard": float(word_ngram_jaccard),
+                "top_char_ngram_text": None,
+                "top_word_ngram_text": None,
+                "quantile_examples": []
+            }
 
+        # Track features with non-standard boundaries but don't exclude them
         if not quantile_boundaries or len(quantile_boundaries) != 3:
-            self.stats["features_with_invalid_boundaries"] += 1
-            logger.debug(f"Invalid quantile boundaries for feature {feature_id}: {quantile_boundaries}")
-            return None
+            self.stats["features_with_limited_examples"] += 1
+            logger.debug(f"Feature {feature_id} has limited examples (boundaries: {quantile_boundaries})")
+            # Continue processing - don't return None
 
         # Compute pattern type using dual Jaccard (char OR word)
         pattern_type = self._compute_pattern_type(
@@ -345,8 +371,9 @@ class ActivationDisplayProcessor:
                 max_pos = max_pair["token_position"]
 
             # Determine quantile index based on max_activation
+            # If boundaries are invalid/empty, all examples go to quantile 0
             quantile_idx = 0
-            if max_activation is not None:
+            if max_activation is not None and quantile_boundaries and len(quantile_boundaries) == 3:
                 if max_activation <= quantile_boundaries[0]:
                     quantile_idx = 0
                 elif max_activation <= quantile_boundaries[1]:
@@ -355,6 +382,7 @@ class ActivationDisplayProcessor:
                     quantile_idx = 2
                 else:
                     quantile_idx = 3
+            # else: quantile_idx remains 0 (all examples in Q0)
 
             # Extract n-gram positions for this prompt
             char_ngram_positions = self._extract_char_ngram_positions(top_char_ngram, row_dict["prompt_id"])
@@ -398,8 +426,22 @@ class ActivationDisplayProcessor:
         # Load data
         self._load_data()
 
-        # Get unique features from similarity data
-        unique_features = sorted(self.similarity_df["feature_id"].unique().to_list())
+        # Get all feature IDs from features.parquet (master list)
+        # This ensures we include features with 0 activations that aren't in similarity_df
+        features_path = self._resolve_path("data/master/features.parquet")
+        if features_path.exists():
+            features_df = pl.read_parquet(features_path)
+            all_feature_ids = set(features_df["feature_id"].unique().to_list())
+            logger.info(f"Found {len(all_feature_ids):,} total features in features.parquet")
+        else:
+            logger.warning("features.parquet not found, using similarity_df features only")
+            all_feature_ids = set()
+
+        # Merge with similarity_df features (some may have activation data)
+        similarity_features = set(self.similarity_df["feature_id"].unique().to_list())
+
+        # Use union of both sets to include features with 0 activations
+        unique_features = sorted(all_feature_ids | similarity_features)
 
         # Apply feature limit for testing
         if self.feature_limit is not None:
@@ -580,6 +622,7 @@ def main():
     logger.info(f"  Features processed: {processor.stats['features_processed']:,}")
     logger.info(f"  Features with no data: {processor.stats['features_with_no_data']:,}")
     logger.info(f"  Features with invalid boundaries: {processor.stats['features_with_invalid_boundaries']:,}")
+    logger.info(f"  Features with limited examples (1-3 activations): {processor.stats['features_with_limited_examples']:,}")
     logger.info(f"  Total examples processed: {processor.stats['total_examples_processed']:,}")
     logger.info(f"  Pattern distribution:")
     logger.info(f"    - Semantic: {processor.stats['semantic_patterns']:,}")

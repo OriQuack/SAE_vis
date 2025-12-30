@@ -919,6 +919,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                                   <HighlightedExplanation
                                     segments={highlightedExplanation.segments}
                                     truncated={false}
+                                    hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
                                   />
                                 ) : (
                                   <span className="quality-view__no-explanation">

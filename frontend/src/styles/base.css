@@ -380,6 +380,17 @@ body {
 }
 
 /* ============================================================================
+   EMPTY/UNAVAILABLE STATES - Common placeholder text styles
+   ============================================================================ */
+
+.explanation--unavailable {
+  color: #6b7280;
+  font-size: 14px;
+  font-style: italic;
+  opacity: 0.6;
+}
+
+/* ============================================================================
    UMAP LASSO DRAWING - Disable hover effects globally during lasso selection
    ============================================================================ */
 
