@@ -1,7 +1,7 @@
 {
-  "created_at": "2025-11-24T00:04:49.810139",
+  "created_at": "2025-12-30T13:03:05.635898",
   "script_version": "2.0",
-  "total_rows": 46327,
+  "total_rows": 49152,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -11,22 +11,22 @@
     "embedding": "List(Float32)"
   },
   "processing_stats": {
-    "total_features_processed": 46327,
-    "total_embeddings_generated": 46327,
+    "total_features_processed": 49152,
+    "total_embeddings_generated": 49152,
     "failed_embeddings": 0,
     "data_sources_processed": 3,
     "per_source_stats": {
-      "llama_e-llama_s-16k": {
-        "total_files": 13559,
-        "successful": 13559,
-        "failed": 0
-      },
-      "gemini_e-llama_s-16k": {
+      "llama_e-llama_s-16k-v2": {
         "total_files": 16384,
         "successful": 16384,
         "failed": 0
       },
-      "openai_e-llama_s-16k": {
+      "gemini_e-llama_s-16k-v2": {
+        "total_files": 16384,
+        "successful": 16384,
+        "failed": 0
+      },
+      "openai_e-llama_s-16k-v2": {
         "total_files": 16384,
         "successful": 16384,
         "failed": 0
@@ -34,7 +34,7 @@
     }
   },
   "result_stats": {
-    "total_rows": 46327,
+    "total_rows": 49152,
     "unique_features": 16384,
     "unique_data_sources": 3,
     "unique_explainers": 3,
@@ -42,9 +42,9 @@
   },
   "config_used": {
     "data_sources": [
-      "llama_e-llama_s-16k",
-      "gemini_e-llama_s-16k",
-      "openai_e-llama_s-16k"
+      "llama_e-llama_s-16k-v2",
+      "gemini_e-llama_s-16k-v2",
+      "openai_e-llama_s-16k-v2"
     ],
     "output_path": "data/master/explanation_embeddings.parquet",
     "description": "Configuration for generating embeddings from SAE feature explanations across multiple data sources",

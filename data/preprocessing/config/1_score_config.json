@@ -1,15 +1,15 @@
 {
     "data_sources": [
         {
-            "name": "llama_e-llama_s-16k",
+            "name": "llama_e-llama_s-16k-v2",
             "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
         },
         {
-            "name": "gemini_e-llama_s-16k",
+            "name": "gemini_e-llama_s-16k-v2",
             "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
         },
         {
-            "name": "openai_e-llama_s-16k",
+            "name": "openai_e-llama_s-16k-v2",
             "llm_scorer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
         }
     ],
