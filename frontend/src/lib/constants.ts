@@ -19,26 +19,12 @@ export const METRIC_SCORE_EMBEDDING = "score_embedding"
 // Computed metric
 export const METRIC_QUALITY_SCORE = "quality_score"
 
-export const METRIC_TYPES = {
-  DECODER_SIMILARITY: METRIC_DECODER_SIMILARITY,
-  SEMANTIC_SIMILARITY: METRIC_SEMANTIC_SIMILARITY,
-  SCORE_FUZZ: METRIC_SCORE_FUZZ,
-  SCORE_DETECTION: METRIC_SCORE_DETECTION,
-  SCORE_EMBEDDING: METRIC_SCORE_EMBEDDING,
-  QUALITY_SCORE: METRIC_QUALITY_SCORE
-} as const
-
 // ============================================================================
 // PANEL CONFIGURATION
 // Used across: types.ts, SankeyDiagram.tsx, store.ts (3+ files)
 // ============================================================================
 export const PANEL_LEFT = "left"
 export const PANEL_RIGHT = "right"
-
-export const PANEL_SIDES = {
-  LEFT: PANEL_LEFT,
-  RIGHT: PANEL_RIGHT
-} as const
 
 // ============================================================================
 // TAG CATEGORY SYSTEM - Fixed 4-stage Sankey structure
@@ -53,22 +39,6 @@ export const TAG_CATEGORY_FEATURE_SPLITTING = "feature_splitting" as const
 export const TAG_CATEGORY_QUALITY = "quality" as const
 export const TAG_CATEGORY_CAUSE = "cause" as const
 export const TAG_CATEGORY_REGENERATION = "regeneration" as const
-
-// Table Panel Titles - Display names for table panels corresponding to each stage
-export const TAG_CATEGORY_TABLE_TITLES: Record<string, string> = {
-  [TAG_CATEGORY_FEATURE_SPLITTING]: "Feature Splitting Detection",
-  [TAG_CATEGORY_QUALITY]: "Quality Assessment",
-  [TAG_CATEGORY_CAUSE]: "Root Cause Analysis",
-  [TAG_CATEGORY_REGENERATION]: "Regeneration"
-}
-
-// Table Panel Instructions - Instruction text shown below table panel titles
-export const TAG_CATEGORY_TABLE_INSTRUCTIONS: Record<string, string> = {
-  [TAG_CATEGORY_FEATURE_SPLITTING]: "Select table feature columns to tag",
-  [TAG_CATEGORY_QUALITY]: "Select feature table rows to tag",
-  [TAG_CATEGORY_CAUSE]: "Select feature table rows to tag",
-  [TAG_CATEGORY_REGENERATION]: "Regeneration stage"
-}
 
 // Tag Category Configuration Interface
 export interface TagCategoryConfig {
@@ -324,27 +294,10 @@ export const CAUSE_TAG_METRICS: Record<string, CauseTagMetricConfig> = {
   }
 } as const
 
-/** Default threshold for cause tag assignment */
-export const CAUSE_TAG_THRESHOLD = 0.5
-
-// ============================================================================
-// CUSTOM THRESHOLDS - Per-metric custom threshold configurations
-// Used for creating custom value splits with explicit threshold boundaries
-// ============================================================================
-export const CONSISTENCY_THRESHOLDS = {
-  [METRIC_QUALITY_SCORE]: [0.5]  // 2 bins for Quality Score (computed metric)
-} as const
-
 // ============================================================================
 // DISPLAY NAMES - Centralized UI string mappings
 // Used across: utils.ts, HistogramPopover.tsx, and other UI components (3+ files)
 // ============================================================================
-export const CATEGORY_DISPLAY_NAMES = {
-  [CATEGORY_ROOT]: "All Features",
-  [CATEGORY_DECODER_SIMILARITY]: "Decoder Similarity",
-  [CATEGORY_SEMANTIC_SIMILARITY]: "Semantic Similarity"
-} as const
-
 export const METRIC_DISPLAY_NAMES: Record<string, string> = {
   [METRIC_DECODER_SIMILARITY]: "Decoder Similarity",
   [METRIC_SEMANTIC_SIMILARITY]: "Semantic Similarity",
@@ -580,35 +533,3 @@ export const COMPONENT_COLORS = {
  * - unsure: not tagged
  */
 export type SelectionCategory = 'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'
-
-// ============================================================================
-// LLM ICON SVG PATHS - Reusable icon definitions for LLM components
-// Used across: FlowPanel.tsx
-// ============================================================================
-
-export const LLM_EXPLAINER_ICON_SVG = `
-  <!-- Simple speech bubble - selection indicator for LLM Explainer -->
-  <!-- Bubble body (24x18 rounded rectangle centered at origin) -->
-  <rect x="-12" y="-12" width="24" height="18" rx="4" fill="#3b82f6" />
-  <!-- Bubble tail (triangle pointing to left bottom corner) -->
-  <path d="M -3 6 L -6 12 L 1 6 Z" fill="#3b82f6" />
-`
-
-export const LLM_SCORER_ICON_SVG = `
-  <!-- Simple puzzle piece - selection indicator for LLM Scorer -->
-  <!-- Single path defining entire puzzle piece outline with concave bottom -->
-  <!-- 24x24 square with deeper arms (radius 5), whole piece shifted up 1px, right arm additional 2px up -->
-  <path d="
-    M -12 -15
-    L -5 -15
-    A 5 5 0 0 0 5 -15
-    L 12 -15
-    L 12 -8
-    A 5 5 0 0 1 12 2
-    L 12 9
-    L 5 9
-    A 5 5 0 0 1 -5 9
-    L -12 9
-    Z
-  " fill="#3b82f6" />
-`

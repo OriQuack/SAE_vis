@@ -86,7 +86,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       <div className="convergence-indicator convergence-indicator--placeholder">
         <div className="convergence-indicator__placeholder">
           <span className="convergence-indicator__placeholder-text">
-            Tag items to track stability
+            Tag more features to see Classification Stability
           </span>
         </div>
       </div>
@@ -97,7 +97,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     <div className="convergence-indicator">
       {/* Header row */}
       <div className="convergence-indicator__header">
-        <span className="convergence-indicator__label">Decision Stability</span>
+        <span className="convergence-indicator__label">Classification Stability</span>
         <span
           className="convergence-indicator__value"
           style={{ color: flipRateColor }}
