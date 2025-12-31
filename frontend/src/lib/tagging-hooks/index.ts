@@ -34,3 +34,5 @@ export { useBimodalStatus } from './useBimodalStatus'
 export { useTaggingStatus } from './useTaggingStatus'
 
 export { useThresholdPreview } from './useThresholdPreview'
+
+export { useTaggingNavigation } from './useTaggingNavigation'

@@ -410,6 +410,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     defaultDirection: 'desc'
   })
 
+  // Track if we've auto-switched to decision margin mode for this session
+  const hasAutoSwitchedToDecisionMarginRef = useRef(false)
+
+  // Auto-switch to Decision Margin sort when histogram first becomes available
+  useEffect(() => {
+    if (tagAutomaticState?.histogramData && !hasAutoSwitchedToDecisionMarginRef.current) {
+      hasAutoSwitchedToDecisionMarginRef.current = true
+      setSortMode('decisionMargin')
+      setCurrentPairIndex(0)
+      setActiveListSource('all')
+    }
+  }, [tagAutomaticState?.histogramData, setSortMode, setActiveListSource])
+
   // Pagination derived state
   const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
   const totalPages = Math.ceil(pairList.length / PAIRS_PER_PAGE) || 1
@@ -840,7 +853,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             pairList={activePairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
-            autoAdvance={activeListSource === 'all' && sortMode !== 'decisionMargin'}
+            activeListSource={activeListSource}
             sortMode={sortMode}
             isLoading={isPairSimilaritySortLoading}
             onResetToFirstPair={() => {

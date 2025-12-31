@@ -6,7 +6,7 @@ import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation } from '../lib/tagging-hooks'
+import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -65,7 +65,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
-  const [autoAdvance] = useState(true)  // Auto-advance to next feature after tagging
 
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
@@ -156,6 +155,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Use sortable list hook for sorting logic
   const {
+    sortMode,
     setSortMode,
     sortedItems: sortedFeatures,
     columnHeaderProps,
@@ -168,6 +168,19 @@ const QualityView: React.FC<QualityViewProps> = ({
     defaultLabel: 'Quality score',
     defaultDirection: 'asc'
   })
+
+  // Track if we've auto-switched to decision margin mode for this session
+  const hasAutoSwitchedToDecisionMarginRef = useRef(false)
+
+  // Auto-switch to Decision Margin sort when histogram first becomes available
+  useEffect(() => {
+    if (tagAutomaticState?.histogramData && !hasAutoSwitchedToDecisionMarginRef.current) {
+      hasAutoSwitchedToDecisionMarginRef.current = true
+      setSortMode('decisionMargin')
+      setCurrentFeatureIndex(0)
+      setActiveListSource('all')
+    }
+  }, [tagAutomaticState?.histogramData, setSortMode, setActiveListSource])
 
   // Helper function to compute quality counts from featureSelectionStates
   const getQualityCounts = useCallback((): QualityCommitCounts => {
@@ -489,13 +502,29 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   const handleNavigatePrevious = useCallback(() => {
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
-    setActiveListSource('all')
-  }, [setActiveListSource])
+    // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
+  }, [])
 
   const handleNavigateNext = useCallback(() => {
     setCurrentFeatureIndex(i => Math.min(sortedFeatures.length - 1, i + 1))
+    // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
+  }, [sortedFeatures.length])
+
+  // Reset to first feature in 'all' list (used after tagging in decision margin mode)
+  const handleResetToFirst = useCallback(() => {
+    setCurrentFeatureIndex(0)
     setActiveListSource('all')
-  }, [sortedFeatures.length, setActiveListSource])
+  }, [setActiveListSource])
+
+  // Post-tagging navigation hook - centralized logic matching FeatureSplitView
+  const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
+    activeListSource,
+    sortMode,
+    currentIndex: currentFeatureIndex,
+    listLength: sortedFeatures.length,
+    onNavigateNext: handleNavigateNext,
+    onResetToFirst: handleResetToFirst
+  })
 
   // ============================================================================
   // TAG BUTTON HANDLERS
@@ -513,9 +542,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     const featureId = selectedFeatureData.featureId
 
     if (currentSelectionState === 'selected') {
-      // Toggle off: selected → rejected → null
-      toggleFeatureSelection(featureId)
-      toggleFeatureSelection(featureId)
+      // Already selected: keep tag and navigate
+      handlePostTagNavigation()
     } else {
       // Set to selected
       if (currentSelectionState === null) {
@@ -525,12 +553,10 @@ const QualityView: React.FC<QualityViewProps> = ({
         toggleFeatureSelection(featureId)
         toggleFeatureSelection(featureId)
       }
-      // Auto-advance to next feature
-      if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
-        setTimeout(() => handleNavigateNext(), 150)
-      }
+      // Use centralized navigation logic
+      handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation])
 
   // Handle Need Revision click (rejected)
   const handleNeedRevisionClick = useCallback(() => {
@@ -538,8 +564,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     const featureId = selectedFeatureData.featureId
 
     if (currentSelectionState === 'rejected') {
-      // Toggle off: rejected → null
-      toggleFeatureSelection(featureId)
+      // Already rejected: keep tag and navigate
+      handlePostTagNavigation()
     } else {
       // Set to rejected
       if (currentSelectionState === null) {
@@ -550,12 +576,10 @@ const QualityView: React.FC<QualityViewProps> = ({
         // selected → rejected
         toggleFeatureSelection(featureId)
       }
-      // Auto-advance to next feature
-      if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
-        setTimeout(() => handleNavigateNext(), 150)
-      }
+      // Use centralized navigation logic
+      handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation])
 
   // Handle Unsure click (clear selection)
   const handleUnsureClick = useCallback(() => {
@@ -570,11 +594,9 @@ const QualityView: React.FC<QualityViewProps> = ({
       // rejected → null
       toggleFeatureSelection(featureId)
     }
-    // Auto-advance to next feature
-    if (autoAdvance && currentFeatureIndex < sortedFeatures.length - 1) {
-      setTimeout(() => handleNavigateNext(), 150)
-    }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, autoAdvance, currentFeatureIndex, sortedFeatures.length, handleNavigateNext])
+    // Use centralized navigation logic (always advances for unsure)
+    handlePostUnsureNavigation()
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostUnsureNavigation])
 
   // ============================================================================
   // CLICK HANDLERS

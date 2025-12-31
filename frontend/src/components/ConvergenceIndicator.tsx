@@ -1,54 +1,48 @@
 import React, { useMemo } from 'react'
 import '../styles/ConvergenceIndicator.css'
 import type { FlipTrackingInfo } from '../types'
+import { OKABE_ITO_PALETTE } from '../lib/constants'
 
 interface ConvergenceIndicatorProps {
   flipTracking: FlipTrackingInfo | null
 }
 
+// Threshold bands (discrete zones with semantic meaning)
+// Using Okabe-Ito colorblind-safe palette with 15% opacity for background tints
+const THRESHOLD_BANDS = [
+  { min: 0, max: 0.05, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '32', label: 'Good' },    // #009E73 at 15% opacity
+  { min: 0.05, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '32', label: 'Warning' },    // #F0E442 at 19% opacity
+  { min: 0.15, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '32', label: 'Bad' },     // #D55E00 at 15% opacity
+] as const
+
+const THRESHOLD_LINES = [0.05, 0.15] // 5% and 10% reference lines
+
 /**
  * ConvergenceIndicator - Displays Decision Flip Rate (DFR) trend
- * Shows a sparkline of flip rates over tagging iterations
- * Replaces ModalityIndicator in ThresholdTaggingPanel
+ * Shows a sparkline of flip rates with discrete threshold bands
+ * IEEE VIS-style: reference lines + categorical zones + trend indicator
  */
 export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flipTracking }) => {
-  // Calculate current flip rate and color
-  const { flipRateColor, flipRateLabel } = useMemo(() => {
+  // Calculate current flip rate
+  const flipRateLabel = useMemo(() => {
     if (!flipTracking || flipTracking.flipHistory.length === 0) {
-      return { flipRateColor: '#9ca3af', flipRateLabel: '--' }
+      return '--'
     }
-
     const lastEntry = flipTracking.flipHistory[flipTracking.flipHistory.length - 1]
-    const rate = lastEntry.flipRate * 100
-
-    // Color based on flip rate: red (>10%) -> yellow (5%) -> green (<1%)
-    let color: string
-    if (rate > 10) {
-      color = '#ef4444' // red
-    } else if (rate > 5) {
-      color = '#f59e0b' // amber
-    } else if (rate > 1) {
-      color = '#eab308' // yellow
-    } else {
-      color = '#22c55e' // green
-    }
-
-    return {
-      flipRateColor: color,
-      flipRateLabel: rate.toFixed(1) + '%'
-    }
+    return (lastEntry.flipRate * 100).toFixed(1) + '%'
   }, [flipTracking])
 
-  // Calculate sparkline points
+  // Calculate sparkline points and threshold bands
   const sparklineData = useMemo(() => {
     if (!flipTracking || flipTracking.flipHistory.length === 0) {
       return null
     }
 
     const history = flipTracking.flipHistory
-    const width = 140
-    const height = 32
-    const padding = { top: 4, bottom: 4, left: 4, right: 4 }
+    // viewBox dimensions (matches container width: 180px)
+    const width = 180
+    const height = 80
+    const padding = { top: 10, bottom: 5, left: 24, right: 24 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -71,22 +65,58 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       ? 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ')
       : null
 
-    // Reference lines at 5% and 1%
-    const refLines = [
-      { rate: 0.05, y: yScale(0.05), label: '5%' },
-      { rate: 0.01, y: yScale(0.01), label: '1%' }
-    ].filter(r => r.rate <= maxRate)
+    // Y-axis ticks (show 0%, threshold lines, and max)
+    const yTicks = [
+      { y: yScale(0), label: '0%' },
+      { y: yScale(maxRate), label: `${Math.round(maxRate * 100)}%` }
+    ]
 
-    return { points, pathD, refLines, width, height }
+    // X-axis line position
+    const xAxisY = padding.top + chartHeight
+
+    // Calculate threshold bands (discrete zones)
+    const bands = THRESHOLD_BANDS.map(band => {
+      const clampedMin = Math.min(band.min, maxRate)
+      const clampedMax = Math.min(band.max, maxRate)
+
+      // Skip bands entirely above maxRate
+      if (clampedMin >= maxRate) return null
+
+      const y1 = yScale(clampedMax)
+      const y2 = yScale(clampedMin)
+
+      return {
+        y: y1,
+        height: y2 - y1,
+        color: band.color,
+        label: band.label
+      }
+    }).filter((b): b is NonNullable<typeof b> => b !== null && b.height > 0)
+
+    // Calculate threshold reference lines
+    const thresholdLines = THRESHOLD_LINES
+      .filter(t => t < maxRate) // Only show lines within visible range
+      .map(threshold => ({
+        y: yScale(threshold),
+        label: `${Math.round(threshold * 100)}%`
+      }))
+
+    return { points, pathD, width, height, padding, yTicks, xAxisY, bands, thresholdLines, chartWidth }
   }, [flipTracking])
 
   // Placeholder state when no data
   if (!flipTracking || flipTracking.flipHistory.length === 0) {
     return (
-      <div className="convergence-indicator convergence-indicator--placeholder">
+      <div className="convergence-indicator">
+        <div className="convergence-indicator__header">
+          <span className="convergence-indicator__label">Prediction Flip Rate</span>
+          <span className="convergence-indicator__value" style={{ color: '#9ca3af' }}>
+            --
+          </span>
+        </div>
         <div className="convergence-indicator__placeholder">
           <span className="convergence-indicator__placeholder-text">
-            Tag more features to see Classification Stability
+            Tag more features to see trend
           </span>
         </div>
       </div>
@@ -97,53 +127,90 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     <div className="convergence-indicator">
       {/* Header row */}
       <div className="convergence-indicator__header">
-        <span className="convergence-indicator__label">Classification Stability</span>
-        <span
-          className="convergence-indicator__value"
-          style={{ color: flipRateColor }}
-        >
+        <span className="convergence-indicator__label">Prediction Flip Rate</span>
+        <span className="convergence-indicator__value">
           {flipRateLabel}
         </span>
       </div>
 
-      {/* Sparkline */}
+      {/* Sparkline with threshold bands */}
       {sparklineData && (
         <svg
           className="convergence-indicator__sparkline"
-          width={sparklineData.width}
-          height={sparklineData.height}
           viewBox={`0 0 ${sparklineData.width} ${sparklineData.height}`}
+          preserveAspectRatio="none"
         >
-          {/* Reference lines */}
-          {sparklineData.refLines.map((ref, i) => (
+          {/* Discrete threshold bands (background zones) */}
+          {sparklineData.bands.map((band, i) => (
+            <rect
+              key={i}
+              x={sparklineData.padding.left}
+              y={band.y}
+              width={sparklineData.chartWidth}
+              height={band.height}
+              fill={band.color}
+            />
+          ))}
+
+          {/* Threshold reference lines (dashed) */}
+          {sparklineData.thresholdLines.map((line, i) => (
             <g key={i}>
               <line
-                x1={4}
-                y1={ref.y}
-                x2={sparklineData.width - 4}
-                y2={ref.y}
-                stroke="#d1d5db"
+                x1={sparklineData.padding.left}
+                y1={line.y}
+                x2={sparklineData.width - sparklineData.padding.right}
+                y2={line.y}
+                stroke="#4b5563"
                 strokeWidth={1}
-                strokeDasharray="3,3"
+                strokeDasharray="3,2"
               />
+              {/* Threshold label on right side */}
               <text
-                x={sparklineData.width - 2}
-                y={ref.y - 2}
-                fontSize={8}
-                fill="#9ca3af"
-                textAnchor="end"
+                x={sparklineData.width - sparklineData.padding.right + 2}
+                y={line.y}
+                className="convergence-indicator__axis-label"
+                fontSize={9}
+                fill="#4b5563"
+                textAnchor="start"
+                dominantBaseline="middle"
               >
-                {ref.label}
+                {line.label}
               </text>
             </g>
           ))}
 
-          {/* Line path */}
+          {/* Y-axis labels (0% and max) */}
+          {sparklineData.yTicks.map((tick, i) => (
+            <text
+              key={i}
+              x={sparklineData.padding.left - 3}
+              y={tick.y}
+              className="convergence-indicator__axis-label"
+              fontSize={9}
+              fill="#4b5563"
+              textAnchor="end"
+              dominantBaseline="middle"
+            >
+              {tick.label}
+            </text>
+          ))}
+
+          {/* X-axis line */}
+          <line
+            x1={sparklineData.padding.left}
+            y1={sparklineData.xAxisY}
+            x2={sparklineData.width - sparklineData.padding.right}
+            y2={sparklineData.xAxisY}
+            stroke="#4b5563"
+            strokeWidth={1}
+          />
+
+          {/* Sparkline path (monochrome for contrast) */}
           {sparklineData.pathD && (
             <path
               d={sparklineData.pathD}
               fill="none"
-              stroke="#6b7280"
+              stroke="#374151"
               strokeWidth={1.5}
             />
           )}
@@ -154,8 +221,8 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               key={i}
               cx={point.x}
               cy={point.y}
-              r={point.isBatch ? 4 : 2.5}
-              fill={i === sparklineData.points.length - 1 ? flipRateColor : '#6b7280'}
+              r={point.isBatch ? 3.5 : 2.5}
+              fill="#1f2937"
               stroke={point.isBatch ? '#fff' : 'none'}
               strokeWidth={point.isBatch ? 1 : 0}
             />

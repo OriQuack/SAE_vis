@@ -23,6 +23,7 @@ export interface SortableListResult<T> {
     label: string
     sortDirection: 'asc' | 'desc'
     onClick: () => void
+    isPulsing?: boolean
   }
   getDisplayScore: (item: T) => number | undefined
 }
@@ -35,7 +36,17 @@ export function useSortableList<T, K>({
   defaultLabel,
   defaultDirection = 'desc'
 }: SortableListConfig<T, K>): SortableListResult<T> {
-  const [sortMode, setSortMode] = useState<'default' | 'decisionMargin'>('default')
+  const [sortMode, setSortModeInternal] = useState<'default' | 'decisionMargin'>('default')
+  const [isPulsing, setIsPulsing] = useState(false)
+
+  // Wrapped setSortMode that triggers pulse animation when switching to decisionMargin
+  const setSortMode = useCallback((mode: 'default' | 'decisionMargin') => {
+    setSortModeInternal(mode)
+    if (mode === 'decisionMargin') {
+      setIsPulsing(true)
+      setTimeout(() => setIsPulsing(false), 2400)
+    }
+  }, [])
 
   const sortedItems = useMemo(() => {
     if (sortMode === 'decisionMargin' && decisionMarginScores.size > 0) {
@@ -61,15 +72,17 @@ export function useSortableList<T, K>({
   }, [items, decisionMarginScores, sortMode, getItemKey, getDefaultScore, defaultDirection])
 
   const toggleSortMode = useCallback(() => {
-    setSortMode(prev => prev === 'default' ? 'decisionMargin' : 'default')
-  }, [])
+    const newMode = sortMode === 'default' ? 'decisionMargin' : 'default'
+    setSortMode(newMode)
+  }, [sortMode, setSortMode])
 
   const columnHeaderProps = useMemo(() => ({
     label: sortMode === 'decisionMargin' ? 'Decision Margin' : defaultLabel,
     sortDirection: (sortMode === 'decisionMargin' ? 'asc' : defaultDirection) as 'asc' | 'desc',
     onClick: toggleSortMode,
-    isModeSwitch: true
-  }), [sortMode, defaultLabel, defaultDirection, toggleSortMode])
+    isModeSwitch: true,
+    isPulsing
+  }), [sortMode, defaultLabel, defaultDirection, toggleSortMode, isPulsing])
 
   const getDisplayScore = useCallback((item: T): number | undefined => {
     if (sortMode === 'decisionMargin') {

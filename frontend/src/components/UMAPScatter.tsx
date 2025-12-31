@@ -511,7 +511,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               d={trianglePath}
               fill="none"
               stroke="#000"
-              strokeWidth={1.5}
+              strokeWidth={0.5}
               className="umap-scatter__triangle-outline"
             />
           )}

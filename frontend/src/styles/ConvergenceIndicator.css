@@ -1,4 +1,5 @@
 /* ConvergenceIndicator - Decision Flip Rate visualization */
+/* IEEE VIS-style: threshold bands + reference lines */
 
 .convergence-indicator {
   display: flex;
@@ -16,48 +17,41 @@
 }
 
 .convergence-indicator__label {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
-  color: #6b7280;
+  color: #1f2937;
 }
 
 .convergence-indicator__value {
   font-size: 12px;
   font-weight: 700;
-  transition: color 0.2s ease;
+  color: #1f2937;
 }
 
 /* Sparkline SVG */
 .convergence-indicator__sparkline {
   width: 100%;
-  height: 32px;
-  background: #f9fafb;
-  border-radius: 4px;
-  border: 1px solid #e5e7eb;
+  height: 80px;
+}
+
+/* Axis labels in SVG - consistent font styling */
+.convergence-indicator__axis-label {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
 }
 
 /* Placeholder state */
-.convergence-indicator--placeholder {
-  justify-content: center;
-  align-items: center;
-}
-
 .convergence-indicator__placeholder {
   display: flex;
-  flex-direction: row;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  text-align: center;
   width: 100%;
-  height: 48px;
+  height: 80px;
   background: #f9fafb;
   border-radius: 4px;
-  border: 1px solid #e5e7eb;
 }
 
 .convergence-indicator__placeholder-text {
-  font-size: 10px;
+  font-size: 11px;
   color: #9ca3af;
-  line-height: 1.4;
 }

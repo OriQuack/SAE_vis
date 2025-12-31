@@ -116,6 +116,20 @@
   color: #3b82f6;
 }
 
+/* Pulse animation for auto-switch feedback */
+.scrollable-list__column-header--pulsing {
+  animation: column-header-pulse 0.8s ease-in-out 3;
+}
+
+@keyframes column-header-pulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.25);
+  }
+}
+
 /* ============================================================================
  * SCROLLABLE CONTAINER
  * ============================================================================ */

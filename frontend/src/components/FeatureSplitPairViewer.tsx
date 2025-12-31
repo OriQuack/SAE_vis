@@ -9,6 +9,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
+import { useTaggingNavigation, type ListSource } from '../lib/tagging-hooks'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -92,7 +93,7 @@ interface FeatureSplitPairViewerProps {
   currentPair?: PairData | null  // Optional: pass directly to avoid recomputation during drag
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
-  autoAdvance?: boolean  // Whether to auto-advance to next pair after tagging (default: true)
+  activeListSource?: ListSource  // Current active list source for auto-advance logic
   sortMode?: 'default' | 'decisionMargin'  // Current sort mode
   isLoading?: boolean  // Whether similarity scores are being calculated
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
@@ -127,7 +128,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   currentPair: currentPairProp,
   onNavigatePrevious,
   onNavigateNext,
-  autoAdvance = true,
+  activeListSource = 'all',
   sortMode = 'default',
   isLoading = false,
   onResetToFirstPair,
@@ -171,17 +172,24 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   // NOTE: Activation examples are pre-fetched by parent (FeatureSplitView) for the entire page
   // This component just reads from the activationExamples cache
 
+  // Post-tagging navigation hook
+  const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
+    activeListSource,
+    sortMode,
+    currentIndex: currentPairIndex,
+    listLength: pairList.length,
+    onNavigateNext: onNavigateNext || (() => {}),
+    onResetToFirst: onResetToFirstPair || (() => {})
+  })
 
   // Selection handlers
   const handleFragmentedClick = () => {
     if (!currentPair) return
 
-    // If already selected (Fragmented), toggle to null (Unsure)
+    // If already selected (Fragmented), keep tag and navigate
     if (pairSelectionState === 'selected') {
-      // Toggle off by calling twice (null -> selected -> rejected -> null)
-      togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
-      togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
-      togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
+      // Keep the tag, just navigate
+      handlePostTagNavigation()
     } else {
       // Set to selected
       if (pairSelectionState === null) {
@@ -191,22 +199,18 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // In decision margin mode, reset to first pair (list will re-sort)
-      if (sortMode === 'decisionMargin' && onResetToFirstPair) {
-        setTimeout(() => onResetToFirstPair(), 150)
-      } else if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
-        // Auto-advance to next pair (only if enabled and not in decision margin mode)
-        setTimeout(() => onNavigateNext(), 150)
-      }
+      // Use centralized navigation logic
+      handlePostTagNavigation()
     }
   }
 
   const handleMonosemanticClick = () => {
     if (!currentPair) return
 
-    // If already rejected (Monosemantic), toggle to null (Unsure)
+    // If already rejected (Monosemantic), keep tag and navigate
     if (pairSelectionState === 'rejected') {
-      togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
+      // Keep the tag, just navigate
+      handlePostTagNavigation()
     } else {
       // Set to rejected
       if (pairSelectionState === null) {
@@ -217,13 +221,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // In decision margin mode, reset to first pair (list will re-sort)
-      if (sortMode === 'decisionMargin' && onResetToFirstPair) {
-        setTimeout(() => onResetToFirstPair(), 150)
-      } else if (autoAdvance && onNavigateNext && currentPairIndex < pairList.length - 1) {
-        // Auto-advance to next pair (only if enabled and not in decision margin mode)
-        setTimeout(() => onNavigateNext(), 150)
-      }
+      // Use centralized navigation logic
+      handlePostTagNavigation()
     }
   }
 
@@ -239,10 +238,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       // rejected -> null
       togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
     }
-    // Always advance to next pair when clicking Unsure (since it doesn't change the list order)
-    if (onNavigateNext && currentPairIndex < pairList.length - 1) {
-      setTimeout(() => onNavigateNext(), 150)
-    }
+    // Use centralized navigation logic (always advances for unsure)
+    handlePostUnsureNavigation()
   }
 
   // Show empty state if no pairs available
