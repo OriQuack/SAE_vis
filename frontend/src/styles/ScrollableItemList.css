@@ -126,7 +126,7 @@
     background-color: transparent;
   }
   50% {
-    background-color: rgba(59, 130, 246, 0.25);
+    background-color: #bfdbfe; /* Same as .scrollable-list-item--highlighted */
   }
 }
 

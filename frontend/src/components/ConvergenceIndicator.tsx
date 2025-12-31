@@ -215,17 +215,29 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             />
           )}
 
-          {/* Data points */}
+          {/* Data points: circles for manual, diamonds for batch */}
           {sparklineData.points.map((point, i) => (
-            <circle
-              key={i}
-              cx={point.x}
-              cy={point.y}
-              r={point.isBatch ? 3.5 : 2.5}
-              fill="#1f2937"
-              stroke={point.isBatch ? '#fff' : 'none'}
-              strokeWidth={point.isBatch ? 1 : 0}
-            />
+            point.isBatch ? (
+              // Diamond shape for batch updates (rotated square)
+              <rect
+                key={i}
+                x={point.x - 3}
+                y={point.y - 3}
+                width={6}
+                height={6}
+                fill="#1f2937"
+                transform={`rotate(45 ${point.x} ${point.y})`}
+              />
+            ) : (
+              // Circle for manual tagging
+              <circle
+                key={i}
+                cx={point.x}
+                cy={point.y}
+                r={2.5}
+                fill="#1f2937"
+              />
+            )
           ))}
         </svg>
       )}
