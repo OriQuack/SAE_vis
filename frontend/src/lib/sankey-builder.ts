@@ -17,9 +17,8 @@ import type {
   NodeSegment,
   Filters
 } from '../types'
-import { getStageConfig } from './sankey-stages'
 import { processFeatureGroupResponse, groupFeaturesByScoresMap, calculateSegmentProportions } from './threshold-utils'
-import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './constants'
+import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, getStageConfig } from './constants'
 import { getBadgeColors } from './tag-system'
 import * as api from '../api'
 

@@ -91,6 +91,10 @@
 }
 
 /* Disable hover effects when no-hover class is present */
+.activation-example--no-hover {
+  cursor: default;
+}
+
 .activation-example--no-hover:hover .activation-example__quantile {
   box-shadow: none;
 }

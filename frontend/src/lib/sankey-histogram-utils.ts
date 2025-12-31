@@ -287,43 +287,6 @@ export function calculateNodeHistogramLayout(
 }
 
 /**
- * Check if a node should display a histogram
- *
- * Criteria:
- * - Node has outgoing links (is a source)
- * - Node or its targets have a metric
- * - Histogram data exists for that metric using composite key (metric:nodeId)
- */
-export function shouldDisplayNodeHistogram(
-  node: D3SankeyNode,
-  links: D3SankeyLink[],
-  histogramData: Record<string, HistogramData> | null
-): boolean {
-  // Check if node has outgoing links
-  if (!hasOutgoingLinks(node, links)) {
-    return false
-  }
-
-  // Get metric for this node
-  const metric = getNodeHistogramMetric(node, links)
-  if (!metric) {
-    return false
-  }
-
-  // Check if histogram data exists using composite key (metric:nodeId)
-  if (!histogramData) {
-    return false
-  }
-
-  const compositeKey = `${metric}:${node.id}`
-  if (!histogramData[compositeKey]) {
-    return false
-  }
-
-  return true
-}
-
-/**
  * Calculate y-axis ticks for a histogram overlay
  *
  * Creates tick marks and labels similar to the histogram popover's x-axis

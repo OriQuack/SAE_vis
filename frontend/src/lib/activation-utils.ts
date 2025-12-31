@@ -96,17 +96,17 @@ export function getActivationColor(
 }
 
 /**
- * Format tokens with ellipsis - SIMPLIFIED CENTERING
+ * Format tokens with ellipsis - SYMMETRIC BUDGET WITH REDISTRIBUTION
  *
- * Positions max activation token in the middle and expands symmetrically.
- * Uses character width to calculate positions and always shows full tokens.
- * Adjusts preview length based on available character budget.
+ * Centers max activation token by allocating equal character budget to each side.
+ * If one side runs out of tokens, unused budget is redistributed to the other side.
  *
  * Algorithm:
  * 1. Start with max activation token (always fully shown)
- * 2. Expand symmetrically left/right, adding full tokens alternating
- * 3. Stop when adding next full token would exceed character budget
- * 4. Return display tokens with ellipsis flags for truncation indicators
+ * 2. Calculate remaining budget and split equally between left/right
+ * 3. Expand each side up to its allocated budget
+ * 4. Redistribute unused budget from exhausted side to the other
+ * 5. Continue expanding with redistributed budget
  */
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
@@ -137,64 +137,61 @@ export function formatTokensWithEllipsis(
     }
   }
 
-  // Start with max token (always include it fully)
+  // Initial symmetric budget allocation
+  const maxTokenLength = tokens[maxTokenIdx].text.length
+  const remainingBudget = maxLength - maxTokenLength
+  let leftBudget = Math.floor(remainingBudget / 2)
+  let rightBudget = remainingBudget - leftBudget
+
   const selected = new Set<number>([maxTokenIdx])
-  let currentLength = tokens[maxTokenIdx].text.length
+
+  // First pass: expand left side up to leftBudget
   let leftIdx = maxTokenIdx - 1
+  let leftUsed = 0
+  while (leftIdx >= 0 && leftUsed + tokens[leftIdx].text.length <= leftBudget) {
+    selected.add(leftIdx)
+    leftUsed += tokens[leftIdx].text.length
+    leftIdx--
+  }
+
+  // First pass: expand right side up to rightBudget
   let rightIdx = maxTokenIdx + 1
+  let rightUsed = 0
+  while (rightIdx < tokens.length && rightUsed + tokens[rightIdx].text.length <= rightBudget) {
+    selected.add(rightIdx)
+    rightUsed += tokens[rightIdx].text.length
+    rightIdx++
+  }
 
-  // Expand symmetrically left and right
-  // IMPORTANT:
-  // - Left (first) tokens: Only add if they FULLY fit within budget (exclude if cut off)
-  // - Right (last) tokens: Show full token even if it exceeds budget (always include complete token)
-  while (leftIdx >= 0 || rightIdx < tokens.length) {
-    let addedToken = false
+  // Calculate unused budget and redistribute
+  const leftUnused = leftBudget - leftUsed
+  const rightUnused = rightBudget - rightUsed
 
-    // Try to add from left
-    // STRICT: Don't show first token if it doesn't fully fit in character budget
-    if (leftIdx >= 0) {
-      const leftToken = tokens[leftIdx]
-      if (currentLength + leftToken.text.length <= maxLength) {
-        selected.add(leftIdx)
-        currentLength += leftToken.text.length
-        leftIdx--
-        addedToken = true
-      } else {
-        // Token doesn't fit - don't show it at all
-        leftIdx = -1
-      }
+  // Redistribute: if left exhausted, give unused to right
+  if (leftIdx < 0 && leftUnused > 0) {
+    rightBudget += leftUnused
+    // Continue expanding right with extra budget
+    while (rightIdx < tokens.length && rightUsed + tokens[rightIdx].text.length <= rightBudget) {
+      selected.add(rightIdx)
+      rightUsed += tokens[rightIdx].text.length
+      rightIdx++
     }
+  }
 
-    // Try to add from right
-    // PERMISSIVE: Show last token in full even if it's cut off by character budget
-    if (rightIdx < tokens.length) {
-      const rightToken = tokens[rightIdx]
-      // Try to fit within budget, but if we're at the end and can't expand left anymore,
-      // we still add the right token to show it in full
-      if (currentLength + rightToken.text.length <= maxLength) {
-        selected.add(rightIdx)
-        currentLength += rightToken.text.length
-        rightIdx++
-        addedToken = true
-      } else if (leftIdx < 0) {
-        // Can't expand left anymore, so add right token anyway (show full token)
-        selected.add(rightIdx)
-        currentLength += rightToken.text.length
-        rightIdx++
-        addedToken = true
-      } else {
-        // Still have room on left, so stop expanding right
-        rightIdx = tokens.length
-      }
+  // Redistribute: if right exhausted, give unused to left
+  if (rightIdx >= tokens.length && rightUnused > 0) {
+    leftBudget += rightUnused
+    // Continue expanding left with extra budget
+    while (leftIdx >= 0 && leftUsed + tokens[leftIdx].text.length <= leftBudget) {
+      selected.add(leftIdx)
+      leftUsed += tokens[leftIdx].text.length
+      leftIdx--
     }
-
-    // If both sides can't add, stop
-    if (!addedToken) break
   }
 
   // Build display tokens in order
   const displayTokens = tokens.filter((_, idx) => selected.has(idx))
-  const hasLeftEllipsis = leftIdx + 1 > 0
+  const hasLeftEllipsis = leftIdx >= 0
   const hasRightEllipsis = rightIdx < tokens.length
 
   return { displayTokens, hasLeftEllipsis, hasRightEllipsis }

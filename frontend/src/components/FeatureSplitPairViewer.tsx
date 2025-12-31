@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
@@ -144,7 +144,23 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const tableData = useVisualizationStore(state => state.tableData)
 
-  const containerWidth = 1400 // Fixed width for full-width activation examples
+  // Container width for activation examples (responsive to resize)
+  const [containerWidth, setContainerWidth] = useState(1400)
+  const mainContainerRef = useRef<HTMLDivElement>(null)
+
+  // ResizeObserver to update containerWidth on resize
+  // Re-run when currentPair becomes available (ref element renders)
+  useEffect(() => {
+    const element = mainContainerRef.current
+    if (!element) return
+
+    const observer = new ResizeObserver(entries => {
+      const width = entries[0].contentRect.width
+      setContainerWidth(width)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [currentPairProp, pairList, currentPairIndex])
 
   // Current pair - use prop if provided, otherwise compute from list
   const currentPair = currentPairProp !== undefined ? currentPairProp : (pairList[currentPairIndex] || null)
@@ -348,7 +364,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       )}
 
       {/* Main content area */}
-      <div className="pair-viewer__main">
+      <div className="pair-viewer__main" ref={mainContainerRef}>
         {/* Header row */}
         <div className="pair-viewer__header">
           {/* Subheader */}

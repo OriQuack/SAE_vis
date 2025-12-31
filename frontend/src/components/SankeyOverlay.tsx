@@ -5,7 +5,6 @@ import {
   hasOutgoingLinks,
   calculateHistogramYAxisTicks
 } from '../lib/sankey-histogram-utils'
-// Removed: getNodeThresholds, getExactMetricFromPercentile - using v2 simplified system
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
 import { groupFeaturesByThresholds, groupFeaturesByScoresMap, calculateSegmentProportions } from '../lib/threshold-utils'
 import { useVisualizationStore } from '../store'
@@ -13,13 +12,6 @@ import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, METRIC_QUALITY_SCORE, SANKEY_COLO
 import { getBadgeColors } from '../lib/tag-system'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
-// Removed: TAG_CATEGORIES import - not needed in v2 (RE-ADDED for optimistic segments)
-
-// ============================================================================
-// CONSTANTS & TYPES
-// ============================================================================
-
-// REMOVED: AVAILABLE_STAGES - using fixed stage configs from lib/sankey-stages.ts
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -33,8 +25,6 @@ const isTerminalSegment = (tagName: string): boolean => {
   const terminalTags = ['Fragmented', 'Well-Explained']
   return terminalTags.includes(tagName)
 }
-
-// REMOVED: shouldShowHandles - v2 now shows handles on source nodes, not segment nodes
 
 // ============================================================================
 // SUB-COMPONENTS
@@ -313,9 +303,6 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
     </g>
   )
 }
-
-// REMOVED: MetricOverlayPanel, SankeyInlineSelector, createPercentileToMetric
-// No longer needed with v2 fixed 3-stage architecture
 
 // ============================================================================
 // MAIN COMPONENT

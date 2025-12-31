@@ -64,7 +64,6 @@ const DEFAULT_SANKEY_MARGIN = { top: 10, right: 30, bottom: 20, left: 10 } as co
 export const RIGHT_SANKEY_MARGIN = { top: 80, right: 80, bottom: 50, left: 120 } as const
 
 // Validation constants
-const MIN_CONTAINER_WIDTH = 200
 const MIN_CONTAINER_HEIGHT = 250
 
 // Link opacity constants (0-1 range)
@@ -459,9 +458,9 @@ export function getLinkColor(_link: D3SankeyLink): string {
 /**
  * Validate container dimensions
  */
-export function validateDimensions(width: number, height: number): string[] {
+export function validateDimensions(_width: number, height: number): string[] {
   const errors: string[] = []
-  if (width < MIN_CONTAINER_WIDTH) errors.push(`Container width must be at least ${MIN_CONTAINER_WIDTH}px`)
+  // Width constraint removed - allow any width for flexible layouts
   if (height < MIN_CONTAINER_HEIGHT) errors.push(`Container height must be at least ${MIN_CONTAINER_HEIGHT}px`)
   return errors
 }

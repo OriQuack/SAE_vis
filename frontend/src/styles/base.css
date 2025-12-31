@@ -135,13 +135,12 @@ body {
 .view-tag-badge {
   display: inline-flex;
   align-items: center;
-  padding: 0px 3px;
+  padding: 0px 4px;
   border-radius: 3px;
   font-size: 13px;
   font-weight: 600;
   color: #000000;
   white-space: nowrap;
-  vertical-align: middle;
 }
 
 /* Subheader - Small uppercase label for sections */

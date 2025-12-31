@@ -110,7 +110,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     label: "Detect Feature Splitting",
     stageOrder: 1,
     metric: METRIC_DECODER_SIMILARITY,
-    defaultThresholds: [0.35],
+    defaultThresholds: [0.4],
     showHistogram: true,
     tags: [
       "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
@@ -198,6 +198,85 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     parentTag: null
   }
 } as const
+
+// ============================================================================
+// STAGE CONFIGURATION - Fixed 3-Stage Sankey structure
+// Derived from TAG_CATEGORIES above for the fixed stage progression
+// ============================================================================
+
+export interface StageConfig {
+  stageNumber: 1 | 2 | 3 | 4
+  categoryId: string
+  label: string
+  metric: string | null
+  defaultThreshold: number | null
+  tags: string[]
+  parentTag: string | null  // Which tag from previous stage continues
+  terminalTags: string[]     // Which tags terminate (don't continue to next stage)
+}
+
+// Helper to get default threshold from TAG_CATEGORIES
+const getDefaultThreshold = (categoryId: string): number | null => {
+  const category = TAG_CATEGORIES[categoryId]
+  if (!category || !category.defaultThresholds || category.defaultThresholds.length === 0) {
+    return null
+  }
+  return category.defaultThresholds[0]
+}
+
+/**
+ * Fixed stage configurations for the 3-stage Sankey progression
+ * Values derived from TAG_CATEGORIES above
+ */
+export const STAGE_CONFIGS: StageConfig[] = [
+  {
+    stageNumber: 1,
+    categoryId: TAG_CATEGORY_FEATURE_SPLITTING,
+    label: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_FEATURE_SPLITTING),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].parentTag,
+    terminalTags: ['Fragmented']  // Fragmented doesn't continue
+  },
+  {
+    stageNumber: 2,
+    categoryId: TAG_CATEGORY_QUALITY,
+    label: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_QUALITY),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_QUALITY].parentTag,
+    terminalTags: ['Well-Explained']  // Well-Explained doesn't continue
+  },
+  {
+    stageNumber: 3,
+    categoryId: TAG_CATEGORY_CAUSE,
+    label: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].label,
+    metric: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].metric,
+    defaultThreshold: getDefaultThreshold(TAG_CATEGORY_CAUSE),
+    tags: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].tags as unknown as string[],
+    parentTag: TAG_CATEGORIES[TAG_CATEGORY_CAUSE].parentTag,
+    terminalTags: []  // Cause tags continue to Stage 4
+  },
+  {
+    stageNumber: 4,
+    categoryId: TAG_CATEGORY_REGENERATION,
+    label: TAG_CATEGORIES[TAG_CATEGORY_REGENERATION].label,
+    metric: null,
+    defaultThreshold: null,
+    tags: [],
+    parentTag: 'NeedRevision',  // Continues from need_revision node
+    terminalTags: []  // All cause category nodes are terminal in Stage 4
+  }
+]
+
+/**
+ * Get configuration for a specific stage
+ */
+export function getStageConfig(stageNumber: 1 | 2 | 3 | 4): StageConfig {
+  return STAGE_CONFIGS[stageNumber - 1]
+}
 
 // ============================================================================
 // CAUSE TAG METRICS - Configuration for auto-tagging in Stage 3

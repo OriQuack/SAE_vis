@@ -115,22 +115,12 @@ const SankeyNode: React.FC<{
   node: D3SankeyNode
   onMouseEnter: (e: React.MouseEvent) => void
   onMouseLeave: () => void
-  isHovered: boolean
-  isHighlighted: boolean
   isSelected?: boolean
-  flowDirection: 'left-to-right' | 'right-to-left'
-  animationDuration: number
-  currentStage?: number
 }> = ({
   node,
   onMouseEnter,
   onMouseLeave,
-  isHovered: _isHovered,
-  isHighlighted: _isHighlighted,
-  isSelected = false,
-  flowDirection: _flowDirection,
-  animationDuration: _animationDuration,
-  currentStage: _currentStage = 1
+  isSelected = false
 }) => {
   if (node.x0 === undefined || node.x1 === undefined || node.y0 === undefined || node.y1 === undefined) {
     return null
@@ -201,7 +191,6 @@ const SankeyLink: React.FC<{
 const VerticalBarSankeyNode: React.FC<{
   node: D3SankeyNode
   scrollState: { scrollTop: number; scrollHeight: number; clientHeight: number } | null
-  flowDirection: 'left-to-right' | 'right-to-left'
   onMouseEnter?: (e: React.MouseEvent) => void
   onMouseLeave?: () => void
   isSelected?: boolean
@@ -212,7 +201,7 @@ const VerticalBarSankeyNode: React.FC<{
   selectedSegment?: { nodeId: string; segmentIndex: number } | null  // V2: segment selection
   optimisticSegments?: any[]  // V2: preview segments during threshold drag
   segmentRefs?: React.MutableRefObject<Map<string, SVGRectElement>>  // Ref map for segments
-}> = ({ node, scrollState, flowDirection: _flowDirection, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments, segmentRefs }) => {
+}> = ({ node, scrollState, onMouseEnter, onMouseLeave, isSelected = false, isHovered = false, featureSelectionStates, tableSortedFeatureIds, sankeyStructure, selectedSegment, optimisticSegments, segmentRefs }) => {
   const layout = calculateVerticalBarNodeLayout(node, scrollState, featureSelectionStates, tableSortedFeatureIds)
 
   // Check if this is a placeholder node
@@ -415,8 +404,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const histogramData = useVisualizationStore(state => state[panelKey].histogramData)
   const loading = useVisualizationStore(state => state.loading[loadingKey])
   const error = useVisualizationStore(state => state.errors[errorKey])
-  const hoveredAlluvialNodeId = useVisualizationStore(state => state.hoveredAlluvialNodeId)
-  const hoveredAlluvialPanel = useVisualizationStore(state => state.hoveredAlluvialPanel)
   const tableScrollState = useVisualizationStore(state => state.tableScrollState)
   const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
   const selectedSegment = useVisualizationStore(state => state.selectedSegment)
@@ -468,7 +455,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const [hoveredLinkIndex, setHoveredLinkIndex] = useState<number | null>(null)
   const [optimisticSegments, setOptimisticSegments] = useState<Record<string, any[]>>({})
   const [optimisticThresholds, setOptimisticThresholds] = useState<Record<string, number>>({})
-  // const [inlineSelector, setInlineSelector] = useState<...>(null) // REMOVED: No longer needed
 
   // Note: onSegmentRefsReady notification is done after layout calculation below
 
@@ -558,16 +544,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // This prevents the indicator from jumping around when thresholds change
 
   // Stage labels removed - metric labels now shown on links
-
-  // REMOVED: handleAddStageClick - No longer needed with fixed 3-stage auto-expansion
-  // const handleAddStageClick = useCallback((event: React.MouseEvent, node: D3SankeyNode) => {
-  //   event.stopPropagation()
-  //   // ... implementation removed
-  // }, [sankeyTree, computedSankey])
-
-  // REMOVED: handleStageSelect and handleOverlayMetricClick - No longer needed with fixed 3-stage auto-expansion
-  // const handleStageSelect = useCallback(async (stageTypeId: string) => { ... }, [inlineSelector, panel])
-  // const handleOverlayMetricClick = useCallback(async (metric: string) => { ... }, [panel])
 
   const handleThresholdUpdate = useCallback((nodeId: string, newThreshold: number) => {
     console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Threshold updated:', {
@@ -754,8 +730,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             <g className="sankey-diagram__nodes">
               {(() => {
                 return layout.nodes.map((node) => {
-                  const isHighlighted = hoveredAlluvialNodeId === node.id &&
-                                      hoveredAlluvialPanel === (panel === PANEL_LEFT ? 'left' : 'right')
                   const isSelected = panel === PANEL_LEFT && tableSelectedNodeIds.includes(node.id)
 
                   // Check if this is a vertical bar node
@@ -769,7 +743,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                         <VerticalBarSankeyNode
                           node={node}
                           scrollState={shouldShowIndicator ? tableScrollState : null}
-                          flowDirection={flowDirection}
                           onMouseEnter={() => setHoveredNodeId(node.id)}
                           onMouseLeave={() => setHoveredNodeId(null)}
                           isSelected={isSelected}
@@ -790,14 +763,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                     <SankeyNode
                       key={node.id}
                       node={node}
-                      isHovered={hoveredNodeId === node.id}
-                      isHighlighted={isHighlighted}
                       isSelected={isSelected}
                       onMouseEnter={() => setHoveredNodeId(node.id)}
                       onMouseLeave={() => setHoveredNodeId(null)}
-                      flowDirection={flowDirection}
-                      animationDuration={animationDuration}
-                      currentStage={sankeyStructure?.currentStage}
                     />
                   )
                 })

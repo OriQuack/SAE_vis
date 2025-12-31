@@ -20,8 +20,7 @@ import {
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
 import { convertToD3Format } from '../lib/sankey-utils'
-import { getStageConfig } from '../lib/sankey-stages'
-import { PANEL_LEFT, PANEL_RIGHT } from '../lib/constants'
+import { PANEL_LEFT, PANEL_RIGHT, getStageConfig } from '../lib/constants'
 import * as api from '../api'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
 

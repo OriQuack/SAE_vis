@@ -313,7 +313,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               selectThreshold,
               rejectThreshold,
               tagLabel: 'Fragmented',
-              isLoading: false
+              isLoading: false,
+              flipTracking: null
             }
           })
         }
@@ -406,7 +407,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
     decisionMarginScores: pairSimilarityScores,
     defaultLabel: 'Decoder sim',
-    defaultDirection: 'asc'
+    defaultDirection: 'desc'
   })
 
   // Pagination derived state
@@ -817,13 +818,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="view-header">
         <span className="view-title">Feature Splitting Detection</span>
         <span className="view-description">
-          Validate features for{' '}
+          Compare activation examples of two features and identify{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: fragmentedColor }}
           >
             Fragmented
           </span>
+          {' '}pairs that represent the same concept.
         </span>
       </div>
 

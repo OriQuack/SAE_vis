@@ -261,21 +261,17 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
         return examples_to_show.map((example, exampleIdx) => {
           if (!example) return null
 
-          // Use fixed 32-token window centered on max activation (matches popover behavior)
-          // extractTokenWindow will center on max_activation_position
-          // formatTokensWithEllipsis handles character-based trimming if needed
-          const windowSize = 64
-          const tokens = buildActivationTokens(example, windowSize)
+          // Pass all tokens - use 2x length to ensure symmetric window covers full array
+          const tokens = buildActivationTokens(example, example.prompt_tokens.length * 2)
 
           // Truncate based on available width (symmetric around max token with full tokens)
-          const { displayTokens, hasLeftEllipsis, hasRightEllipsis } = formatTokensWithEllipsis(tokens, maxLength)
+          const { displayTokens } = formatTokensWithEllipsis(tokens, maxLength)
 
           return (
             <div
               key={`${qIndex}-${exampleIdx}`}
               className="activation-example__quantile"
             >
-              {hasLeftEllipsis && <span className="activation-example__ellipsis">...</span>}
               {displayTokens.map((token, tokenIdx) => {
                 const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
                 const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
@@ -301,7 +297,6 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   </span>
                 )
               })}
-              {hasRightEllipsis && <span className="activation-example__ellipsis">...</span>}
             </div>
           )
         })
@@ -317,12 +312,13 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
             {quantileGroups.map((group, qIdx) => (
               <div key={qIdx} className="activation-example__popover-quantile-group">
                 {group.map((example, exIdx) => {
-                  // Show full 32-token window without truncation
-                  const tokens = buildActivationTokens(example, 32)
+                  // Pass all tokens - use 2x length to ensure symmetric window covers full array
+                  const tokens = buildActivationTokens(example, example.prompt_tokens.length * 2)
+                  const { displayTokens } = formatTokensWithEllipsis(tokens, maxLength)
 
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
-                      {tokens.map((token, tokenIdx) => {
+                              {displayTokens.map((token, tokenIdx) => {
                         const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
                         const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
