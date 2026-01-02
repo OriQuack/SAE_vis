@@ -18,31 +18,29 @@ from autogen import ConversableAgent
 # Paper prompt (Appendix B), structured for clarity with examples
 REVIEWER_SYSTEM_PROMPT = """You are a reviewer in thematic analysis of neuron explanations.
 
-TASK: Compare new codes against existing codebook codes and decide to merge or add as new.
+PURPOSE: Maintain codebook consistency by merging duplicate concepts and adding genuinely new ones.
 
-WHEN TO MERGE (set merge_codes to existing code name):
-- New code describes the same underlying concept as an existing code
-  Example: "define token" and "definition verbs" → same concept (definitions)
-- New code uses different wording but captures the same pattern type
-  Example: "Hor-initial tokens" and "'Hor' prefix" → same pattern
-- When merging, use a code name that accurately covers the merged concepts
-- CRITICAL: Only merge codes within the SAME category (linguistic ↔ linguistic, contextual ↔ contextual) 
+TASK: Compare the new code against existing codebook codes. Decide: merge or add as new.
 
 WHEN TO ADD AS NEW (leave merge_codes empty):
-- New code describes a genuinely different concept not covered by existing codes
-- No existing code captures the same underlying pattern or topic
+- Genuinely novel concepts not covered by existing codes
+- Distinct concepts, even if related
+
+WHEN TO MERGE (set merge_codes to existing code names):
+- Truly redundant: same concept expressed differently
+- When merging, use a code name that accurately covers the merged concepts
 
 EXAMPLE:
 Input:
-  New code: "playoff terminology"
-  Existing codes: ["game outcome terms", "mathematical symbols"]
+  New code: "punctuation marks"
+  Existing codes: ["punctuation", "sports terminology"]
 Output:
 {
   "codes": [
     {
-      "code": "sports competition terminology",
-      "merge_codes": ["game outcome terms"],
-      "quotes": [{"quote": "playoffs and finals", "quote_id": "f3_gpt"}]
+      "code": "punctuation",
+      "merge_codes": ["punctuation"],
+      "quotes": [{"quote": "commas and periods", "quote_id": "f3_gpt"}]
     }
   ]
 }

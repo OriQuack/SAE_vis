@@ -29,13 +29,13 @@ class CodebookEntry:
     codebook is a code, and its associated quotes are nested below each
     code along with their quote IDs."
 
-    Extended with category field for linguistic/contextual classification.
+    Extended with category field for token-level/context-level classification.
     """
 
     code_id: int
     code_text: str
     embedding: np.ndarray
-    category: str = "unknown"  # "linguistic" | "contextual" | "unknown"
+    category: str = "unknown"  # "token-level" | "context-level" | "unknown"
     frequency: int = 1
     variants: List[str] = field(default_factory=list)
     # Per paper: quotes stored WITH quote_ids for traceability
@@ -181,7 +181,7 @@ class CodebookManager:
         Args:
             code_text: The code label
             quotes: List of quote dicts with 'quote' and 'quote_id' keys
-            category: Code category - "linguistic" | "contextual" | "unknown"
+            category: Code category - "token-level" | "context-level" | "unknown"
 
         Returns:
             Tuple of (code_id, is_new) - is_new is always True for add_code

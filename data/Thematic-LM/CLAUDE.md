@@ -9,7 +9,9 @@ Implementation of the Thematic-LM paper (WWW '25) for SAE feature explanation an
 
 This implementation adapts Thematic-LM for analyzing SAE (Sparse Autoencoder) feature explanations. We implement only the **Coding Stage** (no Theme Development stage) using the **AutoGen framework** as specified in the paper.
 
-**Key Extension**: Codes are classified into two categories - `linguistic` (token patterns, morphology, syntax) and `contextual` (semantic meaning, domain, usage context).
+**Key Extension**: Codes are classified into two categories aligned with interpretability score semantics:
+- `token-level`: Patterns for identifying **which tokens** activate (aligns with Fuzz score)
+- `context-level`: Patterns for identifying **what situations** activate (aligns with Detection score)
 
 ## Architecture (Paper Section 3.1)
 
@@ -64,48 +66,63 @@ data/Thematic-LM/
 
 | Agent | Role | Key Behavior |
 |-------|------|--------------|
-| **CoderAgent** | Generates 1-3 codes per explanation | Outputs `category` field (linguistic/contextual) |
+| **CoderAgent** | Generates 1-3 codes per explanation | Outputs `category` field (token-level/context-level) |
 | **AggregatorAgent** | Merges similar codes from multiple coders | Only merges within SAME category |
 | **ReviewerAgent** | Maintains codebook consistency | Only merges within SAME category |
 
 ### Category Classification (SAE Extension)
 
-Each code is classified into one of two categories:
+Each code is classified into one of two categories, aligned with interpretability score semantics:
 
-| Category | Description | Examples |
-|----------|-------------|----------|
-| **linguistic** | Token patterns, part-of-speech, morphology, syntax, punctuation | "prepositions", "tokens starting with 'Hor'", "verb phrases" |
-| **contextual** | Semantic meaning, domain, usage context, topic | "formal writing context", "sports terminology", "programming domain" |
+| Category | Score Alignment | Description | Examples |
+|----------|-----------------|-------------|----------|
+| **token-level** | Fuzz score | Patterns that identify **which specific tokens** activate | "tokens starting with 'un-'", "punctuation marks", "verb phrases" |
+| **context-level** | Detection score | Patterns that identify **what situations** activate | "formal writing context", "legal documents", "chemistry terminology" |
+
+**Classification Guide:**
+- Part-of-speech alone (verbs, nouns) → token-level
+- Domain vocabulary (legal terms, medical words) → context-level
+- Specific token patterns (starts with X, contains Y) → token-level
+- Semantic themes (about travel, expressing emotion) → context-level
 
 ## Prompts (Adapted from Paper Appendix B)
 
-### Coder Prompt (SAE-Specific)
+### Coder Prompt
 ```
-You are a coder in thematic analysis of neuron explanations.
+PURPOSE: Faithfully decompose what the explanation claims. Vague explanations should produce vague codes—do not infer or improve.
 
-TASK: Generate 1-3 codes for each explanation. Each code must be classified into ONE category:
-- LINGUISTIC: Describes token pattern, part-of-speech, morphology, syntax, punctuation
-- CONTEXTUAL: Describes semantic meaning, domain, usage context, topic
+TASK: Decompose the explanation into 1-3 codes. Each code must be classified into exactly ONE category.
 
-IMPORTANT RULES:
-- Generate SEPARATE codes for linguistic and contextual aspects
-- Do NOT combine both aspects in one code
-- Each code should be 1-6 words, noun phrase style
+TOKEN-LEVEL: What the explanation says about WHICH TOKENS activate.
+  - Ask: "Does this describe a pattern to identify specific tokens?"
+  - Examples: "tokens starting with 'un-'", "punctuation marks", "verb phrases"
+
+CONTEXT-LEVEL: What the explanation says about WHAT SITUATIONS activate.
+  - Ask: "Does this describe a type of text or situation?"
+  - Examples: "formal writing context", "legal documents", "chemistry terminology"
 ```
 
 ### Aggregator Prompt
 ```
 MERGE RULES:
 - Merge codes with similar meaning AND same category
-- Do NOT merge codes from different categories (linguistic vs contextual)
+- Do NOT merge codes from different categories (token-level vs context-level)
 - When merging, keep the more descriptive code name
 ```
 
 ### Reviewer Prompt
 ```
+PURPOSE: Maintain codebook consistency by merging duplicate concepts and adding genuinely new ones.
+
+TASK: Compare the new code against existing codebook codes. Decide: merge or add as new.
+
 WHEN TO MERGE (set merge_codes to existing code name):
-- New code describes the same underlying concept as an existing code
-- CRITICAL: Only merge codes within the SAME category
+- Same underlying concept with different wording
+- Same pattern type with different phrasing
+- Only merge within SAME category (token-level ↔ token-level, context-level ↔ context-level)
+
+WHEN TO ADD AS NEW (leave merge_codes empty):
+- Genuinely different concept not covered by existing codes
 ```
 
 ## Codebook Structure (Extended from Paper Section 3.1)
@@ -115,7 +132,7 @@ CodebookEntry:
     code_id: int
     code_text: str
     embedding: np.ndarray          # Sentence Transformer embedding
-    category: str                  # "linguistic" | "contextual" | "unknown"
+    category: str                  # "token-level" | "context-level" | "unknown"
     frequency: int
     variants: List[str]
     example_quotes: List[Dict]     # [{"quote": "...", "quote_id": "..."}]
@@ -243,7 +260,7 @@ For each explanation:
     {
       "code_id": 0,
       "code_text": "prepositions and conjunctions",
-      "category": "linguistic",
+      "category": "token-level",
       "frequency": 5,
       "variants": ["prepositions"],
       "example_quotes": [{"quote": "...", "quote_id": "f7_llama"}],
@@ -266,7 +283,7 @@ For each explanation:
 ### Technical Extensions
 | Aspect | Paper | Our Implementation | Rationale |
 |--------|-------|-------------------|-----------|
-| Category classification | N/A | linguistic/contextual | Separate token patterns from semantic meaning |
+| Category classification | N/A | token-level/context-level | Align with Fuzz (token) and Detection (context) scores |
 | Category-aware merging | N/A | Same-category constraint | Prevent mixing different code types |
 | Embedding model | Sentence Transformer | all-MiniLM-L6-v2 (22M params) | Faster, sufficient for code similarity |
 | Max quotes per code | 20 | 100 | Better representation without token cost |
@@ -301,7 +318,7 @@ For each explanation:
 - **Evaluation Framework**: Credibility/dependability/transferability metrics not applicable
 
 ### SAE-Specific Extensions
-- **Category classification**: Codes tagged as linguistic or contextual
+- **Category classification**: Codes tagged as token-level (Fuzz) or context-level (Detection)
 - **Category-aware processing**: Merging only within same category
 - **Exact name auto-merge**: Optimization to skip reviewer for duplicate names
 - **Run modes**: Overwrite vs continue for iterative processing

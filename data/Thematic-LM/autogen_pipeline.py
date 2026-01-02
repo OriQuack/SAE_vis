@@ -53,7 +53,7 @@ class CodeResult:
     """Result of coding a single code entry."""
     code_id: int
     code_text: str
-    category: str  # "linguistic" | "contextual" | "unknown"
+    category: str  # "token-level" | "context-level" | "unknown"
     quotes: List[Dict[str, Any]]
     is_new: bool
     merged_with: List[str] = field(default_factory=list)  # Code NAMES, not IDs
@@ -186,9 +186,9 @@ class ThematicLMPipeline:
     def _call_agent(self, agent, message: str, max_retries: int = 3) -> Optional[Dict]:
         """Call an agent and extract JSON response with retry logic.
 
-        Uses generate_reply() for single-shot prompt-response pattern,
-        which is the proper approach for the paper's sequential pipeline
-        (Coders → Aggregator → Reviewer → Codebook).
+        Uses generate_oai_reply() for direct LLM calls, bypassing the
+        conversation loop and termination checks. This is the proper
+        approach for single-shot prompt-response patterns.
 
         Args:
             agent: AutoGen ConversableAgent to call
@@ -202,7 +202,8 @@ class ThematicLMPipeline:
 
         for attempt in range(max_retries):
             try:
-                response = agent.generate_reply(messages=messages)
+                # Use generate_oai_reply for direct LLM call (bypasses termination checks)
+                final, response = agent.generate_oai_reply(messages=messages)
 
                 if response:
                     content = response if isinstance(response, str) else response.get("content", "")

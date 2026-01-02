@@ -1,0 +1,310 @@
+{
+  "metadata": {
+    "created_at": "2026-01-02T16:16:12.523862",
+    "total_codes": 17,
+    "version": 26,
+    "paper": "Qiao et al. Thematic-LM (WWW '25)"
+  },
+  "entries": [
+    {
+      "code_id": 0,
+      "code_text": "short function words",
+      "category": "token-level",
+      "frequency": 2,
+      "variants": [
+        "function words and articles"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Function words and articles",
+          "quote_id": "f0_llama"
+        },
+        {
+          "quote": "short function words",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 1,
+      "code_text": "nouns or noun phrases",
+      "category": "token-level",
+      "frequency": 2,
+      "variants": [
+        "nouns or noun phrases"
+      ],
+      "example_quotes": [
+        {
+          "quote": "nouns or noun phrases",
+          "quote_id": "f0_llama"
+        },
+        {
+          "quote": "bounding volume hierarchy",
+          "quote_id": "f4_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 2,
+      "code_text": "adverbs and suffixes",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "adverbs and suffixes"
+      ],
+      "example_quotes": [
+        {
+          "quote": "adverbs and suffixes",
+          "quote_id": "f0_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 3,
+      "code_text": "formatting and structural elements",
+      "category": "token-level",
+      "frequency": 2,
+      "variants": [
+        "formatting and structural elements"
+      ],
+      "example_quotes": [
+        {
+          "quote": "formatting and structural elements",
+          "quote_id": "f2_llama"
+        },
+        {
+          "quote": "Punctuation and short function words",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 4,
+      "code_text": "academic or technical writing",
+      "category": "context-level",
+      "frequency": 1,
+      "variants": [
+        "academic or technical writing"
+      ],
+      "example_quotes": [
+        {
+          "quote": "academic or technical writing",
+          "quote_id": "f2_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 5,
+      "code_text": "numbers and single letters",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "numbers and single letters"
+      ],
+      "example_quotes": [
+        {
+          "quote": "numbers or single letters",
+          "quote_id": "f3_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 6,
+      "code_text": "punctuation and function words",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "punctuation and function words"
+      ],
+      "example_quotes": [
+        {
+          "quote": "Punctuation and common function words",
+          "quote_id": "f4_llama"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 7,
+      "code_text": "proper nouns or technical terms",
+      "category": "context-level",
+      "frequency": 3,
+      "variants": [
+        "proper nouns or technical terms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "proper nouns or technical terms",
+          "quote_id": "f4_llama"
+        },
+        {
+          "quote": "within various contexts",
+          "quote_id": "f2_gpt"
+        },
+        {
+          "quote": "technical terms and entities",
+          "quote_id": "f4_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 8,
+      "code_text": "status inquiries",
+      "category": "context-level",
+      "frequency": 1,
+      "variants": [
+        "status inquiries"
+      ],
+      "example_quotes": [
+        {
+          "quote": "how things are doing",
+          "quote_id": "f0_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 9,
+      "code_text": "tokens 'define' and variations",
+      "category": "token-level",
+      "frequency": 2,
+      "variants": [
+        "token 'defining'"
+      ],
+      "example_quotes": [
+        {
+          "quote": "defining something",
+          "quote_id": "f1_gemini"
+        },
+        {
+          "quote": "occurrences of the word \"define\" and its variations, indicating a focus on definitions or explanations",
+          "quote_id": "f1_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 10,
+      "code_text": "tokens starting with Hor",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "tokens starting with Hor"
+      ],
+      "example_quotes": [
+        {
+          "quote": "starts with Hor",
+          "quote_id": "f2_gemini"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 11,
+      "code_text": "competitive sports events",
+      "category": "context-level",
+      "frequency": 3,
+      "variants": [
+        "sports match terms"
+      ],
+      "example_quotes": [
+        {
+          "quote": "overtime tie shootout",
+          "quote_id": "f3_gemini"
+        },
+        {
+          "quote": "references to competitive sports events",
+          "quote_id": "f3_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 12,
+      "code_text": "questions and phrases",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "questions and phrases"
+      ],
+      "example_quotes": [
+        {
+          "quote": "questions and phrases",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 13,
+      "code_text": "comparisons and assessments",
+      "category": "context-level",
+      "frequency": 1,
+      "variants": [
+        "comparisons and assessments"
+      ],
+      "example_quotes": [
+        {
+          "quote": "comparisons and assessments",
+          "quote_id": "f0_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 14,
+      "code_text": "definitions or explanations",
+      "category": "context-level",
+      "frequency": 1,
+      "variants": [
+        "definitions or explanations"
+      ],
+      "example_quotes": [
+        {
+          "quote": "indicating a focus on definitions or explanations",
+          "quote_id": "f1_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 15,
+      "code_text": "references to Horace",
+      "category": "token-level",
+      "frequency": 1,
+      "variants": [
+        "references to Horace"
+      ],
+      "example_quotes": [
+        {
+          "quote": "references to \"Horace\" or related names and terms",
+          "quote_id": "f2_gpt"
+        }
+      ],
+      "merged_from": []
+    },
+    {
+      "code_id": 16,
+      "code_text": "programming and data structures",
+      "category": "context-level",
+      "frequency": 1,
+      "variants": [
+        "programming and data structures"
+      ],
+      "example_quotes": [
+        {
+          "quote": "programming and data structures",
+          "quote_id": "f4_gpt"
+        }
+      ],
+      "merged_from": []
+    }
+  ]
+}

@@ -17,20 +17,20 @@ TASK: Take codes from the coder, merge similar codes, and retain different ones.
 
 MERGE RULES:
 - Merge codes with similar meaning AND same category
-- Do NOT merge codes from different categories (linguistic vs contextual)
+- Do NOT merge codes from different categories (token-level vs context-level)
 - When merging, keep the more descriptive code name
 
 EXAMPLE:
 Input: [
-  {{"code": "prepositions", "category": "linguistic", "quote": "...", "quote_id": "f1"}},
-  {{"code": "prepositions and conjunctions", "category": "linguistic", "quote": "...", "quote_id": "f2"}},
-  {{"code": "formal writing", "category": "contextual", "quote": "...", "quote_id": "f1"}}
+  {{"code": "prepositions", "category": "token-level", "quote": "...", "quote_id": "f1"}},
+  {{"code": "prepositions and conjunctions", "category": "token-level", "quote": "...", "quote_id": "f2"}},
+  {{"code": "formal writing", "category": "context-level", "quote": "...", "quote_id": "f1"}}
 ]
 Output:
 {{
   "codes": [
-    {{"code": "prepositions and conjunctions", "category": "linguistic", "quotes": [{{"quote": "...", "quote_id": "f1"}}, {{"quote": "...", "quote_id": "f2"}}]}},
-    {{"code": "formal writing", "category": "contextual", "quotes": [{{"quote": "...", "quote_id": "f1"}}]}}
+    {{"code": "prepositions and conjunctions", "category": "token-level", "quotes": [{{"quote": "...", "quote_id": "f1"}}, {{"quote": "...", "quote_id": "f2"}}]}},
+    {{"code": "formal writing", "category": "context-level", "quotes": [{{"quote": "...", "quote_id": "f1"}}]}}
   ]
 }}
 
@@ -39,7 +39,7 @@ OUTPUT FORMAT:
   "codes": [
     {{
       "code": "<merged or retained code>",
-      "category": "linguistic|contextual",
+      "category": "token-level|context-level",
       "quotes": [{{"quote": "<text>", "quote_id": "<id>"}}]
     }}
   ]

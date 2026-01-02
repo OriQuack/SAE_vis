@@ -23,30 +23,57 @@ CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of SAE (Sparse Aut
 }"""
 
 
-# SAE-specific coder prompt - structured for clarity with category classification
+# SAE-specific coder prompt - aligned with interpretability score semantics
 SAE_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations.
 
-TASK: Generate 1-3 codes for each explanation. Each code must be classified into ONE category:
-- LINGUISTIC: Describes token pattern, part-of-speech, morphology, syntax, punctuation
-  Examples: "prepositions", "tokens starting with 'Hor'", "verb phrases", "punctuation marks"
-- CONTEXTUAL: Describes semantic meaning, domain, usage context, topic
-  Examples: "formal writing context", "sports terminology", "programming domain"
+PURPOSE: You are analyzing LLM-generated explanation of a neuron.
+  - Each neuron activates on certain tokens or contexts in text
+  - LLM wrote explanation describing WHAT the neuron activates on
 
-IMPORTANT RULES:
-- Generate SEPARATE codes for linguistic and contextual aspects
-- Do NOT combine both aspects in one code
-- Each code should be 1-6 words, noun phrase style
-- Quote must be a phrase or clause (3+ words), not a single word
-- Focus on meaningful patterns, not superficial characters
+TASK: Decompose the explanation into 1-3 codes. Each code must be classified into exactly ONE category.
+
+CATEGORIES:
+  TOKEN-LEVEL: Describes the FORM of activating tokens.
+    - Ask: "Can I identify this token by its surface form alone?"
+    - Examples: "tokens starting with 'un-'", "punctuation marks", "verb phrases"
+
+  CONTEXT-LEVEL: Describes the DOMAIN or TOPIC that triggers activation.
+    - Ask: "Do I need semantic knowledge to identify this?"
+    - Examples: "formal writing context", "legal documents", "chemistry terminology"
+
+  CLASSIFICATION GUIDE:
+    Token-level (FORM):
+      - Part-of-speech (verbs, nouns, adjectives)
+      - Morphology (prefixes, suffixes, endings)
+      - Character patterns (capitalization, starts with X)
+      - Punctuation and function words
+
+    Context-level (DOMAIN):
+      - Domain vocabulary (sports terms, legal terms, medical terms)
+      - Thematic content (travel, emotions, competition)
+      - Topical categories (science, politics, technology)
+
+FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states—not what you infer from it.
+  - Preserve the semantic content of the original text
+  - Do not abstract away meaning or add interpretations
+  - Vague explanations should produce correspondingly vague codes
+
+RULES:
+1. Generate SEPARATE codes for token-level and context-level aspects
+2. Do NOT combine both aspects in one code
+   Bad: "nouns about chemistry" → Good: "nouns" (token-level) + "chemistry domain" (context-level)
+3. Each code: 1-6 words, noun phrase style
+4. Quote: exact extract from explanation (3+ words)
+5. If explanation only addresses one category, generate code(s) for that category only
 
 EXAMPLE:
-Input: "Prepositions and conjunctions, often used in formal writing contexts"
+Input: "Verbs related to motion, often appearing in travel descriptions or sports commentary"
 Output:
 {
-  "data_id": "f7_llama",
+  "data_id": "f42_llama",
   "codes": [
-    {"code": "prepositions and conjunctions", "category": "linguistic", "quote": "Prepositions and conjunctions", "quote_id": "f7_llama"},
-    {"code": "formal writing context", "category": "contextual", "quote": "often used in formal writing contexts", "quote_id": "f7_llama"}
+    {"code": "motion verbs", "category": "token-level", "quote": "Verbs related to motion", "quote_id": "f42_llama"},
+    {"code": "travel and sports context", "category": "context-level", "quote": "travel descriptions or sports commentary", "quote_id": "f42_llama"}
   ]
 }
 
@@ -54,7 +81,7 @@ OUTPUT FORMAT:
 {
   "data_id": "<data_id>",
   "codes": [
-    {"code": "<1-6 word noun phrase>", "category": "linguistic|contextual", "quote": "<extract>", "quote_id": "<data_id>"}
+    {"code": "<1-6 word noun phrase>", "category": "token-level|context-level", "quote": "<extract>", "quote_id": "<data_id>"}
   ]
 }"""
 
