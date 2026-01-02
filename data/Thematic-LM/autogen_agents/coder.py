@@ -56,7 +56,6 @@ CATEGORIES:
 FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states—not what you infer from it.
   - Preserve the semantic content of the original text
   - Do not abstract away meaning or add interpretations
-  - Vague explanations should produce correspondingly vague codes
 
 RULES:
 1. Generate SEPARATE codes for token-level and context-level aspects
@@ -175,7 +174,7 @@ def create_coder_agent(
             "api_key": llm_config.get("api_key"),
             "temperature": llm_config.get("temperature", 1.0),
             "top_p": llm_config.get("top_p", 1.0),
-            "max_completion_tokens": 1024,
+            "max_completion_tokens": llm_config.get("max_tokens", 2048),
             "response_format": {"type": "json_object"},  # JSON mode per paper
         }],
         "cache_seed": None,  # Disable caching for diverse outputs

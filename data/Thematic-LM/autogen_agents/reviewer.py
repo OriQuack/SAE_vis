@@ -78,7 +78,7 @@ def create_reviewer_agent(llm_config: Dict) -> ConversableAgent:
             "api_key": llm_config.get("api_key"),
             "temperature": llm_config.get("temperature", 1.0),
             "top_p": llm_config.get("top_p", 1.0),
-            "max_completion_tokens": 1024,
+            "max_completion_tokens": llm_config.get("max_tokens", 2048),
             "response_format": {"type": "json_object"},  # JSON mode per paper
         }],
         "cache_seed": None,

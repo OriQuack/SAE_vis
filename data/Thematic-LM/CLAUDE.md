@@ -164,7 +164,7 @@ CodebookEntry:
 
 | Parameter | Paper Value | Our Value | Config Key |
 |-----------|-------------|-----------|------------|
-| LLM Model | GPT-4o | gpt-4o-mini | `llm_config.model` |
+| LLM Model | GPT-4o | gpt-5-mini | `llm_config.model` |
 | Temperature | 1.0 | 1.0 | `llm_config.temperature` |
 | Top-p | 1.0 | 1.0 | `llm_config.top_p` |
 | Top-k similar codes | 10 | 10 | `codebook_config.top_k_retrieval` |
@@ -278,7 +278,7 @@ For each explanation:
 | Domain | Social media posts | SAE feature explanations |
 | Stage | Coding + Theme Development | Coding only |
 | Identities | Climate change perspectives | SAE analysis (single coder) |
-| Default model | GPT-4o | gpt-4o-mini (configurable) |
+| Default model | GPT-4o | gpt-5-mini (configurable) |
 
 ### Technical Extensions
 | Aspect | Paper | Our Implementation | Rationale |

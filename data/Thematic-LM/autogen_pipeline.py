@@ -183,7 +183,7 @@ class ThematicLMPipeline:
         logger.warning(f"Could not extract JSON from response: {response[:200]}...")
         return None
 
-    def _call_agent(self, agent, message: str, max_retries: int = 3) -> Optional[Dict]:
+    def _call_agent(self, agent, message: str, max_retries: int = 4) -> Optional[Dict]:
         """Call an agent and extract JSON response with retry logic.
 
         Uses generate_oai_reply() for direct LLM calls, bypassing the
@@ -200,29 +200,60 @@ class ThematicLMPipeline:
         """
         messages = [{"role": "user", "content": message}]
 
+        last_failure_reason = "unknown"
+        last_response_preview = ""
+
         for attempt in range(max_retries):
             try:
                 # Use generate_oai_reply for direct LLM call (bypasses termination checks)
                 final, response = agent.generate_oai_reply(messages=messages)
+                logger.debug(f"Agent {agent.name} raw response - final: {final}, response type: {type(response)}, response: {str(response)[:500] if response else 'None'}")
+
+                # Log full API response metadata (finish_reason, usage, etc.)
+                try:
+                    if hasattr(agent, 'client') and agent.client:
+                        last_response = getattr(agent.client, 'last_response', None)
+                        if last_response:
+                            # Extract finish_reason and usage from OpenAI response
+                            if hasattr(last_response, 'choices') and last_response.choices:
+                                finish_reason = last_response.choices[0].finish_reason
+                                logger.debug(f"Agent {agent.name} API metadata - finish_reason: {finish_reason}")
+                            if hasattr(last_response, 'usage'):
+                                logger.debug(f"Agent {agent.name} API usage - {last_response.usage}")
+                except Exception as meta_err:
+                    logger.debug(f"Could not extract API metadata: {meta_err}")
 
                 if response:
                     content = response if isinstance(response, str) else response.get("content", "")
                     result = self._extract_json_from_response(content)
                     if result:
                         return result
+                    # Invalid JSON
+                    last_failure_reason = "invalid_json"
+                    last_response_preview = content[:200] if content else "(empty content)"
+                else:
+                    last_failure_reason = "empty_response"
+                    last_response_preview = str(response)
 
-                # Response was empty or invalid JSON, retry
+                # Response was empty or invalid JSON, retry with exponential backoff
                 if attempt < max_retries - 1:
-                    time.sleep(1)
+                    backoff = 2 ** attempt  # 1, 2, 4, 8, 16 seconds
+                    logger.debug(f"Agent {agent.name} attempt {attempt + 1}/{max_retries} failed: {last_failure_reason}. Retrying in {backoff}s...")
+                    time.sleep(backoff)
                     continue
 
             except Exception as e:
+                last_failure_reason = f"exception: {e}"
+                last_response_preview = ""
                 if attempt < max_retries - 1:
-                    logger.warning(f"Agent call failed (attempt {attempt + 1}/{max_retries}): {e}")
-                    time.sleep(1)
+                    backoff = 2 ** attempt
+                    logger.warning(f"Agent call failed (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {backoff}s...")
+                    time.sleep(backoff)
                 else:
                     logger.error(f"Agent call failed after {max_retries} attempts: {e}")
 
+        # Log final failure with details
+        logger.warning(f"Agent {agent.name} failed after {max_retries} attempts: {last_failure_reason}. Response: {last_response_preview}")
         return None
 
     def _find_code_id_by_name(self, code_name: str) -> Optional[int]:
@@ -277,6 +308,8 @@ Text: {explanation_text}
 Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
 
             response = self._call_agent(coder, message)
+            if response is None:
+                logger.debug(f"Coder failed for: {message[:200]}")
             if response and "codes" in response:
                 coder_outputs.append({
                     "coder_id": coder.name,
@@ -291,7 +324,7 @@ Generate 1-3 codes for this SAE feature explanation. Output in JSON format."""
                     ]
                 })
             else:
-                logger.warning(f"Coder {coder.name} returned no valid codes")
+                logger.warning(f"Coder {coder.name} returned no valid codes. Response: {response}")
 
         if not coder_outputs:
             logger.error(f"No codes generated for {quote_id}")

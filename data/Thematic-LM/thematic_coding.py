@@ -38,15 +38,32 @@ from tqdm import tqdm
 from codebook_manager import CodebookManager
 from autogen_pipeline import ThematicLMPipeline
 
-# Setup logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-)
+# Setup logging: DEBUG to file, minimal to console
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+console_format = "%(levelname)s - %(message)s"
+
+# Root logger at DEBUG to allow all messages
+logging.basicConfig(level=logging.DEBUG, format=log_format, handlers=[])
+
+# Console handler: WARNING/ERROR only (minimal, shows problems)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+console_handler.setFormatter(logging.Formatter(console_format))
+logging.getLogger().addHandler(console_handler)
+
+# File handler: DEBUG (full details)
+file_handler = logging.FileHandler(Path(__file__).parent / "thematic_coding.log", mode='w')
+file_handler.setLevel(logging.DEBUG)
+file_handler.setFormatter(logging.Formatter(log_format))
+logging.getLogger().addHandler(file_handler)
+
 logger = logging.getLogger(__name__)
 
-# Suppress verbose HTTP request logs
+# Suppress verbose HTTP/AutoGen internal logs
 logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("autogen").setLevel(logging.INFO)
 
 
 def load_config(config_path: Path) -> Dict:
