@@ -342,22 +342,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [sortedFeatures, currentFeatureIndex, activationExamples])
 
-  // Get all explainer explanations with highlighted segments
-  // Keep all explainers (even if missing data) to maintain index alignment with triangleYPositions
-  const allExplainerExplanations = useMemo(() => {
-    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return []
-
-    return tableData.explainer_ids.map((explainerId: string, index: number) => {
-      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
-      return {
-        explainerId,
-        index,  // Keep original index for triangle alignment
-        highlightedExplanation: explainerData?.highlighted_explanation ?? null,
-        explanationText: explainerData?.explanation_text ?? null
-      }
-    })
-  }, [selectedFeatureData, tableData?.explainer_ids])
-
   // Compute pairwise similarities for ExplainerComparisonGrid
   const pairwiseSimilarities = useMemo(() => {
     if (!selectedFeatureData?.row || !tableData?.explainer_ids) return undefined
@@ -399,6 +383,32 @@ const QualityView: React.FC<QualityViewProps> = ({
     return scores
   }, [selectedFeatureData, tableData?.explainer_ids])
 
+  // Sort explainer IDs by quality score (highest first)
+  const sortedExplainerIds = useMemo(() => {
+    if (!tableData?.explainer_ids || !qualityScores) return tableData?.explainer_ids || []
+
+    return [...tableData.explainer_ids].sort((a, b) => {
+      const scoreA = qualityScores.get(a) ?? 0
+      const scoreB = qualityScores.get(b) ?? 0
+      return scoreB - scoreA  // Descending order (highest first)
+    })
+  }, [tableData?.explainer_ids, qualityScores])
+
+  // Get all explainer explanations with highlighted segments, sorted by quality score
+  const allExplainerExplanations = useMemo(() => {
+    if (!selectedFeatureData?.row || !sortedExplainerIds || sortedExplainerIds.length === 0) return []
+
+    return sortedExplainerIds.map((explainerId: string, sortedIndex: number) => {
+      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
+      return {
+        explainerId,
+        index: sortedIndex,  // Use sorted index for triangle alignment
+        highlightedExplanation: explainerData?.highlighted_explanation ?? null,
+        explanationText: explainerData?.explanation_text ?? null
+      }
+    })
+  }, [selectedFeatureData, sortedExplainerIds])
+
   // Compute average quality score for header display
   const averageQualityScore = useMemo(() => {
     if (!qualityScores || qualityScores.size === 0) return null
@@ -407,20 +417,6 @@ const QualityView: React.FC<QualityViewProps> = ({
       total += score
     }
     return total / qualityScores.size
-  }, [qualityScores])
-
-  // Find the explainer with the best (highest) quality score
-  const bestQualityExplainerId = useMemo(() => {
-    if (!qualityScores || qualityScores.size === 0) return null
-    let bestId: string | null = null
-    let bestScore = -Infinity
-    for (const [explainerId, score] of qualityScores.entries()) {
-      if (score > bestScore) {
-        bestScore = score
-        bestId = explainerId
-      }
-    }
-    return bestId
   }, [qualityScores])
 
   // Calculate triangle Y positions as percentages (matching ExplainerComparisonGrid layout)
@@ -883,14 +879,12 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
                     <h4 className="subheader">Explanations</h4>
-                    {/* Avg. Quality Score + Best legend */}
+                    {/* Avg. Quality Score */}
                     <div className="pair-info__similarity">
                       <span className="similarity__label">Avg. Quality Score:</span>
                       <span className="similarity__value">
                         {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
                       </span>
-                      <span className="legend-swatch" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', marginLeft: '8px' }} />
-                      <span className="legend-label">Best Explanation</span>
                     </div>
                     {/* Semantic similarity legend - shapes and colors */}
                     <div className="quality-view__explanation-legend">
@@ -932,7 +926,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     <div className="quality-view__explanation-left">
                       <ExplainerComparisonGrid
                         cellGap={2}
-                        explainerIds={tableData?.explainer_ids || []}
+                        explainerIds={sortedExplainerIds}
                         pairwiseSimilarities={pairwiseSimilarities}
                         qualityScores={qualityScores}
                         hasExplanation={hasExplanation}
@@ -954,7 +948,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                           }) => (
                             <div
                               key={explainerId}
-                              className={`quality-view__explainer-block${explainerId === bestQualityExplainerId ? ' quality-view__explainer-block--best' : ''}`}
+                              className="quality-view__explainer-block"
                               style={{ top: `${triangleYPositions[index]}%` }}
                             >
                               <span

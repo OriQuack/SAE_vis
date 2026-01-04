@@ -111,3 +111,9 @@
   font-weight: 500;
   color: #6b7280;
 }
+
+/* Random baseline tick at 0.5 */
+.cause-metric-parallel-coords__random-tick {
+  stroke: #B22222;
+  stroke-width: 1.5;
+}

@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-04T20:14:21.386206",
+  "created_at": "2026-01-04T22:43:19.242896",
   "script_version": "1.0",
   "total_features": 100,
   "schema": {
@@ -18,10 +18,10 @@
     "features_processed": 100,
     "template_distribution": {
       "original": 66,
-      "both_categories": 16,
-      "token_only": 10,
-      "context_only": 6,
-      "no_codes": 2
+      "both_categories": 13,
+      "token_only": 11,
+      "context_only": 7,
+      "no_codes": 3
     },
     "same_explainer_count": 66
   },
