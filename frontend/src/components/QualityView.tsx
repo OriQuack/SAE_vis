@@ -305,6 +305,12 @@ const QualityView: React.FC<QualityViewProps> = ({
     const needsScores = scoresAreStale && featureList.length > 0
 
     if (hasRequiredSelections && needsScores) {
+      // Skip if all features are already tagged - no point in re-computing similarity
+      if (featureSelectionStates.size >= featureList.length) {
+        console.log('[QualityView] Skipping similarity sort - all', featureList.length, 'features already tagged')
+        return
+      }
+
       sortBySimilarity()
     }
   }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])

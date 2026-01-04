@@ -13,7 +13,16 @@ import { BARYCENTRIC_TRIANGLE } from './umap-utils'
 export const MAX_LEVEL = 5
 
 /** Divisor for dynamic threshold: k = totalFeatures / THRESHOLD_DIVISOR */
-export const THRESHOLD_DIVISOR = 50
+export const THRESHOLD_DIVISOR = 80
+
+/**
+ * Minimum number of children that must have >= threshold features to split (CODER configurable):
+ * - 1: Split if ANY child is dense (aggressive, more fine-grained cells)
+ * - 2: Split if at least 2 children are dense
+ * - 3: Split if at least 3 children are dense
+ * - 4: Split if ALL children are dense (conservative, fewer larger cells)
+ */
+export const MIN_DENSE_CHILDREN_TO_SPLIT: 1 | 2 | 3 | 4 = 1
 
 /** Triangle height constant */
 const TRIANGLE_HEIGHT = BARYCENTRIC_TRIANGLE.yMax  // 0.866
@@ -336,100 +345,149 @@ function getHierarchy(): Map<string, TriangleCell> {
 }
 
 // ============================================================================
-// GRID STATE COMPUTATION
+// GRID STATE COMPUTATION - TOP-DOWN SPLITTING
 // ============================================================================
 
 /**
- * Compute the complete grid state for a set of points.
+ * Count features in a cell's subtree (memoized).
+ * For finest-level cells, looks up from pre-computed map.
+ * For parent cells, sums children recursively.
+ */
+function countFeaturesInSubtree(
+  cellKey: string,
+  finestCellCounts: Map<string, Set<number>>,
+  cells: Map<string, TriangleCell>,
+  memo: Map<string, number>
+): number {
+  // Check memo first
+  if (memo.has(cellKey)) return memo.get(cellKey)!
+
+  const cell = cells.get(cellKey)
+  if (!cell) {
+    memo.set(cellKey, 0)
+    return 0
+  }
+
+  // Base case: finest level - look up from pre-computed map
+  if (cell.level === MAX_LEVEL) {
+    const count = finestCellCounts.get(cellKey)?.size || 0
+    memo.set(cellKey, count)
+    return count
+  }
+
+  // Recursive case: sum children
+  let total = 0
+  for (const childKey of cell.childKeys) {
+    total += countFeaturesInSubtree(childKey, finestCellCounts, cells, memo)
+  }
+  memo.set(cellKey, total)
+  return total
+}
+
+/**
+ * Collect all feature IDs from a cell's subtree into the target set.
+ */
+function collectFeaturesFromSubtree(
+  cellKey: string,
+  finestCellCounts: Map<string, Set<number>>,
+  cells: Map<string, TriangleCell>,
+  targetSet: Set<number>
+): void {
+  const cell = cells.get(cellKey)
+  if (!cell) return
+
+  // Base case: finest level - copy from pre-computed map
+  if (cell.level === MAX_LEVEL) {
+    const features = finestCellCounts.get(cellKey)
+    if (features) {
+      for (const fid of features) targetSet.add(fid)
+    }
+    return
+  }
+
+  // Recursive case: collect from all children
+  for (const childKey of cell.childKeys) {
+    collectFeaturesFromSubtree(childKey, finestCellCounts, cells, targetSet)
+  }
+}
+
+/**
+ * Compute the complete grid state for a set of points using TOP-DOWN SPLITTING.
+ *
+ * Algorithm:
+ * 1. Pre-compute feature assignments at finest level
+ * 2. Starting from root, recursively decide: split or become leaf
+ * 3. Split if >= MIN_DENSE_CHILDREN_TO_SPLIT children have >= threshold features
  *
  * @param points - UMAP points (after spread transformation)
- * @param mergeThreshold - Minimum features to prevent merge (k)
+ * @param splitThreshold - Minimum features in a child to warrant splitting (k)
  * @returns Complete grid state for rendering
  */
 export function computeTriangleGrid(
   points: UmapPoint[],
-  mergeThreshold: number
+  splitThreshold: number
 ): TriangleGridState {
   const cells = getHierarchy()
+  const leafCells = new Set<string>()
   const featureToCell = new Map<number, string>()
 
-  // Step 1: Assign each point to its finest-level cell
+  // Step 1: Assign points to finest-level cells (pre-compute)
+  const finestCellCounts = new Map<string, Set<number>>()
   for (const point of points) {
     const cellKey = pointToCellKey(point.x, point.y, MAX_LEVEL)
+    if (!finestCellCounts.has(cellKey)) {
+      finestCellCounts.set(cellKey, new Set())
+    }
+    finestCellCounts.get(cellKey)!.add(point.feature_id)
+  }
+
+  // Memoization for subtree counts
+  const subtreeCounts = new Map<string, number>()
+
+  // Step 2: Top-down recursive split
+  function determineLeavesRecursive(cellKey: string): void {
     const cell = cells.get(cellKey)
-    if (cell) {
-      cell.featureIds.add(point.feature_id)
-    }
-  }
+    if (!cell) return
 
-  // Step 2: Propagate feature counts up the hierarchy
-  // For each cell, sum up its children's features
-  for (let level = MAX_LEVEL - 1; level >= 0; level--) {
-    for (const [, cell] of cells) {
-      if (cell.level !== level) continue
+    const cellFeatureCount = countFeaturesInSubtree(cellKey, finestCellCounts, cells, subtreeCounts)
 
-      // Sum features from all children
+    // Skip empty cells
+    if (cellFeatureCount === 0) return
+
+    // Check if we should split
+    const atMaxLevel = cell.level === MAX_LEVEL
+    let shouldSplit = false
+
+    if (!atMaxLevel) {
+      // Count how many children have >= threshold features
+      let denseChildCount = 0
       for (const childKey of cell.childKeys) {
-        const child = cells.get(childKey)
-        if (child) {
-          for (const fid of child.featureIds) {
-            cell.featureIds.add(fid)
-          }
+        const childCount = countFeaturesInSubtree(childKey, finestCellCounts, cells, subtreeCounts)
+        if (childCount >= splitThreshold) {
+          denseChildCount++
         }
       }
+      // Split if enough children are dense (configurable: 1, 2, 3, or 4)
+      shouldSplit = denseChildCount >= MIN_DENSE_CHILDREN_TO_SPLIT
     }
-  }
 
-  // Step 3: Bottom-up merge to determine leaf cells
-  // A cell is a leaf if:
-  // - It's at MAX_LEVEL, OR
-  // - All its children combined have >= mergeThreshold features (don't merge), OR
-  // - It has < mergeThreshold features and no children (edge case)
-
-  const leafCells = new Set<string>()
-  const mergedCells = new Set<string>()  // Cells merged into parent
-
-  // Process from finest to coarsest
-  for (let level = MAX_LEVEL; level >= 0; level--) {
-    for (const [key, cell] of cells) {
-      if (cell.level !== level) continue
-      if (mergedCells.has(key)) continue  // Already merged
-
-      if (level === MAX_LEVEL) {
-        // Finest level: check if should be merged with siblings
-        // (handled by parent at level-1)
-        // For now, mark as potential leaf
-        leafCells.add(key)
-      } else {
-        // Check children
-        const childFeatureCount = cell.featureIds.size
-        const allChildrenMerged = cell.childKeys.every(ck => mergedCells.has(ck))
-        const hasUnmergedChildren = cell.childKeys.some(ck => leafCells.has(ck) && !mergedCells.has(ck))
-
-        if (childFeatureCount < mergeThreshold || allChildrenMerged) {
-          // Merge all children into this cell
-          for (const childKey of cell.childKeys) {
-            mergedCells.add(childKey)
-            leafCells.delete(childKey)
-          }
-          leafCells.add(key)
-        } else if (hasUnmergedChildren) {
-          // Keep children as leaves, this cell is not a leaf
-          // (children stay in leafCells)
-        }
-      }
-    }
-  }
-
-  // Step 4: Build featureToCell map (feature → its leaf cell)
-  for (const leafKey of leafCells) {
-    const cell = cells.get(leafKey)
-    if (cell) {
+    if (atMaxLevel || !shouldSplit) {
+      // This cell is a leaf - collect all features from subtree
+      leafCells.add(cellKey)
+      collectFeaturesFromSubtree(cellKey, finestCellCounts, cells, cell.featureIds)
       for (const fid of cell.featureIds) {
-        featureToCell.set(fid, leafKey)
+        featureToCell.set(fid, cellKey)
+      }
+    } else {
+      // Split: recurse on children
+      for (const childKey of cell.childKeys) {
+        determineLeavesRecursive(childKey)
       }
     }
   }
+
+  // Start from root (level 0, i=0, j=0, orientation=up)
+  determineLeavesRecursive('0-0-0-u')
 
   return {
     cells,

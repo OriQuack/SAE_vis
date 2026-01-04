@@ -387,6 +387,14 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
   // Track when we're writing to store to avoid circular updates
   const isWritingToStoreRef = useRef(false)
 
+  // Track previous final commit data to avoid redundant setFinalCommit calls
+  // This prevents cascading updates when commit data hasn't actually changed
+  const prevFinalCommitRef = useRef<{
+    statesSize: number
+    sourcesSize: number
+    featureIdsSize: number
+  } | null>(null)
+
   // Keep storeSync in a ref to avoid circular dependencies in Effect 1
   // The storeSync object changes when store values change, but Effect 1 only needs the setters
   const storeSyncRef = useRef(storeSync)
@@ -437,12 +445,29 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     // The commit already stores featureIds from when it was created
     const currentCommit = commits[currentCommitIndex]
     if (currentCommit && currentCommit.featureIds && currentCommit.featureIds.size > 0 && currentCommit.counts) {
-      sync.setFinalCommit({
-        states: cloneStatesRef.current(currentCommit.states),
-        sources: cloneSourcesRef.current(currentCommit.sources),
-        featureIds: new Set(currentCommit.featureIds),
-        counts: currentCommit.counts
-      })
+      // Check if final commit data actually changed to avoid redundant calls
+      // This prevents cascading updates when Effect 3 updates the current commit
+      const newData = {
+        statesSize: currentCommit.states instanceof Map ? (currentCommit.states as Map<unknown, unknown>).size : 0,
+        sourcesSize: currentCommit.sources instanceof Map ? (currentCommit.sources as Map<unknown, unknown>).size : 0,
+        featureIdsSize: currentCommit.featureIds.size
+      }
+
+      const prev = prevFinalCommitRef.current
+      const hasChanged = !prev ||
+        prev.statesSize !== newData.statesSize ||
+        prev.sourcesSize !== newData.sourcesSize ||
+        prev.featureIdsSize !== newData.featureIdsSize
+
+      if (hasChanged) {
+        prevFinalCommitRef.current = newData
+        sync.setFinalCommit({
+          states: cloneStatesRef.current(currentCommit.states),
+          sources: cloneSourcesRef.current(currentCommit.sources),
+          featureIds: new Set(currentCommit.featureIds),
+          counts: currentCommit.counts
+        })
+      }
     }
   }, [commits, currentCommitIndex]) // Only depend on actual data changes, not storeSync reference
 

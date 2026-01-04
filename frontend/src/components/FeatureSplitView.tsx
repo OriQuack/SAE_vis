@@ -487,6 +487,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     if (hasRequiredSelections && needsScores) {
       const allPairKeys = pairList.map(p => p.pairKey)
+
+      // Skip if all pairs are already tagged - no point in re-computing similarity
+      if (pairSelectionStates.size >= allPairKeys.length) {
+        console.log('[FeatureSplitView] Skipping similarity sort - all', allPairKeys.length, 'pairs already tagged')
+        return
+      }
+
       console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
       sortPairsBySimilarity(allPairKeys)
     }

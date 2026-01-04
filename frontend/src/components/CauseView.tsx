@@ -129,14 +129,18 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = useMemo(() => {
-    // If revisiting Stage 3 and we have stored feature IDs, use those
+    // When revisiting, feature IDs are fixed - use stored values
     if (isRevisitingStage3 && stage3FinalCommit?.featureIds) {
       return stage3FinalCommit.featureIds
     }
 
     return getSelectedNodeFeatures()
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- These trigger recalculation when Sankey selection changes
-  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3, stage3FinalCommit])
+    // NOTE: stage3FinalCommit intentionally excluded to prevent cascade
+    // When NOT revisiting, feature IDs come from getSelectedNodeFeatures()
+    // When revisiting, feature IDs are stable (don't change during the visit)
+    // Including stage3FinalCommit causes unnecessary recalculation on every commit sync
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3])
 
   // Extract well-explained feature IDs from Stage 3 segment (above quality threshold)
   // stage3_segment.segments[1] = "Well-Explained" (above threshold)
@@ -256,8 +260,11 @@ const CauseView: React.FC<CauseViewProps> = ({
         }
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
-  }, [isRevisitingStage3, stage3FinalCommit, selectedFeatureIds, causeSelectionStates, causeSelectionSources])
+    // NOTE: causeSelectionStates/Sources intentionally excluded to prevent cascade
+    // This effect only initializes stage3FinalCommit ONCE (!stage3FinalCommit check)
+    // After initialization, Map changes are handled by useCommitHistory sync
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRevisitingStage3, stage3FinalCommit, selectedFeatureIds])
 
 
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
