@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-01-02T18:38:52.310500",
-  "total_rows": 150,
-  "unique_features": 50,
+  "created_at": "2026-01-02T23:49:21.389578",
+  "total_rows": 300,
+  "unique_features": 100,
   "unique_explainers": 3,
   "schema": {
     "feature_id": "UInt32",
@@ -16,7 +16,7 @@
       "description": "Run-specific settings. Edit these before each run.",
       "start_feature": null,
       "end_feature": null,
-      "limit": 50,
+      "limit": 100,
       "mode": "overwrite",
       "load_codebook": "../master/codebook.json"
     },

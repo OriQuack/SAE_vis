@@ -73,7 +73,8 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             "no_codes": "{original_explanation}"
         },
         "processing": {
-            "code_separator": ", "
+            "code_separator": ", ",
+            "use_original_when_same_explainer": True
         }
     }
 
@@ -130,11 +131,15 @@ class AssembledExplanationsProcessor:
         # Templates and processing config
         self.templates = config["templates"]
         self.separator = config["processing"]["code_separator"]
+        self.use_original_when_same_explainer = config["processing"].get(
+            "use_original_when_same_explainer", True
+        )
 
         # Statistics tracking
         self.stats = {
             "features_processed": 0,
             "template_distribution": {
+                "original": 0,
                 "both_categories": 0,
                 "token_only": 0,
                 "context_only": 0,
@@ -323,9 +328,23 @@ class AssembledExplanationsProcessor:
             feature_scores, "detection_score"
         )
 
-        # Track if same explainer for both
+        # If same explainer has both best fuzz and detection, optionally use original explanation
         if best_fuzz_explainer and best_fuzz_explainer == best_detection_explainer:
             self.stats["same_explainer_count"] += 1
+            if self.use_original_when_same_explainer:
+                self.stats["template_distribution"]["original"] += 1
+                return {
+                    "feature_id": feature_id,
+                    "assembled_explanation_text": fuzz_text,  # Original explanation from best explainer
+                    "token_codes": [],
+                    "context_codes": [],
+                    "token_source_explainer": None,
+                    "context_source_explainer": None,
+                    "template_used": "original",
+                    "fuzz_score_used": fuzz_score,
+                    "detection_score_used": detection_score,
+                    "fallback_explanation": None
+                }
 
         # Initialize code lists
         token_codes = []

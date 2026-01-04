@@ -41,19 +41,19 @@ CATEGORIES:
     - Ask: "Do I need semantic knowledge to identify this?"
     - Examples: "formal writing context", "legal documents", "chemistry terminology"
 
-  CLASSIFICATION GUIDE:
-    Token-level (FORM):
-      - Part-of-speech (verbs, nouns, adjectives)
-      - Morphology (prefixes, suffixes, endings)
-      - Character patterns (capitalization, starts with X)
-      - Punctuation and function words
+CLASSIFICATION GUIDE:
+  Token-level (FORM):
+    - Part-of-speech (verbs, nouns, adjectives)
+    - Morphology (prefixes, suffixes, endings)
+    - Character patterns (capitalization, starts with X)
+    - Punctuation and function words
 
-    Context-level (DOMAIN):
-      - Domain vocabulary (sports terms, legal terms, medical terms)
-      - Thematic content (travel, emotions, competition)
-      - Topical categories (science, politics, technology)
+  Context-level (DOMAIN):
+    - Domain vocabulary (sports terms, legal terms, medical terms)
+    - Thematic content (travel, emotions, competition)
+    - Topical categories (science, politics, technology)
 
-FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states—not what you infer from it.
+FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
   - Preserve the semantic content of the original text
   - Do not abstract away meaning or add interpretations
 

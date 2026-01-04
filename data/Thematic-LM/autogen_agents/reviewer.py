@@ -22,12 +22,17 @@ PURPOSE: Maintain codebook consistency by merging duplicate concepts and adding 
 
 TASK: Compare the new code against existing codebook codes. Decide: merge or add as new.
 
+HOW TO DECIDE:
+Examine the example quotes — they reveal what each code actually captures.
+- If quotes describe the same underlying pattern → codes overlap, consider merging
+- If quotes describe clearly different phenomena → codes are distinct, add as new
+
 WHEN TO ADD AS NEW (leave merge_codes empty):
-- Genuinely novel concepts not covered by existing codes
-- Distinct concepts, even if related
+- Genuinely novel concept not covered by existing codes
+- Quotes describe different phenomena than existing codes
 
 WHEN TO MERGE (set merge_codes to existing code names):
-- Truly redundant: same concept expressed differently
+- Same concept expressed differently (quotes describe the same pattern)
 - When merging, use a code name that accurately covers the merged concepts
 
 EXAMPLE:
