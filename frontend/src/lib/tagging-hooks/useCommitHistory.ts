@@ -291,7 +291,7 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
 
   // Create a new commit (synchronous version)
   const createCommit = useCallback(
-    (type: 'apply' | 'tagAll') => {
+    (type: 'apply' | 'tagAll' | 'verify') => {
       const currentStates = getStatesFromStore()
       const currentSources = getSourcesFromStore()
 
@@ -319,7 +319,7 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
 
   // Create commit after async operation (for use in setTimeout after store updates)
   const createCommitAsync = useCallback(
-    (type: 'apply' | 'tagAll') => {
+    (type: 'apply' | 'tagAll' | 'verify') => {
       // Get fresh state from store (after async update)
       const currentStates = getStatesFromStore()
       const currentSources = getSourcesFromStore()

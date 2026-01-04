@@ -59,7 +59,6 @@ export const createActivationActions = (set: any, get: any) => ({
     })
 
     if (uncachedIds.length === 0) {
-      console.log('[Store.fetchActivationExamples] All features already cached or loading, skipping')
       return
     }
 

@@ -35,7 +35,7 @@ export const createCauseActions = (set: any, get: any) => ({
 
     // Iterate directly over causeSelectionStates (not filtered by current selection)
     // This matches how OverviewSummary.tsx counts Stage 3 tags
-    causeSelectionStates.forEach((category, featureId) => {
+    causeSelectionStates.forEach((category: string, featureId: number) => {
       const source = causeSelectionSources.get(featureId) || 'manual'
 
       if (category === 'noisy-activation') {
@@ -550,12 +550,12 @@ export const createCauseActions = (set: any, get: any) => ({
     console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: sankeyStructure:', {
       currentStage: sankeyStructure.currentStage,
       nodeCount: sankeyStructure.nodes.length,
-      nodeIds: sankeyStructure.nodes.map(n => n.id)
+      nodeIds: sankeyStructure.nodes.map((n: { id: string }) => n.id)
     })
 
     // Get nodes for Stage 3
-    const needRevisionNode = sankeyStructure.nodes.find(n => n.id === 'need_revision')
-    const wellExplainedNode = sankeyStructure.nodes.find(n => n.id === 'well_explained_terminal')
+    const needRevisionNode = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'need_revision')
+    const wellExplainedNode = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'well_explained_terminal')
 
     console.log('[Store.fetchStage3QualityScores] 🔍 DEBUG: Found nodes:', {
       needRevisionNode: needRevisionNode ? {
@@ -592,7 +592,7 @@ export const createCauseActions = (set: any, get: any) => ({
       // Training data comes from features that were manually reviewed in Stage 2
       const { featureSelectionStates } = stage2FinalCommit!
 
-      featureSelectionStates.forEach((selectionState, featureId) => {
+      featureSelectionStates.forEach((selectionState: string, featureId: number) => {
         // Use all labeled features (both manual and auto) for SVM training
         // because the user has already approved these via threshold application
         if (selectionState === 'selected') {
@@ -622,7 +622,7 @@ export const createCauseActions = (set: any, get: any) => ({
       }
 
       // Get all above-threshold features and shuffle them
-      const aboveThresholdFeatures = Array.from(wellExplainedNode.featureIds)
+      const aboveThresholdFeatures: number[] = Array.from(wellExplainedNode.featureIds as Set<number>)
 
       // Fisher-Yates shuffle for random sampling
       for (let i = aboveThresholdFeatures.length - 1; i > 0; i--) {

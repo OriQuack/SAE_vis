@@ -106,29 +106,35 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
   // Sort boundary items based on direction
   const sortedLeftItems = useMemo(() => {
-    const items = mode === 'pair' ? leftItems : leftFeatures
-    const scores = mode === 'pair' ? pairSimilarityScores : similarityScores
-
-    return [...items].sort((a, b) => {
-      const keyA = mode === 'pair' ? (a as PairItemWithMetadata).pairKey : (a as FeatureItemWithMetadata).featureId
-      const keyB = mode === 'pair' ? (b as PairItemWithMetadata).pairKey : (b as FeatureItemWithMetadata).featureId
-      const scoreA = scores.get(keyA as any) ?? 0
-      const scoreB = scores.get(keyB as any) ?? 0
-      return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
-    })
+    if (mode === 'pair') {
+      return [...leftItems].sort((a, b) => {
+        const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
+        const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
+        return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      })
+    } else {
+      return [...leftFeatures].sort((a, b) => {
+        const scoreA = similarityScores.get(a.featureId) ?? 0
+        const scoreB = similarityScores.get(b.featureId) ?? 0
+        return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      })
+    }
   }, [mode, leftItems, leftFeatures, pairSimilarityScores, similarityScores, leftSortDirection])
 
   const sortedRightItems = useMemo(() => {
-    const items = mode === 'pair' ? rightItems : rightFeatures
-    const scores = mode === 'pair' ? pairSimilarityScores : similarityScores
-
-    return [...items].sort((a, b) => {
-      const keyA = mode === 'pair' ? (a as PairItemWithMetadata).pairKey : (a as FeatureItemWithMetadata).featureId
-      const keyB = mode === 'pair' ? (b as PairItemWithMetadata).pairKey : (b as FeatureItemWithMetadata).featureId
-      const scoreA = scores.get(keyA as any) ?? 0
-      const scoreB = scores.get(keyB as any) ?? 0
-      return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
-    })
+    if (mode === 'pair') {
+      return [...rightItems].sort((a, b) => {
+        const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
+        const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
+        return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      })
+    } else {
+      return [...rightFeatures].sort((a, b) => {
+        const scoreA = similarityScores.get(a.featureId) ?? 0
+        const scoreB = similarityScores.get(b.featureId) ?? 0
+        return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+      })
+    }
   }, [mode, rightItems, rightFeatures, pairSimilarityScores, similarityScores, rightSortDirection])
 
   // Get tag colors

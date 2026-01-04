@@ -23,32 +23,20 @@ PURPOSE: Maintain codebook consistency by merging duplicate concepts and adding 
 TASK: Compare the new code against existing codebook codes. Decide: merge or add as new.
 
 HOW TO DECIDE:
-Examine the example quotes — they reveal what each code actually captures.
-- If quotes describe the same underlying pattern → codes overlap, consider merging
-- If quotes describe clearly different phenomena → codes are distinct, add as new
+Examine the quotes carefully — they reveal what each code captures.
+1. Check if the new quote's FULL SCOPE matches the existing code
+2. Partial keyword overlap is NOT sufficient for merging
+3. If the new quote describes MORE or DIFFERENT entities than the existing code, add as new
 
 WHEN TO ADD AS NEW (leave merge_codes empty):
-- Genuinely novel concept not covered by existing codes
-- Quotes describe different phenomena than existing codes
+- New quote's scope is broader or narrower than existing code
+- Quotes describe related but distinct phenomena
+- When uncertain, prefer adding as new
 
 WHEN TO MERGE (set merge_codes to existing code names):
-- Same concept expressed differently (quotes describe the same pattern)
+- Quotes describe the SAME entities with equivalent scope
+- Same concept expressed with different wording
 - When merging, use a code name that accurately covers the merged concepts
-
-EXAMPLE:
-Input:
-  New code: "punctuation marks"
-  Existing codes: ["punctuation", "sports terminology"]
-Output:
-{
-  "codes": [
-    {
-      "code": "punctuation",
-      "merge_codes": ["punctuation"],
-      "quotes": [{"quote": "commas and periods", "quote_id": "f3_gpt"}]
-    }
-  ]
-}
 
 OUTPUT FORMAT:
 {

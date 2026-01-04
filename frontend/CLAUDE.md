@@ -387,7 +387,7 @@ npm run dev -- --port 3003
 ```bash
 npm run build      # Production build
 npm run lint       # ESLint check
-npx tsc --noEmit   # Type check
+npm run typecheck  # Type check
 ```
 
 ## Key Implementation Patterns

@@ -116,7 +116,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
         </div>
         <div className="convergence-indicator__placeholder">
           <span className="convergence-indicator__placeholder-text">
-            Tag more features to see trend
+            Tag features with histogram to see trend
           </span>
         </div>
       </div>

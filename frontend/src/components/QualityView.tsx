@@ -399,6 +399,20 @@ const QualityView: React.FC<QualityViewProps> = ({
     return total / qualityScores.size
   }, [qualityScores])
 
+  // Find the explainer with the best (highest) quality score
+  const bestQualityExplainerId = useMemo(() => {
+    if (!qualityScores || qualityScores.size === 0) return null
+    let bestId: string | null = null
+    let bestScore = -Infinity
+    for (const [explainerId, score] of qualityScores.entries()) {
+      if (score > bestScore) {
+        bestScore = score
+        bestId = explainerId
+      }
+    }
+    return bestId
+  }, [qualityScores])
+
   // Calculate triangle Y positions as percentages (matching ExplainerComparisonGrid layout)
   // These values are derived from the grid's viewBox (100) and cell positioning
   const triangleYPositions = useMemo(() => {
@@ -859,12 +873,14 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
                     <h4 className="subheader">Explanations</h4>
-                    {/* Avg. Quality Score */}
+                    {/* Avg. Quality Score + Best legend */}
                     <div className="pair-info__similarity">
                       <span className="similarity__label">Avg. Quality Score:</span>
                       <span className="similarity__value">
                         {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
                       </span>
+                      <span className="legend-swatch" style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', marginLeft: '8px' }} />
+                      <span className="legend-label">Best Explanation</span>
                     </div>
                     {/* Semantic similarity legend - shapes and colors */}
                     <div className="quality-view__explanation-legend">
@@ -928,7 +944,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                           }) => (
                             <div
                               key={explainerId}
-                              className="quality-view__explainer-block"
+                              className={`quality-view__explainer-block${explainerId === bestQualityExplainerId ? ' quality-view__explainer-block--best' : ''}`}
                               style={{ top: `${triangleYPositions[index]}%` }}
                             >
                               <span

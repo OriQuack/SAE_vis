@@ -393,7 +393,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       let stage3Structure: SankeyStructure
 
       // Get monosemantic node to know which features to consider
-      const monosematicNode = sankeyStructure.nodes.find(n => n.id === 'monosemantic')
+      const monosematicNode = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'monosemantic')
 
       console.log('[activateStage3] DEBUG: Feature selection states:', {
         size: featureSelectionStates.size,
@@ -543,8 +543,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     }
 
     // Find relevant nodes
-    const wellExplainedTerminal = sankeyStructure.nodes.find(n => n.id === 'well_explained_terminal')
-    const _stage3Segment = sankeyStructure.nodes.find(n => n.id === 'stage3_segment')
+    const wellExplainedTerminal = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'well_explained_terminal')
 
     if (!wellExplainedTerminal) {
       console.warn('[updateStage3WithVerifiedWellExplained] ⚠️ well_explained_terminal node not found')
@@ -555,7 +554,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     const mergedFeatureIds = new Set([...wellExplainedTerminal.featureIds, ...verifiedFeatureIds])
 
     // 2. Update stage3_segment.segments[1] to remove verified features (if exists)
-    let updatedNodes = sankeyStructure.nodes.map(node => {
+    let updatedNodes = sankeyStructure.nodes.map((node: any) => {
       if (node.id === 'well_explained_terminal') {
         return {
           ...node,
@@ -565,10 +564,10 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       }
       if (node.id === 'stage3_segment' && node.type === 'segment' && node.segments) {
         // Remove verified features from segments[1] (above threshold / well-explained candidates)
-        const updatedSegments = node.segments.map((seg, idx) => {
+        const updatedSegments = node.segments.map((seg: any, idx: number) => {
           if (idx === 1) {
             const remainingFeatures = new Set<number>()
-            seg.featureIds.forEach(id => {
+            seg.featureIds.forEach((id: number) => {
               if (!verifiedFeatureIds.has(id)) {
                 remainingFeatures.add(id)
               }

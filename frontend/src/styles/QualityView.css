@@ -314,6 +314,13 @@
   gap: 6px;
 }
 
+/* Best quality score highlight - subtle selection blue */
+.quality-view__explainer-block--best {
+  background-color: rgba(59, 130, 246, 0.2);
+  padding: 2px 2px;
+  margin: -2px -2px;
+}
+
 .quality-view__explainer-name {
   font-size: 12px;
   font-weight: 600;

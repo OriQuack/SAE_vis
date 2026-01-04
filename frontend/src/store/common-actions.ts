@@ -485,9 +485,77 @@ export const createCommonActions = (set: any, get: any) => ({
       metric: category.metric
     })
 
-    // Set activeStageCategory immediately to ensure React components render with correct stage
-    // This must happen BEFORE activating stages to prevent race conditions
-    set({ activeStageCategory: categoryId })
+    // Save/restore tagAutomaticState when switching stages
+    // Each stage has its own histogram/flipTracking state that persists for revisiting
+    const currentState = get()
+    const prevCategory = currentState.activeStageCategory
+
+    // Save tagAutomaticState to the stage we're leaving
+    if (prevCategory === TAG_CATEGORY_FEATURE_SPLITTING && currentState.tagAutomaticState) {
+      const currentFinalCommit = currentState.stage1FinalCommit || {} as any
+      set({
+        stage1FinalCommit: {
+          ...currentFinalCommit,
+          histogramState: {
+            histogramData: currentState.tagAutomaticState.histogramData,
+            selectThreshold: currentState.tagAutomaticState.selectThreshold,
+            rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
+            flipTracking: currentState.tagAutomaticState.flipTracking
+          }
+        }
+      })
+    } else if (prevCategory === TAG_CATEGORY_QUALITY && currentState.tagAutomaticState) {
+      const currentFinalCommit = currentState.stage2FinalCommit || {} as any
+      set({
+        stage2FinalCommit: {
+          ...currentFinalCommit,
+          histogramState: {
+            histogramData: currentState.tagAutomaticState.histogramData,
+            selectThreshold: currentState.tagAutomaticState.selectThreshold,
+            rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
+            flipTracking: currentState.tagAutomaticState.flipTracking
+          }
+        }
+      })
+    }
+
+    // Re-read state after save to get updated final commits
+    const updatedState = get()
+
+    // Restore tagAutomaticState if revisiting a stage that has saved state
+    let restoredTagAutomaticState = null
+    if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING && updatedState.stage1FinalCommit?.histogramState) {
+      const hs = updatedState.stage1FinalCommit.histogramState
+      restoredTagAutomaticState = {
+        visible: false,
+        minimized: false,
+        mode: 'pair' as const,
+        position: { x: 0, y: 0 },
+        histogramData: hs.histogramData,
+        selectThreshold: hs.selectThreshold,
+        rejectThreshold: hs.rejectThreshold,
+        tagLabel: 'Fragmented',
+        isLoading: false,
+        flipTracking: hs.flipTracking
+      }
+    } else if (categoryId === TAG_CATEGORY_QUALITY && updatedState.stage2FinalCommit?.histogramState) {
+      const hs = updatedState.stage2FinalCommit.histogramState
+      restoredTagAutomaticState = {
+        visible: false,
+        minimized: false,
+        mode: 'feature' as const,
+        position: { x: 0, y: 0 },
+        histogramData: hs.histogramData,
+        selectThreshold: hs.selectThreshold,
+        rejectThreshold: hs.rejectThreshold,
+        tagLabel: 'Well-Explained',
+        isLoading: false,
+        flipTracking: hs.flipTracking
+      }
+    }
+
+    // Set activeStageCategory and restore/clear tagAutomaticState
+    set({ activeStageCategory: categoryId, tagAutomaticState: restoredTagAutomaticState })
 
     // V2: Check if stage is already active in v2 system, activate if needed
     const sankeyStructure = get().leftPanel.sankeyStructure
@@ -526,7 +594,7 @@ export const createCommonActions = (set: any, get: any) => ({
     }
 
     // V2: Find the segment node and specific segment index for this stage
-    let selectedNodeId: string
+    let selectedNodeId: string | null
     let segmentIndex: number
 
     // Select terminal segments: Fragmented (Stage 1), Well-Explained (Stage 2)

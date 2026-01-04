@@ -526,14 +526,42 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               cell.featureIds.size === umapBrushedFeatureIds.size &&
               [...cell.featureIds].every(id => umapBrushedFeatureIds.has(id))
 
+            // Calculate centroid for label placement
+            const centroid = {
+              x: (cell.vertices[0].x + cell.vertices[1].x + cell.vertices[2].x) / 3,
+              y: (cell.vertices[0].y + cell.vertices[1].y + cell.vertices[2].y) / 3
+            }
+            const cx = scales.xScale(centroid.x)
+            const cy = scales.yScale(centroid.y)
+
+            // Calculate cell size (approximate via bounding box width)
+            const minX = Math.min(scales.xScale(cell.vertices[0].x), scales.xScale(cell.vertices[1].x), scales.xScale(cell.vertices[2].x))
+            const maxX = Math.max(scales.xScale(cell.vertices[0].x), scales.xScale(cell.vertices[1].x), scales.xScale(cell.vertices[2].x))
+            const cellWidth = maxX - minX
+
+            // Only show label if cell is large enough (threshold: 25px)
+            const showLabel = cellWidth > 25
+
             return (
-              <polygon
-                key={cell.key}
-                points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
-                className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
-                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
-              />
+              <g key={cell.key}>
+                <polygon
+                  points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
+                  className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
+                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+                  onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
+                />
+                {showLabel && (
+                  <text
+                    x={cx}
+                    y={cy}
+                    className="umap-scatter__cell-count"
+                    textAnchor="middle"
+                    dominantBaseline="middle"
+                  >
+                    {cell.featureIds.size}
+                  </text>
+                )}
+              </g>
             )
           })}
         </svg>

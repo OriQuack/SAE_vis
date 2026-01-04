@@ -52,6 +52,7 @@ export interface Stage1FinalCommit {
     histogramData: SimilarityScoreHistogramResponse | null
     selectThreshold: number
     rejectThreshold: number
+    flipTracking: FlipTrackingInfo | null
   }
   // Cluster pairs state for stage revisiting
   clusterPairsState?: {
@@ -75,6 +76,13 @@ export interface Stage2FinalCommit {
   featureSelectionSources: Map<number, 'manual' | 'auto'>
   featureIds: Set<number>  // Original Stage 2 feature IDs
   counts?: QualityCommitCounts
+  // Histogram state preservation for stage revisiting
+  histogramState?: {
+    histogramData: SimilarityScoreHistogramResponse | null
+    selectThreshold: number
+    rejectThreshold: number
+    flipTracking: FlipTrackingInfo | null
+  }
 }
 
 // Stage 3 commit counts for hover preview

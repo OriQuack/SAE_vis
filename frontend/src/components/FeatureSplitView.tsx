@@ -156,7 +156,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       ? {
           histogramData: currentTagState.histogramData,
           selectThreshold: currentTagState.selectThreshold,
-          rejectThreshold: currentTagState.rejectThreshold
+          rejectThreshold: currentTagState.rejectThreshold,
+          flipTracking: currentTagState.flipTracking ?? null
         }
       : (isRevisiting ? existingCommit?.histogramState : undefined)
 
@@ -212,7 +213,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         ? {
             histogramData: currentTagState.histogramData,
             selectThreshold: currentTagState.selectThreshold,
-            rejectThreshold: currentTagState.rejectThreshold
+            rejectThreshold: currentTagState.rejectThreshold,
+            flipTracking: currentTagState.flipTracking ?? null
           }
         : (isRevisiting ? existingCommit?.histogramState : undefined)
 
@@ -299,9 +301,16 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         })
       }
 
-      // Restore histogram state
+      // Restore histogram state (including flipTracking for convergence indicator)
       if (stage1FinalCommit.histogramState) {
-        const { histogramData, selectThreshold, rejectThreshold } = stage1FinalCommit.histogramState
+        const { histogramData, selectThreshold, rejectThreshold, flipTracking } = stage1FinalCommit.histogramState
+        console.log('[FeatureSplitView] 🔄 Restoring histogram state from stage1FinalCommit:', {
+          hasHistogramData: !!histogramData,
+          selectThreshold,
+          rejectThreshold,
+          flipTracking,
+          flipHistoryLength: flipTracking?.flipHistory?.length
+        })
         if (histogramData) {
           useVisualizationStore.setState({
             tagAutomaticState: {
@@ -314,7 +323,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               rejectThreshold,
               tagLabel: 'Fragmented',
               isLoading: false,
-              flipTracking: null
+              flipTracking: flipTracking ?? null
             }
           })
         }

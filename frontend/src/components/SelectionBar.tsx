@@ -109,7 +109,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Generate category config dynamically based on stage
   const categoryConfig = useMemo((): Record<SelectionCategory, { label: string; color: string; description: string }> => {
     // Stage-specific tag names
-    const tagNames = {
+    const tagNames: Record<TableStage, { confirmed: string; rejected: string }> = {
       stage1: {
         confirmed: 'Fragmented',
         rejected: 'Monosemantic'
@@ -119,10 +119,12 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         rejected: 'Need Revision'
       },
       stage3: {
-        // TODO: Implement stage 3 tag mapping
-        // Available tags: "Context Miss", "Pattern Miss", "Noisy Activation"
-        confirmed: 'TBD',
-        rejected: 'TBD'
+        confirmed: 'Well-Explained',
+        rejected: 'Need Revision'
+      },
+      stage4: {
+        confirmed: 'Summary',
+        rejected: 'Summary'
       }
     }
 

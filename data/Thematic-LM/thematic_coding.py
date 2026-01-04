@@ -164,32 +164,38 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
         }
         serializable_results.append(result)
 
-    new_df = pl.DataFrame(serializable_results)
-
-    new_df = new_df.with_columns([
-        pl.col("feature_id").cast(pl.UInt32),
-        pl.col("llm_explainer").cast(pl.Categorical),
-    ])
-
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load existing parquet and merge (cumulative)
-    if output_path.exists():
-        existing_df = pl.read_parquet(output_path)
-        # Remove rows that will be replaced by new results
-        new_keys = set(zip(new_df["feature_id"].to_list(), new_df["llm_explainer"].to_list()))
-        existing_df = existing_df.filter(
-            ~pl.struct(["feature_id", "llm_explainer"]).map_elements(
-                lambda x: (x["feature_id"], x["llm_explainer"]) in new_keys,
-                return_dtype=pl.Boolean
-            )
-        )
-        df = pl.concat([existing_df, new_df])
-        logger.info(f"Merged with existing parquet: {len(existing_df)} existing + {len(new_df)} new = {len(df)} total")
-    else:
-        df = new_df
+    # Use StringCache for consistent categorical encoding across concat
+    with pl.StringCache():
+        new_df = pl.DataFrame(serializable_results)
 
-    df.write_parquet(output_path)
+        new_df = new_df.with_columns([
+            pl.col("feature_id").cast(pl.UInt32),
+            pl.col("llm_explainer").cast(pl.Categorical),
+        ])
+
+        # Load existing parquet and merge (cumulative)
+        if output_path.exists():
+            existing_df = pl.read_parquet(output_path)
+            # Cast to same categorical encoding within StringCache
+            existing_df = existing_df.with_columns([
+                pl.col("llm_explainer").cast(pl.Categorical),
+            ])
+            # Remove rows that will be replaced by new results
+            new_keys = set(zip(new_df["feature_id"].to_list(), new_df["llm_explainer"].to_list()))
+            existing_df = existing_df.filter(
+                ~pl.struct(["feature_id", "llm_explainer"]).map_elements(
+                    lambda x: (x["feature_id"], x["llm_explainer"]) in new_keys,
+                    return_dtype=pl.Boolean
+                )
+            )
+            df = pl.concat([existing_df, new_df])
+            logger.info(f"Merged with existing parquet: {len(existing_df)} existing + {len(new_df)} new = {len(df)} total")
+        else:
+            df = new_df
+
+        df.write_parquet(output_path)
 
     metadata = {
         "created_at": datetime.now().isoformat(),

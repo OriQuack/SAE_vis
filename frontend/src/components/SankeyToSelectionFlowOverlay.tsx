@@ -35,17 +35,16 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const activeStageNodeId = useVisualizationStore(state => state.activeStageNodeId)
   const activeStageCategory = useVisualizationStore(state => state.activeStageCategory)
-  const activeCauseStageNode = useVisualizationStore(state => state.activeCauseStageNode)
 
   // Container element - use state instead of ref to trigger re-renders
   const [containerElement, setContainerElement] = useState<HTMLDivElement | null>(null)
 
   // Determine current table mode based on active stage
   const tableMode = useMemo((): 'feature' | 'pair' | 'cause' => {
-    if (activeCauseStageNode) return 'cause'
+    if (activeStageCategory === 'cause') return 'cause'
     if (activeStageNodeId && activeStageCategory === 'decoder_similarity') return 'pair'
     return 'feature'
-  }, [activeStageNodeId, activeStageCategory, activeCauseStageNode])
+  }, [activeStageNodeId, activeStageCategory])
 
   // Build selection state map based on table mode
   const selectionState = useMemo(() => {

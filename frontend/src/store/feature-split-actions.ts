@@ -293,7 +293,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       // Create a set of available pair keys for efficient lookup
       // Note: allClusterPairs uses snake_case from API (pair_key), not camelCase
       const availablePairKeys = allClusterPairs
-        ? new Set(allClusterPairs.map(p => p.pair_key))
+        ? new Set(allClusterPairs.map((p: { pair_key: string }) => p.pair_key))
         : null
 
       pairSelectionStates.forEach((state: string | null, pairKey: string) => {

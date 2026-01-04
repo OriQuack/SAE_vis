@@ -316,7 +316,7 @@ tail -f /home/dohyun/interface/backend.log
 cd frontend && npm run lint
 
 # Type check
-cd frontend && npx tsc --noEmit
+cd frontend && npm run typecheck
 ```
 
 ---
