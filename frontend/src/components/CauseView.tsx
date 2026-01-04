@@ -6,7 +6,7 @@ import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
@@ -631,6 +631,20 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, filteredSelectedFeatureList.length, handleNavigateNext])
 
+  // Handle Unsure click - clear cause category and advance
+  const handleUnsureClick = useCallback(() => {
+    if (!selectedFeatureData) return
+    const featureId = selectedFeatureData.featureId
+
+    // Clear the cause category to null (unsure)
+    setCauseCategory(featureId, null)
+
+    // Auto-advance to next feature
+    if (currentSelectedIndex < filteredSelectedFeatureList.length - 1) {
+      setTimeout(() => handleNavigateNext(), 150)
+    }
+  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, filteredSelectedFeatureList.length, handleNavigateNext])
+
   // ============================================================================
   // SELECTED TAGGING HANDLERS
   // ============================================================================
@@ -851,6 +865,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
   const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
+  const unsureColor = UNSURE_GRAY
 
   // Get display score for sortConfig (decision margin)
   const getDisplayScore = useCallback((featureId: number) => {
@@ -1096,6 +1111,13 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                       {/* Selection buttons - all features must have a tag */}
                       <TagButton
+                        label="Unsure"
+                        variant="unsure"
+                        color={unsureColor}
+                        isSelected={currentCauseCategory === 'unsure'}
+                        onClick={handleUnsureClick}
+                      />
+                      <TagButton
                         label="Pattern Miss"
                         variant="missed-N-gram"
                         color={missedNgramColor}
@@ -1145,8 +1167,12 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
-                {/* Row 1: Verify Well-Explained (single button, no subheader) */}
+                {/* Row 1: Verify Well-Explained */}
                 <div className="cause-view__action-section">
+                  <span className="cause-view__action-header">
+                    <span className={`cause-view__substage-number ${!hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>1</span>
+                    Verify Threshold as
+                  </span>
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
@@ -1155,7 +1181,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         disabled={wellExplainedFeatureIds.size === 0 || hasVerifiedWellExplained}
                         title="Confirm above-threshold features as Well-Explained"
                       >
-                        Verify Threshold as Well-Explained
+                        Well-Explained
                       </button>
                       <div className="action-button__legend">
                         <span className="action-button__legend-item">
@@ -1175,10 +1201,13 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Row 2: Tag Selected Cell (multiple buttons, keep subheader) */}
+                {/* Row 2: Tag Selected Cell */}
                 {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header">Tag Selected Cell as</span>
+                  <span className="cause-view__action-header">
+                    <span className={`cause-view__substage-number ${hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>2</span>
+                    Tag Selected Cell as
+                  </span>
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
@@ -1308,7 +1337,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Row 3: Tag All Remaining (single button, no subheader) */}
+                {/* Row 3: Tag All Remaining (no substage number) */}
                 {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
                 <div className="cause-view__action-section">
                   <div className="cause-view__action-row">

@@ -538,6 +538,27 @@
   color: #6b7280;
   text-transform: uppercase;
   letter-spacing: 0.025em;
+  display: flex;
+  align-items: center;
+}
+
+.cause-view__substage-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #ffffff;
+  background-color: #6b7280;
+  border-radius: 50%;
+  margin-right: 0;
+  flex-shrink: 0;
+}
+
+.cause-view__substage-number--active {
+  background-color: #3b82f6;
 }
 
 .cause-view__action-hint {
