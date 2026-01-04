@@ -264,7 +264,29 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return category || 'unsure'
   }, [wellExplainedFeatureIds, manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
 
+  // Compute filtered feature counts per cell (respects category filter)
+  const filteredCellCounts = useMemo(() => {
+    if (!gridState) return new Map<string, number>()
+
+    const counts = new Map<string, number>()
+    for (const cellKey of gridState.leafCells) {
+      const cell = gridState.cells.get(cellKey)
+      if (!cell) continue
+
+      let count = 0
+      cell.featureIds.forEach(featureId => {
+        const effectiveCategory = getEffectiveCategory(featureId)
+        if (visibleCategories.has(effectiveCategory)) {
+          count++
+        }
+      })
+      counts.set(cellKey, count)
+    }
+    return counts
+  }, [gridState, getEffectiveCategory, visibleCategories])
+
   // Compute category breakdown for hovered cell tooltip (manual vs auto)
+  // Only counts features in visible categories
   const hoveredCellComposition = useMemo(() => {
     if (!hoveredCell || !gridState) return null
     const cell = gridState.cells.get(hoveredCell.cellKey)
@@ -281,6 +303,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     cell.featureIds.forEach(featureId => {
       const category = getEffectiveCategory(featureId)
+
+      // Only count features in visible categories
+      if (!visibleCategories.has(category)) return
+
       const source = causeSelectionSources.get(featureId)
       const isManual = source === 'manual'
 
@@ -302,8 +328,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     })
 
-    return { ...counts, total: cell.featureIds.size }
-  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
+    // Use filtered count from memoized map
+    const filteredCount = filteredCellCounts.get(hoveredCell.cellKey) ?? 0
+    return { ...counts, total: filteredCount }
+  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources, visibleCategories, filteredCellCounts])
 
   // Compute explainer label positions for HTML rendering (crisp text)
   const explainerLabels = useMemo(() => {
@@ -568,7 +596,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           {/* Triangle cell grid for batch selection */}
           {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
             const cell = gridState.cells.get(cellKey)
-            if (!cell || cell.featureIds.size === 0) return null
+            if (!cell) return null
+
+            // Get filtered count - hide cells with no visible features
+            const filteredCount = filteredCellCounts.get(cellKey) ?? 0
+            if (filteredCount === 0) return null
 
             // Check if this cell is selected (its features match brushed features)
             const isSelected = umapBrushedFeatureIds.size > 0 &&
@@ -610,7 +642,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
                     textAnchor="middle"
                     dominantBaseline="middle"
                   >
-                    {cell.featureIds.size}
+                    {filteredCount}
                   </text>
                 )}
               </g>

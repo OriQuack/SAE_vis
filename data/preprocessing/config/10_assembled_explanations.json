@@ -9,9 +9,9 @@
     "metadata": "data/master/assembled_explanations_metadata.json"
   },
   "templates": {
-    "both_categories": "Activates on {token_codes} in {context_codes}",
-    "token_only": "Activates on {token_codes}",
-    "context_only": "Activates in {context_codes}",
+    "both_categories": "This feature detects {token_codes} in the context of {context_codes}.",
+    "token_only": "This feature detects {token_codes}.",
+    "context_only": "This feature activates in {context_codes}.",
     "no_codes": "{original_explanation}"
   },
   "processing": {

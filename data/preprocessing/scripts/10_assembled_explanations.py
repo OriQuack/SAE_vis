@@ -32,6 +32,23 @@ from typing import Dict, List, Optional, Tuple
 import polars as pl
 from tqdm import tqdm
 
+
+def join_codes(codes: List[str]) -> str:
+    """Join codes with commas and 'and' before last item.
+
+    Examples:
+        ["verbs"] -> "verbs"
+        ["verbs", "nouns"] -> "verbs and nouns"
+        ["verbs", "nouns", "adjectives"] -> "verbs, nouns, and adjectives"
+    """
+    if len(codes) == 0:
+        return ""
+    if len(codes) == 1:
+        return codes[0]
+    if len(codes) == 2:
+        return f"{codes[0]} and {codes[1]}"
+    return ", ".join(codes[:-1]) + f", and {codes[-1]}"
+
 # Enable string cache for categorical operations
 pl.enable_string_cache()
 
@@ -67,9 +84,9 @@ def load_config(config_path: Optional[str] = None) -> Dict:
             "metadata": "data/master/assembled_explanations_metadata.json"
         },
         "templates": {
-            "both_categories": "Activates on {token_codes} in {context_codes}",
-            "token_only": "Activates on {token_codes}",
-            "context_only": "Activates in {context_codes}",
+            "both_categories": "Activates on {token_codes} (tokens) within {context_codes} (context)",
+            "token_only": "Activates on {token_codes} (tokens)",
+            "context_only": "Activates within {context_codes} (context)",
             "no_codes": "{original_explanation}"
         },
         "processing": {
@@ -263,6 +280,52 @@ class AssembledExplanationsProcessor:
         """
         return [c["code_text"] for c in codes if c.get("category") == category]
 
+    def _find_best_explainer_with_codes(
+        self,
+        feature_id: int,
+        feature_scores: pl.DataFrame,
+        score_column: str,
+        category: str,
+        min_score: float = 0.5
+    ) -> Tuple[Optional[str], Optional[float], List[str]]:
+        """Find explainer with highest score that HAS codes in the category.
+
+        Iterates through explainers in score order and returns the first one
+        that actually has codes in the target category AND has score >= min_score.
+
+        Args:
+            feature_id: Feature ID to look up codes for
+            feature_scores: DataFrame with scores for this feature
+            score_column: "fuzz_score" or "detection_score"
+            category: "token-level" or "context-level"
+            min_score: Minimum score threshold (default 0.5, below is worse than random)
+
+        Returns:
+            Tuple of (explainer_name, score_value, list_of_codes)
+        """
+        # Filter out null scores and scores below threshold, then sort descending
+        valid_scores = feature_scores.filter(
+            pl.col(score_column).is_not_null() & (pl.col(score_column) >= min_score)
+        )
+        if len(valid_scores) == 0:
+            return None, None, []
+
+        sorted_scores = valid_scores.sort(score_column, descending=True)
+
+        # Iterate through explainers in score order
+        for row in sorted_scores.iter_rows(named=True):
+            explainer = row["llm_explainer"]
+            key = (feature_id, explainer)
+
+            if key in self.codes_lookup:
+                codes = self.codes_lookup[key]
+                category_codes = [c["code_text"] for c in codes if c.get("category") == category]
+
+                if category_codes:  # Found explainer with codes!
+                    return explainer, row[score_column], category_codes
+
+        return None, None, []
+
     def _assemble_explanation(
         self,
         token_codes: List[str],
@@ -285,24 +348,24 @@ class AssembledExplanationsProcessor:
         if has_token and has_context:
             template = self.templates["both_categories"]
             text = template.format(
-                token_codes=self.separator.join(token_codes),
-                context_codes=self.separator.join(context_codes)
+                token_codes=join_codes(token_codes),
+                context_codes=join_codes(context_codes)
             )
             return text, "both_categories"
 
         elif has_token:
             template = self.templates["token_only"]
-            text = template.format(token_codes=self.separator.join(token_codes))
+            text = template.format(token_codes=join_codes(token_codes))
             return text, "token_only"
 
         elif has_context:
             template = self.templates["context_only"]
-            text = template.format(context_codes=self.separator.join(context_codes))
+            text = template.format(context_codes=join_codes(context_codes))
             return text, "context_only"
 
         else:
             template = self.templates["no_codes"]
-            text = template.format(original_explanation=fallback_explanation)
+            text = template.format(original_explanation=fallback_explanation).strip()
             return text, "no_codes"
 
     def _process_feature(self, feature_id: int) -> Optional[Dict]:
@@ -320,7 +383,7 @@ class AssembledExplanationsProcessor:
         if len(feature_scores) == 0:
             return None
 
-        # Find best explainers for each score type
+        # Find best explainers for each score type (for original template logic)
         best_fuzz_explainer, fuzz_score, fuzz_text = self._find_best_explainer(
             feature_scores, "fuzz_score"
         )
@@ -346,29 +409,15 @@ class AssembledExplanationsProcessor:
                     "fallback_explanation": None
                 }
 
-        # Initialize code lists
-        token_codes = []
-        context_codes = []
-        token_source = None
-        context_source = None
+        # Get token-level codes from best fuzz explainer THAT HAS token codes
+        token_source, fuzz_score_used, token_codes = self._find_best_explainer_with_codes(
+            feature_id, feature_scores, "fuzz_score", "token-level"
+        )
 
-        # Get token-level codes from best fuzz explainer
-        if best_fuzz_explainer:
-            key = (feature_id, best_fuzz_explainer)
-            if key in self.codes_lookup:
-                codes = self.codes_lookup[key]
-                token_codes = self._extract_codes_by_category(codes, "token-level")
-                if token_codes:
-                    token_source = best_fuzz_explainer
-
-        # Get context-level codes from best detection explainer
-        if best_detection_explainer:
-            key = (feature_id, best_detection_explainer)
-            if key in self.codes_lookup:
-                codes = self.codes_lookup[key]
-                context_codes = self._extract_codes_by_category(codes, "context-level")
-                if context_codes:
-                    context_source = best_detection_explainer
+        # Get context-level codes from best detection explainer THAT HAS context codes
+        context_source, detection_score_used, context_codes = self._find_best_explainer_with_codes(
+            feature_id, feature_scores, "detection_score", "context-level"
+        )
 
         # Find fallback explanation (highest average score)
         feature_scores_with_avg = feature_scores.with_columns([
@@ -394,8 +443,8 @@ class AssembledExplanationsProcessor:
             "token_source_explainer": token_source,
             "context_source_explainer": context_source,
             "template_used": template_used,
-            "fuzz_score_used": fuzz_score,
-            "detection_score_used": detection_score,
+            "fuzz_score_used": fuzz_score_used,
+            "detection_score_used": detection_score_used,
             "fallback_explanation": fallback_text if template_used == "no_codes" else None
         }
 
@@ -439,8 +488,9 @@ class AssembledExplanationsProcessor:
         # Ensure output directory exists
         self.output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Build DataFrame
-        df = pl.DataFrame(results)
+        # Build DataFrame with increased schema inference length
+        # (needed because fallback_explanation is None for early rows but string for later rows)
+        df = pl.DataFrame(results, infer_schema_length=len(results))
 
         # Cast columns to appropriate types
         df = df.with_columns([

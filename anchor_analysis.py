@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 # Constants
 METRICS = ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim"]
 ANCHOR_NAMES = ["missed_ngram", "missed_context", "noisy_activation"]
-TAG_OPTIONS = ["noisy-activation", "pattern-miss", "context-miss", "well-explained"]
+TAG_OPTIONS = ["noisy-activation", "pattern-miss", "context-miss"]
 
 
 def find_project_root() -> Path:
@@ -114,12 +114,14 @@ class AnchorAnalyzer:
         x_min, x_max = df["mean_x"].min(), df["mean_x"].max()
         y_min, y_max = df["mean_y"].min(), df["mean_y"].max()
 
-        # Create 4x4 grid for more coverage (16 cells)
-        grid_size = 4
+        # Create 7x7 grid for more coverage (49 cells max)
+        grid_size = 7
         x_edges = np.linspace(x_min, x_max, grid_size + 1)
         y_edges = np.linspace(y_min, y_max, grid_size + 1)
 
         selected = []
+        samples_per_cell = max(2, n // (grid_size * grid_size) + 1)  # Multiple samples per cell
+
         for i in range(grid_size):
             for j in range(grid_size):
                 cell = df.filter(
@@ -129,17 +131,22 @@ class AnchorAnalyzer:
                     (pl.col("mean_y") < y_edges[j+1])
                 )
                 if len(cell) > 0:
-                    # Randomly sample from cell (use seed for reproducibility)
+                    # Randomly sample multiple from cell (use seed for reproducibility)
                     cell_list = cell.to_dicts()
-                    idx = rng.integers(0, len(cell_list))
-                    sampled_row = cell_list[idx]
-                    sampled_df = pl.DataFrame([sampled_row]).with_columns([
-                        pl.lit(f"grid_{i}_{j}").alias("sampling_reason")
-                    ])
-                    selected.append(sampled_df)
+                    n_sample = min(samples_per_cell, len(cell_list))
+                    indices = rng.choice(len(cell_list), size=n_sample, replace=False)
+                    for idx in indices:
+                        sampled_row = cell_list[idx]
+                        sampled_df = pl.DataFrame([sampled_row]).with_columns([
+                            pl.lit(f"grid_{i}_{j}").alias("sampling_reason")
+                        ])
+                        selected.append(sampled_df)
 
         if selected:
-            result = pl.concat(selected).head(n)
+            # Shuffle and take n
+            result = pl.concat(selected)
+            shuffled = result.sample(fraction=1.0, seed=seed)
+            result = shuffled.head(n)
             logger.info(f"  Selected {len(result)} diverse features")
             return result
         return pl.DataFrame()
@@ -161,7 +168,7 @@ class AnchorAnalyzer:
         ]
 
         selected = []
-        per_boundary = max(n // 3, 4)  # At least 4 per boundary
+        per_boundary = max(n // 3, 8)  # At least 8 per boundary for larger samples
 
         for anchor1, anchor2 in boundary_pairs:
             # Find features nearest to this boundary
@@ -171,7 +178,7 @@ class AnchorAnalyzer:
 
             if len(boundary_df) > 0:
                 # Take top candidates and randomly sample from them
-                candidates = boundary_df.head(per_boundary * 3).to_dicts()
+                candidates = boundary_df.head(per_boundary * 5).to_dicts()
                 n_select = min(per_boundary, len(candidates))
                 indices = rng.choice(len(candidates), size=n_select, replace=False)
                 sampled = [candidates[i] for i in indices]
@@ -266,13 +273,13 @@ class AnchorAnalyzer:
         feature_df = self.get_feature_level_data()
         logger.info(f"Feature-level data: {len(feature_df):,} features")
 
-        # Select diverse features
-        diverse = self.select_diverse_features(feature_df, n=10, seed=seed)
+        # Select diverse features (50 for 100 total)
+        diverse = self.select_diverse_features(feature_df, n=50, seed=seed)
         diverse = diverse.with_columns([pl.lit("diverse").alias("sampling_type")])
 
-        # Select boundary features
+        # Select boundary features (50 for 100 total)
         diverse_ids = diverse["feature_id"].to_list() if len(diverse) > 0 else []
-        boundary = self.select_boundary_features(feature_df, n=10, exclude_ids=diverse_ids, seed=seed)
+        boundary = self.select_boundary_features(feature_df, n=50, exclude_ids=diverse_ids, seed=seed)
         boundary = boundary.with_columns([pl.lit("boundary").alias("sampling_type")])
 
         # Ensure both have sampling_reason column
@@ -335,7 +342,7 @@ class AnchorAnalyzer:
         output = {
             "metadata": {
                 "created_at": datetime.now().isoformat(),
-                "sampling_method": "stratified_diverse_10 + boundary_10",
+                "sampling_method": "stratified_diverse_50 + boundary_50",
                 "total_features": len(features_output),
             },
             "tag_options": TAG_OPTIONS,
@@ -367,11 +374,12 @@ class AnchorAnalyzer:
             "",
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}",
             "",
-            "## Tag Options",
-            "- `noisy-activation`: Activation examples are noisy/not interpretable",
-            "- `pattern-miss`: Explanation missed the linguistic pattern (n-grams, morphology)",
-            "- `context-miss`: Explanation missed the semantic context",
-            "- `well-explained`: Feature is well explained",
+            "## Tag Options (Problem Categories Only)",
+            "- `noisy-activation`: Activation examples are noisy/not interpretable - the feature itself is poorly defined",
+            "- `pattern-miss`: Explanation missed the linguistic pattern (n-grams, morphology) that triggers activation",
+            "- `context-miss`: Explanation missed the semantic context/domain where the feature activates",
+            "",
+            "Note: Every feature MUST be tagged with one of these three categories.",
             "",
             "---",
             ""
