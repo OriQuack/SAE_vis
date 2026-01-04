@@ -204,26 +204,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return spreadBarycentricPoints(umapProjection, 'barycentricPower')
   }, [umapProjection])
 
-  // Compute triangle grid for batch selection
-  const gridState = useMemo(() => {
-    if (!spreadPoints || spreadPoints.length === 0) return null
-    return computeTriangleGrid(spreadPoints)
-  }, [spreadPoints])
-
-  // Auto-select first grid cell on initial load (when no selection exists)
-  useEffect(() => {
-    if (!gridState || umapBrushedFeatureIds.size > 0) return
-
-    // Find the first non-empty leaf cell
-    for (const cellKey of gridState.leafCells) {
-      const cell = gridState.cells.get(cellKey)
-      if (cell && cell.featureIds.size > 0) {
-        setUmapBrushedFeatureIds(cell.featureIds)
-        break
-      }
-    }
-  }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
-
   // Get set of manually tagged feature IDs for rendering
   const manuallyTaggedIds = useMemo(() => {
     return new Set(Object.keys(manualCauseSelections).map(Number))
@@ -264,29 +244,55 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return category || 'unsure'
   }, [wellExplainedFeatureIds, manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
 
-  // Compute filtered feature counts per cell (respects category filter)
-  const filteredCellCounts = useMemo(() => {
-    if (!gridState) return new Map<string, number>()
+  // Filter spread points by visible categories
+  const filteredSpreadPoints = useMemo(() => {
+    if (!spreadPoints) return null
+    return spreadPoints.filter(point => {
+      const category = getEffectiveCategory(point.feature_id)
+      return visibleCategories.has(category)
+    })
+  }, [spreadPoints, getEffectiveCategory, visibleCategories])
 
-    const counts = new Map<string, number>()
+  // Compute triangle grid for batch selection (using filtered points)
+  const gridState = useMemo(() => {
+    if (!filteredSpreadPoints || filteredSpreadPoints.length === 0) return null
+    return computeTriangleGrid(filteredSpreadPoints)
+  }, [filteredSpreadPoints])
+
+  // Compute max cell count for stroke width scaling
+  const maxCellCount = useMemo(() => {
+    if (!gridState) return 1
+    let max = 1
     for (const cellKey of gridState.leafCells) {
       const cell = gridState.cells.get(cellKey)
-      if (!cell) continue
-
-      let count = 0
-      cell.featureIds.forEach(featureId => {
-        const effectiveCategory = getEffectiveCategory(featureId)
-        if (visibleCategories.has(effectiveCategory)) {
-          count++
-        }
-      })
-      counts.set(cellKey, count)
+      if (cell) max = Math.max(max, cell.featureIds.size)
     }
-    return counts
-  }, [gridState, getEffectiveCategory, visibleCategories])
+    return max
+  }, [gridState])
+
+  // Calculate stroke width based on count (0.3px to 3.5px)
+  const getStrokeWidth = useCallback((count: number) => {
+    const minStroke = 0.3
+    const maxStroke = 3.5
+    const ratio = count / maxCellCount
+    return minStroke + ratio * (maxStroke - minStroke)
+  }, [maxCellCount])
+
+  // Auto-select first grid cell on initial load (when no selection exists)
+  useEffect(() => {
+    if (!gridState || umapBrushedFeatureIds.size > 0) return
+
+    // Find the first non-empty leaf cell
+    for (const cellKey of gridState.leafCells) {
+      const cell = gridState.cells.get(cellKey)
+      if (cell && cell.featureIds.size > 0) {
+        setUmapBrushedFeatureIds(cell.featureIds)
+        break
+      }
+    }
+  }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
 
   // Compute category breakdown for hovered cell tooltip (manual vs auto)
-  // Only counts features in visible categories
   const hoveredCellComposition = useMemo(() => {
     if (!hoveredCell || !gridState) return null
     const cell = gridState.cells.get(hoveredCell.cellKey)
@@ -303,10 +309,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     cell.featureIds.forEach(featureId => {
       const category = getEffectiveCategory(featureId)
-
-      // Only count features in visible categories
-      if (!visibleCategories.has(category)) return
-
       const source = causeSelectionSources.get(featureId)
       const isManual = source === 'manual'
 
@@ -328,10 +330,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     })
 
-    // Use filtered count from memoized map
-    const filteredCount = filteredCellCounts.get(hoveredCell.cellKey) ?? 0
-    return { ...counts, total: filteredCount }
-  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources, visibleCategories, filteredCellCounts])
+    return { ...counts, total: cell.featureIds.size }
+  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
 
   // Compute explainer label positions for HTML rendering (crisp text)
   const explainerLabels = useMemo(() => {
@@ -596,56 +596,28 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           {/* Triangle cell grid for batch selection */}
           {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
             const cell = gridState.cells.get(cellKey)
-            if (!cell) return null
-
-            // Get filtered count - hide cells with no visible features
-            const filteredCount = filteredCellCounts.get(cellKey) ?? 0
-            if (filteredCount === 0) return null
+            if (!cell || cell.featureIds.size === 0) return null
 
             // Check if this cell is selected (its features match brushed features)
             const isSelected = umapBrushedFeatureIds.size > 0 &&
               cell.featureIds.size === umapBrushedFeatureIds.size &&
               [...cell.featureIds].every(id => umapBrushedFeatureIds.has(id))
 
-            // Calculate centroid for label placement
-            const centroid = {
-              x: (cell.vertices[0].x + cell.vertices[1].x + cell.vertices[2].x) / 3,
-              y: (cell.vertices[0].y + cell.vertices[1].y + cell.vertices[2].y) / 3
-            }
-            const cx = scales.xScale(centroid.x)
-            const cy = scales.yScale(centroid.y)
-
-            // Calculate cell size (approximate via bounding box width)
-            const minX = Math.min(scales.xScale(cell.vertices[0].x), scales.xScale(cell.vertices[1].x), scales.xScale(cell.vertices[2].x))
-            const maxX = Math.max(scales.xScale(cell.vertices[0].x), scales.xScale(cell.vertices[1].x), scales.xScale(cell.vertices[2].x))
-            const cellWidth = maxX - minX
-
-            // Only show label if cell is large enough (threshold: 25px)
-            const showLabel = cellWidth > 25
-
             return (
-              <g key={cell.key}>
-                <polygon
-                  points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
-                  className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
-                  style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-                  onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
-                  onMouseEnter={(e) => setHoveredCell({ cellKey: cell.key, position: { x: e.clientX, y: e.clientY } })}
-                  onMouseMove={(e) => setHoveredCell(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)}
-                  onMouseLeave={() => setHoveredCell(null)}
-                />
-                {showLabel && (
-                  <text
-                    x={cx}
-                    y={cy}
-                    className="umap-scatter__cell-count"
-                    textAnchor="middle"
-                    dominantBaseline="middle"
-                  >
-                    {filteredCount}
-                  </text>
-                )}
-              </g>
+              <polygon
+                key={cell.key}
+                points={cellToSvgPoints(cell, scales.xScale, scales.yScale)}
+                className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
+                style={{
+                  pointerEvents: 'auto',
+                  cursor: 'pointer',
+                  strokeWidth: getStrokeWidth(cell.featureIds.size)
+                }}
+                onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
+                onMouseEnter={(e) => setHoveredCell({ cellKey: cell.key, position: { x: e.clientX, y: e.clientY } })}
+                onMouseMove={(e) => setHoveredCell(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)}
+                onMouseLeave={() => setHoveredCell(null)}
+              />
             )
           })}
         </svg>
@@ -741,6 +713,46 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             value={causeMarginThreshold}
             onChange={(e) => setCauseMarginThreshold(parseFloat(e.target.value))}
           />
+        </div>
+      </div>
+
+      {/* Legend panel - separate box */}
+      <div className="umap-scatter__legend-panel">
+        <span className="umap-scatter__legend-title">Legend</span>
+
+        {/* Feature Count - stroke width */}
+        <div className="umap-scatter__legend-section">
+          <span className="umap-scatter__legend-label">Feature Count</span>
+          <div className="umap-scatter__stroke-legend-bar">
+            <svg width="100%" height="14" viewBox="0 0 60 14" preserveAspectRatio="none">
+              <line x1="0" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="0.3" />
+              <line x1="15" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="1.9" />
+              <line x1="35" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="3.5" />
+            </svg>
+          </div>
+          <div className="umap-scatter__stroke-legend-labels">
+            <span>Few</span>
+            <span>Many</span>
+          </div>
+        </div>
+
+        {/* Tag Status - ring vs filled */}
+        <div className="umap-scatter__legend-section">
+          <span className="umap-scatter__legend-label">Tag Status</span>
+          <div className="umap-scatter__tag-legend-items">
+            <div className="umap-scatter__tag-legend-item">
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <circle cx="6" cy="6" r="3.25" fill="none" stroke="#6b7280" strokeWidth="1.5" />
+              </svg>
+              <span>Not Tagged</span>
+            </div>
+            <div className="umap-scatter__tag-legend-item">
+              <svg width="12" height="12" viewBox="0 0 12 12">
+                <circle cx="6" cy="6" r="4" fill="#6b7280" />
+              </svg>
+              <span>Tagged</span>
+            </div>
+          </div>
         </div>
       </div>
 

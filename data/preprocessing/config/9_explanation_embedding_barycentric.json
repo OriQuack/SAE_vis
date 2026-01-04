@@ -28,9 +28,9 @@
     },
     "noisy_activation": {
       "intra_feature_sim": "p10",
-      "score_embedding": "p50",
-      "score_fuzz": "p50",
-      "score_detection": "p50",
+      "score_embedding": "p25",
+      "score_fuzz": "p25",
+      "score_detection": "p25",
       "explanation_semantic_sim": "p10"
     }
   },

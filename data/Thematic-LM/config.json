@@ -3,9 +3,9 @@
 
   "run_config": {
     "description": "Run-specific settings. Edit these before each run.",
-    "start_feature": null,
-    "end_feature": null,
-    "limit": 100,
+    "start_feature": 0,
+    "end_feature": 2000,
+    "limit": 2000,
     "mode": "overwrite"
   },
 
@@ -23,7 +23,7 @@
     "model": "gpt-5-mini",
     "temperature": 1.0,
     "top_p": 1.0,
-    "max_tokens": 2048,
+    "max_tokens": 3072,
     "rate_limit_rpm": 500
   },
 

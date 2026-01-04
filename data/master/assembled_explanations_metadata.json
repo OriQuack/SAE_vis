@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-05T00:40:34.485638",
+  "created_at": "2026-01-05T01:05:31.299115",
   "script_version": "1.0",
   "total_features": 100,
   "schema": {
@@ -35,9 +35,9 @@
       "metadata": "data/master/assembled_explanations_metadata.json"
     },
     "templates": {
-      "both_categories": "This feature detects {token_codes} in the context of {context_codes}.",
-      "token_only": "This feature detects {token_codes}.",
-      "context_only": "This feature activates in {context_codes}.",
+      "both_categories": "Detects {token_codes} in the context of {context_codes}.",
+      "token_only": "Detects {token_codes}.",
+      "context_only": "Activates in {context_codes}.",
       "no_codes": "{original_explanation}"
     },
     "processing": {

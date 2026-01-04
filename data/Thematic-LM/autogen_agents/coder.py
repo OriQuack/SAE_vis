@@ -47,24 +47,26 @@ CLASSIFICATION GUIDE:
     - Morphology (prefixes, suffixes, endings)
     - Character patterns (capitalization, starts with X)
     - Punctuation and function words
+    - Positional patterns (sentence-initial, preceding nouns, clause-final)
 
   Context-level (DOMAIN):
     - Domain vocabulary (sports terms, legal terms, medical terms)
     - Thematic content (travel, emotions, competition)
     - Topical categories (science, politics, technology)
 
-FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
+FIDELITY & SPECIFICITY PRINCIPLE: Codes must faithfully, specifically represent what the explanation states — NOT what you infer from it.
   - Preserve the semantic content of the original text
   - Do not abstract away meaning or add interpretations
+  - Avoid generic single-word codes — include qualifiers that capture the specific pattern
+  - If explanation mentions position, encode it in the code
 
 RULES:
 1. Generate SEPARATE codes for token-level and context-level aspects
 2. Do NOT combine both aspects in one code
    Bad: "nouns about chemistry" → Good: "nouns" (token-level) + "chemistry domain" (context-level)
-3. Each code should be ONE concept, not a comma-separated list of items
-4. Each code: 1-6 words, noun phrase style
-5. Quote: exact extract from explanation (3+ words)
-6. If explanation only addresses one category, generate code(s) for that category only
+3. Each code: 2-6 words, noun phrase style
+4. Quote: exact extract from explanation (3+ words)
+5. If explanation only addresses one category, generate code(s) for that category only
 
 EXAMPLE:
 Input: "Verbs related to motion, often appearing in travel descriptions or sports commentary"
@@ -77,11 +79,33 @@ Output:
   ]
 }
 
+BAD EXAMPLE:
+Input: "Prepositions often precede nouns in formal writing"
+Output:
+{
+  "data_id": "f10_llama",
+  "codes": [
+    {"code": "prepositions", "category": "token-level", "quote": "Prepositions often precede nouns", "quote_id": "f10_llama"}
+  ]
+}
+Problems: Generic single-word code; lost positional pattern "precede nouns"
+
+GOOD EXAMPLE (same input):
+Input: "Prepositions often precede nouns in formal writing"
+Output:
+{
+  "data_id": "f10_llama",
+  "codes": [
+    {"code": "prepositions preceding nouns", "category": "token-level", "quote": "Prepositions often precede nouns", "quote_id": "f10_llama"},
+    {"code": "formal writing", "category": "context-level", "quote": "formal writing", "quote_id": "f10_llama"}
+  ]
+}
+
 OUTPUT FORMAT:
 {
   "data_id": "<data_id>",
   "codes": [
-    {"code": "<1-6 word noun phrase>", "category": "token-level|context-level", "quote": "<extract>", "quote_id": "<data_id>"}
+    {"code": "<2-6 word noun phrase>", "category": "token-level|context-level", "quote": "<extract>", "quote_id": "<data_id>"}
   ]
 }"""
 
@@ -108,10 +132,12 @@ CLASSIFICATION GUIDE:
 FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
   - Preserve the semantic content of the original text
   - Do not abstract away meaning or add interpretations
+  - Avoid generic single-word POS tags (e.g., "nouns", "verbs") — include qualifiers that capture the specific pattern
+  - If explanation mentions position (precede, follow, initial, final), encode it in the code
 
 RULES:
 1. Each code should be ONE concept, not a comma-separated list of items
-2. Each code: 1-6 words, noun phrase style
+2. Each code: 2-6 words, noun phrase style
 3. Quote: exact extract from explanation (3+ words)
 4. If explanation has no token-level aspects, output empty codes array
 
@@ -155,10 +181,12 @@ CLASSIFICATION GUIDE:
 FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
   - Preserve the semantic content of the original text
   - Do not abstract away meaning or add interpretations
+  - Avoid generic single-word POS tags (e.g., "nouns", "verbs") — include qualifiers that capture the specific pattern
+  - If explanation mentions position (precede, follow, initial, final), encode it in the code
 
 RULES:
 1. Each code should be ONE concept, not a comma-separated list of items
-2. Each code: 1-6 words, noun phrase style
+2. Each code: 2-6 words, noun phrase style
 3. Quote: exact extract from explanation (3+ words)
 4. If explanation has no context-level aspects, output empty codes array
 
