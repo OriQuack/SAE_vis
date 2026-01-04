@@ -104,6 +104,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   )
   const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
+  // Hover state for cell tooltip
+  const [hoveredCell, setHoveredCell] = useState<{
+    cellKey: string
+    position: { x: number; y: number }
+  } | null>(null)
+
   // Toggle category visibility
   const toggleCategory = useCallback((category: FilterCategory) => {
     const next = new Set(visibleCategories)
@@ -168,12 +174,15 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     if (!manualTagsChanged) return
 
+    // Prevent duplicate in-flight requests (belt-and-suspenders with store loading check)
+    if (causeClassificationLoading) return
+
     // Only fetch classification when we have enough manual tags
     if (featureIds.length >= 3 && canUseDecisionSpace) {
       fetchCauseClassification(featureIds, manualCauseSelections)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
-  }, [featureIds, canUseDecisionSpace, manualCauseSelections])
+  }, [featureIds, canUseDecisionSpace, manualCauseSelections, causeClassificationLoading])
 
   // Compute D3 scales using fixed barycentric triangle bounds
   const scales = useMemo(() => {
@@ -255,6 +264,47 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     return category || 'unsure'
   }, [wellExplainedFeatureIds, manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
+
+  // Compute category breakdown for hovered cell tooltip (manual vs auto)
+  const hoveredCellComposition = useMemo(() => {
+    if (!hoveredCell || !gridState) return null
+    const cell = gridState.cells.get(hoveredCell.cellKey)
+    if (!cell) return null
+
+    // Track manual and auto counts separately per category
+    const counts = {
+      wellExplained: { manual: 0, auto: 0 },
+      noisyActivation: { manual: 0, auto: 0 },
+      patternMiss: { manual: 0, auto: 0 },
+      contextMiss: { manual: 0, auto: 0 },
+      unsure: 0  // unsure is always untagged
+    }
+
+    cell.featureIds.forEach(featureId => {
+      const category = getEffectiveCategory(featureId)
+      const source = causeSelectionSources.get(featureId)
+      const isManual = source === 'manual'
+
+      switch (category) {
+        case 'well-explained':
+          isManual ? counts.wellExplained.manual++ : counts.wellExplained.auto++
+          break
+        case 'noisy-activation':
+          isManual ? counts.noisyActivation.manual++ : counts.noisyActivation.auto++
+          break
+        case 'missed-N-gram':
+          isManual ? counts.patternMiss.manual++ : counts.patternMiss.auto++
+          break
+        case 'missed-context':
+          isManual ? counts.contextMiss.manual++ : counts.contextMiss.auto++
+          break
+        default:
+          counts.unsure++
+      }
+    })
+
+    return { ...counts, total: cell.featureIds.size }
+  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
 
   // Compute explainer label positions for HTML rendering (crisp text)
   const explainerLabels = useMemo(() => {
@@ -549,6 +599,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
                   className={`umap-scatter__grid-cell${isSelected ? ' umap-scatter__grid-cell--selected' : ''}`}
                   style={{ pointerEvents: 'auto', cursor: 'pointer' }}
                   onClick={() => setUmapBrushedFeatureIds(cell.featureIds)}
+                  onMouseEnter={(e) => setHoveredCell({ cellKey: cell.key, position: { x: e.clientX, y: e.clientY } })}
+                  onMouseMove={(e) => setHoveredCell(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)}
+                  onMouseLeave={() => setHoveredCell(null)}
                 />
                 {showLabel && (
                   <text
@@ -665,6 +718,128 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         <div className="umap-scatter__classification-loading">
           <span className="umap-scatter__spinner umap-scatter__spinner--small" />
           <span>Updating...</span>
+        </div>
+      )}
+
+      {/* Cell hover tooltip with category breakdown */}
+      {hoveredCell && hoveredCellComposition && (
+        <div
+          className="umap-scatter__cell-tooltip"
+          style={{
+            position: 'fixed',
+            left: hoveredCell.position.x + 12,
+            top: hoveredCell.position.y - 8
+          }}
+        >
+          <div className="umap-scatter__cell-tooltip-content">
+            <div className="umap-scatter__cell-tooltip-total">
+              {hoveredCellComposition.total} features
+            </div>
+            <div className="umap-scatter__cell-tooltip-breakdown">
+              {/* Well-Explained: manual (solid) then auto (striped) */}
+              {(hoveredCellComposition.wellExplained.manual > 0 || hoveredCellComposition.wellExplained.auto > 0) && (
+                <>
+                  {hoveredCellComposition.wellExplained.manual > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch"
+                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f' }}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.wellExplained.manual}</span>
+                    </span>
+                  )}
+                  {hoveredCellComposition.wellExplained.auto > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
+                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f' } as React.CSSProperties}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.wellExplained.auto}</span>
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Noisy Activation: manual (solid) then auto (striped) */}
+              {(hoveredCellComposition.noisyActivation.manual > 0 || hoveredCellComposition.noisyActivation.auto > 0) && (
+                <>
+                  {hoveredCellComposition.noisyActivation.manual > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch"
+                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af' }}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.noisyActivation.manual}</span>
+                    </span>
+                  )}
+                  {hoveredCellComposition.noisyActivation.auto > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
+                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af' } as React.CSSProperties}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.noisyActivation.auto}</span>
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Pattern Miss: manual (solid) then auto (striped) */}
+              {(hoveredCellComposition.patternMiss.manual > 0 || hoveredCellComposition.patternMiss.auto > 0) && (
+                <>
+                  {hoveredCellComposition.patternMiss.manual > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch"
+                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af' }}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.patternMiss.manual}</span>
+                    </span>
+                  )}
+                  {hoveredCellComposition.patternMiss.auto > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
+                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af' } as React.CSSProperties}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.patternMiss.auto}</span>
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Context Miss: manual (solid) then auto (striped) */}
+              {(hoveredCellComposition.contextMiss.manual > 0 || hoveredCellComposition.contextMiss.auto > 0) && (
+                <>
+                  {hoveredCellComposition.contextMiss.manual > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch"
+                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af' }}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.contextMiss.manual}</span>
+                    </span>
+                  )}
+                  {hoveredCellComposition.contextMiss.auto > 0 && (
+                    <span className="umap-scatter__cell-tooltip-item">
+                      <span
+                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
+                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af' } as React.CSSProperties}
+                      />
+                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.contextMiss.auto}</span>
+                    </span>
+                  )}
+                </>
+              )}
+              {/* Unsure: always solid gray (no manual/auto distinction) */}
+              {hoveredCellComposition.unsure > 0 && (
+                <span className="umap-scatter__cell-tooltip-item">
+                  <span
+                    className="umap-scatter__cell-tooltip-swatch"
+                    style={{ backgroundColor: '#e5e7eb' }}
+                  />
+                  <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.unsure}</span>
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       )}
 

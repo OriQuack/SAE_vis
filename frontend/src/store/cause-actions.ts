@@ -363,6 +363,21 @@ export const createCauseActions = (set: any, get: any) => ({
     featureIds: number[],
     causeSelections: Record<number, string>
   ) => {
+    const state = get()
+
+    // Early return if already loading to prevent duplicate concurrent requests
+    if (state.causeClassificationLoading) {
+      console.log('[Store.fetchCauseClassification] ⚠️ Already loading, skipping duplicate request')
+      return
+    }
+
+    // Skip API call if ALL features are already manually tagged - nothing to predict
+    const manualTagCount = Object.keys(causeSelections).length
+    if (manualTagCount === featureIds.length && manualTagCount > 0) {
+      console.log('[Store.fetchCauseClassification] ⚠️ All features already tagged, skipping API call')
+      return
+    }
+
     console.log('[Store.fetchCauseClassification] Starting classification:', {
       featureCount: featureIds.length,
       manualTagCount: Object.keys(causeSelections).length
@@ -390,34 +405,57 @@ export const createCauseActions = (set: any, get: any) => ({
 
       // Update causeSelectionStates with predicted categories for non-manual features
       // This enables contour visualization of the SVM classification results
-      const state = get()
-      const newStates = new Map(state.causeSelectionStates)
-      const newSources = new Map(state.causeSelectionSources)
+      const currentState = get()
 
       // Set of manually tagged feature IDs (from the request)
       const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
 
+      // Track if any actual changes occur to avoid unnecessary state updates
+      // that would trigger cascading re-renders
+      let hasChanges = false
+      const newStates = new Map(currentState.causeSelectionStates)
+      const newSources = new Map(currentState.causeSelectionSources)
+
       response.results.forEach((result) => {
         // Only update non-manually-tagged features
         if (!manualFeatureIds.has(result.feature_id)) {
-          newStates.set(result.feature_id, result.predicted_category as 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained')
-          newSources.set(result.feature_id, 'auto')
+          const currentCategory = currentState.causeSelectionStates.get(result.feature_id)
+          const currentSource = currentState.causeSelectionSources.get(result.feature_id)
+          const predictedCategory = result.predicted_category as 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
+
+          // Only update if there's an actual change
+          if (currentCategory !== predictedCategory || currentSource !== 'auto') {
+            hasChanges = true
+            newStates.set(result.feature_id, predictedCategory)
+            newSources.set(result.feature_id, 'auto')
+          }
         }
       })
 
       console.log('[Store.fetchCauseClassification] Updated selection states:', {
         manualCount: manualFeatureIds.size,
         autoCount: newStates.size - manualFeatureIds.size,
-        totalStates: newStates.size
+        totalStates: newStates.size,
+        hasChanges
       })
 
-      set({
-        causeCategoryDecisionMargins: categoryDecisionMargins,
-        causeSelectionStates: newStates,
-        causeSelectionSources: newSources,
-        causeClassificationLoading: false,
-        causeClassificationError: null
-      })
+      // Only update Map state if there were actual changes
+      // This prevents cascading re-renders from new Map references
+      if (hasChanges) {
+        set({
+          causeCategoryDecisionMargins: categoryDecisionMargins,
+          causeSelectionStates: newStates,
+          causeSelectionSources: newSources,
+          causeClassificationLoading: false,
+          causeClassificationError: null
+        })
+      } else {
+        // Only update loading state - don't update any Maps to avoid triggering cascading effects
+        set({
+          causeClassificationLoading: false,
+          causeClassificationError: null
+        })
+      }
     } catch (error) {
       console.error('[Store.fetchCauseClassification] ❌ Failed:', error)
       set({

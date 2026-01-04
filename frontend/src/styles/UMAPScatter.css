@@ -214,6 +214,69 @@
 }
 
 /* ============================================================================
+   CELL HOVER TOOLTIP - Category breakdown display
+   ============================================================================ */
+
+.umap-scatter__cell-tooltip {
+  pointer-events: none;
+  z-index: 10000;
+}
+
+.umap-scatter__cell-tooltip-content {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  white-space: nowrap;
+}
+
+.umap-scatter__cell-tooltip-total {
+  font-size: 12px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
+}
+
+.umap-scatter__cell-tooltip-breakdown {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.umap-scatter__cell-tooltip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.umap-scatter__cell-tooltip-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Striped swatch - diagonal stripes for auto-tagged (candidate) */
+.umap-scatter__cell-tooltip-swatch--striped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--unsure-gray, #e5e7eb),
+    var(--unsure-gray, #e5e7eb) 2px,
+    var(--swatch-color) 2px,
+    var(--swatch-color) 4px
+  );
+  border: 1px solid var(--swatch-color);
+}
+
+.umap-scatter__cell-tooltip-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================================
    VERTEX LABELS - Tag-styled labels at triangle corners
    ============================================================================ */
 

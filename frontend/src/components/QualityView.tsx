@@ -173,14 +173,18 @@ const QualityView: React.FC<QualityViewProps> = ({
   const hasAutoSwitchedToDecisionMarginRef = useRef(false)
 
   // Auto-switch to Decision Margin sort when histogram first becomes available
+  // Only switch if histogram is for feature mode (Stage 2), not pair mode (Stage 1)
+  // This prevents race condition where pair mode histogram from Stage 1 arrives late
   useEffect(() => {
-    if (tagAutomaticState?.histogramData && !hasAutoSwitchedToDecisionMarginRef.current) {
+    if (tagAutomaticState?.histogramData &&
+        tagAutomaticState?.mode === 'feature' &&
+        !hasAutoSwitchedToDecisionMarginRef.current) {
       hasAutoSwitchedToDecisionMarginRef.current = true
       setSortMode('decisionMargin')
       setCurrentFeatureIndex(0)
       setActiveListSource('all')
     }
-  }, [tagAutomaticState?.histogramData, setSortMode, setActiveListSource])
+  }, [tagAutomaticState?.histogramData, tagAutomaticState?.mode, setSortMode, setActiveListSource])
 
   // Helper function to compute quality counts from featureSelectionStates
   const getQualityCounts = useCallback((): QualityCommitCounts => {
