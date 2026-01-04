@@ -321,7 +321,7 @@ export const STRIPE_PATTERN = {
   rotation: -45,       // Negative 45° for CSS gradients (\ direction)
 
   // Opacity for stripe color overlay
-  opacity: 0.4,       // Balanced visibility
+  opacity: 0.5,       // Balanced visibility
 
   // Small variant (for 12x12px legend swatches in ThresholdTaggingPanel)
   small: {
@@ -347,15 +347,16 @@ export function getStripeGradient(
   gapColor: string = UNSURE_GRAY,
   variant: 'standard' | 'small' = 'standard'
 ): string {
-  const { rotation } = STRIPE_PATTERN
+  const { rotation, opacity } = STRIPE_PATTERN
   const dims = variant === 'small' ? STRIPE_PATTERN.small : STRIPE_PATTERN
+  const stripeColorWithOpacity = addOpacityToHex(stripeColor, opacity)
 
   return `repeating-linear-gradient(
     ${rotation}deg,
     ${gapColor},
     ${gapColor} ${dims.gapWidth}px,
-    ${stripeColor} ${dims.gapWidth}px,
-    ${stripeColor} ${dims.width}px
+    ${stripeColorWithOpacity} ${dims.gapWidth}px,
+    ${stripeColorWithOpacity} ${dims.width}px
   )`
 }
 
