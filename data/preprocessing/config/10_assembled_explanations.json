@@ -16,7 +16,7 @@
   },
   "processing": {
     "code_separator": ", ",
-    "use_original_when_same_explainer": false
+    "use_original_when_same_explainer": true
   },
   "schema_info": {
     "token_codes": "Codes from explainer with highest fuzz score (token-level pattern accuracy)",

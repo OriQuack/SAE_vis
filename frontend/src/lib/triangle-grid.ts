@@ -12,11 +12,38 @@ import { BARYCENTRIC_TRIANGLE } from './umap-utils'
 /** Maximum hierarchy level (1024 finest cells at level 5, 1/32 edge) */
 export const MAX_LEVEL = 5
 
-/** Divisor for dynamic threshold: k = totalFeatures / THRESHOLD_DIVISOR */
+/**
+ * Split mode (CODER configurable):
+ * - 'density': Split based on cell density (threshold scales with level)
+ * - 'count': Split based on absolute feature count (same threshold for all levels)
+ */
+export const SPLIT_MODE: 'density' | 'count' = 'count'
+
+// ============================================================================
+// DENSITY-BASED SPLIT CONFIGURATION
+// ============================================================================
+
+/**
+ * Density factor for splitting (used when SPLIT_MODE = 'density'):
+ * Controls target leaf cell density relative to uniform distribution.
+ * - Lower = more aggressive splitting (finer cells, lower density per cell)
+ * - Higher = less splitting (coarser cells, higher density per cell)
+ * - 0.5 = split if cell is denser than half the uniform density
+ * - 1.0 = split only if denser than uniform distribution
+ *
+ * Formula: maxFeaturesAtLevel(L) = totalFeatures × DENSITY_FACTOR / 4^L
+ */
+export const DENSITY_FACTOR = 0.5
+
+// ============================================================================
+// COUNT-BASED SPLIT CONFIGURATION
+// ============================================================================
+
+/** Divisor for dynamic threshold (used when SPLIT_MODE = 'count'): k = totalFeatures / THRESHOLD_DIVISOR */
 export const THRESHOLD_DIVISOR = 80
 
 /**
- * Minimum number of children that must have >= threshold features to split (CODER configurable):
+ * Minimum number of children that must have >= threshold features to split (used when SPLIT_MODE = 'count'):
  * - 1: Split if ANY child is dense (aggressive, more fine-grained cells)
  * - 2: Split if at least 2 children are dense
  * - 3: Split if at least 3 children are dense
@@ -414,22 +441,25 @@ function collectFeaturesFromSubtree(
 /**
  * Compute the complete grid state for a set of points using TOP-DOWN SPLITTING.
  *
- * Algorithm:
- * 1. Pre-compute feature assignments at finest level
- * 2. Starting from root, recursively decide: split or become leaf
- * 3. Split if >= MIN_DENSE_CHILDREN_TO_SPLIT children have >= threshold features
+ * Supports two split modes (controlled by SPLIT_MODE):
+ * - 'density': Split based on cell density (threshold scales with level)
+ *   Formula: maxFeaturesAtLevel(L) = totalFeatures × DENSITY_FACTOR / 4^L
+ * - 'count': Split based on absolute feature count (same threshold for all levels)
+ *   Split if >= MIN_DENSE_CHILDREN_TO_SPLIT children have >= threshold features
  *
  * @param points - UMAP points (after spread transformation)
- * @param splitThreshold - Minimum features in a child to warrant splitting (k)
  * @returns Complete grid state for rendering
  */
 export function computeTriangleGrid(
-  points: UmapPoint[],
-  splitThreshold: number
+  points: UmapPoint[]
 ): TriangleGridState {
   const cells = getHierarchy()
   const leafCells = new Set<string>()
   const featureToCell = new Map<number, string>()
+  const totalFeatures = points.length
+
+  // Count-based threshold (used when SPLIT_MODE = 'count')
+  const countThreshold = Math.ceil(totalFeatures / THRESHOLD_DIVISOR)
 
   // Step 1: Assign points to finest-level cells (pre-compute)
   const finestCellCounts = new Map<string, Set<number>>()
@@ -449,29 +479,34 @@ export function computeTriangleGrid(
     const cell = cells.get(cellKey)
     if (!cell) return
 
-    const cellFeatureCount = countFeaturesInSubtree(cellKey, finestCellCounts, cells, subtreeCounts)
+    const featureCount = countFeaturesInSubtree(cellKey, finestCellCounts, cells, subtreeCounts)
 
     // Skip empty cells
-    if (cellFeatureCount === 0) return
+    if (featureCount === 0) return
 
-    // Check if we should split
     const atMaxLevel = cell.level === MAX_LEVEL
     let shouldSplit = false
 
     if (!atMaxLevel) {
-      // Count how many children have >= threshold features
-      let denseChildCount = 0
-      for (const childKey of cell.childKeys) {
-        const childCount = countFeaturesInSubtree(childKey, finestCellCounts, cells, subtreeCounts)
-        if (childCount >= splitThreshold) {
-          denseChildCount++
+      if (SPLIT_MODE === 'density') {
+        // Density-based: split if cell exceeds max features for its level
+        // maxFeaturesAtLevel = totalFeatures × DENSITY_FACTOR / 4^level
+        const maxFeaturesForLevel = (totalFeatures * DENSITY_FACTOR) / Math.pow(4, cell.level)
+        shouldSplit = featureCount > maxFeaturesForLevel
+      } else {
+        // Count-based: split if enough children have >= threshold features
+        let denseChildCount = 0
+        for (const childKey of cell.childKeys) {
+          const childCount = countFeaturesInSubtree(childKey, finestCellCounts, cells, subtreeCounts)
+          if (childCount >= countThreshold) {
+            denseChildCount++
+          }
         }
+        shouldSplit = denseChildCount >= MIN_DENSE_CHILDREN_TO_SPLIT
       }
-      // Split if enough children are dense (configurable: 1, 2, 3, or 4)
-      shouldSplit = denseChildCount >= MIN_DENSE_CHILDREN_TO_SPLIT
     }
 
-    if (atMaxLevel || !shouldSplit) {
+    if (!shouldSplit) {
       // This cell is a leaf - collect all features from subtree
       leafCells.add(cellKey)
       collectFeaturesFromSubtree(cellKey, finestCellCounts, cells, cell.featureIds)

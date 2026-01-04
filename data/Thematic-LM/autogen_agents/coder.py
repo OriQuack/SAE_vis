@@ -30,7 +30,7 @@ PURPOSE: You are analyzing LLM-generated explanation of a neuron.
   - Each neuron activates on certain tokens or contexts in text
   - LLM wrote explanation describing WHAT the neuron activates on
 
-TASK: Decompose the explanation into 1-3 codes. Each code must be classified into exactly ONE category.
+TASK: Decompose the explanation into 1-4 codes. Each code must be classified into exactly ONE category.
 
 CATEGORIES:
   TOKEN-LEVEL: Describes the FORM of activating tokens.
@@ -61,9 +61,10 @@ RULES:
 1. Generate SEPARATE codes for token-level and context-level aspects
 2. Do NOT combine both aspects in one code
    Bad: "nouns about chemistry" → Good: "nouns" (token-level) + "chemistry domain" (context-level)
-3. Each code: 1-6 words, noun phrase style
-4. Quote: exact extract from explanation (3+ words)
-5. If explanation only addresses one category, generate code(s) for that category only
+3. Each code should be ONE concept, not a comma-separated list of items
+4. Each code: 1-6 words, noun phrase style
+5. Quote: exact extract from explanation (3+ words)
+6. If explanation only addresses one category, generate code(s) for that category only
 
 EXAMPLE:
 Input: "Verbs related to motion, often appearing in travel descriptions or sports commentary"
@@ -81,6 +82,101 @@ OUTPUT FORMAT:
   "data_id": "<data_id>",
   "codes": [
     {"code": "<1-6 word noun phrase>", "category": "token-level|context-level", "quote": "<extract>", "quote_id": "<data_id>"}
+  ]
+}"""
+
+
+# Token-level only coder prompt
+SAE_TOKEN_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations.
+
+PURPOSE: You are analyzing LLM-generated explanation of a neuron.
+  - Each neuron activates on certain tokens or contexts in text
+  - LLM wrote explanation describing WHAT the neuron activates on
+
+TASK: Extract 1-3 token-level codes from the explanation.
+
+TOKEN-LEVEL: Describes the FORM of activating tokens.
+  - Ask: "Can I identify this token by its surface form alone?"
+  - Examples: "tokens starting with 'un-'", "punctuation marks", "verb phrases"
+
+CLASSIFICATION GUIDE:
+  - Part-of-speech (verbs, nouns, adjectives)
+  - Morphology (prefixes, suffixes, endings)
+  - Character patterns (capitalization, starts with X)
+  - Punctuation and function words
+
+FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
+  - Preserve the semantic content of the original text
+  - Do not abstract away meaning or add interpretations
+
+RULES:
+1. Each code should be ONE concept, not a comma-separated list of items
+2. Each code: 1-6 words, noun phrase style
+3. Quote: exact extract from explanation (3+ words)
+4. If explanation has no token-level aspects, output empty codes array
+
+EXAMPLE:
+Input: "Verbs related to motion, often appearing in travel descriptions"
+Output:
+{
+  "data_id": "f42_llama",
+  "codes": [
+    {"code": "motion verbs", "category": "token-level", "quote": "Verbs related to motion", "quote_id": "f42_llama"}
+  ]
+}
+
+OUTPUT FORMAT:
+{
+  "data_id": "<data_id>",
+  "codes": [
+    {"code": "<1-6 word noun phrase>", "category": "token-level", "quote": "<extract>", "quote_id": "<data_id>"}
+  ]
+}"""
+
+
+# Context-level only coder prompt
+SAE_CONTEXT_CODER_SYSTEM_PROMPT = """You are a coder in thematic analysis of neuron explanations.
+
+PURPOSE: You are analyzing LLM-generated explanation of a neuron.
+  - Each neuron activates on certain tokens or contexts in text
+  - LLM wrote explanation describing WHAT the neuron activates on
+
+TASK: Extract 1-3 context-level codes from the explanation.
+
+CONTEXT-LEVEL: Describes the DOMAIN or TOPIC that triggers activation.
+  - Ask: "Do I need semantic knowledge to identify this?"
+  - Examples: "formal writing context", "legal documents", "chemistry terminology"
+
+CLASSIFICATION GUIDE:
+  - Domain vocabulary (sports terms, legal terms, medical terms)
+  - Thematic content (travel, emotions, competition)
+  - Topical categories (science, politics, technology)
+
+FIDELITY PRINCIPLE: Codes must faithfully represent what the explanation states — NOT what you infer from it.
+  - Preserve the semantic content of the original text
+  - Do not abstract away meaning or add interpretations
+
+RULES:
+1. Each code should be ONE concept, not a comma-separated list of items
+2. Each code: 1-6 words, noun phrase style
+3. Quote: exact extract from explanation (3+ words)
+4. If explanation has no context-level aspects, output empty codes array
+
+EXAMPLE:
+Input: "Verbs related to motion, often appearing in travel descriptions"
+Output:
+{
+  "data_id": "f42_llama",
+  "codes": [
+    {"code": "travel context", "category": "context-level", "quote": "travel descriptions", "quote_id": "f42_llama"}
+  ]
+}
+
+OUTPUT FORMAT:
+{
+  "data_id": "<data_id>",
+  "codes": [
+    {"code": "<1-6 word noun phrase>", "category": "context-level", "quote": "<extract>", "quote_id": "<data_id>"}
   ]
 }"""
 
@@ -157,8 +253,14 @@ def create_coder_agent(
             identity_description=custom_identity.get("description", "an analyst")
         )
     elif identity == "sae":
-        # SAE-specific coder with domain guidance
+        # SAE-specific coder with domain guidance (both categories)
         system_message = SAE_CODER_SYSTEM_PROMPT
+    elif identity == "sae_token":
+        # SAE coder for token-level codes only
+        system_message = SAE_TOKEN_CODER_SYSTEM_PROMPT
+    elif identity == "sae_context":
+        # SAE coder for context-level codes only
+        system_message = SAE_CONTEXT_CODER_SYSTEM_PROMPT
     elif identity and identity in CODER_IDENTITIES:
         system_message = IDENTITY_PROMPT_TEMPLATE.format(
             identity_description=CODER_IDENTITIES[identity]["description"]

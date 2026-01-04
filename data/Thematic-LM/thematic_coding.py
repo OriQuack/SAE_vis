@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
 """
-Thematic-LM Coding Stage: Generate semantic codes from SAE feature explanations.
+Simplified Thematic-LM: Decompose SAE feature explanations into codes.
 
-This script implements the coding stage of the Thematic-LM paper using AutoGen
-framework for multi-agent orchestration.
+Simplified architecture (no merging):
+    Text → Coder → Codes (stored per-explanation)
 
-Architecture (following paper Section 3.1):
-    Text → [Coder₁ + Coder₂ + ...] → Aggregator → Reviewer → Codebook
+Each explanation is decomposed into 1-3 codes with categories (token-level
+or context-level). Codes are stored per-explanation without merging, allowing
+them to be traced back to their source explanations and associated scores.
 
-Key paper-compliant behaviors:
-- Uses AutoGen framework (paper requirement)
-- ALL codes go through reviewer (no threshold-based skipping)
-- Reviewer merge_codes empty → add as new
-- Reviewer merge_codes non-empty → merge with existing
-- Default: gpt-4o-mini, single coder, temperature=1.0, top_p=1.0
-
-Reference: Qiao et al. "Thematic-LM: A LLM-based Multi-agent System for
-Large-scale Thematic Analysis" (WWW '25)
+Based on: Qiao et al. "Thematic-LM: A LLM-based Multi-agent System for
+Large-scale Thematic Analysis" (WWW '25) - Coding stage only, simplified.
 """
 
 import argparse
@@ -35,8 +29,9 @@ if str(script_dir) not in sys.path:
 import polars as pl
 from tqdm import tqdm
 
-from codebook_manager import CodebookManager
 from autogen_pipeline import ThematicLMPipeline
+# Note: CodebookManager and Reviewer/Aggregator agents still exist in the codebase
+# but are not used in this simplified flow (Coder only, no merging)
 
 # Setup logging: DEBUG to file, minimal to console
 log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
@@ -124,10 +119,10 @@ def get_processed_ids(parquet_path: Path) -> set:
     return processed_ids
 
 
-def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook: CodebookManager):
+def save_parquet(results: List[Dict], output_path: Path, config: Dict):
     """Save results to parquet file (cumulative - appends to existing).
 
-    Looks up current code_text from codebook to reflect any merges.
+    Simplified: codes stored per-explanation without merging.
     """
     # Skip if no new results
     if not results:
@@ -137,29 +132,21 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
     # Convert codes to serializable format
     serializable_results = []
     for r in results:
-        # Look up current code names from codebook (may have changed due to merges)
-        # Deduplicate by code_id (multiple coder codes may merge to same entry)
-        seen_code_ids = {}
-        for c in r["codes"]:
-            if c.code_id in seen_code_ids:
-                continue  # Skip duplicate
-            current_code_text = codebook.entries[c.code_id].code_text if c.code_id in codebook.entries else c.code_text
-            current_category = codebook.entries[c.code_id].category if c.code_id in codebook.entries else c.category
-            seen_code_ids[c.code_id] = {
-                "code_id": c.code_id,
-                "code_text": current_code_text,
-                "category": current_category,
-                "quotes": c.quotes,
-                "is_new": c.is_new,
-                "merged_with": c.merged_with,
+        # Simple serialization - no codebook lookup needed
+        codes_list = [
+            {
+                "code_text": c.code_text,
+                "category": c.category,
+                "quote": c.quote,
             }
-        codes_with_current_names = list(seen_code_ids.values())
+            for c in r["codes"]
+        ]
 
         result = {
             "feature_id": r["feature_id"],
             "llm_explainer": r["llm_explainer"],
             "explanation_text": r["explanation_text"],
-            "codes": json.dumps(codes_with_current_names),
+            "codes": json.dumps(codes_list),
             "coding_metadata": json.dumps(r["coding_metadata"]),
         }
         serializable_results.append(result)
@@ -204,7 +191,7 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
         "unique_explainers": df["llm_explainer"].n_unique(),
         "schema": {col: str(df[col].dtype) for col in df.columns},
         "config_used": config,
-        "paper": "Qiao et al. Thematic-LM (WWW '25)"
+        "note": "Simplified - codes per-explanation, no merging"
     }
 
     metadata_path = output_path.with_suffix('.parquet.metadata.json')
@@ -217,7 +204,7 @@ def save_parquet(results: List[Dict], output_path: Path, config: Dict, codebook:
 def main():
     """Main entry point for thematic coding."""
     parser = argparse.ArgumentParser(
-        description="Generate semantic codes from SAE feature explanations (Thematic-LM with AutoGen)"
+        description="Decompose SAE feature explanations into codes (simplified Thematic-LM)"
     )
     parser.add_argument(
         "--config",
@@ -242,12 +229,6 @@ def main():
         default=None,
         help="Ending feature ID (inclusive)"
     )
-    parser.add_argument(
-        "--load-codebook",
-        type=str,
-        default=None,
-        help="Path to existing codebook.json to continue from"
-    )
     args = parser.parse_args()
 
     # Setup paths
@@ -270,44 +251,19 @@ def main():
     end = args.end if args.end is not None else run_cfg.get("end_feature")
     limit = args.limit if args.limit is not None else run_cfg.get("limit")
     mode = run_cfg.get("mode", "continue")
-    load_codebook_path = args.load_codebook if args.load_codebook is not None else run_cfg.get("load_codebook")
 
-    # Get output paths early for overwrite mode
+    # Get output path
     output_parquet = project_root / config["output_paths"]["thematic_codes_parquet"]
-    output_codebook = project_root / config["output_paths"]["codebook_json"]
 
     # Handle overwrite mode
     if mode == "overwrite":
         if output_parquet.exists():
             output_parquet.unlink()
             logger.info(f"Overwrite mode: deleted {output_parquet}")
-        if output_codebook.exists():
-            output_codebook.unlink()
-            logger.info(f"Overwrite mode: deleted {output_codebook}")
 
-    # Initialize Codebook Manager
-    embedding_config = config.get("embedding_config", {})
-
-    codebook = CodebookManager(
-        embedding_model=embedding_config.get("model", "google/embeddinggemma-300m"),
-        device=embedding_config.get("device", "cuda"),
-        max_example_quotes=config.get("processing_config", {}).get("max_quotes_per_code", 20)
-    )
-
-    # Load existing codebook if specified (only in continue mode)
-    if mode == "continue" and load_codebook_path:
-        codebook_path = Path(load_codebook_path)
-        if not codebook_path.is_absolute():
-            codebook_path = script_dir / codebook_path
-        if codebook_path.exists():
-            codebook.load(codebook_path)
-            logger.info(f"Loaded existing codebook with {len(codebook)} codes from: {codebook_path}")
-        else:
-            logger.warning(f"Codebook file not found: {codebook_path}")
-
-    # Initialize AutoGen Pipeline
-    pipeline = ThematicLMPipeline(config=config, codebook=codebook)
-    logger.info(f"Initialized AutoGen pipeline with {len(pipeline.coders)} coder(s)")
+    # Initialize Pipeline (simplified - no codebook needed)
+    pipeline = ThematicLMPipeline(config=config)
+    logger.info(f"Initialized pipeline with coder: {pipeline.coder.name}")
 
     # Load data
     df = load_explanations(config, project_root, limit, start, end)
@@ -326,30 +282,22 @@ def main():
 
     # Processing configuration
     save_every = config["processing_config"].get("save_every", 30)
-    output_codebook.parent.mkdir(parents=True, exist_ok=True)
-
-    # Create timestamped history directory
-    run_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    codebook_history_dir = script_dir / "codebook_history" / run_timestamp
-    codebook_history_dir.mkdir(parents=True, exist_ok=True)
-    history_codebook = codebook_history_dir / "codebook.json"
+    output_parquet.parent.mkdir(parents=True, exist_ok=True)
 
     # Print banner
     print("=" * 80)
-    print(f"Thematic-LM Coding Stage (AutoGen) - Per-Item Processing")
-    print(f"  Paper: Qiao et al. WWW '25")
+    print(f"Simplified Thematic-LM - Decompose Explanations into Codes")
     print(f"  Model: {config['llm_config'].get('model', 'gpt-4o-mini')}")
     print(f"  Mode: {mode.upper()}")
-    print(f"  Coders: {len(pipeline.coders)} ({', '.join(c.name for c in pipeline.coders)})")
+    print(f"  Coder: {pipeline.coder.name}")
     if start is not None or end is not None:
         range_str = f"{start or 'start'} to {end or 'end'}"
         print(f"  Feature range: {range_str}")
-    if len(codebook) > 0:
-        print(f"  Loaded codebook: {len(codebook)} existing codes")
     print(f"  Total explanations: {len(df)}")
+    print(f"  Note: No merging - codes stored per-explanation")
     print("=" * 80)
 
-    # Process explanations one by one (per paper: each item → Coders → Aggregator → Reviewer → Codebook)
+    # Process explanations one by one
     logger.info(f"Processing {len(df)} explanations...")
 
     failed = 0
@@ -359,8 +307,7 @@ def main():
         quote_id = f"f{row['feature_id']}_{row['llm_explainer']}"
 
         try:
-            # Process single explanation through AutoGen pipeline
-            # Per paper: Text → Coders → Aggregator → Reviewer → Codebook
+            # Process single explanation through Coder (no Aggregator/Reviewer)
             result = pipeline.process_explanation(
                 explanation_text=row["explanation_text"],
                 quote_id=quote_id,
@@ -375,20 +322,17 @@ def main():
                 "codes": result.codes,
                 "coding_metadata": {
                     "coder_model": config["llm_config"]["model"],
-                    "num_coders": len(pipeline.coders),
-                    "coder_ids": result.coder_ids,
+                    "coder_id": result.coder_id,
                     "timestamp": datetime.now().isoformat(),
-                    "codebook_version": codebook.version,
                     "framework": "autogen",
                 }
             })
 
-            # Save periodically (codebook + parquet)
+            # Save periodically
             stats = pipeline.get_stats()
             if stats["total_processed"] > 0 and stats["total_processed"] % save_every == 0:
-                codebook.save(output_codebook)
-                save_parquet(results, output_parquet, config, codebook)
-                logger.info(f"Saved progress: {stats['total_processed']} processed, {len(codebook)} codes")
+                save_parquet(results, output_parquet, config)
+                logger.info(f"Saved progress: {stats['total_processed']} processed, {stats['total_codes']} codes")
 
         except Exception as e:
             logger.error(f"Failed to process {quote_id}: {e}")
@@ -398,10 +342,7 @@ def main():
     print("=" * 80)
     logger.info("Saving final outputs...")
 
-    save_parquet(results, output_parquet, config, codebook)
-    codebook.save(output_codebook)
-    codebook.save(history_codebook)
-    logger.info(f"Codebook history saved to: {history_codebook}")
+    save_parquet(results, output_parquet, config)
 
     # Print statistics
     stats = pipeline.get_stats()
@@ -409,15 +350,9 @@ def main():
     print("Processing Complete!")
     print("=" * 80)
     print(f"Total explanations processed: {stats['total_processed']}")
-    print(f"New codes created: {stats['new_codes']}")
-    print(f"Codes merged: {stats['merged_codes']}")
-    print(f"Codes reviewed: {stats['reviewed_codes']}")
+    print(f"Total codes generated: {stats['total_codes']}")
     print(f"Failed: {failed}")
-    print(f"Final codebook size: {len(codebook)} codes")
-    print(f"\nOutputs:")
-    print(f"  Parquet: {output_parquet}")
-    print(f"  Codebook: {output_codebook}")
-    print(f"  History: {history_codebook}")
+    print(f"\nOutput: {output_parquet}")
 
 
 if __name__ == "__main__":

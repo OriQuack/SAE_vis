@@ -12,7 +12,7 @@ import {
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 // Triangle grid for visual batch tagging
-import { computeTriangleGrid, cellToSvgPoints, THRESHOLD_DIVISOR } from '../lib/triangle-grid'
+import { computeTriangleGrid, cellToSvgPoints } from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
@@ -207,8 +207,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Compute triangle grid for batch selection
   const gridState = useMemo(() => {
     if (!spreadPoints || spreadPoints.length === 0) return null
-    const mergeThreshold = Math.ceil(spreadPoints.length / THRESHOLD_DIVISOR)
-    return computeTriangleGrid(spreadPoints, mergeThreshold)
+    return computeTriangleGrid(spreadPoints)
   }, [spreadPoints])
 
   // Auto-select first grid cell on initial load (when no selection exists)

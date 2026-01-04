@@ -709,22 +709,27 @@ const CauseView: React.FC<CauseViewProps> = ({
     createCommit('verify')
 
     // 2. Tag all wellExplainedFeatureIds that don't have a different manual tag
-    // isActualManual=false because this is a batch operation (verify all candidates)
+    // Use batch operation for performance (single state update instead of 100+)
+    const batchUpdates = new Map<number, 'well-explained'>()
     wellExplainedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip if manually tagged as something else
       if (source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained') {
         return
       }
-      setCauseCategory(featureId, 'well-explained', false)
+      batchUpdates.set(featureId, 'well-explained')
     })
+    // isActualManual=false because this is a batch operation (verify all candidates)
+    if (batchUpdates.size > 0) {
+      setCauseCategoriesBatch(batchUpdates, false)
+    }
 
     // 3. Switch filter to show cause categories (hide well-explained, show causes + unsure)
     setVisibleCategories(new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'unsure']))
 
     // 4. Disable button after click
     setHasVerifiedWellExplained(true)
-  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
+  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit])
 
   // Count how many remaining features will be tagged to each category by decision boundary
   // Note: SVM only predicts cause categories (excludes well-explained)
