@@ -193,6 +193,17 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [tagAutomaticState?.histogramData, tagAutomaticState?.mode, setSortMode, setActiveListSource])
 
+  // Reset to first item when sort mode or direction changes
+  // This ensures the selection indicator points to a valid item after re-sorting
+  const prevSortRef = useRef({ sortMode, sortDirection })
+  useEffect(() => {
+    if (prevSortRef.current.sortMode !== sortMode || prevSortRef.current.sortDirection !== sortDirection) {
+      setCurrentFeatureIndex(0)
+      setActiveListSource('all')
+      prevSortRef.current = { sortMode, sortDirection }
+    }
+  }, [sortMode, sortDirection, setActiveListSource])
+
   // Helper function to compute quality counts from featureSelectionStates
   const getQualityCounts = useCallback((): QualityCommitCounts => {
     let wellExplained = 0, needRevision = 0, unsure = 0
@@ -550,7 +561,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     currentIndex: currentFeatureIndex,
     listLength: sortedFeatures.length,
     onNavigateNext: handleNavigateNext,
-    onResetToFirst: handleResetToFirst
+    onResetToFirst: handleResetToFirst,
+    isHistogramReady: !!tagAutomaticState?.histogramData
   })
 
   // ============================================================================

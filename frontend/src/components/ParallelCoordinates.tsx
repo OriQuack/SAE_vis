@@ -219,8 +219,8 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
           </span>
         </div>
         <div className="cause-metric-parallel-coords__legend-item">
-          <svg width="16" height="12" className="cause-metric-parallel-coords__legend-line">
-            <line x1="4" y1="6" x2="12" y2="6" stroke="#B22222" strokeWidth="1.5" />
+          <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
+            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
           </svg>
           <span className="cause-metric-parallel-coords__legend-label">
             Random (0.5)
@@ -273,18 +273,20 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
                   0
                 </text>
               )}
-              {/* Random baseline tick at 0.5 for embedding, detection, fuzz */}
-              {(i === 2 || i === 3 || i === 4) && (
-                <line
-                  x1={axis.x - 4}
-                  y1={yScale(0.5)}
-                  x2={axis.x + 4}
-                  y2={yScale(0.5)}
-                  className="cause-metric-parallel-coords__random-tick"
-                />
-              )}
             </g>
           ))}
+
+          {/* Random baseline dotted line at 0.5 for embedding, detection, fuzz */}
+          <line
+            x1={xScale(2)}
+            y1={yScale(0.5)}
+            x2={xScale(4)}
+            y2={yScale(0.5)}
+            className="cause-metric-parallel-coords__random-line"
+            stroke="#B22222"
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
+          />
 
           {/* Background lines (well-explained features) */}
           {backgroundLines.map(({ id, points }) => (

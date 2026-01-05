@@ -1,7 +1,7 @@
 /* ============================================================================
  * THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
  * ============================================================================
- * Layout: [Histogram] | [Boundary Lists (top) + Flip Rate (bottom)] | [Buttons]
+ * Layout: [Histogram] | [Flip Rate (top) + Boundary Lists (bottom)] | [Buttons]
  * Used by: FeatureSplitView and QualityView
  * ============================================================================ */
 
@@ -55,7 +55,7 @@
 }
 
 /* ============================================================================
- * MIDDLE SECTION - Boundary lists (top) + Convergence indicator (bottom)
+ * MIDDLE SECTION - Flip Rate (top) + Boundary lists (bottom)
  * ============================================================================ */
 
 .threshold-tagging-panel__middle-section {
@@ -67,14 +67,14 @@
 }
 
 /* ============================================================================
- * INDICATOR SECTION - Convergence indicator at bottom of middle section
+ * INDICATOR SECTION - Convergence indicator at top of middle section
  * ============================================================================ */
 
 .threshold-tagging-panel__indicator-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 4;  /* 6:4 ratio with lists section */
+  flex: 4;  /* 3:7 ratio with lists section */
   min-height: 0;
 }
 
@@ -176,7 +176,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 6;  /* 6:4 ratio with indicator section */
+  flex: 6;  /* 7:3 ratio with indicator section */
   min-height: 0;  /* Allow flex children to shrink below content size */
 }
 
@@ -188,8 +188,35 @@
 .threshold-tagging-panel__lists-container {
   display: flex;
   flex-direction: row;
-  gap: 0;
+  gap: 4px;
   flex: 1;
   min-height: 0;  /* Allow flex children to shrink below content size */
+}
+
+/* ============================================================================
+ * BATCH BUTTON ICONS - SVG icons for batch tagging buttons
+ * ============================================================================ */
+
+/* Button variant with icon on left */
+.threshold-tagging-panel__buttons .action-button--with-icon {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  text-align: left;
+  padding: 6px 10px;
+  height: 46px;  /* Fixed height for all buttons */
+  border: 1.5px solid #9ca3af;  /* Stronger gray border */
+  border-left: 4px solid #3b82f6;  /* Blue accent bar on left */
+}
+
+.batch-button-icon {
+  flex-shrink: 0;
+}
+
+.batch-button-text {
+  flex: 1;
+  line-height: 1.3;
 }
 

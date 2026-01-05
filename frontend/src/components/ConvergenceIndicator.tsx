@@ -42,7 +42,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     // Use measured container size for viewBox
     const width = containerSize.width
     const height = containerSize.height
-    const padding = { top: 10, bottom: 20, left: 30, right: 30 }
+    const padding = { top: 10, bottom: 35, left: 30, right: 30 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -107,7 +107,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       label: String(entry.iteration)
     }))
 
-    return { points, pathD, width, height, padding, yTicks, xTicks, xAxisY, bands, thresholdLines, chartWidth }
+    return { points, pathD, width, height, padding, yTicks, xTicks, xAxisY, bands, thresholdLines, chartWidth, chartHeight }
   }, [flipTracking, containerSize.width, containerSize.height])
 
   // Placeholder state when no data
@@ -158,7 +158,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               />
               {/* Threshold label on right side */}
               <text
-                x={sparklineData.width - sparklineData.padding.right + 2}
+                x={sparklineData.width - sparklineData.padding.right + 5}
                 y={line.y}
                 fontSize={12}
                 fill="#666"
@@ -174,7 +174,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           {sparklineData.yTicks.map((tick, i) => (
             <text
               key={i}
-              x={sparklineData.padding.left - 3}
+              x={sparklineData.padding.left - 5}
               y={tick.y}
               fontSize={12}
               fill="#666"
@@ -200,7 +200,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             <text
               key={i}
               x={tick.x}
-              y={sparklineData.xAxisY + 12}
+              y={sparklineData.xAxisY + 18}
               fontSize={12}
               fill="#666"
               textAnchor="middle"
@@ -208,6 +208,17 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               {tick.label}
             </text>
           ))}
+
+          {/* X-axis label */}
+          <text
+            x={sparklineData.padding.left + sparklineData.chartWidth / 2}
+            y={sparklineData.xAxisY + 34}
+            textAnchor="middle"
+            fontSize={14}
+            fill="#666"
+          >
+            Iteration
+          </text>
 
           {/* Sparkline path (monochrome for contrast) */}
           {sparklineData.pathD && (

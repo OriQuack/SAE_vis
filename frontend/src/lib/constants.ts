@@ -124,7 +124,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_CAUSE]: {
     id: TAG_CATEGORY_CAUSE,
-    label: "Investigate Cause",
+    label: "Cause Analysis",
     stageOrder: 3,
     metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for threshold-based splitting
     defaultThresholds: [],

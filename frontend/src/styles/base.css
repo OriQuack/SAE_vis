@@ -154,6 +154,21 @@ body {
   padding: 0;
 }
 
+.subheader--with-value {
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  gap: 8px;
+}
+
+.subheader__value {
+  font-weight: 500;
+  font-size: 12px;
+  color: #4b5563;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 /* ============================================================================
    COMMON ACTION BUTTONS - Shared button styles across tagging panels
    Matches .nav__button style: white background, 11px font

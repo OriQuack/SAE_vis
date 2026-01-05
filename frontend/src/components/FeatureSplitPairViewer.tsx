@@ -147,6 +147,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const tableData = useVisualizationStore(state => state.tableData)
+  const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
 
   // Container width for activation examples (responsive to resize)
   const [containerWidth, setContainerWidth] = useState(1400)
@@ -182,7 +183,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     currentIndex: currentPairIndex,
     listLength: pairList.length,
     onNavigateNext: onNavigateNext || (() => {}),
-    onResetToFirst: onResetToFirstPair || (() => {})
+    onResetToFirst: onResetToFirstPair || (() => {}),
+    isHistogramReady: !!tagAutomaticState?.histogramData
   })
 
   // Selection handlers

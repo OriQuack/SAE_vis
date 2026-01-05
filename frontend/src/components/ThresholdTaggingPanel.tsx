@@ -7,12 +7,13 @@ import ConvergenceIndicator from './ConvergenceIndicator'
 // Backup: import BimodalityIndicator from './ModalityIndicator'
 import { TagBadge } from './Indicators'
 import { getTagColor } from '../lib/tag-system'
+import { SANKEY_COLORS } from '../lib/constants'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
 // THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
 // ============================================================================
-// Layout: [Histogram] | [Boundary Lists (top) + Flip Rate (bottom)] | [Buttons]
+// Layout: [Histogram] | [Flip Rate (top) + Boundary Lists (bottom)] | [Buttons]
 // Used by: FeatureSplitView and QualityView
 
 // Shared type for pair items with metadata
@@ -286,8 +287,21 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         />
       </div>
 
-      {/* Middle section: Boundary lists (top) + Convergence indicator (bottom) */}
+      {/* Middle section: Flip Rate (top) + Boundary lists (bottom) */}
       <div className="threshold-tagging-panel__middle-section">
+        {/* Convergence indicator at top of middle section */}
+        <div className="threshold-tagging-panel__indicator-section">
+          <h4 className="subheader subheader--with-value">
+            <span>Prediction Flip Rate</span>
+            {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
+              <span className="subheader__value">
+                {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
+              </span>
+            ) : null}
+          </h4>
+          <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
+        </div>
+
         {/* Boundary lists wrapper with subtitle */}
         <div className="threshold-tagging-panel__lists-section">
           <h4 className="subheader">
@@ -335,12 +349,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             />
           </div>
         </div>
-
-        {/* Convergence indicator at bottom of middle section */}
-        <div className="threshold-tagging-panel__indicator-section">
-          <h4 className="subheader">Prediction Flip Rate</h4>
-          <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
-        </div>
       </div>
 
       {/* Buttons section on the right */}
@@ -369,12 +377,21 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 1: Tag by Threshold */}
           <div className="action-button-item">
             <button
-              className="action-button"
+              className="action-button action-button--with-icon"
               onClick={onApplyTags}
               disabled={!hasItemsToTag}
               title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
             >
-              Tag by Threshold
+              <svg className="batch-button-icon" width="28" height="20" viewBox="0 0 24 16">
+                <rect x="1" y="1" width="22" height="14" rx="3"
+                      fill={SANKEY_COLORS.THRESHOLD_ICON_FILL}
+                      stroke="#fff"
+                      strokeWidth="1.5"/>
+                <line x1="6" y1="5" x2="18" y2="5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="6" y1="8" x2="18" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="6" y1="11" x2="18" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span className="batch-button-text">Tag by Threshold</span>
             </button>
             <div className="action-button__legend action-button__legend--two-lines">
               <div className="action-button__legend-row">
@@ -405,12 +422,19 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 2: Tag Remaining as Left */}
           <div className="action-button-item">
             <button
-              className="action-button"
+              className="action-button action-button--with-icon"
               onClick={() => onTagAll('left')}
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? `Tag all remaining as ${leftListLabel}` : 'Requires histogram data'}
             >
-              Tag Unsure as {leftListLabel}
+              <svg className="batch-button-icon" width="28" height="22" viewBox="0 0 24 18">
+                <rect x="1" y="1" width="22" height="16" rx="3"
+                      fill={leftTagColor}
+                      stroke="#fff"
+                      strokeWidth="1.5"/>
+                <path d="M6 9 L16 9 M12 5 L17 9 L12 13" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+              </svg>
+              <span className="batch-button-text">Tag All Unsure as {leftListLabel}</span>
             </button>
             <div className="action-button__legend">
               <span className="action-button__legend-item">
@@ -428,12 +452,19 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {/* Button 3: Tag Remaining by Boundary */}
           <div className="action-button-item">
             <button
-              className="action-button"
+              className="action-button action-button--with-icon"
               onClick={() => onTagAll('byBoundary')}
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? 'Tag all remaining by decision boundary' : 'Requires histogram data'}
             >
-              Tag Unsure by<br />Decision Boundary
+              <svg className="batch-button-icon" width="28" height="20" viewBox="0 0 24 16">
+                {/* Two separate rectangles - left and right */}
+                <rect x="1" y="1" width="10" height="14" rx="2" fill={leftTagColor} stroke="#fff" strokeWidth="1.5"/>
+                <rect x="13" y="1" width="10" height="14" rx="2" fill={rightTagColor} stroke="#fff" strokeWidth="1.5"/>
+                <text x="6" y="11" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&lt;</text>
+                <text x="18" y="11" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&gt;</text>
+              </svg>
+              <span className="batch-button-text">Tag All Unsure by<br />Decision Boundary</span>
             </button>
             <div className="action-button__legend">
               <span className="action-button__legend-item">

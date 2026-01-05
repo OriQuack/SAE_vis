@@ -23,10 +23,10 @@ const TAG_HISTOGRAM_SPACING = {
   svg: {
     // Fixed margins that always accommodate labels (no complex calculations needed)
     // Label overflows into left panel space (SelectionPanel has unused area)
-    margin: { top: 30, right: 4, bottom: 50, left: 25 },
+    margin: { top: 30, right: 4, bottom: 40, left: 25 },
     // Label offsets (relative to chart area)
-    xLabelOffset: 40,   // Distance below chart for x-axis label
-    yLabelOffset: -40,  // Distance left of chart for y-axis label
+    xLabelOffset: 34,   // Distance below chart for x-axis label
+    yLabelOffset: -34,  // Distance left of chart for y-axis label
     xTickOffset: 18     // Distance below chart for x-axis tick labels
   }
 }

@@ -116,7 +116,7 @@ export function ScrollableItemList<T = any>({
   currentIndex = -1,
   highlightPredicate,
   isActive = false,
-  isTemplateSort = true,
+  isTemplateSort: _isTemplateSort = true,
   footerButton,
   pageNavigation,
   sortConfig,
@@ -195,8 +195,7 @@ export function ScrollableItemList<T = any>({
           <div className="scrollable-list__empty">{emptyMessage}</div>
         ) : (
           items.map((item, index) => {
-            // Only show current item highlight when on template sort
-            const isCurrent = isTemplateSort && index === currentIndex
+            const isCurrent = index === currentIndex
             const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
 
             const itemClasses = [

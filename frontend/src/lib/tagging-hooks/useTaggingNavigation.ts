@@ -6,11 +6,12 @@ import type { ListSource } from './useListNavigation'
 // ============================================================================
 // Extracts common post-tagging navigation behavior from FeatureSplitView and QualityView
 // Uses FeatureSplitView logic as the reference implementation:
-// 1. Auto-advance only when activeListSource === 'all' && sortMode !== 'decisionMargin'
-// 2. In decision margin mode, manual tagging resets to first item
-// 3. Navigation does NOT reset activeListSource
-// 4. Toggle off (clicking same tag) does NOT navigate - handled by caller
-// 5. Unsure click always advances to next item
+// 1. Auto-advance when activeListSource === 'all' && (not decision margin OR histogram not ready)
+// 2. In decision margin mode WITH histogram, manual tagging resets to first item (list re-sorts)
+// 3. In decision margin mode WITHOUT histogram, advance to next (list doesn't re-sort yet)
+// 4. Navigation does NOT reset activeListSource
+// 5. Toggle off (clicking same tag) does NOT navigate - handled by caller
+// 6. Unsure click always advances to next item
 
 interface UseTaggingNavigationOptions {
   /** Current active list source ('all' | 'reject' | 'select') */
@@ -27,6 +28,8 @@ interface UseTaggingNavigationOptions {
   onResetToFirst: () => void
   /** Navigation delay in ms (default: 150) */
   navigationDelay?: number
+  /** Whether histogram data is available (decision margin scores exist) */
+  isHistogramReady?: boolean
 }
 
 interface UseTaggingNavigationReturn {
@@ -48,30 +51,33 @@ export function useTaggingNavigation(
     listLength,
     onNavigateNext,
     onResetToFirst,
-    navigationDelay = 150
+    navigationDelay = 150,
+    isHistogramReady = false
   } = options
 
-  // Auto-advance only when viewing 'all' list AND NOT in decision margin mode
+  // Auto-advance when viewing 'all' list AND either:
+  // - NOT in decision margin mode, OR
+  // - In decision margin mode but histogram not ready yet (list won't re-sort)
   const shouldAutoAdvance = useMemo(() => {
-    return activeListSource === 'all' && sortMode !== 'decisionMargin'
-  }, [activeListSource, sortMode])
+    return activeListSource === 'all' && (sortMode !== 'decisionMargin' || !isHistogramReady)
+  }, [activeListSource, sortMode, isHistogramReady])
 
   // Whether we can advance (not at end of list)
   const canAdvance = currentIndex < listLength - 1
 
   // Handle navigation after setting a tag (selected/rejected)
-  // In decision margin mode: reset to first (list will re-sort)
+  // In decision margin mode WITH histogram: reset to first (list will re-sort)
   // Otherwise: advance to next if auto-advance enabled
   const handlePostTagNavigation = useCallback(() => {
-    if (sortMode === 'decisionMargin') {
-      // Decision margin mode: reset to first item (list will re-sort after tagging)
+    if (sortMode === 'decisionMargin' && isHistogramReady) {
+      // Decision margin mode WITH histogram: reset to first item (list will re-sort after tagging)
       setTimeout(() => onResetToFirst(), navigationDelay)
     } else if (shouldAutoAdvance && canAdvance) {
-      // Normal mode with auto-advance: go to next item
+      // Default mode OR decision margin without histogram: go to next item
       setTimeout(() => onNavigateNext(), navigationDelay)
     }
     // Otherwise: stay on current item
-  }, [sortMode, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay])
+  }, [sortMode, isHistogramReady, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay])
 
   // Handle navigation after unsure click
   // Always advances (since clearing doesn't change sort order)

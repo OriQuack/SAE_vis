@@ -439,6 +439,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [tagAutomaticState?.histogramData, setSortMode, setActiveListSource])
 
+  // Reset to first item when sort mode or direction changes
+  // This ensures the selection indicator points to a valid item after re-sorting
+  const prevSortRef = useRef({ sortMode, sortDirection })
+  useEffect(() => {
+    if (prevSortRef.current.sortMode !== sortMode || prevSortRef.current.sortDirection !== sortDirection) {
+      setCurrentPairIndex(0)
+      setActiveListSource('all')
+      prevSortRef.current = { sortMode, sortDirection }
+    }
+  }, [sortMode, sortDirection, setActiveListSource])
+
   // Pagination derived state
   const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
   const totalPages = Math.ceil(pairList.length / PAIRS_PER_PAGE) || 1
