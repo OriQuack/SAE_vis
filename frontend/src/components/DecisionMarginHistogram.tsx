@@ -31,6 +31,11 @@ const TAG_HISTOGRAM_SPACING = {
   }
 }
 
+// Label width estimation for threshold labels
+const LABEL_CHAR_WIDTH = 8   // Approximate width per character at 14px font
+const ARROW_WIDTH = 16       // Arrow symbol width
+const LABEL_PADDING = 4      // Small buffer from edge
+
 interface DecisionMarginHistogramProps {
   mode: 'feature' | 'pair'
   availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
@@ -444,6 +449,27 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
     return { selectX, rejectX, minDomain, maxDomain }
   }, [histogramChart, thresholds])
 
+  // Calculate shifted label positions to prevent overflow at chart boundaries
+  const labelPositions = useMemo(() => {
+    if (!histogramChart) return { leftX: 0, rightX: 0 }
+
+    const chartWidth = histogramChart.width
+
+    // Estimate label widths based on text content
+    const leftLabelWidth = modeLabels.rejected.length * LABEL_CHAR_WIDTH + ARROW_WIDTH
+    const rightLabelWidth = modeLabels.selected.length * LABEL_CHAR_WIDTH + ARROW_WIDTH
+
+    // Left label: anchor=end, extends leftward from position
+    // Shift right if label would extend past left boundary
+    const leftX = Math.max(leftLabelWidth + LABEL_PADDING, safeThresholdPositions.rejectX)
+
+    // Right label: anchor=start, extends rightward from position
+    // Shift left if label would extend past right boundary
+    const rightX = Math.min(chartWidth - rightLabelWidth - LABEL_PADDING, safeThresholdPositions.selectX)
+
+    return { leftX, rightX }
+  }, [histogramChart, modeLabels, safeThresholdPositions])
+
   // Threshold update callback for dual thresholds (called on drag end)
   const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
     if (newThresholds.length !== 2) return
@@ -771,11 +797,11 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     onDragEnd={handleDragEnd}
                   />
 
-                  {/* Threshold labels with arrows */}
+                  {/* Threshold labels with arrows - positions shift to stay within bounds */}
                   <g>
                     {/* Left threshold: Rejected label - colored arrow + black text */}
                     <text
-                      x={safeThresholdPositions.rejectX}
+                      x={labelPositions.leftX}
                       y={-8}
                       textAnchor="end"
                       fontSize={14}
@@ -789,7 +815,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                   <g>
                     {/* Right threshold: Selected label - black text + colored arrow */}
                     <text
-                      x={safeThresholdPositions.selectX}
+                      x={labelPositions.rightX}
                       y={-8}
                       textAnchor="start"
                       fontSize={14}

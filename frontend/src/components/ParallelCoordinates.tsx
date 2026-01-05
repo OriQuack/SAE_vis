@@ -18,13 +18,13 @@ import { scaleLinear } from 'd3-scale'
 import { TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
-import '../styles/CauseMetricParallelCoords.css'
+import '../styles/ParallelCoordinates.css'
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-export interface CauseMetricParallelCoordsProps {
+export interface ParallelCoordsProps {
   /** Scores from Stage 2 "Well-Explained" features for background lines */
   wellExplainedScores: Map<number, CauseMetricScores>
   /** Scores of the currently selected feature for foreground line */
@@ -91,7 +91,7 @@ function generatePolylinePoints(
  * - Background lines: Well-explained features from Stage 2 (low opacity)
  * - Foreground line: Currently selected feature (vivid, thicker)
  */
-export const CauseMetricParallelCoords: React.FC<CauseMetricParallelCoordsProps> = ({
+export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
   wellExplainedScores,
   currentScores,
   className = ''

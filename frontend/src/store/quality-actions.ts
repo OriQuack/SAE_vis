@@ -276,6 +276,7 @@ export const createQualityActions = (set: any, get: any) => ({
           isLoading: false,
           flipTracking: existingFlipTracking || {
             flipHistory: [],
+            totalIterations: 0,
             flippedBins: new Set<number>(),
             previousPredictions: initialPredictions
           }
@@ -324,7 +325,7 @@ export const createQualityActions = (set: any, get: any) => ({
    * Also updates flip tracking to show Decision Stability indicator
    */
   setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => {
-    const { tagAutomaticState } = get()
+    const { tagAutomaticState, pendingBatchOperation } = get()
 
     // Build current predictions from new scores
     // Use decision boundary (score >= 0) not user thresholds, to track actual SVM prediction changes
@@ -346,7 +347,8 @@ export const createQualityActions = (set: any, get: any) => ({
     // Calculate flip tracking update
     const existingFlipTracking = tagAutomaticState?.flipTracking
     let updatedFlipTracking: {
-      flipHistory: Array<{ flipRate: number; isBatch: boolean }>
+      flipHistory: Array<{ flipRate: number; isBatch: boolean; iteration: number }>
+      totalIterations: number
       flippedBins: Set<number>
       previousPredictions: Map<number, 'selected' | 'rejected'>
     }
@@ -363,9 +365,12 @@ export const createQualityActions = (set: any, get: any) => ({
         }
       })
       const flipRate = total > 0 ? flips / total : 0
+      const newIteration = existingFlipTracking.totalIterations + 1
 
+      // Use pendingBatchOperation flag to determine isBatch
       updatedFlipTracking = {
-        flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: false }].slice(-15),
+        flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration }].slice(-10),
+        totalIterations: newIteration,
         flippedBins: new Set<number>(),
         previousPredictions: currentPredictions
       }
@@ -373,12 +378,14 @@ export const createQualityActions = (set: any, get: any) => ({
       // First time - just initialize predictions
       updatedFlipTracking = {
         flipHistory: [],
+        totalIterations: 0,
         flippedBins: new Set<number>(),
         previousPredictions: currentPredictions
       }
     }
 
     set({
+      pendingBatchOperation: false,  // Clear the batch flag
       tagAutomaticState: {
         visible: tagAutomaticState?.visible ?? false,
         minimized: tagAutomaticState?.minimized ?? false,
@@ -456,17 +463,10 @@ export const createQualityActions = (set: any, get: any) => ({
 
     const flipRate = totalEligible > 0 ? flips / totalEligible : 0
 
-    // Update flip history (max 15 entries)
-    const updatedFlipHistory = [
-      ...(flipTracking?.flipHistory || []),
-      { flipRate, isBatch: true }
-    ].slice(-15)
-
-    console.log('[Store.applySimilarityTags] Flip tracking:', {
+    console.log('[Store.applySimilarityTags] Flip tracking (batch pending):', {
       flipRate: (flipRate * 100).toFixed(1) + '%',
       flips,
-      totalEligible,
-      historyLength: updatedFlipHistory.length
+      totalEligible
     })
 
     // ============================================================================
@@ -513,21 +513,14 @@ export const createQualityActions = (set: any, get: any) => ({
       preserved: featureSelectionStates.size
     })
 
+    // Set batch flag - histogram update will add flip history entry with isBatch: true
     set({
+      pendingBatchOperation: true,
       featureSelectionStates: newSelectionStates,
-      featureSelectionSources: newSelectionSources
-    })
-
-    // Preserve thresholds and update flip tracking
-    set({
+      featureSelectionSources: newSelectionSources,
       tagAutomaticState: {
         ...tagAutomaticState,
-        histogramData: null,  // Clear histogram to trigger refetch
-        flipTracking: {
-          flipHistory: updatedFlipHistory,
-          flippedBins,
-          previousPredictions: newPredictions
-        }
+        histogramData: null  // Clear histogram to trigger refetch
       }
     })
   },

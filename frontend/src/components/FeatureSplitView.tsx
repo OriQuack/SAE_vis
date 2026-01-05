@@ -3,6 +3,7 @@ import { useVisualizationStore, type CommitCounts } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
+import StatusPanel from './StatusPanel'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
@@ -854,14 +855,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           >
             Fragmented
           </span>
-          {' '}pairs that represent the same concept.
+          {' '}pair that represents the same concept.
         </span>
       </div>
 
-      {/* Body: Content area */}
+      {/* Body: Main column + Next Stage column */}
       <div className="feature-split-view__body">
-        {/* Main content: 2 rows */}
-        <div className="feature-split-view__content">
+        {/* Main column: StatusPanel + Content rows */}
+        <div className="feature-split-view__main">
+          {/* Status panel - full width */}
+          <StatusPanel />
+
+          {/* Content: 2 rows */}
+          <div className="feature-split-view__content">
           {/* Top row: Pair list + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
           <FeatureSplitPairViewer
@@ -913,9 +919,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           currentIndex={currentPairIndex}
           isBimodal={isBimodal}
         />
-      </div>
+          </div>
+        </div>
 
-        {/* Right column: Next Stage */}
+        {/* Right column: Next Stage - spans full height including StatusPanel */}
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"

@@ -12,7 +12,7 @@ import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
-import { CauseMetricParallelCoords } from './CauseMetricParallelCoords'
+import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
 import '../styles/CauseView.css'
 

@@ -3,11 +3,14 @@
  * ============================================================================
  * Layout:
  *   Header (full width at top)
- *   Body: [2-column content area]
- *     Content area has 2 rows:
- *       Row 1 (top 50%): [pair list (200px)][FeatureSplitPairViewer]
- *       Row 2 (bottom 50%): [left boundary list (180px)][DecisionMarginHistogram][right boundary list (180px)]
- *   Note: SelectionPanel is now rendered at App level (left column alongside Sankey)
+ *   Body: [Main column | Next Stage column]
+ *     Main column:
+ *       StatusPanel (full width)
+ *       Content area (2 rows):
+ *         Row 1 (top 50%): [pair list][FeatureSplitPairViewer]
+ *         Row 2 (bottom 50%): [Monosemantic list][Histogram][Fragmented list]
+ *     Next Stage column: spans full height (including StatusPanel row)
+ *   Note: SelectionPanel is rendered at App level (left column alongside Sankey)
  * ============================================================================ */
 
 .feature-split-view {
@@ -39,7 +42,20 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - Right column with 2 rows
+ * MAIN COLUMN - StatusPanel + Content (left of next-stage-column)
+ * ============================================================================ */
+
+.feature-split-view__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 4px;
+}
+
+/* ============================================================================
+ * CONTENT AREA - 2 rows below StatusPanel
  * ============================================================================ */
 
 .feature-split-view__content {

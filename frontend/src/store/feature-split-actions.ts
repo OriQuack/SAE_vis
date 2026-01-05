@@ -280,7 +280,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
    *                   If not provided, defaults to 0.5. Should match Sankey segment threshold.
    */
   fetchSimilarityHistogram: async (selectedFeatureIds?: Set<number>, threshold?: number) => {
-    const { pairSelectionStates, pairSelectionSources, allClusterPairs } = get()
+    const { pairSelectionStates, pairSelectionSources, allClusterPairs, pendingBatchOperation } = get()
     console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', availablePairs:', allClusterPairs?.length || 0)
 
     try {
@@ -362,7 +362,8 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         // Calculate flip tracking update
         const existingFlipTracking = currentState?.flipTracking
         let updatedFlipTracking: {
-          flipHistory: Array<{ flipRate: number; isBatch: boolean }>
+          flipHistory: Array<{ flipRate: number; isBatch: boolean; iteration: number }>
+          totalIterations: number
           flippedBins: Set<number>
           previousPredictions: Map<string, 'selected' | 'rejected'>
         }
@@ -379,9 +380,12 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
             }
           })
           const flipRate = total > 0 ? flips / total : 0
+          const newIteration = existingFlipTracking.totalIterations + 1
 
+          // Use pendingBatchOperation flag to determine isBatch
           updatedFlipTracking = {
-            flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: false }].slice(-15),
+            flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration }].slice(-10),
+            totalIterations: newIteration,
             flippedBins: new Set<number>(),
             previousPredictions: currentPredictions
           }
@@ -396,14 +400,17 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           // First time - just initialize predictions
           updatedFlipTracking = {
             flipHistory: [],
+            totalIterations: 0,
             flippedBins: new Set<number>(),
             previousPredictions: currentPredictions
           }
         }
 
         // Always update/create tagAutomaticState with updated flip tracking
+        // Clear the batch flag after processing
         if (currentState) {
           set({
+            pendingBatchOperation: false,
             tagAutomaticState: {
               ...currentState,
               histogramData,
@@ -412,6 +419,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           })
         } else {
           set({
+            pendingBatchOperation: false,
             tagAutomaticState: {
               visible: false,
               minimized: false,
@@ -519,6 +527,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           isLoading: false,
           flipTracking: existingFlipTracking || {
             flipHistory: [],
+            totalIterations: 0,
             flippedBins: new Set<number>(),
             previousPredictions: initialPredictions
           }
@@ -640,17 +649,10 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
 
     const flipRate = totalEligible > 0 ? flips / totalEligible : 0
 
-    // Update flip history (max 15 entries)
-    const updatedFlipHistory = [
-      ...(flipTracking?.flipHistory || []),
-      { flipRate, isBatch: true }
-    ].slice(-15)
-
-    console.log('[Store.applySimilarityTags] Flip tracking:', {
+    console.log('[Store.applySimilarityTags] Flip tracking (batch pending):', {
       flipRate: (flipRate * 100).toFixed(1) + '%',
       flips,
-      totalEligible,
-      historyLength: updatedFlipHistory.length
+      totalEligible
     })
 
     // ============================================================================
@@ -695,21 +697,14 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       preserved: pairSelectionStates.size
     })
 
+    // Set batch flag - histogram update will add flip history entry with isBatch: true
     set({
+      pendingBatchOperation: true,
       pairSelectionStates: newPairSelectionStates,
-      pairSelectionSources: newPairSelectionSources
-    })
-
-    // Preserve thresholds and update flip tracking
-    set({
+      pairSelectionSources: newPairSelectionSources,
       tagAutomaticState: {
         ...tagAutomaticState,
-        histogramData: null,  // Clear histogram to trigger refetch
-        flipTracking: {
-          flipHistory: updatedFlipHistory,
-          flippedBins,
-          previousPredictions: newPredictions
-        }
+        histogramData: null  // Clear histogram to trigger refetch
       }
     })
   },

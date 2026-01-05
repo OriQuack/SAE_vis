@@ -77,7 +77,7 @@ export function useSortableList<T, K>({
   }, [sortMode, setSortMode])
 
   const columnHeaderProps = useMemo(() => ({
-    label: sortMode === 'decisionMargin' ? 'Decision Margin' : defaultLabel,
+    label: sortMode === 'decisionMargin' ? '|Decision Margin|' : defaultLabel,
     sortDirection: (sortMode === 'decisionMargin' ? 'asc' : defaultDirection) as 'asc' | 'desc',
     onClick: toggleSortMode,
     isModeSwitch: true,

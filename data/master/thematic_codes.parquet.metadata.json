@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-01-05T10:12:16.942038",
-  "total_rows": 1590,
-  "unique_features": 1590,
-  "unique_explainers": 1,
+  "created_at": "2026-01-05T14:18:00.515827",
+  "total_rows": 2560,
+  "unique_features": 2000,
+  "unique_explainers": 2,
   "schema": {
     "feature_id": "UInt32",
     "llm_explainer": "Categorical",

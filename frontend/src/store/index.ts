@@ -447,6 +447,9 @@ const initialState = {
   sortedBySelectionStates: null,
   doneFeatureSelectionStates: null,
 
+  // Batch operation flag - prevents double flip history entry on "Tag by Threshold"
+  pendingBatchOperation: false,
+
   // Pair similarity sort state (for feature split table)
   pairSimilarityScores: new Map<string, number>(),
   isPairSimilaritySortLoading: false,

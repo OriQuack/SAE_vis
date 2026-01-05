@@ -104,19 +104,23 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     setRightSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
   }, [])
 
-  // Sort boundary items based on direction
+  // Sort boundary items based on direction (by |decision margin|)
   const sortedLeftItems = useMemo(() => {
     if (mode === 'pair') {
       return [...leftItems].sort((a, b) => {
         const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
         const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
-        return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+        const absA = Math.abs(scoreA)
+        const absB = Math.abs(scoreB)
+        return leftSortDirection === 'asc' ? absA - absB : absB - absA
       })
     } else {
       return [...leftFeatures].sort((a, b) => {
         const scoreA = similarityScores.get(a.featureId) ?? 0
         const scoreB = similarityScores.get(b.featureId) ?? 0
-        return leftSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+        const absA = Math.abs(scoreA)
+        const absB = Math.abs(scoreB)
+        return leftSortDirection === 'asc' ? absA - absB : absB - absA
       })
     }
   }, [mode, leftItems, leftFeatures, pairSimilarityScores, similarityScores, leftSortDirection])
@@ -126,13 +130,17 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
       return [...rightItems].sort((a, b) => {
         const scoreA = pairSimilarityScores.get(a.pairKey) ?? 0
         const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
-        return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+        const absA = Math.abs(scoreA)
+        const absB = Math.abs(scoreB)
+        return rightSortDirection === 'asc' ? absA - absB : absB - absA
       })
     } else {
       return [...rightFeatures].sort((a, b) => {
         const scoreA = similarityScores.get(a.featureId) ?? 0
         const scoreB = similarityScores.get(b.featureId) ?? 0
-        return rightSortDirection === 'asc' ? scoreA - scoreB : scoreB - scoreA
+        const absA = Math.abs(scoreA)
+        const absB = Math.abs(scoreB)
+        return rightSortDirection === 'asc' ? absA - absB : absB - absA
       })
     }
   }, [mode, rightItems, rightFeatures, pairSimilarityScores, similarityScores, rightSortDirection])
@@ -333,7 +341,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? `Tag all remaining as ${leftListLabel}` : 'Requires histogram data'}
             >
-              Tag Remaining as {leftListLabel}
+              Tag Unsure as {leftListLabel}
             </button>
             {/* <div className="action-button__desc">
               Assign all untagged to {leftListLabel}
@@ -359,7 +367,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               disabled={!tagAutomaticState?.histogramData}
               title={tagAutomaticState?.histogramData ? 'Tag all remaining by decision boundary' : 'Requires histogram data'}
             >
-              Tag Remaining by Boundary
+              Tag Unsure by<br />Decision Boundary
             </button>
             {/* <div className="action-button__desc">
               Split remaining {mode === 'pair' ? 'pairs' : 'features'} by SVM decision boundary at 0.0
@@ -396,7 +404,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
             ]}
             columnHeader={{
-              label: 'Decision Margin',
+              label: '|Decision Margin|',
               sortDirection: leftSortDirection,
               onClick: toggleLeftSortDirection,
               isSortable: true
@@ -417,7 +425,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
             ]}
             columnHeader={{
-              label: 'Decision Margin',
+              label: '|Decision Margin|',
               sortDirection: rightSortDirection,
               onClick: toggleRightSortDirection,
               isSortable: true

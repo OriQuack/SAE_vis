@@ -3,11 +3,14 @@
  * ============================================================================
  * Layout:
  *   Header (full width at top)
- *   Body: [2-row content area]
- *     Content area has 2 rows:
- *       Row 1 (top 50%): Feature list + right panel
- *       Row 2 (bottom 50%): ThresholdTaggingPanel
- *   Note: SelectionPanel is now rendered at App level (left column alongside Sankey)
+ *   Body: [Main column | Next Stage column]
+ *     Main column:
+ *       StatusPanel (full width)
+ *       Content area (2 rows):
+ *         Row 1 (top 50%): Feature list + right panel
+ *         Row 2 (bottom 50%): ThresholdTaggingPanel
+ *     Next Stage column: spans full height (including StatusPanel row)
+ *   Note: SelectionPanel is rendered at App level (left column alongside Sankey)
  * ============================================================================ */
 
 .quality-view {
@@ -39,7 +42,20 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - Right column with 2 rows
+ * MAIN COLUMN - StatusPanel + Content (left of next-stage-column)
+ * ============================================================================ */
+
+.quality-view__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  gap: 4px;
+}
+
+/* ============================================================================
+ * CONTENT AREA - 2 rows below StatusPanel
  * ============================================================================ */
 
 .quality-view__content {
@@ -348,10 +364,6 @@
   justify-content: center;
   gap: 8px;
   padding: 6px 12px;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
-  border-radius: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
   width: fit-content;
   align-self: center;

@@ -14,6 +14,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
+import StatusPanel from './StatusPanel'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -806,10 +807,15 @@ const QualityView: React.FC<QualityViewProps> = ({
         </span>
       </div>
 
-      {/* Body: Content area */}
+      {/* Body: Main column + Next Stage column */}
       <div className="quality-view__body">
-        {/* Main content: 2 rows */}
-        <div className="quality-view__content">
+        {/* Main column: StatusPanel + Content rows */}
+        <div className="quality-view__main">
+          {/* Status panel - full width */}
+          <StatusPanel />
+
+          {/* Content: 2 rows */}
+          <div className="quality-view__content">
           {/* Top row: Feature list + right panel */}
           <div className="quality-view__row-top">
             <ScrollableItemList
@@ -1046,9 +1052,10 @@ const QualityView: React.FC<QualityViewProps> = ({
             currentIndex={currentFeatureIndex}
             isBimodal={isBimodal}
           />
+          </div>
         </div>
 
-        {/* Right column: Next Stage */}
+        {/* Right column: Next Stage - spans full height including StatusPanel */}
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"

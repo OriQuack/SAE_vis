@@ -10,12 +10,12 @@ interface ConvergenceIndicatorProps {
 // Threshold bands (discrete zones with semantic meaning)
 // Using Okabe-Ito colorblind-safe palette with 15% opacity for background tints
 const THRESHOLD_BANDS = [
-  { min: 0, max: 0.05, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '32', label: 'Good' },    // #009E73 at 15% opacity
-  { min: 0.05, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '32', label: 'Warning' },    // #F0E442 at 19% opacity
+  { min: 0, max: 0.03, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '32', label: 'Good' },    // #009E73 at 15% opacity
+  { min: 0.03, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '32', label: 'Warning' },    // #F0E442 at 19% opacity
   { min: 0.15, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '32', label: 'Bad' },     // #D55E00 at 15% opacity
 ] as const
 
-const THRESHOLD_LINES = [0.05, 0.15] // 5% and 10% reference lines
+const THRESHOLD_LINES = [0.03, 0.15] // 5% and 10% reference lines
 
 /**
  * ConvergenceIndicator - Displays Decision Flip Rate (DFR) trend
@@ -42,7 +42,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     // viewBox dimensions (matches container width: 180px)
     const width = 180
     const height = 80
-    const padding = { top: 10, bottom: 5, left: 24, right: 24 }
+    const padding = { top: 10, bottom: 14, left: 24, right: 24 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -101,7 +101,13 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
         label: `${Math.round(threshold * 100)}%`
       }))
 
-    return { points, pathD, width, height, padding, yTicks, xAxisY, bands, thresholdLines, chartWidth }
+    // X-axis ticks (show every iteration with actual iteration numbers)
+    const xTicks = history.map((entry, i) => ({
+      x: xScale(i),
+      label: String(entry.iteration)
+    }))
+
+    return { points, pathD, width, height, padding, yTicks, xTicks, xAxisY, bands, thresholdLines, chartWidth }
   }, [flipTracking])
 
   // Placeholder state when no data
@@ -205,6 +211,21 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             strokeWidth={1}
           />
 
+          {/* X-axis tick labels (iteration numbers) */}
+          {sparklineData.xTicks.map((tick, i) => (
+            <text
+              key={i}
+              x={tick.x}
+              y={sparklineData.xAxisY + 9}
+              className="convergence-indicator__axis-label"
+              fontSize={9}
+              fill="#4b5563"
+              textAnchor="middle"
+            >
+              {tick.label}
+            </text>
+          ))}
+
           {/* Sparkline path (monochrome for contrast) */}
           {sparklineData.pathD && (
             <path
@@ -221,10 +242,10 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               // Diamond shape for batch updates (rotated square)
               <rect
                 key={i}
-                x={point.x - 3}
-                y={point.y - 3}
-                width={6}
-                height={6}
+                x={point.x - 2}
+                y={point.y - 2}
+                width={4}
+                height={4}
                 fill="#1f2937"
                 transform={`rotate(45 ${point.x} ${point.y})`}
               />
