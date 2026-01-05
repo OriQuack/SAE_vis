@@ -96,6 +96,7 @@ interface FeatureSplitPairViewerProps {
   activeListSource?: ListSource  // Current active list source for auto-advance logic
   sortMode?: 'default' | 'decisionMargin'  // Current sort mode
   isLoading?: boolean  // Whether similarity scores are being calculated
+  isTemplateSort?: boolean  // Whether current sort matches template (default) sort
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
 
   // Preview pair keys (items in threshold regions that will be auto-tagged)
@@ -118,6 +119,7 @@ interface FeatureSplitPairViewerProps {
     onItemClick: (index: number) => void
     onPreviousPage: () => void
     onNextPage: () => void
+    isTemplateSort?: boolean
   }
 }
 
@@ -131,6 +133,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   activeListSource = 'all',
   sortMode = 'default',
   isLoading = false,
+  isTemplateSort = true,
   onResetToFirstPair,
   previewRejectKeys,
   previewSelectKeys,
@@ -309,6 +312,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           items={allPairsListProps.currentPagePairs}
           currentIndex={allPairsListProps.isActive ? currentPairIndex % PAIRS_PER_PAGE : -1}
           isActive={allPairsListProps.isActive}
+          isTemplateSort={allPairsListProps.isTemplateSort ?? isTemplateSort}
           highlightPredicate={(pair: PairData, currentPairItem: PairData | null) =>
             !!currentPairItem && pair.clusterId === currentPairItem.clusterId
           }

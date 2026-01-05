@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react'
+import { useResizeObserver } from '../lib/utils'
 import '../styles/ConvergenceIndicator.css'
 import type { FlipTrackingInfo } from '../types'
 import { OKABE_ITO_PALETTE } from '../lib/constants'
@@ -10,9 +11,9 @@ interface ConvergenceIndicatorProps {
 // Threshold bands (discrete zones with semantic meaning)
 // Using Okabe-Ito colorblind-safe palette with 15% opacity for background tints
 const THRESHOLD_BANDS = [
-  { min: 0, max: 0.03, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '32', label: 'Good' },    // #009E73 at 15% opacity
-  { min: 0.03, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '32', label: 'Warning' },    // #F0E442 at 19% opacity
-  { min: 0.15, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '32', label: 'Bad' },     // #D55E00 at 15% opacity
+  { min: 0, max: 0.03, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '16', label: 'Good' },    // #009E73 at 15% opacity
+  { min: 0.03, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '16', label: 'Warning' },    // #F0E442 at 19% opacity
+  { min: 0.15, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '16', label: 'Bad' },     // #D55E00 at 15% opacity
 ] as const
 
 const THRESHOLD_LINES = [0.03, 0.15] // 5% and 10% reference lines
@@ -23,14 +24,13 @@ const THRESHOLD_LINES = [0.03, 0.15] // 5% and 10% reference lines
  * IEEE VIS-style: reference lines + categorical zones + trend indicator
  */
 export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flipTracking }) => {
-  // Calculate current flip rate
-  const flipRateLabel = useMemo(() => {
-    if (!flipTracking || flipTracking.flipHistory.length === 0) {
-      return '--'
-    }
-    const lastEntry = flipTracking.flipHistory[flipTracking.flipHistory.length - 1]
-    return (lastEntry.flipRate * 100).toFixed(1) + '%'
-  }, [flipTracking])
+  // Use resize observer for responsive sizing
+  const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: 200,
+    defaultHeight: 100,
+    debounceMs: 16,
+    debugId: 'convergence-indicator'
+  })
 
   // Calculate sparkline points and threshold bands
   const sparklineData = useMemo(() => {
@@ -39,10 +39,10 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     }
 
     const history = flipTracking.flipHistory
-    // viewBox dimensions (matches container width: 180px)
-    const width = 180
-    const height = 80
-    const padding = { top: 10, bottom: 14, left: 24, right: 24 }
+    // Use measured container size for viewBox
+    const width = containerSize.width
+    const height = containerSize.height
+    const padding = { top: 10, bottom: 20, left: 30, right: 30 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -108,18 +108,12 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     }))
 
     return { points, pathD, width, height, padding, yTicks, xTicks, xAxisY, bands, thresholdLines, chartWidth }
-  }, [flipTracking])
+  }, [flipTracking, containerSize.width, containerSize.height])
 
   // Placeholder state when no data
   if (!flipTracking || flipTracking.flipHistory.length === 0) {
     return (
-      <div className="convergence-indicator">
-        <div className="convergence-indicator__header">
-          <span className="convergence-indicator__label">Prediction Flip Rate</span>
-          <span className="convergence-indicator__value" style={{ color: '#9ca3af' }}>
-            --
-          </span>
-        </div>
+      <div ref={containerRef} className="convergence-indicator">
         <div className="convergence-indicator__placeholder">
           <span className="convergence-indicator__placeholder-text">
             <span className="convergence-indicator__stage-number">2</span> Tag with histogram to see trend
@@ -130,21 +124,13 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
   }
 
   return (
-    <div className="convergence-indicator">
-      {/* Header row */}
-      <div className="convergence-indicator__header">
-        <span className="convergence-indicator__label">Prediction Flip Rate</span>
-        <span className="convergence-indicator__value">
-          {flipRateLabel}
-        </span>
-      </div>
-
+    <div ref={containerRef} className="convergence-indicator">
       {/* Sparkline with threshold bands */}
       {sparklineData && (
         <svg
           className="convergence-indicator__sparkline"
           viewBox={`0 0 ${sparklineData.width} ${sparklineData.height}`}
-          preserveAspectRatio="none"
+          preserveAspectRatio="xMidYMid meet"
         >
           {/* Discrete threshold bands (background zones) */}
           {sparklineData.bands.map((band, i) => (
@@ -174,9 +160,8 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               <text
                 x={sparklineData.width - sparklineData.padding.right + 2}
                 y={line.y}
-                className="convergence-indicator__axis-label"
-                fontSize={9}
-                fill="#4b5563"
+                fontSize={12}
+                fill="#666"
                 textAnchor="start"
                 dominantBaseline="middle"
               >
@@ -191,9 +176,8 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               key={i}
               x={sparklineData.padding.left - 3}
               y={tick.y}
-              className="convergence-indicator__axis-label"
-              fontSize={9}
-              fill="#4b5563"
+              fontSize={12}
+              fill="#666"
               textAnchor="end"
               dominantBaseline="middle"
             >
@@ -216,10 +200,9 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             <text
               key={i}
               x={tick.x}
-              y={sparklineData.xAxisY + 9}
-              className="convergence-indicator__axis-label"
-              fontSize={9}
-              fill="#4b5563"
+              y={sparklineData.xAxisY + 12}
+              fontSize={12}
+              fill="#666"
               textAnchor="middle"
             >
               {tick.label}
@@ -236,29 +219,15 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             />
           )}
 
-          {/* Data points: circles for manual, diamonds for batch */}
+          {/* Data points */}
           {sparklineData.points.map((point, i) => (
-            point.isBatch ? (
-              // Diamond shape for batch updates (rotated square)
-              <rect
-                key={i}
-                x={point.x - 2}
-                y={point.y - 2}
-                width={4}
-                height={4}
-                fill="#1f2937"
-                transform={`rotate(45 ${point.x} ${point.y})`}
-              />
-            ) : (
-              // Circle for manual tagging
-              <circle
-                key={i}
-                cx={point.x}
-                cy={point.y}
-                r={2.5}
-                fill="#1f2937"
-              />
-            )
+            <circle
+              key={i}
+              cx={point.x}
+              cy={point.y}
+              r={2.5}
+              fill="#1f2937"
+            />
           ))}
         </svg>
       )}

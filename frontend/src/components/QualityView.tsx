@@ -155,19 +155,25 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [filteredTableData, tableData?.explainer_ids])
 
   // Use sortable list hook for sorting logic
+  // Template: decisionMargin mode + ascending (least confident first)
   const {
     sortMode,
     setSortMode,
+    sortDirection,
+    setSortDirection,
     sortedItems: sortedFeatures,
     columnHeaderProps,
-    getDisplayScore
+    getDisplayScore,
+    isTemplateSort
   } = useSortableList({
     items: featureList,
     getItemKey: (f: typeof featureList[0]) => f.featureId,
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
     decisionMarginScores: similarityScores,
     defaultLabel: 'Quality score',
-    defaultDirection: 'asc'
+    defaultDirection: 'asc',
+    templateMode: 'decisionMargin',
+    templateDirection: 'asc'
   })
 
   // Track if we've auto-switched to decision margin mode for this session
@@ -811,8 +817,15 @@ const QualityView: React.FC<QualityViewProps> = ({
       <div className="quality-view__body">
         {/* Main column: StatusPanel + Content rows */}
         <div className="quality-view__main">
-          {/* Status panel - full width */}
-          <StatusPanel />
+          {/* Status panel - sorting controls */}
+          <StatusPanel
+            sortMode={sortMode}
+            sortDirection={sortDirection}
+            onSortModeChange={setSortMode}
+            onSortDirectionChange={setSortDirection}
+            defaultModeLabel="Quality score"
+            isTemplateSort={isTemplateSort}
+          />
 
           {/* Content: 2 rows */}
           <div className="quality-view__content">
@@ -827,6 +840,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               sortConfig={{ getDisplayScore }}
               currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
               isActive={activeListSource === 'all'}
+              isTemplateSort={isTemplateSort}
               pageNavigation={{
                 currentPage,
                 totalPages,
@@ -1051,6 +1065,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             activeListSource={activeListSource}
             currentIndex={currentFeatureIndex}
             isBimodal={isBimodal}
+            isTemplateSort={isTemplateSort}
+            sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
           />
           </div>
         </div>

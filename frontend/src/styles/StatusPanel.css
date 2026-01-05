@@ -1,22 +1,83 @@
 /* ============================================================================
- * STATUS PANEL - Full width status bar below view header
+ * STATUS PANEL - Sorting controls for scrollable lists
  * ============================================================================ */
 
 .status-panel {
   display: flex;
   align-items: center;
   width: 100%;
-  height: 24px;
+  height: 28px;
   flex-shrink: 0;
   padding: 0 8px;
-  background-color: #f3f4f6;
+  gap: 8px;
+  background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
   box-sizing: border-box;
 }
 
-.status-panel__placeholder {
+/* Label text */
+.status-panel__label {
   font-size: 11px;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Button group container */
+.status-panel__group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Toggle buttons */
+.status-panel__button {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 400;
+  cursor: pointer;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #6b7280;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.status-panel__button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.status-panel__button--active {
+  background: rgba(59, 130, 246, 0.15); /* Selection blue at 15% opacity */
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+.status-panel__button--active:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* Icon buttons (direction toggles) */
+.status-panel__button--icon {
+  padding: 2px 6px;
+}
+
+/* Divider between groups */
+.status-panel__divider {
+  width: 1px;
+  height: 16px;
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+/* Non-template indicator */
+.status-panel__non-template {
+  font-size: 10px;
   color: #9ca3af;
   font-style: italic;
+  margin-left: auto;
 }

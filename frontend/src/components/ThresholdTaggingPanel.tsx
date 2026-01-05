@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react'
+import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
@@ -12,8 +12,8 @@ import '../styles/ThresholdTaggingPanel.css'
 // ============================================================================
 // THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
 // ============================================================================
-// Layout: [Histogram + Indicator] | [Buttons] | [Left list] | [Right list]
-// Used by: FeatureSplitView (and future stages)
+// Layout: [Histogram] | [Boundary Lists (top) + Flip Rate (bottom)] | [Buttons]
+// Used by: FeatureSplitView and QualityView
 
 // Shared type for pair items with metadata
 export type PairItemWithMetadata = {
@@ -66,6 +66,13 @@ export interface ThresholdTaggingPanelProps {
   activeListSource: 'all' | 'reject' | 'select'
   currentIndex: number
   isBimodal: boolean
+
+  // Whether current sort matches template (default) sort
+  // When false, selection highlight is disabled in boundary lists
+  isTemplateSort?: boolean
+
+  // Sort direction from parent (synced with StatusPanel)
+  sortDirection?: 'asc' | 'desc'
 }
 
 const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
@@ -83,6 +90,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   onListItemClick,
   activeListSource,
   currentIndex,
+  isTemplateSort = true,
+  sortDirection = 'asc',
 }) => {
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -91,20 +100,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   const similarityScores = useVisualizationStore(state => state.similarityScores)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
 
-  // Sort direction state for boundary lists (independent)
-  const [leftSortDirection, setLeftSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [rightSortDirection, setRightSortDirection] = useState<'asc' | 'desc'>('asc')
-
-  // Toggle callbacks
-  const toggleLeftSortDirection = useCallback(() => {
-    setLeftSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
-  }, [])
-
-  const toggleRightSortDirection = useCallback(() => {
-    setRightSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
-  }, [])
-
-  // Sort boundary items based on direction (by |decision margin|)
+  // Sort boundary items based on direction from parent (by |decision margin|)
   const sortedLeftItems = useMemo(() => {
     if (mode === 'pair') {
       return [...leftItems].sort((a, b) => {
@@ -112,7 +108,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
         const absA = Math.abs(scoreA)
         const absB = Math.abs(scoreB)
-        return leftSortDirection === 'asc' ? absA - absB : absB - absA
+        return sortDirection === 'asc' ? absA - absB : absB - absA
       })
     } else {
       return [...leftFeatures].sort((a, b) => {
@@ -120,10 +116,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         const scoreB = similarityScores.get(b.featureId) ?? 0
         const absA = Math.abs(scoreA)
         const absB = Math.abs(scoreB)
-        return leftSortDirection === 'asc' ? absA - absB : absB - absA
+        return sortDirection === 'asc' ? absA - absB : absB - absA
       })
     }
-  }, [mode, leftItems, leftFeatures, pairSimilarityScores, similarityScores, leftSortDirection])
+  }, [mode, leftItems, leftFeatures, pairSimilarityScores, similarityScores, sortDirection])
 
   const sortedRightItems = useMemo(() => {
     if (mode === 'pair') {
@@ -132,7 +128,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         const scoreB = pairSimilarityScores.get(b.pairKey) ?? 0
         const absA = Math.abs(scoreA)
         const absB = Math.abs(scoreB)
-        return rightSortDirection === 'asc' ? absA - absB : absB - absA
+        return sortDirection === 'asc' ? absA - absB : absB - absA
       })
     } else {
       return [...rightFeatures].sort((a, b) => {
@@ -140,10 +136,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         const scoreB = similarityScores.get(b.featureId) ?? 0
         const absA = Math.abs(scoreA)
         const absB = Math.abs(scoreB)
-        return rightSortDirection === 'asc' ? absA - absB : absB - absA
+        return sortDirection === 'asc' ? absA - absB : absB - absA
       })
     }
-  }, [mode, rightItems, rightFeatures, pairSimilarityScores, similarityScores, rightSortDirection])
+  }, [mode, rightItems, rightFeatures, pairSimilarityScores, similarityScores, sortDirection])
 
   // Get tag colors
   const leftTagColor = getTagColor(tagCategoryId, leftListLabel) || '#9ca3af'
@@ -290,9 +286,85 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         />
       </div>
 
-      {/* Buttons section with convergence indicator above */}
+      {/* Middle section: Boundary lists (top) + Convergence indicator (bottom) */}
+      <div className="threshold-tagging-panel__middle-section">
+        {/* Boundary lists wrapper with subtitle */}
+        <div className="threshold-tagging-panel__lists-section">
+          <h4 className="subheader">
+            {mode === 'pair' ? 'Boundary Feature Pairs' : 'Boundary Features'}
+          </h4>
+          <div className="threshold-tagging-panel__lists-container">
+            {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
+            <ScrollableItemList
+              variant="boundary"
+              badges={[
+                { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
+              ]}
+              columnHeader={{
+                label: '|Decision Margin|',
+                sortDirection: sortDirection
+              }}
+              items={sortedLeftItems as PairItemWithMetadata[]}
+              currentIndex={activeListSource === 'reject' ? currentIndex : -1}
+              isActive={activeListSource === 'reject'}
+              isTemplateSort={isTemplateSort}
+              renderItem={(item, index) => mode === 'pair'
+                ? renderBoundaryItem(item, index, 'left')
+                : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'left')
+              }
+            />
+
+            {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
+            <ScrollableItemList
+              variant="boundary"
+              badges={[
+                { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
+              ]}
+              columnHeader={{
+                label: '|Decision Margin|',
+                sortDirection: sortDirection
+              }}
+              items={sortedRightItems as PairItemWithMetadata[]}
+              currentIndex={activeListSource === 'select' ? currentIndex : -1}
+              isActive={activeListSource === 'select'}
+              isTemplateSort={isTemplateSort}
+              renderItem={(item, index) => mode === 'pair'
+                ? renderBoundaryItem(item, index, 'right')
+                : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'right')
+              }
+            />
+          </div>
+        </div>
+
+        {/* Convergence indicator at bottom of middle section */}
+        <div className="threshold-tagging-panel__indicator-section">
+          <h4 className="subheader">Prediction Flip Rate</h4>
+          <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
+        </div>
+      </div>
+
+      {/* Buttons section on the right */}
       <div className="threshold-tagging-panel__buttons-section">
-        <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
+        <h4 className="subheader">Batch Tagging</h4>
+        {/* Legend for swatch patterns */}
+        <div className="threshold-tagging-panel__swatch-legend">
+          <div className="threshold-tagging-panel__swatch-legend-item">
+            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': '#000000' } as React.CSSProperties} />
+            <span className="threshold-tagging-panel__swatch-legend-label">Preview</span>
+          </div>
+          <div className="threshold-tagging-panel__swatch-legend-item">
+            <span className="action-button__legend-swatch" style={{ backgroundColor: leftTagColor }} />
+            <span className="threshold-tagging-panel__swatch-legend-label">{leftListLabel}</span>
+          </div>
+          <div className="threshold-tagging-panel__swatch-legend-item">
+            <span className="action-button__legend-swatch" style={{ backgroundColor: rightTagColor }} />
+            <span className="threshold-tagging-panel__swatch-legend-label">{rightListLabel}</span>
+          </div>
+          <div className="threshold-tagging-panel__swatch-legend-item">
+            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+            <span className="threshold-tagging-panel__swatch-legend-label">Unsure</span>
+          </div>
+        </div>
         <div className="threshold-tagging-panel__buttons">
           {/* Button 1: Tag by Threshold */}
           <div className="action-button-item">
@@ -304,9 +376,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag by Threshold
             </button>
-            {/* <div className="action-button__desc">
-              Tag {mode === 'pair' ? 'pairs' : 'features'} in stripe regions using threshold values
-            </div> */}
             <div className="action-button__legend action-button__legend--two-lines">
               <div className="action-button__legend-row">
                 <span className="action-button__legend-item">
@@ -343,9 +412,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag Unsure as {leftListLabel}
             </button>
-            {/* <div className="action-button__desc">
-              Assign all untagged to {leftListLabel}
-            </div> */}
             <div className="action-button__legend">
               <span className="action-button__legend-item">
                 <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
@@ -369,9 +435,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             >
               Tag Unsure by<br />Decision Boundary
             </button>
-            {/* <div className="action-button__desc">
-              Split remaining {mode === 'pair' ? 'pairs' : 'features'} by SVM decision boundary at 0.0
-            </div> */}
             <div className="action-button__legend">
               <span className="action-button__legend-item">
                 <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
@@ -388,56 +451,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               </span>
             </div>
           </div>
-        </div>
-      </div>
-
-      {/* Boundary lists wrapper with subtitle */}
-      <div className="threshold-tagging-panel__lists-section">
-        <h4 className="subheader">
-          {mode === 'pair' ? 'Boundary Feature Pairs' : 'Boundary Features'}
-        </h4>
-        <div className="threshold-tagging-panel__lists-container">
-          {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
-          <ScrollableItemList
-            variant="boundary"
-            badges={[
-              { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
-            ]}
-            columnHeader={{
-              label: '|Decision Margin|',
-              sortDirection: leftSortDirection,
-              onClick: toggleLeftSortDirection,
-              isSortable: true
-            }}
-            items={sortedLeftItems as PairItemWithMetadata[]}
-            currentIndex={activeListSource === 'reject' ? currentIndex : -1}
-            isActive={activeListSource === 'reject'}
-            renderItem={(item, index) => mode === 'pair'
-              ? renderBoundaryItem(item, index, 'left')
-              : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'left')
-            }
-          />
-
-          {/* Right boundary list (Fragmented/Well-Explained - above select threshold) */}
-          <ScrollableItemList
-            variant="boundary"
-            badges={[
-              { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
-            ]}
-            columnHeader={{
-              label: '|Decision Margin|',
-              sortDirection: rightSortDirection,
-              onClick: toggleRightSortDirection,
-              isSortable: true
-            }}
-            items={sortedRightItems as PairItemWithMetadata[]}
-            currentIndex={activeListSource === 'select' ? currentIndex : -1}
-            isActive={activeListSource === 'select'}
-            renderItem={(item, index) => mode === 'pair'
-              ? renderBoundaryItem(item, index, 'right')
-              : renderFeatureItem(item as unknown as FeatureItemWithMetadata, index, 'right')
-            }
-          />
         </div>
       </div>
     </div>

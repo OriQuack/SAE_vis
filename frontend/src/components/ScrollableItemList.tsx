@@ -80,6 +80,10 @@ export interface ScrollableItemListProps<T = any> {
   // Whether this list is the currently active source (visual indicator in header)
   isActive?: boolean
 
+  // Whether the current sort matches the template (default) sort
+  // When false, selection highlight is disabled (currentIndex visual not shown)
+  isTemplateSort?: boolean
+
   // Optional footer button
   footerButton?: FooterButton
 
@@ -112,6 +116,7 @@ export function ScrollableItemList<T = any>({
   currentIndex = -1,
   highlightPredicate,
   isActive = false,
+  isTemplateSort = true,
   footerButton,
   pageNavigation,
   sortConfig,
@@ -190,7 +195,8 @@ export function ScrollableItemList<T = any>({
           <div className="scrollable-list__empty">{emptyMessage}</div>
         ) : (
           items.map((item, index) => {
-            const isCurrent = index === currentIndex
+            // Only show current item highlight when on template sort
+            const isCurrent = isTemplateSort && index === currentIndex
             const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
 
             const itemClasses = [

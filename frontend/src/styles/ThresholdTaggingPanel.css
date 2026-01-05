@@ -1,7 +1,7 @@
 /* ============================================================================
  * THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
  * ============================================================================
- * Layout: [Histogram] | [Indicator + Buttons] | [Left list] | [Right list]
+ * Layout: [Histogram] | [Boundary Lists (top) + Flip Rate (bottom)] | [Buttons]
  * Used by: FeatureSplitView and QualityView
  * ============================================================================ */
 
@@ -10,7 +10,7 @@
   flex-direction: row;
   flex: 1;
   min-height: 0;
-  gap: 0;
+  gap: 8px;
   overflow: visible;
 }
 
@@ -55,16 +55,48 @@
 }
 
 /* ============================================================================
- * BUTTONS SECTION - Modality indicator + action buttons container
+ * MIDDLE SECTION - Boundary lists (top) + Convergence indicator (bottom)
+ * ============================================================================ */
+
+.threshold-tagging-panel__middle-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 0;
+}
+
+/* ============================================================================
+ * INDICATOR SECTION - Convergence indicator at bottom of middle section
+ * ============================================================================ */
+
+.threshold-tagging-panel__indicator-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 4;  /* 6:4 ratio with lists section */
+  min-height: 0;
+}
+
+/* Subheader uses shared .subheader class from base.css */
+.threshold-tagging-panel__indicator-section .subheader {
+  padding: 0 4px;
+}
+
+/* ============================================================================
+ * BUTTONS SECTION - Action buttons on the right
  * ============================================================================ */
 
 .threshold-tagging-panel__buttons-section {
   display: flex;
   flex-direction: column;
+  gap: 4px;
   width: 180px;
-  margin-left: 4px;
-  margin-right: 4px;
-  margin-top: 26px;
+}
+
+/* Subheader uses shared .subheader class from base.css */
+.threshold-tagging-panel__buttons-section .subheader {
+  padding: 0;
 }
 
 /* ============================================================================
@@ -114,6 +146,29 @@
 }
 
 /* ============================================================================
+ * SWATCH LEGEND - Explains swatch patterns below buttons
+ * ============================================================================ */
+
+.threshold-tagging-panel__swatch-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.threshold-tagging-panel__swatch-legend-item {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.threshold-tagging-panel__swatch-legend-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #374151;
+}
+
+/* ============================================================================
  * LISTS SECTION - Wrapper for boundary lists with subtitle
  * ============================================================================ */
 
@@ -121,7 +176,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex-shrink: 0;  /* Don't shrink - let histogram take remaining space */
+  flex: 6;  /* 6:4 ratio with indicator section */
   min-height: 0;  /* Allow flex children to shrink below content size */
 }
 

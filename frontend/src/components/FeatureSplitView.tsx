@@ -405,19 +405,25 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [filteredTableData, allClusterPairs, selectedFeatureIds])
 
   // Use sortable list hook for sorting logic
+  // Template: decisionMargin mode + ascending (least confident first)
   const {
     sortMode,
     setSortMode,
+    sortDirection,
+    setSortDirection,
     sortedItems: pairList,
     columnHeaderProps,
-    getDisplayScore
+    getDisplayScore,
+    isTemplateSort
   } = useSortableList({
     items: rawPairList,
     getItemKey: (p: typeof rawPairList[0]) => p.pairKey,
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
     decisionMarginScores: pairSimilarityScores,
     defaultLabel: 'Decoder sim',
-    defaultDirection: 'desc'
+    defaultDirection: 'desc',
+    templateMode: 'decisionMargin',
+    templateDirection: 'asc'
   })
 
   // Track if we've auto-switched to decision margin mode for this session
@@ -863,8 +869,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="feature-split-view__body">
         {/* Main column: StatusPanel + Content rows */}
         <div className="feature-split-view__main">
-          {/* Status panel - full width */}
-          <StatusPanel />
+          {/* Status panel - sorting controls */}
+          <StatusPanel
+            sortMode={sortMode}
+            sortDirection={sortDirection}
+            onSortModeChange={setSortMode}
+            onSortDirectionChange={setSortDirection}
+            defaultModeLabel="Decoder sim"
+            isTemplateSort={isTemplateSort}
+          />
 
           {/* Content: 2 rows */}
           <div className="feature-split-view__content">
@@ -878,6 +891,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             activeListSource={activeListSource}
             sortMode={sortMode}
             isLoading={isPairSimilaritySortLoading}
+            isTemplateSort={isTemplateSort}
             onResetToFirstPair={() => {
               setCurrentPairIndex(0)
               setActiveListSource('all')
@@ -894,7 +908,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               totalPages,
               onItemClick: handleAllPairsListClick,
               onPreviousPage: handlePreviousPage,
-              onNextPage: handleNextPage
+              onNextPage: handleNextPage,
+              isTemplateSort
             }}
           />
         </div>
@@ -918,6 +933,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           activeListSource={activeListSource}
           currentIndex={currentPairIndex}
           isBimodal={isBimodal}
+          isTemplateSort={isTemplateSort}
+          sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
         />
           </div>
         </div>
