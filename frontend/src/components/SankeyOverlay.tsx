@@ -6,10 +6,8 @@ import {
   calculateHistogramYAxisTicks
 } from '../lib/sankey-histogram-utils'
 import { calculateHorizontalBarSegments } from '../lib/histogram-utils'
-import { groupFeaturesByThresholds, groupFeaturesByScoresMap, calculateSegmentProportions } from '../lib/threshold-utils'
-import { useVisualizationStore } from '../store'
-import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, METRIC_QUALITY_SCORE, SANKEY_COLORS, UNSURE_GRAY } from '../lib/constants'
-import { getBadgeColors } from '../lib/tag-system'
+import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/threshold-utils'
+import { TAG_CATEGORIES, METRIC_QUALITY_SCORE, SANKEY_COLORS, UNSURE_GRAY } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 
@@ -335,9 +333,6 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
   // Debounce timer ref for smooth segment updates
   const segmentUpdateTimerRef = useRef<number | null>(null)
 
-  // Get Stage 3 quality scores from store (for decision_margin metric)
-  const stage3QualityScores = useVisualizationStore(state => state.stage3QualityScores)
-
   // V2: Cleanup drag thresholds and optimistic segments when structure updates
   React.useEffect(() => {
     if (!sankeyStructure) return
@@ -510,31 +505,20 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
                       if (!stageConfig) return
 
                       // Calculate new groups with updated threshold
-                      let groups
-                      let tags = stageConfig.tags
-                      let tagColors = stageConfig.tagColors
+                      const tags = stageConfig.tags
+                      const tagColors = stageConfig.tagColors
 
-                      if (metric === 'decision_margin' && stage3QualityScores) {
-                        // Use pre-computed scores map for decision_margin
-                        groups = groupFeaturesByScoresMap(
-                          parentNode.featureIds,
-                          stage3QualityScores,
-                          [newThreshold]
-                        )
-                        // Stage 3 threshold uses same tags as Stage 2 (Quality category)
-                        tags = ['Need Revision', 'Well-Explained']
-                        tagColors = getBadgeColors(TAG_CATEGORY_QUALITY)
-                      } else if (tableData) {
-                        // Use tableData for other metrics
-                        groups = groupFeaturesByThresholds(
-                          parentNode.featureIds,
-                          metric,
-                          [newThreshold],
-                          tableData
-                        )
-                      } else {
+                      if (!tableData) {
                         return
                       }
+
+                      // Use tableData for threshold-based segment updates
+                      const groups = groupFeaturesByThresholds(
+                        parentNode.featureIds,
+                        metric,
+                        [newThreshold],
+                        tableData
+                      )
 
                       if (groups.length > 0) {
                         // Convert groups to segment proportions

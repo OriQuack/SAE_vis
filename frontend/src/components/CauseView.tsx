@@ -112,14 +112,11 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const hasAutoTaggedRef = useRef(false)
 
-  // Track if well-explained verification has been done (disable button after click)
-  const [hasVerifiedWellExplained, setHasVerifiedWellExplained] = useState(false)
-
   // Filter state: which categories to show (shared with UMAPScatter)
-  // Initially show only well-explained (above threshold) for user to verify
+  // Initially show cause categories (user can immediately start tagging)
   type FilterCategory = CauseCategory | 'unsure'
   const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
-    new Set(['well-explained'])
+    new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'unsure'])
   )
 
   // Mark as already auto-tagged when revisiting (prevents re-initialization)
@@ -144,22 +141,22 @@ const CauseView: React.FC<CauseViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3])
 
-  // Extract well-explained feature IDs from Stage 3 segment (above quality threshold)
-  // stage3_segment.segments[1] = "Well-Explained" (above threshold)
+  // Extract well-explained feature IDs from causeSelectionStates (features individually tagged as well-explained)
   const wellExplainedFeatureIds = useMemo(() => {
-    if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n: { id: string }) => n.id === 'stage3_segment')
-    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
-      return stage3Node.segments[1].featureIds
-    }
-    return new Set<number>()
-  }, [sankeyStructure])
+    const wellExplained = new Set<number>()
+    causeSelectionStates.forEach((category, featureId) => {
+      if (category === 'well-explained') {
+        wellExplained.add(featureId)
+      }
+    })
+    return wellExplained
+  }, [causeSelectionStates])
 
   // Helper type for effective category
   type EffectiveCategory = CauseCategory | 'unsure'
 
-  // Get effective category for a feature (considering margin threshold and well-explained segment)
-  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
+  // Get effective category for a feature (considering margin threshold)
+  // Priority: manual tags > auto-tags with margin check > unsure
   const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
     const category = causeSelectionStates.get(featureId)
     const source = causeSelectionSources.get(featureId)
@@ -168,10 +165,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
-    // Priority 3: Auto-tagged with margin check
+    // Priority 2: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
@@ -181,7 +175,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
 
     return category || 'unsure'
-  }, [wellExplainedFeatureIds, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // ============================================================================
   // METRIC SCORE INITIALIZATION - Calculate scores when entering Stage 3
@@ -681,7 +675,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
-  // Well-Explained is determined by threshold verification, not SVM
+  // Well-Explained is tagged individually, not by SVM batch tagging
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
     if (!selectedFeatureIds) return
@@ -728,36 +722,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     moveToNextStep()
   }, [moveToNextStep])
 
-  // Verify well-explained: tag all above-threshold candidates that aren't already tagged differently
-  const handleVerifyWellExplained = useCallback(() => {
-    console.log('[CauseView] Verify Well-Explained clicked')
-
-    // 1. Create new commit
-    createCommit('verify')
-
-    // 2. Tag all wellExplainedFeatureIds that don't have a different manual tag
-    // Use batch operation for performance (single state update instead of 100+)
-    const batchUpdates = new Map<number, 'well-explained'>()
-    wellExplainedFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      // Skip if manually tagged as something else
-      if (source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained') {
-        return
-      }
-      batchUpdates.set(featureId, 'well-explained')
-    })
-    // isActualManual=false because this is a batch operation (verify all candidates)
-    if (batchUpdates.size > 0) {
-      setCauseCategoriesBatch(batchUpdates, false)
-    }
-
-    // 3. Switch filter to show cause categories (hide well-explained, show causes + unsure)
-    setVisibleCategories(new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'unsure']))
-
-    // 4. Disable button after click
-    setHasVerifiedWellExplained(true)
-  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit])
-
   // Count how many remaining features will be tagged to each category by decision boundary
   // Note: SVM only predicts cause categories (excludes well-explained)
   const boundaryTagCounts = useMemo(() => {
@@ -798,7 +762,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Compute composition of remaining features (non-manually-tagged) by current effective category
   // Used for "Tag All Remaining by SVM" button legend
-  // Note: Excludes well-explained (they are handled by threshold verification, not SVM)
+  // Note: Excludes well-explained (they are tagged individually, not by SVM batch tagging)
   const remainingComposition = useMemo(() => {
     let patternMiss = 0, contextMiss = 0, noisyActivation = 0, unsure = 0
 
@@ -808,7 +772,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       const source = causeSelectionSources.get(featureId)
       // Skip manually tagged features - they won't be re-tagged
       if (source === 'manual') return
-      // Skip well-explained features - they are handled by threshold verification
+      // Skip well-explained features - they are tagged individually, not by SVM batch tagging
       const effectiveCategory = getEffectiveCategory(featureId)
       if (effectiveCategory === 'well-explained') return
 
@@ -824,22 +788,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     return { patternMiss, contextMiss, noisyActivation, unsure, total }
   }, [selectedFeatureIds, causeSelectionSources, getEffectiveCategory])
 
-  // Count how many features will be verified as well-explained
-  const verifyWellExplainedCount = useMemo(() => {
-    let count = 0
-    wellExplainedFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      // Count if not already manually tagged as something else
-      if (!(source === 'manual' && causeSelectionStates.get(featureId) !== 'well-explained')) {
-        count++
-      }
-    })
-    return count
-  }, [wellExplainedFeatureIds, causeSelectionSources, causeSelectionStates])
-
   // Compute composition of selected cell (brushed features) by category
   // Only counts non-manually-tagged features (these are what batch tagging will affect)
-  // Note: Excludes well-explained (they are handled by threshold verification, not batch tagging)
+  // Note: Excludes well-explained (they are tagged individually, not by SVM batch tagging)
   const selectedCellComposition = useMemo(() => {
     let patternMiss = 0, contextMiss = 0, noisyActivation = 0, unsure = 0
     let manualCount = 0
@@ -851,7 +802,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         manualCount++
         return
       }
-      // Skip well-explained features - they are handled by threshold verification
+      // Skip well-explained features - they are tagged individually, not by batch tagging
       const effectiveCategory = getEffectiveCategory(featureId)
       if (effectiveCategory === 'well-explained') return
 
@@ -1193,45 +1144,9 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
                 <h4 className="subheader">Batch Tagging</h4>
-                {/* Row 1: Verify Well-Explained */}
+                {/* Tag Selected Cell */}
                 <div className="cause-view__action-section">
                   <span className="cause-view__action-header subheader-instruction">
-                    <span className={`cause-view__substage-number ${!hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>1</span>
-                    Verify Threshold as
-                  </span>
-                  <div className="cause-view__action-row">
-                    <div className="action-button-item">
-                      <button
-                        className="action-button"
-                        onClick={handleVerifyWellExplained}
-                        disabled={wellExplainedFeatureIds.size === 0 || hasVerifiedWellExplained}
-                        title="Confirm above-threshold features as Well-Explained"
-                      >
-                        Well-Explained
-                      </button>
-                      <div className="action-button__legend">
-                        <span className="action-button__legend-item">
-                          <span
-                            className="action-button__legend-swatch action-button__legend-swatch--striped"
-                            style={{ '--swatch-color': wellExplainedColor } as React.CSSProperties}
-                          />
-                          <span className="action-button__legend-count">{verifyWellExplainedCount}</span>
-                        </span>
-                        <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: wellExplainedColor }} />
-                          <span className="action-button__legend-count">{verifyWellExplainedCount}</span>
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Row 2: Tag Selected Cell */}
-                {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
-                <div className="cause-view__action-section">
-                  <span className="cause-view__action-header subheader-instruction">
-                    <span className={`cause-view__substage-number ${hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>2</span>
                     Tag Selected Cell as
                   </span>
                   <div className="cause-view__action-row">
@@ -1239,14 +1154,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('missed-N-gram')}
-                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
-                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Pattern Miss'}
+                        disabled={selectedCellComposition.taggableCount === 0}
+                        title="Tag all selected features as Pattern Miss"
                       >
                         Pattern Miss
                       </button>
                       <div className="action-button__legend">
                         {/* Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
-                        {/* Note: Well-Explained excluded - handled by threshold verification */}
+                        {/* Note: Well-Explained tagged individually, not by batch tagging */}
                         {selectedCellComposition.patternMiss > 0 && (
                           <span className="action-button__legend-item">
                             <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
@@ -1282,8 +1197,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('missed-context')}
-                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
-                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Context Miss'}
+                        disabled={selectedCellComposition.taggableCount === 0}
+                        title="Tag all selected features as Context Miss"
                       >
                         Context Miss
                       </button>
@@ -1323,8 +1238,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={!hasVerifiedWellExplained || selectedCellComposition.taggableCount === 0}
-                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Tag all selected features as Noisy Activation'}
+                        disabled={selectedCellComposition.taggableCount === 0}
+                        title="Tag all selected features as Noisy Activation"
                       >
                         Noisy Activation
                       </button>
@@ -1363,22 +1278,21 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 </div>
 
-                {/* Row 3: Tag All Remaining (no substage number) */}
-                {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
+                {/* Row 3: Tag All Remaining */}
                 <div className="cause-view__action-section">
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
                         className="action-button"
                         onClick={handleTagRemainingByBoundary}
-                        disabled={!hasVerifiedWellExplained || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                        title={!hasVerifiedWellExplained ? 'Verify threshold as Well-Explained first' : 'Auto-tag remaining features using SVM decision boundary'}
+                        disabled={remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                        title="Auto-tag remaining features using SVM decision boundary"
                       >
                         Tag All Remaining by SVM
                       </button>
                       <div className="action-button__legend">
                         {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
-                        {/* Note: Well-Explained excluded - handled by threshold verification, not SVM */}
+                        {/* Note: Well-Explained handled by individual tagging, not SVM auto-tagging */}
                         {remainingComposition.patternMiss > 0 && (
                           <span className="action-button__legend-item">
                             <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
@@ -1406,7 +1320,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         {/* Arrow */}
                         <span className="action-button__legend-arrow">→</span>
                         {/* Output composition (by SVM prediction) - Order: Pattern Miss, Context Miss, Noisy Activation */}
-                        {/* Note: Well-Explained is NOT predicted by SVM - it's determined by threshold verification */}
+                        {/* Note: Well-Explained is tagged individually, not by SVM batch prediction */}
                         {boundaryTagCounts['missed-N-gram'] > 0 && (
                           <span className="action-button__legend-item">
                             <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />

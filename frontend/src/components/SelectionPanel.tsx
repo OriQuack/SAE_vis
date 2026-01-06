@@ -162,9 +162,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
-  // Dependencies for Stage 3 well-explained feature IDs
-  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
-
   // Get filtered feature IDs - prefer prop if provided, otherwise use store's method
   const filteredFeatureIds = useMemo(() => {
     // If prop is provided, use it directly (parent handles recalculation)
@@ -183,18 +180,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return featureIds
   }, [propFilteredFeatureIds, getSelectedNodeFeatures])
 
-  // Extract well-explained feature IDs from Stage 3 segment (for effective category)
-  const wellExplainedFeatureIds = useMemo(() => {
-    if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n) => n.id === 'stage3_segment')
-    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
-      return stage3Node.segments[1].featureIds
-    }
-    return new Set<number>()
-  }, [sankeyStructure])
-
-  // Helper: get effective category for a feature (considering margin threshold and well-explained segment)
-  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
+  // Helper: get effective category for a feature (considering margin threshold)
+  // Priority: manual tags > auto-tags with margin check > unsure
   type EffectiveCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | 'unsure'
   const getEffectiveCategory = (featureId: number): EffectiveCategory => {
     const category = causeSelectionStates.get(featureId)
@@ -204,10 +191,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
-    // Priority 3: Auto-tagged with margin check
+    // Priority 2: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
@@ -309,9 +293,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     for (const featureId of featureSet) {
       const effectiveCategory = getEffectiveCategory(featureId)
       const source = causeSelectionSources.get(featureId)
-      // Auto: either explicitly auto-tagged OR well-explained from segment (not manually tagged)
-      const isAuto = source === 'auto' ||
-        (wellExplainedFeatureIds.has(featureId) && source !== 'manual')
+      // Auto: tagged as 'auto' in causeSelectionSources
+      const isAuto = source === 'auto'
 
       switch (effectiveCategory) {
         case 'noisy-activation':
@@ -340,7 +323,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       total: featureSet.size
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, wellExplainedFeatureIds, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds

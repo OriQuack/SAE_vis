@@ -434,11 +434,6 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
       state.setLoading(loadingKey, false)
       console.log('[activateStage3] ✅ Stage 3 activated successfully')
 
-      // Fetch Stage 3 quality scores (uses Stage 2 SVM to score Need Revision features)
-      // This runs after loading is complete and updates segments when finished
-      console.log('[activateStage3] 📊 Fetching Stage 3 quality scores...')
-      get().fetchStage3QualityScores()
-
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Failed to activate Stage 3'
       state.setError(errorKey, errorMessage)

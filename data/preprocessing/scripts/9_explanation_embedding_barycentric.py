@@ -315,38 +315,17 @@ class BarycentricEmbeddingProcessor:
         logger.info(f"Merged data: {len(self.merged_df):,} rows")
 
     def _compute_statistics(self):
-        """Compute statistics for each metric.
+        """Compute statistics for each metric directly from explanation-level data.
 
-        For per-explanation scores (embedding, fuzz, detection), first average across
-        explainers per feature, then calculate percentiles. This ensures each feature
-        contributes equally to the distribution.
-
-        For per-feature metrics (intra_feature_sim, explanation_semantic_sim), they're
-        already feature-level so we just take the first value per feature.
+        Statistics are computed from all explanation rows (3 per feature) to ensure
+        standardization captures the full variance of individual explainer scores.
         """
-        logger.info("Computing metric statistics...")
+        logger.info("Computing metric statistics from explanation-level data...")
+        logger.info(f"Using {len(self.merged_df):,} explanation rows for statistics")
 
-        # Aggregate to feature level
-        per_explanation_metrics = ["score_embedding", "score_fuzz", "score_detection"]
-        per_feature_metrics = ["intra_feature_sim", "explanation_semantic_sim"]
-
-        # Build aggregation expressions
-        agg_exprs = []
+        # Compute statistics directly from explanation-level data
         for metric in self.metrics_order:
-            if metric in per_explanation_metrics:
-                # Average across explainers
-                agg_exprs.append(pl.col(metric).mean().alias(metric))
-            else:
-                # Already per-feature, take first (all should be same)
-                agg_exprs.append(pl.col(metric).first().alias(metric))
-
-        # Aggregate to feature level
-        feature_level_df = self.merged_df.group_by("feature_id").agg(agg_exprs)
-        logger.info(f"Aggregated to {len(feature_level_df):,} features for statistics")
-
-        # Compute statistics on feature-level data
-        for metric in self.metrics_order:
-            col = feature_level_df[metric]
+            col = self.merged_df[metric]
             self.metric_stats[metric] = {
                 "mean": float(col.mean()),
                 "std": float(col.std()),

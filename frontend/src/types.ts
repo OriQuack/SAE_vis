@@ -778,19 +778,24 @@ export interface ExplainerPosition {
   x: number
   y: number
   nearest_anchor?: string
+  score_embedding?: number
+  score_fuzz?: number
+  score_detection?: number
+  avg_score?: number
+  is_best: boolean
 }
 
 /**
- * UMAP Point - Single point in UMAP 2D projection (mean position across explainers)
+ * UMAP Point - Single point in UMAP 2D projection (best explainer position)
  */
 export interface UmapPoint {
   feature_id: number
-  x: number  // Mean X across explainers
-  y: number  // Mean Y across explainers
+  x: number  // Best explainer X
+  y: number  // Best explainer Y
   cluster_id: number  // HDBSCAN cluster ID (-1 for noise)
   decision_margin?: number  // Min distance to decision boundary (only for SVM classification)
-  nearest_anchor?: string   // Most common anchor across explainers
-  explainer_positions?: ExplainerPosition[]  // Individual positions per explainer (for detail view)
+  nearest_anchor?: string   // Nearest anchor of best explainer
+  explainer_positions?: ExplainerPosition[]  // All explainer positions (for detail view)
 }
 
 /**

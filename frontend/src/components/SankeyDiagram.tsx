@@ -301,6 +301,15 @@ const VerticalBarSankeyNode: React.FC<{
         // Use node's colorHex if available, otherwise fall back to ROOT_FILL
         layout.subNodes.length > 0 && (
           <rect
+            ref={(el) => {
+              // Register segment ref for flow overlay (using segmentIndex = 0 for unsegmented nodes)
+              const segmentKey = `${node.id}_0`
+              if (el && segmentRefs) {
+                segmentRefs.current.set(segmentKey, el)
+              } else if (!el && segmentRefs) {
+                segmentRefs.current.delete(segmentKey)
+              }
+            }}
             className="sankey-vertical-bar-rect"
             x={layout.subNodes[0].x}
             y={Math.min(...layout.subNodes.map(sn => sn.y))}
@@ -410,8 +419,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
   const tableData = useVisualizationStore(state => state.tableData)
   const {
-    updateStageThreshold,
-    updateStage3QualityThreshold
+    updateStageThreshold
   } = useVisualizationStore()
 
   // Store refs to segment rectangles for external access (e.g., flow overlays)
@@ -553,15 +561,13 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     })
 
     // V2: Determine which stage this node belongs to
+    // Note: stage3_segment uses cause categories, not threshold-based segmentation
     if (nodeId === 'stage1_segment') {
       updateStageThreshold(1, newThreshold, panel)
     } else if (nodeId === 'stage2_segment') {
       updateStageThreshold(2, newThreshold, panel)
-    } else if (nodeId === 'stage3_segment') {
-      // Stage 3 uses SVM-based quality scores from Stage 2
-      updateStage3QualityThreshold(newThreshold)
     }
-  }, [updateStageThreshold, updateStage3QualityThreshold, panel])
+  }, [updateStageThreshold, panel])
 
   // Render
   if (error) {

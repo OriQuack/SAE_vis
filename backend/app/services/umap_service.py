@@ -127,57 +127,70 @@ class UMAPService:
 
         feature_ids = request.feature_ids
 
-        # Load all explainer rows (not just unique)
+        # Load all explainer rows with scores
         df = self.data_service._barycentric_lazy.filter(
             pl.col("feature_id").is_in(feature_ids)
         ).select([
-            "feature_id", "llm_explainer", "position_x", "position_y", "nearest_anchor", "cluster_id"
+            "feature_id", "llm_explainer", "position_x", "position_y", "nearest_anchor", "cluster_id",
+            "score_embedding", "score_fuzz", "score_detection"
         ]).collect()
 
         logger.info(f"Loaded {len(df)} rows for {df['feature_id'].n_unique()} features")
 
-        # Group by feature_id to compute mean and collect explainer positions
+        # Compute average score for each row
+        df = df.with_columns([
+            ((pl.col("score_embedding") + pl.col("score_fuzz") + pl.col("score_detection")) / 3.0)
+            .alias("avg_score")
+        ])
+
+        # Group by feature_id to find best explainer and collect all positions
         points = []
         for fid in df["feature_id"].unique().to_list():
             feature_rows = df.filter(pl.col("feature_id") == fid)
 
-            # Compute mean position
-            mean_x = float(feature_rows["position_x"].mean())
-            mean_y = float(feature_rows["position_y"].mean())
+            # Find best explainer (highest avg_score)
+            best_idx = feature_rows["avg_score"].arg_max()
+            best_row = feature_rows.row(best_idx, named=True)
 
-            # Get most common nearest_anchor (mode)
-            anchor_counts = feature_rows["nearest_anchor"].value_counts()
-            most_common_anchor = anchor_counts.sort("counts", descending=True)["nearest_anchor"][0]
+            # Use best explainer's position as main point
+            best_x = float(best_row["position_x"])
+            best_y = float(best_row["position_y"])
+            best_anchor = best_row["nearest_anchor"]
 
             # Get cluster_id (same for all explainers of a feature)
             cluster_id = int(feature_rows["cluster_id"][0])
 
-            # Collect explainer positions for detail view
-            explainer_positions = [
-                ExplainerPosition(
+            # Collect all explainer positions with scores
+            explainer_positions = []
+            for row in feature_rows.iter_rows(named=True):
+                is_best = row["llm_explainer"] == best_row["llm_explainer"]
+                explainer_positions.append(ExplainerPosition(
                     explainer=row["llm_explainer"],
                     x=float(row["position_x"]),
                     y=float(row["position_y"]),
-                    nearest_anchor=row["nearest_anchor"]
-                )
-                for row in feature_rows.iter_rows(named=True)
-            ]
+                    nearest_anchor=row["nearest_anchor"],
+                    score_embedding=float(row["score_embedding"]) if row["score_embedding"] is not None else None,
+                    score_fuzz=float(row["score_fuzz"]) if row["score_fuzz"] is not None else None,
+                    score_detection=float(row["score_detection"]) if row["score_detection"] is not None else None,
+                    avg_score=float(row["avg_score"]) if row["avg_score"] is not None else None,
+                    is_best=is_best
+                ))
 
             points.append(UmapPoint(
                 feature_id=int(fid),
-                x=mean_x,
-                y=mean_y,
+                x=best_x,
+                y=best_y,
                 cluster_id=cluster_id,
-                nearest_anchor=most_common_anchor,
+                nearest_anchor=best_anchor,
                 explainer_positions=explainer_positions
             ))
 
-        logger.info(f"Built {len(points)} feature points with explainer details")
+        logger.info(f"Built {len(points)} feature points (best explainer positions)")
 
         return UmapProjectionResponse(
             points=points,
             total_features=len(points),
-            params_used={"source": "barycentric_precomputed", "aggregation": "mean"}
+            params_used={"source": "barycentric_precomputed", "aggregation": "best_explainer"}
         )
 
     async def get_cause_classification(

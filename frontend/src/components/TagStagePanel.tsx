@@ -125,27 +125,14 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     }
 
     if (category.id === 'cause') {
+      // Use cause counts from causeSelectionStates for all cause categories
       const cCounts = getCauseCounts();
-      const segmentCounts = getSegmentCounts('stage3_segment');
-      const hasSegments = Object.keys(segmentCounts).length > 0;
-
-      if (hasSegments) {
-        // Stage 3 active: Well-Explained segment (above threshold) is auto-considered
-        return {
-          'Noisy Activation': cCounts.noisyActivation,
-          'Pattern Miss': cCounts.missedNgram,
-          'Context Miss': cCounts.missedContext,
-          'Well-Explained': segmentCounts['Well-Explained'] || 0
-        };
-      } else {
-        // Stage 4: use tagged counts
-        return {
-          'Noisy Activation': cCounts.noisyActivation,
-          'Pattern Miss': cCounts.missedNgram,
-          'Context Miss': cCounts.missedContext,
-          'Well-Explained': cCounts.wellExplained
-        };
-      }
+      return {
+        'Noisy Activation': cCounts.noisyActivation,
+        'Pattern Miss': cCounts.missedNgram,
+        'Context Miss': cCounts.missedContext,
+        'Well-Explained': cCounts.wellExplained
+      };
     }
 
     // Stage 4 (regeneration) or unknown: return empty counts

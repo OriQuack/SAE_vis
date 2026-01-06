@@ -17,7 +17,7 @@ import type {
   NodeSegment,
   Filters
 } from '../types'
-import { processFeatureGroupResponse, groupFeaturesByScoresMap, calculateSegmentProportions } from './threshold-utils'
+import { processFeatureGroupResponse } from './threshold-utils'
 import { TAG_CATEGORIES, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, getStageConfig } from './constants'
 import { getBadgeColors } from './tag-system'
 import * as api from '../api'
@@ -547,19 +547,19 @@ export function buildStage3(
   })
 
   // 3. Create Cause segment node (only if need_revision has features)
-  // Initially empty segments - will be populated when threshold is applied via updateStage3Threshold
-  // SankeyDiagram.tsx fallback rendering handles the "Unsure" display before threshold is set
+  // Initially empty segments - will be populated by cause tagging via updateStage3CauseSegments
+  // SankeyDiagram.tsx fallback rendering handles the "Unsure" display before segments are set
   if (needRevisionNode.featureCount > 0) {
     const causeSegmentNode: SegmentSankeyNode = {
       id: 'stage3_segment',
       type: 'segment',
-      metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for histogram display
-      threshold: null,  // Will be set when quality scores are fetched
+      metric: 'cause_category',  // Shows cause category distribution from tagging
+      threshold: null,  // Not used for cause categories (no threshold-based split)
       parentId: 'need_revision',
       depth: 3,
       featureIds: needRevisionNode.featureIds,
       featureCount: needRevisionNode.featureCount,
-      segments: []  // Empty initially - populated by updateStage3Threshold when threshold is applied
+      segments: []  // Empty initially - populated by updateStage3CauseSegments when tagging occurs
     }
     nodes.push(causeSegmentNode)
 
@@ -670,18 +670,18 @@ export function buildStage3FromTaggedStates(
   })
 
   // 4. Create Cause segment node (only if need_revision has features)
-  // Initially empty segments - will be populated when threshold is applied via updateStage3Threshold
+  // Initially empty segments - will be populated by cause tagging via updateStage3CauseSegments
   if (needRevisionNode.featureCount > 0) {
     const causeSegmentNode: SegmentSankeyNode = {
       id: 'stage3_segment',
       type: 'segment',
-      metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for histogram display
-      threshold: null,  // Will be set when quality scores are fetched
+      metric: 'cause_category',  // Shows cause category distribution from tagging
+      threshold: null,  // Not used for cause categories (no threshold-based split)
       parentId: 'need_revision',
       depth: 3,
       featureIds: needRevisionIds,
       featureCount: needRevisionIds.size,
-      segments: []  // Empty initially - populated by updateStage3Threshold when threshold is applied
+      segments: []  // Empty initially - populated by updateStage3CauseSegments when tagging occurs
     }
     nodes.push(causeSegmentNode)
 
@@ -794,26 +794,22 @@ export async function updateStageThreshold(
 }
 
 /**
- * Update Stage 3 threshold for quality score-based segmentation.
+ * Update Stage 3 segments based on cause category tagging.
  *
- * Stage 3 uses a different approach from Stages 1 & 2:
- * - Instead of API-based threshold grouping on a raw metric,
- *   it uses SVM decision margin scores from Stage 2's model
- * - The scores are pre-computed and passed from the store
+ * Unlike Stages 1 & 2 which use threshold-based segmentation,
+ * Stage 3 shows the distribution of cause categories based on tagging.
  *
  * @param structure - Current Sankey structure (must be Stage 3)
- * @param qualityScores - Map of feature_id -> SVM decision margin score
- * @param newThreshold - New threshold value for splitting
- * @returns Updated Sankey structure with new segments
+ * @param causeSelectionStates - Map of feature_id -> cause category
+ * @returns Updated Sankey structure with cause category segments
  */
-export function updateStage3Threshold(
+export function updateStage3CauseSegments(
   structure: SankeyStructure,
-  qualityScores: Map<number, number>,
-  newThreshold: number
+  causeSelectionStates: Map<number, string>
 ): SankeyStructure {
   const segmentNode = structure.nodes.find(n => n.id === 'stage3_segment') as SegmentSankeyNode
   if (!segmentNode) {
-    console.warn('[updateStage3Threshold] Stage 3 segment node not found')
+    console.warn('[updateStage3CauseSegments] Stage 3 segment node not found')
     return structure
   }
 
@@ -822,19 +818,56 @@ export function updateStage3Threshold(
     return structure
   }
 
-  // Use shared helper functions (same as SankeyOverlay optimistic updates)
-  // This eliminates duplicate segment calculation logic
-  const groups = groupFeaturesByScoresMap(segmentNode.featureIds, qualityScores, [newThreshold])
-  const tags = ['Need Revision', 'Well-Explained']
-  const tagColors = getBadgeColors(TAG_CATEGORY_QUALITY)
-  const updatedSegments = calculateSegmentProportions(groups, tags, tagColors, segmentNode.featureCount)
+  // Group features by cause category (excluding well-explained which goes to terminal)
+  const causeCategories = ['noisy-activation', 'missed-N-gram', 'missed-context'] as const
+  const categoryFeatures: Map<string, Set<number>> = new Map()
+
+  causeCategories.forEach(cat => categoryFeatures.set(cat, new Set()))
+
+  segmentNode.featureIds.forEach(featureId => {
+    const category = causeSelectionStates.get(featureId)
+    if (category && causeCategories.includes(category as typeof causeCategories[number])) {
+      categoryFeatures.get(category)!.add(featureId)
+    }
+  })
+
+  // Calculate total tagged features for proportions
+  const totalTagged = Array.from(categoryFeatures.values()).reduce((sum, set) => sum + set.size, 0)
+
+  // If no features are tagged yet, return structure unchanged (show "Unsure" fallback)
+  if (totalTagged === 0) {
+    return structure
+  }
+
+  // Build segments array
+  const tagColors = getBadgeColors(TAG_CATEGORY_CAUSE)
+  const segments: NodeSegment[] = []
+  let yPosition = 0
+
+  causeCategories.forEach((category, index) => {
+    const featureIds = categoryFeatures.get(category)!
+    if (featureIds.size > 0) {
+      const height = featureIds.size / segmentNode.featureCount
+      segments.push({
+        tagName: category === 'noisy-activation' ? 'Noisy Activation'
+               : category === 'missed-N-gram' ? 'Missed N-gram'
+               : 'Missed Context',
+        featureIds,
+        featureCount: featureIds.size,
+        color: tagColors[index] || '#888',
+        height,
+        yPosition
+      })
+      yPosition += height
+    }
+  })
 
   // Update segment node
   const updatedSegmentNode: SegmentSankeyNode = {
     ...segmentNode,
-    metric: 'decision_margin',  // Indicate this uses Stage 2 SVM scores
-    threshold: newThreshold,
-    segments: updatedSegments
+    metric: 'cause_category',
+    threshold: null,
+    segments
   }
 
   const updatedNodes = structure.nodes.map(n =>

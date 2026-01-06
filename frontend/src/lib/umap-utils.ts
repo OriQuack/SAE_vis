@@ -49,7 +49,7 @@ export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-conte
 export type SpreadMethod = 'radial' | 'minmax' | 'stretch' | 'barycentricPower'
 
 /** Default power for barycentric transform (> 1 spreads outward toward vertices) */
-const BARYCENTRIC_POWER_DEFAULT = 3
+const BARYCENTRIC_POWER_DEFAULT = 1
 
 // ============================================================================
 // BARYCENTRIC COORDINATE CONVERSION

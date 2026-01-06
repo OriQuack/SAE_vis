@@ -126,7 +126,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
     const nodes = sankeyStructure?.nodes || []
 
     // Special handling for stage3_segment: show flows from ALL segments
-    // In Stage 3 (CauseView), both segment 0 ("Need Revision") and segment 1 ("Well-Explained") flow to the bar
+    // In Stage 3 (CauseView), all cause category segments flow to the selection bar
     // Note: We check nodeId directly instead of tableMode because activeCauseStageNode may not be set
     if (selectedSankeySegment.nodeId === 'stage3_segment') {
       // Find the stage3_segment node to get total feature count
@@ -141,10 +141,27 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
         }
       })
 
+      // If no segments exist yet (initial state), fall back to single-node flow
       if (allSegmentRefs.length === 0) {
-        return []
+        // Use the default single-segment flow calculation
+        const segmentKey = `${selectedSankeySegment.nodeId}_${selectedSankeySegment.segmentIndex}`
+        const segmentRef = segmentRefs.get(segmentKey)
+
+        if (!segmentRef) {
+          return []
+        }
+
+        return calculateSankeyToSelectionFlows(
+          selectedSankeySegment,
+          segmentRef,
+          categoryRefs,
+          nodes,
+          selectionState,
+          containerRect
+        )
       }
 
+      // Original logic: show flows from all segments when they exist
       return calculateCauseStageFlows(
         allSegmentRefs,
         'stage3_segment',
@@ -175,14 +192,13 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
   useEffect(() => {
     const rafId = requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        setFlows(calculateFlows())
+        const calculatedFlows = calculateFlows()
+        setFlows(calculatedFlows)
       })
     })
     return () => cancelAnimationFrame(rafId)
   }, [calculateFlows])
 
-  // Always render the container div (needed for containerElement ref)
-  // Only show flows when selection exists
   return (
     <div
       ref={setContainerElement}

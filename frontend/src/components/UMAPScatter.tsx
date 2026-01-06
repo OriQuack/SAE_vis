@@ -92,7 +92,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
-  const sankeyStructure = useVisualizationStore(state => state.leftPanel.sankeyStructure)
 
   // Shared margin threshold from store
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
@@ -209,19 +208,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return new Set(Object.keys(manualCauseSelections).map(Number))
   }, [manualCauseSelections])
 
-  // Extract well-explained feature IDs from Stage 3 segment (above decision_margin threshold)
-  // stage3_segment.segments[1] = "Well-Explained" (above threshold)
-  const wellExplainedFeatureIds = useMemo(() => {
-    if (!sankeyStructure) return new Set<number>()
-    const stage3Node = sankeyStructure.nodes.find((n) => n.id === 'stage3_segment')
-    if (stage3Node?.type === 'segment' && stage3Node.segments?.[1]?.featureIds) {
-      return stage3Node.segments[1].featureIds
-    }
-    return new Set<number>()
-  }, [sankeyStructure])
-
   // Helper: get effective category for a feature (considering margin threshold)
-  // Priority: manual tags > well-explained (Stage 3 segment) > auto-tags with margin check > unsure
+  // Priority: manual tags > auto-tags with margin check > unsure
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
     const isManual = manuallyTaggedIds.has(featureId)
     const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
@@ -229,10 +217,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // Priority 2: Well-explained from Stage 3 segment (if not manually tagged otherwise)
-    if (wellExplainedFeatureIds.has(featureId)) return 'well-explained'
-
-    // Priority 3: Auto-tagged with margin check
+    // Priority 2: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
@@ -242,7 +227,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     }
 
     return category || 'unsure'
-  }, [wellExplainedFeatureIds, manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
 
   // Filter spread points by visible categories
   const filteredSpreadPoints = useMemo(() => {
@@ -334,6 +319,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
 
   // Compute explainer label positions for HTML rendering (crisp text)
+  // Show all explainers: best (at main point) + others
   const explainerLabels = useMemo(() => {
     if (!scales || !spreadPoints || selectedFeatureId == null) return []
 
@@ -344,7 +330,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       explainer: ep.explainer,
       shortName: EXPLAINER_SHORT_NAMES[ep.explainer] || ep.explainer,
       x: scales.xScale(ep.x),
-      y: scales.yScale(ep.y)
+      y: scales.yScale(ep.y),
+      isBest: ep.is_best
     }))
   }, [scales, spreadPoints, selectedFeatureId])
 
@@ -442,31 +429,34 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         categoryColor = getCauseColor(selectedFeatureId!, causeSelectionStates as Map<number, CauseCategory>)
       }
       const selectionBlue = '#3b82f6'  // Blue highlight for selection indicator
-      const meanX = scales.xScale(selectedPoint.x)
-      const meanY = scales.yScale(selectedPoint.y)
+      const bestX = scales.xScale(selectedPoint.x)
+      const bestY = scales.yScale(selectedPoint.y)
 
-      // Draw explainer positions if available
+      // Draw non-best explainer positions if available
       if (selectedPoint.explainer_positions && selectedPoint.explainer_positions.length > 0) {
-        // Draw lines from mean to each explainer position (blue selection indicator)
+        // Filter to non-best explainers only
+        const nonBestExplainers = selectedPoint.explainer_positions.filter(ep => !ep.is_best)
+
+        // Draw lines from best to each non-best explainer position
         ctx.strokeStyle = selectionBlue
-        ctx.lineWidth = 1.5
-        ctx.globalAlpha = 0.6
+        ctx.lineWidth = 2.5
+        ctx.globalAlpha = 0.7
         ctx.setLineDash([4, 4])
 
-        for (const ep of selectedPoint.explainer_positions) {
+        for (const ep of nonBestExplainers) {
           const epX = scales.xScale(ep.x)
           const epY = scales.yScale(ep.y)
 
           ctx.beginPath()
-          ctx.moveTo(meanX, meanY)
+          ctx.moveTo(bestX, bestY)
           ctx.lineTo(epX, epY)
           ctx.stroke()
         }
 
         ctx.setLineDash([])
 
-        // Draw explainer points (circles only - labels rendered as HTML)
-        for (const ep of selectedPoint.explainer_positions) {
+        // Draw non-best explainer points (circles only - labels rendered as HTML)
+        for (const ep of nonBestExplainers) {
           const epX = scales.xScale(ep.x)
           const epY = scales.yScale(ep.y)
 
@@ -479,32 +469,37 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         }
       }
 
-      // Draw selected feature point (mean position) with blue highlight ring - LAST
+      // Draw selected feature point (best explainer position) - white background, blue ring
+      const isSelectedManual = manuallyTaggedIds.has(selectedFeatureId!)
+      const selectedPointRadius = brushedPointRadius + 2  // Bigger for visibility
+
+      // White background circle for visibility
       ctx.beginPath()
-      ctx.arc(meanX, meanY, brushedPointRadius + 6, 0, Math.PI * 2)
-      ctx.strokeStyle = selectionBlue
-      ctx.lineWidth = 2.5
+      ctx.arc(bestX, bestY, selectedPointRadius + 2, 0, Math.PI * 2)
+      ctx.fillStyle = '#fff'
       ctx.globalAlpha = 1
+      ctx.fill()
+
+      // Blue selection ring (small)
+      ctx.beginPath()
+      ctx.arc(bestX, bestY, selectedPointRadius + 2.5, 0, Math.PI * 2)
+      ctx.strokeStyle = selectionBlue
+      ctx.lineWidth = 1
       ctx.stroke()
 
-      // Check if selected feature is manually tagged
-      const isSelectedManual = manuallyTaggedIds.has(selectedFeatureId!)
-
+      // Point itself (slightly bigger, thicker)
       ctx.beginPath()
-      ctx.arc(meanX, meanY, brushedPointRadius + 3, 0, Math.PI * 2)
+      ctx.arc(bestX, bestY, selectedPointRadius, 0, Math.PI * 2)
       ctx.globalAlpha = 1
 
       if (isSelectedManual) {
         // Manual: filled circle
         ctx.fillStyle = categoryColor
         ctx.fill()
-        ctx.strokeStyle = '#fff'
-        ctx.lineWidth = 1.5
-        ctx.stroke()
       } else {
-        // Auto-tagged or untagged: hollow circle
+        // Auto-tagged or untagged: thicker hollow circle
         ctx.strokeStyle = categoryColor
-        ctx.lineWidth = 2
+        ctx.lineWidth = 3
         ctx.stroke()
       }
     }
@@ -668,7 +663,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         {explainerLabels.map(label => (
           <div
             key={label.explainer}
-            className="umap-scatter__explainer-label"
+            className={`umap-scatter__explainer-label${label.isBest ? ' umap-scatter__explainer-label--best' : ''}`}
             style={{
               left: label.x,
               top: label.y

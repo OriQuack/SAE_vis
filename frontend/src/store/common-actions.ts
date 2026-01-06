@@ -248,7 +248,7 @@ export const createCommonActions = (set: any, get: any) => ({
 
       if (segmentNode && segmentNode.type === 'segment' && segmentNode.segments) {
         // Special case for Stage 3: Return ALL features from need_revision node
-        // The threshold segments in stage3_segment are for visualization only.
+        // The cause category segments in stage3_segment are for visualization only.
         // CauseView should always work with all features flowing into Stage 3.
         if (selectedSegment.nodeId === 'stage3_segment') {
           const needRevisionNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'need_revision')

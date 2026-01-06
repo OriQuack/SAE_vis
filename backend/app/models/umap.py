@@ -42,14 +42,19 @@ class ExplainerPosition(BaseModel):
         default=None,
         description="Nearest anchor for this explainer"
     )
+    score_embedding: Optional[float] = Field(default=None, description="Embedding score")
+    score_fuzz: Optional[float] = Field(default=None, description="Fuzz score")
+    score_detection: Optional[float] = Field(default=None, description="Detection score")
+    avg_score: Optional[float] = Field(default=None, description="Average of 3 scores")
+    is_best: bool = Field(default=False, description="Whether this is the best explainer")
 
 
 class UmapPoint(BaseModel):
-    """Single point in UMAP projection (mean position across explainers)."""
+    """Single point in UMAP projection (best explainer position)."""
 
     feature_id: int = Field(..., description="Feature ID")
-    x: float = Field(..., description="Mean X coordinate across explainers")
-    y: float = Field(..., description="Mean Y coordinate across explainers")
+    x: float = Field(..., description="X coordinate of best explainer")
+    y: float = Field(..., description="Y coordinate of best explainer")
     cluster_id: int = Field(
         default=-1,
         description="HDBSCAN cluster ID (-1 for noise points)"
