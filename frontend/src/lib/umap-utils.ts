@@ -49,7 +49,7 @@ export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-conte
 export type SpreadMethod = 'radial' | 'minmax' | 'stretch' | 'barycentricPower'
 
 /** Default power for barycentric transform (> 1 spreads outward toward vertices) */
-const BARYCENTRIC_POWER_DEFAULT = 1
+const BARYCENTRIC_POWER_DEFAULT = 2
 
 // ============================================================================
 // BARYCENTRIC COORDINATE CONVERSION
@@ -797,7 +797,7 @@ export function computeCategoryContours(
  * Contour rendering configuration
  */
 export const CONTOUR_CONFIG = {
-  fillOpacity: 0.12,
+  fillOpacity: 0,
   strokeOpacity: 0.5,
   strokeWidth: 1,
   // Opacity multipliers for each contour level (outer to inner)

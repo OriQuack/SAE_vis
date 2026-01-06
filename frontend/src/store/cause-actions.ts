@@ -395,12 +395,6 @@ export const createCauseActions = (set: any, get: any) => ({
         categoryCounts: response.category_counts
       })
 
-      // Build decision margins map (feature_id -> { category -> score })
-      const categoryDecisionMargins = new Map<number, Record<string, number>>()
-      response.results.forEach((result) => {
-        categoryDecisionMargins.set(result.feature_id, result.decision_scores)
-      })
-
       // Update causeSelectionStates with predicted categories for non-manual features
       // This enables contour visualization of the SVM classification results
       const currentState = get()
@@ -408,11 +402,10 @@ export const createCauseActions = (set: any, get: any) => ({
       // Set of manually tagged feature IDs (from the request)
       const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
 
-      // Track if any actual changes occur to avoid unnecessary state updates
-      // that would trigger cascading re-renders
-      let hasChanges = false
-      const newStates = new Map(currentState.causeSelectionStates)
-      const newSources = new Map(currentState.causeSelectionSources)
+      // Build change lists first without creating Maps
+      // Only create new Map objects if there are actual changes to prevent infinite loops
+      const statesToUpdate: Array<[number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained']> = []
+      const sourcesToUpdate: Array<[number, 'auto']> = []
 
       response.results.forEach((result) => {
         // Only update non-manually-tagged features
@@ -423,23 +416,34 @@ export const createCauseActions = (set: any, get: any) => ({
 
           // Only update if there's an actual change
           if (currentCategory !== predictedCategory || currentSource !== 'auto') {
-            hasChanges = true
-            newStates.set(result.feature_id, predictedCategory)
-            newSources.set(result.feature_id, 'auto')
+            statesToUpdate.push([result.feature_id, predictedCategory])
+            sourcesToUpdate.push([result.feature_id, 'auto'])
           }
         }
       })
 
       console.log('[Store.fetchCauseClassification] Updated selection states:', {
         manualCount: manualFeatureIds.size,
-        autoCount: newStates.size - manualFeatureIds.size,
-        totalStates: newStates.size,
-        hasChanges
+        changesToApply: statesToUpdate.length,
+        hasChanges: statesToUpdate.length > 0
       })
 
-      // Only update Map state if there were actual changes
-      // This prevents cascading re-renders from new Map references
-      if (hasChanges) {
+      // Only create new Maps and update state if there are actual changes
+      // This prevents cascading re-renders from new Map references that would cause infinite loops
+      if (statesToUpdate.length > 0) {
+        const newStates = new Map(currentState.causeSelectionStates)
+        const newSources = new Map(currentState.causeSelectionSources)
+
+        statesToUpdate.forEach(([id, category]) => newStates.set(id, category))
+        sourcesToUpdate.forEach(([id, source]) => newSources.set(id, source))
+
+        // Build decision margins map (feature_id -> { category -> score })
+        // Only create this when there are changes to avoid unnecessary Map creation
+        const categoryDecisionMargins = new Map<number, Record<string, number>>()
+        response.results.forEach((result) => {
+          categoryDecisionMargins.set(result.feature_id, result.decision_scores)
+        })
+
         set({
           causeCategoryDecisionMargins: categoryDecisionMargins,
           causeSelectionStates: newStates,
@@ -448,7 +452,7 @@ export const createCauseActions = (set: any, get: any) => ({
           causeClassificationError: null
         })
       } else {
-        // Only update loading state - don't update any Maps to avoid triggering cascading effects
+        // No changes - don't update ANY Maps to avoid triggering cascading effects
         set({
           causeClassificationLoading: false,
           causeClassificationError: null

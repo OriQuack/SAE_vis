@@ -39,6 +39,12 @@
   color: var(--text-secondary);
 }
 
+.cause-view--svm-loading {
+  cursor: wait;
+  pointer-events: none;
+  opacity: 0.6;
+}
+
 /* ============================================================================
  * HEADER - Uses shared .view-header, .view-title, .view-description from base.css
  * ============================================================================ */

@@ -12,6 +12,13 @@
   justify-content: center;
   background: #ffffff;
   overflow: hidden;
+
+  /* Contour styling - edit these for instant hot-reload */
+  --contour-fill-opacity: 0.12;
+  --contour-stroke-opacity: 0.5;
+  --contour-stroke-width: 1;
+  --contour-bandwidth: 20;      /* KDE smoothing (higher = smoother) */
+  --contour-levels: 4;          /* Number of contour lines */
 }
 
 /* Chart wrapper - square size, centered in container */
@@ -142,7 +149,16 @@
   height: 100%;
 }
 
-/* SVG for cell grid (base layer) */
+/* Density heatmap canvas (bottom layer) */
+.umap-scatter__density-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0.7;  /* Allow some transparency for better point visibility */
+}
+
+/* SVG for cell grid (top layer) */
 .umap-scatter__svg {
   position: absolute;
   top: 0;
@@ -154,7 +170,6 @@
   position: absolute;
   top: 0;
   left: 0;
-  pointer-events: none;  /* Allow lasso events to pass through */
 }
 
 /* Classification loading indicator (subtle overlay) */

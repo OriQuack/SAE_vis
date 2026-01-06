@@ -6,13 +6,15 @@ import {
   computeBarycentricScales,
   getTrianglePathString,
   spreadBarycentricPoints,
+  computeCategoryContours,
   BARYCENTRIC_TRIANGLE,
+  CONTOUR_CONFIG,
   type CauseCategory
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
-// Triangle grid for visual batch tagging
-import { computeTriangleGrid, cellToSvgPoints } from '../lib/triangle-grid'
+// Triangle grid disabled - using density heatmap
+// import { computeTriangleGrid, cellToSvgPoints } from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
 
 // ============================================================================
@@ -33,6 +35,7 @@ interface UMAPScatterProps {
   selectedFeatureId?: number | null  // Feature to highlight with explainer positions
   visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
   onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
+  onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
 }
 
 // Margin configuration
@@ -63,18 +66,26 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   className = '',
   selectedFeatureId = null,
   visibleCategories: propVisibleCategories,
-  onVisibleCategoriesChange
+  onVisibleCategoriesChange,
+  onFeatureSelect
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
+  const containerElRef = useRef<HTMLDivElement | null>(null)
 
   // Use standardized resize observer hook for consistent behavior
-  const { ref: containerRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
+  const { ref: resizeRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: propWidth || 400,
     defaultHeight: propHeight || 400,
     debounceMs: 16,
     debugId: 'umap-scatter'
   })
+
+  // Combined ref callback for both resize observer and element ref
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    containerElRef.current = node
+    resizeRef(node)
+  }, [resizeRef])
 
   // Square proportion: use minimum of width/height to fit within container
   const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
@@ -83,11 +94,13 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const umapProjection = useVisualizationStore(state => state.umapProjection)
   const umapLoading = useVisualizationStore(state => state.umapLoading)
   const umapError = useVisualizationStore(state => state.umapError)
-  const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
+  // Grid selection disabled - using click on points instead
+  // const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
   const fetchUmapProjection = useVisualizationStore(state => state.fetchUmapProjection)
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
-  const setUmapBrushedFeatureIds = useVisualizationStore(state => state.setUmapBrushedFeatureIds)
+  // Grid cell selection disabled
+  // const setUmapBrushedFeatureIds = useVisualizationStore(state => state.setUmapBrushedFeatureIds)
   const clearUmapProjection = useVisualizationStore(state => state.clearUmapProjection)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
@@ -103,11 +116,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   )
   const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
-  // Hover state for cell tooltip
-  const [hoveredCell, setHoveredCell] = useState<{
-    cellKey: string
-    position: { x: number; y: number }
-  } | null>(null)
+  // Hover state disabled - no grid cells
+  // const [hoveredCell, setHoveredCell] = useState<{
+  //   cellKey: string
+  //   position: { x: number; y: number }
+  // } | null>(null)
 
   // Toggle category visibility
   const toggleCategory = useCallback((category: FilterCategory) => {
@@ -145,12 +158,26 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     }
   }, [causeSelectionStates, causeSelectionSources])
 
+  // Compute signature of manual tags to use as stable dependency
+  // This prevents infinite loops by only triggering when the SET of manual tag IDs changes
+  // Computing directly from Maps avoids intermediate object reference changes
+  const manualTagsSignature = useMemo(() => {
+    const manualIds: number[] = []
+    causeSelectionStates.forEach((_category, featureId) => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') {
+        manualIds.push(featureId)
+      }
+    })
+    return manualIds.sort((a, b) => a - b).join(',')
+  }, [causeSelectionStates, causeSelectionSources])
+
+  // Track last signature that triggered API call to prevent duplicate requests
+  const lastFetchedSignatureRef = useRef<string>('')
+
   // Chart dimensions
   const chartWidth = size - MARGIN.left - MARGIN.right
   const chartHeight = size - MARGIN.top - MARGIN.bottom
-
-  // Track manual tags for refetch
-  const prevManualTagsRef = useRef<string>('')
 
   // Fetch barycentric positions when feature IDs change
   // Memoization is handled in the store - it skips API call if data is already cached
@@ -166,22 +193,49 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }, [featureIds])
 
   // Fetch SVM classification when manual tags change (separate from positions)
+  // Uses ref-based guard to prevent infinite loops
   useEffect(() => {
-    const manualTagsSignature = Object.keys(manualCauseSelections).sort().join(',')
-    const manualTagsChanged = manualTagsSignature !== prevManualTagsRef.current
-    prevManualTagsRef.current = manualTagsSignature
+    // Guard 1: CRITICAL - Check signature FIRST to prevent effect from running unnecessarily
+    // This breaks the infinite loop by ensuring the effect exits early when manual tags haven't changed
+    if (!manualTagsSignature || manualTagsSignature === lastFetchedSignatureRef.current) {
+      return
+    }
 
-    if (!manualTagsChanged) return
+    // Guard 2: Prevent duplicate in-flight requests
+    if (causeClassificationLoading) {
+      return
+    }
 
-    // Prevent duplicate in-flight requests (belt-and-suspenders with store loading check)
-    if (causeClassificationLoading) return
-
-    // Only fetch classification when we have enough manual tags
+    // Guard 3: Only fetch classification when we have enough features and all categories tagged
+    // Note: canUseDecisionSpace accessed via closure (not in deps) to prevent triggering on auto-tag updates
     if (featureIds.length >= 3 && canUseDecisionSpace) {
+      lastFetchedSignatureRef.current = manualTagsSignature
       fetchCauseClassification(featureIds, manualCauseSelections)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
-  }, [featureIds, canUseDecisionSpace, manualCauseSelections, causeClassificationLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- canUseDecisionSpace, manualCauseSelections accessed via closure; Zustand actions stable
+  }, [featureIds, manualTagsSignature])
+
+  // Read contour styling from CSS variables (enables hot-reload when editing CSS)
+  const [contourStyle, setContourStyle] = useState({
+    fillOpacity: 0.1,
+    strokeOpacity: 1,
+    strokeWidth: 1,
+    bandwidth: 10,
+    levels: 6
+  })
+
+  useEffect(() => {
+    const el = containerElRef.current
+    if (!el) return
+    const styles = getComputedStyle(el)
+    setContourStyle({
+      fillOpacity: parseFloat(styles.getPropertyValue('--contour-fill-opacity')) || 0.12,
+      strokeOpacity: parseFloat(styles.getPropertyValue('--contour-stroke-opacity')) || 0.5,
+      strokeWidth: parseFloat(styles.getPropertyValue('--contour-stroke-width')) || 1,
+      bandwidth: parseFloat(styles.getPropertyValue('--contour-bandwidth')) || 20,
+      levels: parseInt(styles.getPropertyValue('--contour-levels')) || 4
+    })
+  }, [])
 
   // Compute D3 scales using fixed barycentric triangle bounds
   const scales = useMemo(() => {
@@ -238,85 +292,96 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     })
   }, [spreadPoints, getEffectiveCategory, visibleCategories])
 
-  // Compute triangle grid for batch selection (using filtered points)
-  const gridState = useMemo(() => {
-    if (!filteredSpreadPoints || filteredSpreadPoints.length === 0) return null
-    return computeTriangleGrid(filteredSpreadPoints)
-  }, [filteredSpreadPoints])
+  // Triangle grid disabled - using density heatmap instead
+  // const gridState = useMemo(() => {
+  //   if (!filteredSpreadPoints || filteredSpreadPoints.length === 0) return null
+  //   return computeTriangleGrid(filteredSpreadPoints)
+  // }, [filteredSpreadPoints])
 
-  // Compute max cell count for stroke width scaling
-  const maxCellCount = useMemo(() => {
-    if (!gridState) return 1
-    let max = 1
-    for (const cellKey of gridState.leafCells) {
-      const cell = gridState.cells.get(cellKey)
-      if (cell) max = Math.max(max, cell.featureIds.size)
+  // Compute category contours for visualization
+  const categoryContours = useMemo(() => {
+    if (!filteredSpreadPoints || filteredSpreadPoints.length < 3 || !scales || chartWidth <= 0 || chartHeight <= 0) {
+      return []
     }
-    return max
-  }, [gridState])
+    return computeCategoryContours(
+      filteredSpreadPoints,
+      causeSelectionStates as Map<number, CauseCategory>,
+      chartWidth,
+      chartHeight,
+      scales,
+      contourStyle.bandwidth,
+      contourStyle.levels
+    )
+  }, [filteredSpreadPoints, causeSelectionStates, chartWidth, chartHeight, scales, contourStyle.bandwidth, contourStyle.levels])
 
-  // Calculate stroke width based on count (0.3px to 3.5px)
-  const getStrokeWidth = useCallback((count: number) => {
-    const minStroke = 0.3
-    const maxStroke = 3.5
-    const ratio = count / maxCellCount
-    return minStroke + ratio * (maxStroke - minStroke)
-  }, [maxCellCount])
+  // Grid-related code disabled - using density heatmap instead
+  // const maxCellCount = useMemo(() => {
+  //   if (!gridState) return 1
+  //   let max = 1
+  //   for (const cellKey of gridState.leafCells) {
+  //     const cell = gridState.cells.get(cellKey)
+  //     if (cell) max = Math.max(max, cell.featureIds.size)
+  //   }
+  //   return max
+  // }, [gridState])
 
-  // Auto-select first grid cell on initial load (when no selection exists)
-  useEffect(() => {
-    if (!gridState || umapBrushedFeatureIds.size > 0) return
+  // const getStrokeWidth = useCallback((count: number) => {
+  //   const minStroke = 0.3
+  //   const maxStroke = 3.5
+  //   const ratio = count / maxCellCount
+  //   return minStroke + ratio * (maxStroke - minStroke)
+  // }, [maxCellCount])
 
-    // Find the first non-empty leaf cell
-    for (const cellKey of gridState.leafCells) {
-      const cell = gridState.cells.get(cellKey)
-      if (cell && cell.featureIds.size > 0) {
-        setUmapBrushedFeatureIds(cell.featureIds)
-        break
-      }
-    }
-  }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
+  // Auto-select disabled - no grid cells
+  // useEffect(() => {
+  //   if (!gridState || umapBrushedFeatureIds.size > 0) return
+  //   for (const cellKey of gridState.leafCells) {
+  //     const cell = gridState.cells.get(cellKey)
+  //     if (cell && cell.featureIds.size > 0) {
+  //       setUmapBrushedFeatureIds(cell.featureIds)
+  //       break
+  //     }
+  //   }
+  // }, [gridState, umapBrushedFeatureIds.size, setUmapBrushedFeatureIds])
 
-  // Compute category breakdown for hovered cell tooltip (manual vs auto)
-  const hoveredCellComposition = useMemo(() => {
-    if (!hoveredCell || !gridState) return null
-    const cell = gridState.cells.get(hoveredCell.cellKey)
-    if (!cell) return null
+  // Cell tooltip disabled - no grid cells
+  // const hoveredCellComposition = useMemo(() => {
+  //   if (!hoveredCell || !gridState) return null
+  //   const cell = gridState.cells.get(hoveredCell.cellKey)
+  //   if (!cell) return null
+  //   const counts = {
+  //     wellExplained: { manual: 0, auto: 0 },
+  //     noisyActivation: { manual: 0, auto: 0 },
+  //     patternMiss: { manual: 0, auto: 0 },
+  //     contextMiss: { manual: 0, auto: 0 },
+  //     unsure: 0
+  //   }
+  //   cell.featureIds.forEach(featureId => {
+  //     const category = getEffectiveCategory(featureId)
+  //     const source = causeSelectionSources.get(featureId)
+  //     const isManual = source === 'manual'
+  //     switch (category) {
+  //       case 'well-explained':
+  //         isManual ? counts.wellExplained.manual++ : counts.wellExplained.auto++
+  //         break
+  //       case 'noisy-activation':
+  //         isManual ? counts.noisyActivation.manual++ : counts.noisyActivation.auto++
+  //         break
+  //       case 'missed-N-gram':
+  //         isManual ? counts.patternMiss.manual++ : counts.patternMiss.auto++
+  //         break
+  //       case 'missed-context':
+  //         isManual ? counts.contextMiss.manual++ : counts.contextMiss.auto++
+  //         break
+  //       default:
+  //         counts.unsure++
+  //     }
+  //   })
+  //   return { ...counts, total: cell.featureIds.size }
+  // }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
 
-    // Track manual and auto counts separately per category
-    const counts = {
-      wellExplained: { manual: 0, auto: 0 },
-      noisyActivation: { manual: 0, auto: 0 },
-      patternMiss: { manual: 0, auto: 0 },
-      contextMiss: { manual: 0, auto: 0 },
-      unsure: 0  // unsure is always untagged
-    }
-
-    cell.featureIds.forEach(featureId => {
-      const category = getEffectiveCategory(featureId)
-      const source = causeSelectionSources.get(featureId)
-      const isManual = source === 'manual'
-
-      switch (category) {
-        case 'well-explained':
-          isManual ? counts.wellExplained.manual++ : counts.wellExplained.auto++
-          break
-        case 'noisy-activation':
-          isManual ? counts.noisyActivation.manual++ : counts.noisyActivation.auto++
-          break
-        case 'missed-N-gram':
-          isManual ? counts.patternMiss.manual++ : counts.patternMiss.auto++
-          break
-        case 'missed-context':
-          isManual ? counts.contextMiss.manual++ : counts.contextMiss.auto++
-          break
-        default:
-          counts.unsure++
-      }
-    })
-
-    return { ...counts, total: cell.featureIds.size }
-  }, [hoveredCell, gridState, getEffectiveCategory, causeSelectionSources])
+  // Render ALL filtered points (category contours show distribution)
+  const pointsToRender = filteredSpreadPoints || []
 
   // Compute explainer label positions for HTML rendering (crisp text)
   // Show all explainers: best (at main point) + others
@@ -335,10 +400,62 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     }))
   }, [scales, spreadPoints, selectedFeatureId])
 
-  // Draw points on canvas: manually tagged (always) + brushed (when brush active) + selected feature explainers
+  // Track if cursor is over a clickable point
+  const [isOverPoint, setIsOverPoint] = useState(false)
+
+  // Helper to find closest point within radius
+  const findClosestPoint = useCallback((x: number, y: number, maxDist = 10) => {
+    if (!filteredSpreadPoints || !scales) return null
+
+    let closestPoint: typeof filteredSpreadPoints[0] | null = null
+    let closestDist = maxDist
+
+    for (const point of filteredSpreadPoints) {
+      const px = scales.xScale(point.x)
+      const py = scales.yScale(point.y)
+      const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2)
+      if (dist < closestDist) {
+        closestDist = dist
+        closestPoint = point
+      }
+    }
+    return closestPoint
+  }, [filteredSpreadPoints, scales])
+
+  // Click handler for point selection
+  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!onFeatureSelect) return
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    const closestPoint = findClosestPoint(x, y)
+    if (closestPoint) {
+      onFeatureSelect(closestPoint.feature_id)
+    }
+  }, [findClosestPoint, onFeatureSelect])
+
+  // Mouse move handler to update cursor
+  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+
+    const closestPoint = findClosestPoint(x, y)
+    setIsOverPoint(closestPoint !== null)
+  }, [findClosestPoint])
+
+  // Reset cursor when leaving canvas
+  const handleCanvasMouseLeave = useCallback(() => {
+    setIsOverPoint(false)
+  }, [])
+
+  // Draw points on canvas: only on-demand points (manually tagged, brushed, selected)
+  // Density heatmap shows overall distribution in background
   useEffect(() => {
     const canvas = canvasRef.current
-    if (!canvas || !spreadPoints || !scales || chartWidth <= 0 || chartHeight <= 0) {
+    if (!canvas || !pointsToRender || !scales || chartWidth <= 0 || chartHeight <= 0) {
       return
     }
 
@@ -361,12 +478,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     const untaggedPointAlpha = 0.4  // Alpha for untagged points
 
     // Find the selected feature's point for explainer positions
-    const selectedPoint = selectedFeatureId != null
+    const selectedPoint = (selectedFeatureId != null && spreadPoints)
       ? spreadPoints.find(p => p.feature_id === selectedFeatureId)
       : null
 
-    // Draw all feature points
-    for (const point of spreadPoints) {
+    // Draw on-demand feature points (manually tagged, brushed, selected)
+    for (const point of pointsToRender) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isAutoTagged = !isManual && causeSelectionSources.get(point.feature_id) === 'auto'
       const isSelected = point.feature_id === selectedFeatureId
@@ -506,7 +623,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
     // Reset alpha
     ctx.globalAlpha = 1
-  }, [spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, visibleCategories, getEffectiveCategory])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleCategories is already accounted for via pointsToRender filtering
+  }, [pointsToRender, spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory])
 
 
   // ============================================================================
@@ -560,23 +678,43 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       >
         {/* Chart area */}
         <div className="umap-scatter__chart">
-        {/* Canvas for points (rendered first, below SVG) */}
+        {/* Canvas for points (clickable) */}
         <canvas
           ref={canvasRef}
           width={chartWidth * (window.devicePixelRatio || 1)}
           height={chartHeight * (window.devicePixelRatio || 1)}
           className="umap-scatter__canvas"
-          style={{ width: chartWidth, height: chartHeight }}
+          style={{ width: chartWidth, height: chartHeight, cursor: isOverPoint ? 'pointer' : 'default' }}
+          onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
         />
 
-        {/* SVG for grid cells and triangle outline (on top of canvas) */}
+        {/* SVG for contours and triangle outline */}
         <svg
           ref={svgRef}
-          className="umap-scatter__svg umap-scatter__svg--interactive"
+          className="umap-scatter__svg"
           width={chartWidth}
           height={chartHeight}
           style={{ pointerEvents: 'none' }}
         >
+          {/* Category contours */}
+          {categoryContours.map(({ category, color, paths }) => (
+            <g key={category} className="umap-scatter__contour-group">
+              {paths.map((path, i) => (
+                <path
+                  key={i}
+                  d={path}
+                  fill={color}
+                  fillOpacity={contourStyle.fillOpacity * CONTOUR_CONFIG.levelOpacities[Math.min(i, CONTOUR_CONFIG.levelOpacities.length - 1)]}
+                  stroke={color}
+                  strokeWidth={contourStyle.strokeWidth}
+                  strokeOpacity={contourStyle.strokeOpacity}
+                />
+              ))}
+            </g>
+          ))}
+
           {/* Triangle outline */}
           {trianglePath && (
             <path
@@ -588,16 +726,13 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             />
           )}
 
-          {/* Triangle cell grid for batch selection */}
-          {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
+          {/* Triangle cell grid disabled - using density heatmap instead */}
+          {/* {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
             const cell = gridState.cells.get(cellKey)
             if (!cell || cell.featureIds.size === 0) return null
-
-            // Check if this cell is selected (its features match brushed features)
             const isSelected = umapBrushedFeatureIds.size > 0 &&
               cell.featureIds.size === umapBrushedFeatureIds.size &&
               [...cell.featureIds].every(id => umapBrushedFeatureIds.has(id))
-
             return (
               <polygon
                 key={cell.key}
@@ -614,7 +749,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
                 onMouseLeave={() => setHoveredCell(null)}
               />
             )
-          })}
+          })} */}
         </svg>
 
         {/* Vertex labels (positioned at triangle corners) */}
@@ -660,7 +795,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         )}
 
         {/* Explainer position labels (rendered as HTML for crisp text) */}
-        {explainerLabels.map(label => (
+        {/* Sort so best explainer renders last (on top) */}
+        {[...explainerLabels].sort((a, b) => (a.isBest ? 1 : 0) - (b.isBest ? 1 : 0)).map(label => (
           <div
             key={label.explainer}
             className={`umap-scatter__explainer-label${label.isBest ? ' umap-scatter__explainer-label--best' : ''}`}
@@ -759,127 +895,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
       )}
 
-      {/* Cell hover tooltip with category breakdown */}
-      {hoveredCell && hoveredCellComposition && (
-        <div
-          className="umap-scatter__cell-tooltip"
-          style={{
-            position: 'fixed',
-            left: hoveredCell.position.x + 12,
-            top: hoveredCell.position.y - 8
-          }}
-        >
-          <div className="umap-scatter__cell-tooltip-content">
-            <div className="umap-scatter__cell-tooltip-total">
-              {hoveredCellComposition.total} features
-            </div>
-            <div className="umap-scatter__cell-tooltip-breakdown">
-              {/* Well-Explained: manual (solid) then auto (striped) */}
-              {(hoveredCellComposition.wellExplained.manual > 0 || hoveredCellComposition.wellExplained.auto > 0) && (
-                <>
-                  {hoveredCellComposition.wellExplained.manual > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch"
-                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f' }}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.wellExplained.manual}</span>
-                    </span>
-                  )}
-                  {hoveredCellComposition.wellExplained.auto > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
-                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f' } as React.CSSProperties}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.wellExplained.auto}</span>
-                    </span>
-                  )}
-                </>
-              )}
-              {/* Noisy Activation: manual (solid) then auto (striped) */}
-              {(hoveredCellComposition.noisyActivation.manual > 0 || hoveredCellComposition.noisyActivation.auto > 0) && (
-                <>
-                  {hoveredCellComposition.noisyActivation.manual > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch"
-                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af' }}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.noisyActivation.manual}</span>
-                    </span>
-                  )}
-                  {hoveredCellComposition.noisyActivation.auto > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
-                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af' } as React.CSSProperties}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.noisyActivation.auto}</span>
-                    </span>
-                  )}
-                </>
-              )}
-              {/* Pattern Miss: manual (solid) then auto (striped) */}
-              {(hoveredCellComposition.patternMiss.manual > 0 || hoveredCellComposition.patternMiss.auto > 0) && (
-                <>
-                  {hoveredCellComposition.patternMiss.manual > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch"
-                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af' }}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.patternMiss.manual}</span>
-                    </span>
-                  )}
-                  {hoveredCellComposition.patternMiss.auto > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
-                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af' } as React.CSSProperties}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.patternMiss.auto}</span>
-                    </span>
-                  )}
-                </>
-              )}
-              {/* Context Miss: manual (solid) then auto (striped) */}
-              {(hoveredCellComposition.contextMiss.manual > 0 || hoveredCellComposition.contextMiss.auto > 0) && (
-                <>
-                  {hoveredCellComposition.contextMiss.manual > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch"
-                        style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af' }}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.contextMiss.manual}</span>
-                    </span>
-                  )}
-                  {hoveredCellComposition.contextMiss.auto > 0 && (
-                    <span className="umap-scatter__cell-tooltip-item">
-                      <span
-                        className="umap-scatter__cell-tooltip-swatch umap-scatter__cell-tooltip-swatch--striped"
-                        style={{ '--swatch-color': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af' } as React.CSSProperties}
-                      />
-                      <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.contextMiss.auto}</span>
-                    </span>
-                  )}
-                </>
-              )}
-              {/* Unsure: always solid gray (no manual/auto distinction) */}
-              {hoveredCellComposition.unsure > 0 && (
-                <span className="umap-scatter__cell-tooltip-item">
-                  <span
-                    className="umap-scatter__cell-tooltip-swatch"
-                    style={{ backgroundColor: '#e5e7eb' }}
-                  />
-                  <span className="umap-scatter__cell-tooltip-count">{hoveredCellComposition.unsure}</span>
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Cell hover tooltip disabled - no grid cells */}
 
     </div>
   )

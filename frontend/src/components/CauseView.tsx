@@ -51,11 +51,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Store state
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
 
-  // Dependencies for selectedFeatureIds
-  const sankeyStructure = useVisualizationStore(state => state.leftPanel?.sankeyStructure)
-  const selectedSegment = useVisualizationStore(state => state.selectedSegment)
-  const tableSelectedNodeIds = useVisualizationStore(state => state.tableSelectedNodeIds)
-
   // Stage 3 revisiting state
   const isRevisitingStage3 = useVisualizationStore(state => state.isRevisitingStage3)
   const stage3FinalCommit = useVisualizationStore(state => state.stage3FinalCommit)
@@ -127,19 +122,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [isRevisitingStage3])
 
   // Get selected feature IDs from the selected node/segment
-  const selectedFeatureIds = useMemo(() => {
-    // When revisiting, feature IDs are fixed - use stored values
-    if (isRevisitingStage3 && stage3FinalCommit?.featureIds) {
-      return stage3FinalCommit.featureIds
-    }
-
-    return getSelectedNodeFeatures()
-    // NOTE: stage3FinalCommit intentionally excluded to prevent cascade
-    // When NOT revisiting, feature IDs come from getSelectedNodeFeatures()
-    // When revisiting, feature IDs are stable (don't change during the visit)
-    // Including stage3FinalCommit causes unnecessary recalculation on every commit sync
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage3])
+  const selectedFeatureIds = isRevisitingStage3 && stage3FinalCommit?.featureIds
+    ? stage3FinalCommit.featureIds
+    : getSelectedNodeFeatures()
 
   // Extract well-explained feature IDs from causeSelectionStates (features individually tagged as well-explained)
   const wellExplainedFeatureIds = useMemo(() => {
@@ -202,23 +187,31 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   useEffect(() => {
     // Skip if revisiting (will restore from commit) or already triggered
-    if (isRevisitingStage3 || hasTriggeredClassificationRef.current) return
+    if (isRevisitingStage3 || hasTriggeredClassificationRef.current) {
+      return
+    }
 
     // Wait for metric scores to be initialized first
-    if (!hasAutoTaggedRef.current) return
+    if (!hasAutoTaggedRef.current) {
+      return
+    }
 
     // Wait for required data
-    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) {
+      return
+    }
 
     // Don't trigger if already loading
-    if (causeClassificationLoading) return
+    if (causeClassificationLoading) {
+      return
+    }
 
     hasTriggeredClassificationRef.current = true
 
     // Trigger classification with empty selections (backend uses anchors as baseline)
     fetchCauseClassification(Array.from(selectedFeatureIds), {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
-  }, [isRevisitingStage3, selectedFeatureIds, causeClassificationLoading])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references, causeClassificationLoading removed to prevent infinite loop
+  }, [isRevisitingStage3, selectedFeatureIds])
 
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
@@ -475,6 +468,26 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentSelectedIndex(globalIndex)
     setActiveListSource('selected')
   }, [selectedPage])
+
+  // Handle click on a point in UMAP scatter
+  const handleUMAPFeatureSelect = useCallback((featureId: number) => {
+    // Find the feature in filteredSelectedFeatureList
+    const index = filteredSelectedFeatureList.indexOf(featureId)
+    if (index !== -1) {
+      setCurrentSelectedIndex(index)
+      setActiveListSource('selected')
+      // Update page to show the selected item
+      const page = Math.floor(index / ITEMS_PER_PAGE)
+      setSelectedPage(page)
+    } else {
+      // Feature not in selected list - try finding in all features list
+      const allIndex = filteredFeatureList.findIndex(f => f.featureId === featureId)
+      if (allIndex !== -1) {
+        setCurrentFeatureIndex(allIndex)
+        setActiveListSource('all')
+      }
+    }
+  }, [filteredSelectedFeatureList, filteredFeatureList])
 
   // Toggle sort direction for selected features list
   const toggleSelectedSortDirection = useCallback(() => {
@@ -866,23 +879,24 @@ const CauseView: React.FC<CauseViewProps> = ({
   // RENDER
   // ============================================================================
 
-  // Block UI until initial classification is complete
-  const isInitializing = causeClassificationLoading || umapLoading ||
-    (causeCategoryDecisionMargins.size === 0 && !isRevisitingStage3)
+  // Block UI ONLY for initial load (first time classification + UMAP)
+  // After initial load, show loading overlay instead of unmounting everything
+  const isInitialLoad = (causeCategoryDecisionMargins.size === 0 && !isRevisitingStage3) || umapLoading
 
-  if (isInitializing) {
+  if (isInitialLoad) {
     return (
       <div className={`cause-view cause-view--loading ${className}`}>
         <div className="cause-view__loading-overlay">
           <div className="spinner" />
-          <span>Training SVM classifier...</span>
+          <span>{umapLoading ? 'Loading UMAP projection...' : 'Initializing cause analysis...'}</span>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`cause-view ${className}`}>
+    <div className={`cause-view ${className} ${causeClassificationLoading ? 'cause-view--svm-loading' : ''}`}>
+
       {/* Header - Full width */}
       <div className="view-header">
         <span className="view-title">Cause Analysis</span>
@@ -930,6 +944,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 selectedFeatureId={selectedFeatureData?.featureId ?? null}
                 visibleCategories={visibleCategories}
                 onVisibleCategoriesChange={setVisibleCategories}
+                onFeatureSelect={handleUMAPFeatureSelect}
               />
 
               {/* Selected list - positioned inside UMAP wrapper */}
