@@ -393,8 +393,8 @@
 
 .umap-scatter__filter-panel {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
