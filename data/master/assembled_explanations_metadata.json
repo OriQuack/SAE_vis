@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-01-05T01:05:31.299115",
+  "created_at": "2026-01-06T12:44:52.248225",
   "script_version": "1.0",
-  "total_features": 100,
+  "total_features": 2000,
   "schema": {
     "feature_id": "UInt32",
     "assembled_explanation_text": "Utf8",
@@ -15,15 +15,15 @@
     "fallback_explanation": "Utf8"
   },
   "statistics": {
-    "features_processed": 100,
+    "features_processed": 2000,
     "template_distribution": {
-      "original": 66,
-      "both_categories": 21,
-      "token_only": 6,
-      "context_only": 2,
-      "no_codes": 5
+      "original": 1259,
+      "both_categories": 522,
+      "token_only": 102,
+      "context_only": 44,
+      "no_codes": 73
     },
-    "same_explainer_count": 66
+    "same_explainer_count": 1259
   },
   "config_used": {
     "input_paths": {

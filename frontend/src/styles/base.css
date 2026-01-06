@@ -162,9 +162,10 @@ body {
 }
 
 .subheader__value {
-  font-weight: 500;
   font-size: 12px;
-  color: #4b5563;
+  font-weight: 700;
+  color: #1f2937;
+  font-family: 'Consolas', 'Monaco', monospace;
   text-transform: none;
   letter-spacing: normal;
 }
