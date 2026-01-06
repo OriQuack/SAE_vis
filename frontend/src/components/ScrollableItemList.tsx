@@ -163,7 +163,7 @@ export function ScrollableItemList<T = any>({
       >
         {badges.map((badge, i) => (
           <div key={i} className="scrollable-list__badge">
-            <span className="scrollable-list__badge-label">
+            <span className="scrollable-list__badge-label subheader-instruction">
               {badge.label} <span className="scrollable-list__badge-count">({typeof badge.count === 'number' ? badge.count.toLocaleString() : badge.count})</span>
             </span>
           </div>

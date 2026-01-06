@@ -126,8 +126,8 @@ body {
 /* View Description - Instruction text (inline, flows after title) */
 .view-description {
   font-size: 14px;
-  font-weight: 500;
-  color: #383838;
+  font-weight: 400;
+  color: #000000;
   margin: 0;
 }
 
@@ -152,6 +152,14 @@ body {
   letter-spacing: 0.5px;
   margin: 0;
   padding: 0;
+}
+
+/* Subheader Instruction - Descriptive text following a subheader */
+.subheader-instruction {
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
 }
 
 .subheader--with-value {

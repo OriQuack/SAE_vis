@@ -14,6 +14,7 @@ import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
+import StatusPanel from './StatusPanel'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -101,6 +102,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('selected')
   const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
+  const [sortMode, setSortMode] = useState<'default' | 'decisionMargin'>('decisionMargin')
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
 
@@ -293,15 +295,26 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [causeCategoryDecisionMargins])
 
-  // Sort selected features by decision margin
+  // Sort selected features by mode (feature ID or decision margin)
   const sortedSelectedFeatureList = useMemo(() => {
-    if (decisionMarginMap.size === 0) return selectedFeatureList
-    return [...selectedFeatureList].sort((a, b) => {
-      const marginA = decisionMarginMap.get(a) ?? 0
-      const marginB = decisionMarginMap.get(b) ?? 0
-      return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
-    })
-  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection])
+    if (sortMode === 'default') {
+      // Sort by feature ID
+      return [...selectedFeatureList].sort((a, b) =>
+        selectedSortDirection === 'asc' ? a - b : b - a
+      )
+    } else {
+      // Sort by decision margin (uncertainty)
+      if (decisionMarginMap.size === 0) return selectedFeatureList
+      return [...selectedFeatureList].sort((a, b) => {
+        const marginA = decisionMarginMap.get(a) ?? 0
+        const marginB = decisionMarginMap.get(b) ?? 0
+        return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
+      })
+    }
+  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection, sortMode])
+
+  // Template sort: decisionMargin mode with asc direction
+  const isTemplateSort = sortMode === 'decisionMargin' && selectedSortDirection === 'asc'
 
   // Filter sorted selected features by visible categories
   const filteredSelectedFeatureList = useMemo(() => {
@@ -942,8 +955,20 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       {/* Body: Content area */}
       <div className="cause-view__body">
-        {/* Main content: Top row + Bottom action bar */}
-        <div className="cause-view__content">
+        {/* Main column: StatusPanel + Content */}
+        <div className="cause-view__main">
+          {/* Status panel - sorting controls */}
+          <StatusPanel
+            sortMode={sortMode}
+            sortDirection={selectedSortDirection}
+            onSortModeChange={setSortMode}
+            onSortDirectionChange={setSelectedSortDirection}
+            defaultModeLabel="Feature ID"
+            isTemplateSort={isTemplateSort}
+          />
+
+          {/* Main content: Top row + Bottom action bar */}
+          <div className="cause-view__content">
           {/* Top row: UMAP + Selected list overlay + Detail panel */}
           <div className="cause-view__row-top">
             {/* UMAP wrapper - contains scatter and overlay */}
@@ -962,7 +987,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 variant="causeBrushed"
                 badges={[{ label: 'Selected', count: filteredSelectedFeatureList.length }]}
                 columnHeader={{
-                  label: 'Decision Margin',
+                  label: sortMode === 'default' ? 'Feature ID' : 'Decision Margin',
                   sortDirection: selectedSortDirection,
                   onClick: toggleSelectedSortDirection,
                   isSortable: true
@@ -1167,9 +1192,10 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
+                <h4 className="subheader">Batch Tagging</h4>
                 {/* Row 1: Verify Well-Explained */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header">
+                  <span className="cause-view__action-header subheader-instruction">
                     <span className={`cause-view__substage-number ${!hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>1</span>
                     Verify Threshold as
                   </span>
@@ -1204,7 +1230,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 {/* Row 2: Tag Selected Cell */}
                 {/* Disabled until "Verify Threshold as Well-Explained" is clicked */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header">
+                  <span className="cause-view__action-header subheader-instruction">
                     <span className={`cause-view__substage-number ${hasVerifiedWellExplained ? 'cause-view__substage-number--active' : ''}`}>2</span>
                     Tag Selected Cell as
                   </span>
@@ -1405,6 +1431,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 </div>
               </div>
             </div>
+          </div>
           </div>
         </div>
 

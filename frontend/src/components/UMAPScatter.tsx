@@ -682,7 +682,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
       {/* Filter panel */}
       <div className="umap-scatter__filter-panel">
-        <span className="umap-scatter__filter-title">Filter</span>
+        <span className="umap-scatter__filter-title subheader-instruction">Filter</span>
         {/* Category filter buttons - vertically stacked */}
         <div className="umap-scatter__filter-buttons">
           {FILTER_CATEGORIES.map(cat => (
@@ -718,7 +718,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
       {/* Legend panel - separate box */}
       <div className="umap-scatter__legend-panel">
-        <span className="umap-scatter__legend-title">Legend</span>
+        <span className="umap-scatter__legend-title subheader-instruction">Legend</span>
 
         {/* Feature Count - stroke width */}
         <div className="umap-scatter__legend-section">

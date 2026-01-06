@@ -56,6 +56,18 @@
 }
 
 /* ============================================================================
+ * MAIN WRAPPER - StatusPanel + Content (matches QualityView layout)
+ * ============================================================================ */
+
+.cause-view__main {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* ============================================================================
  * CONTENT AREA - Main content column
  * ============================================================================ */
 
@@ -118,7 +130,7 @@
   min-width: 0;
 }
 
-/* Detail section - bordered panel matching QualityView styling */
+/* Detail section - matches QualityView styling */
 .cause-view__detail-section {
   display: flex;
   flex-direction: column;
@@ -128,8 +140,6 @@
   padding: 4px;
   overflow: hidden;
   background-color: #ffffff;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
 }
 
 .cause-view__placeholder {
@@ -531,13 +541,9 @@
 }
 
 .cause-view__action-header {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  text-transform: uppercase;
-  letter-spacing: 0.025em;
   display: flex;
   align-items: center;
+  gap: 4px;
 }
 
 .cause-view__substage-number {

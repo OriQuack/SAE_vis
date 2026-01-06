@@ -18,6 +18,7 @@
 /* When list is included, use row layout */
 .feature-split-pair-viewer--with-list {
   flex-direction: row;
+  gap: 4px;
   border: none;
   border-radius: 0;
 }
@@ -25,8 +26,6 @@
 .feature-split-pair-viewer--with-list .pair-viewer__main {
   flex: 1;
   min-width: 0;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
 }
 
 /* ============================================================================

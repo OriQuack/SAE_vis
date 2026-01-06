@@ -50,7 +50,7 @@ const METRICS: MetricConfig[] = [
 ]
 
 // Layout constants
-const MARGIN = { top: 5, right: 25, bottom: 30, left: 25 }
+const MARGIN = { top: 10, right: 30, bottom: 30, left: 30 }
 const MIN_WIDTH = 250
 const MIN_HEIGHT = 80
 

@@ -59,9 +59,7 @@
 }
 
 .scrollable-list__badge-label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #000000;
+  /* Font styles inherited from .subheader-instruction */
   text-transform: none;
   letter-spacing: 0;
 }
