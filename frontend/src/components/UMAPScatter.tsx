@@ -371,7 +371,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Point styling
     const brushedPointRadius = 2
     const manualPointAlpha = 1
-    const untaggedPointAlpha = 0.2  // Alpha for untagged points
+    const untaggedPointAlpha = 0.4  // Alpha for untagged points
 
     // Find the selected feature's point for explainer positions
     const selectedPoint = selectedFeatureId != null

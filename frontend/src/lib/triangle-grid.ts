@@ -17,7 +17,7 @@ export const MAX_LEVEL = 5
  * - 'density': Split based on cell density (threshold scales with level)
  * - 'count': Split based on absolute feature count (same threshold for all levels)
  */
-export const SPLIT_MODE: 'density' | 'count' = 'count'
+export const SPLIT_MODE: 'density' | 'count' = 'density'
 
 // ============================================================================
 // DENSITY-BASED SPLIT CONFIGURATION
@@ -33,7 +33,7 @@ export const SPLIT_MODE: 'density' | 'count' = 'count'
  *
  * Formula: maxFeaturesAtLevel(L) = totalFeatures × DENSITY_FACTOR / 4^L
  */
-export const DENSITY_FACTOR = 0.5
+export const DENSITY_FACTOR = 1
 
 // ============================================================================
 // COUNT-BASED SPLIT CONFIGURATION

@@ -707,44 +707,6 @@ export function getFeatureIdsInBrushSelection(
 }
 
 // ============================================================================
-// POINT STYLING
-// ============================================================================
-
-/**
- * Point radius configuration
- */
-export const UMAP_POINT_CONFIG = {
-  radius: 4,
-  radiusHovered: 6,
-  radiusBrushed: 5,
-  strokeWidth: 1,
-  strokeWidthBrushed: 2,
-  opacity: 0.8,
-  opacityDimmed: 0.3,
-  transitionDuration: 150
-}
-
-/**
- * Determine if a point should be dimmed based on brush selection.
- *
- * @param featureId - The feature ID
- * @param brushedIds - Set of brushed feature IDs (empty = no dimming)
- * @returns true if the point should be dimmed
- */
-export function isPointDimmed(
-  featureId: number,
-  brushedIds: Set<number>
-): boolean {
-  // If no brush selection, nothing is dimmed
-  if (brushedIds.size === 0) {
-    return false
-  }
-
-  // Point is dimmed if it's NOT in the brush selection
-  return !brushedIds.has(featureId)
-}
-
-// ============================================================================
 // DENSITY CONTOUR UTILITIES
 // ============================================================================
 
