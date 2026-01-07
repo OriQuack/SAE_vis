@@ -340,6 +340,17 @@ export function calculateSankeyLayout(
       return 0
     }
 
+    // When links share the same target, sort by source stage (descending)
+    // This prevents crossing when multiple sources link to the same terminal node
+    // (e.g., need_revision and monosemantic both linking to well_explained_terminal)
+    if (targetA.id && targetA.id === targetB.id) {
+      const stageA = sourceA.stage ?? 0
+      const stageB = sourceB.stage ?? 0
+      if (stageA !== stageB) {
+        return stageB - stageA  // Higher stage first → connects at top of target
+      }
+    }
+
     // Sort by source node index
     if (sourceA.index !== sourceB.index) {
       return (sourceA.index ?? 0) - (sourceB.index ?? 0)
@@ -768,12 +779,28 @@ export function convertToD3Format(
     .nodeAlign((node: any) => node.stage || 0)
     .nodeSort(null as any)
     .linkSort((a: any, b: any) => {
-      // Only reorder when links share the same target
+      // Get target node ID (handle index, object, or string)
+      const getTargetId = (link: any): string | null => {
+        if (typeof link.target === 'object') return link.target?.id ?? null
+        if (typeof link.target === 'number') return nodes[link.target]?.id ?? null
+        return String(link.target)
+      }
+
+      const targetIdA = getTargetId(a)
+      const targetIdB = getTargetId(b)
+
+      // Only reorder when links share the same target (compare by ID, not reference)
       // This prevents crossing when multiple sources link to the same terminal node
       // (e.g., need_revision and monosemantic both linking to well_explained_terminal)
-      if (a.target === b.target) {
-        const sourceA = typeof a.source === 'number' ? nodes[a.source] : a.source
-        const sourceB = typeof b.source === 'number' ? nodes[b.source] : b.source
+      if (targetIdA && targetIdA === targetIdB) {
+        // Get source node (handle index or object)
+        const getSource = (link: any) => {
+          if (typeof link.source === 'object') return link.source
+          if (typeof link.source === 'number') return nodes[link.source]
+          return null
+        }
+        const sourceA = getSource(a)
+        const sourceB = getSource(b)
         const stageA = sourceA?.stage ?? 0
         const stageB = sourceB?.stage ?? 0
         if (stageA !== stageB) {

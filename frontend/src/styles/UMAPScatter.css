@@ -435,8 +435,7 @@
   flex-wrap: wrap;
   gap: 4px;
   margin-top: 4px;
-  padding-top: 6px;
-  border-top: 1px solid var(--border-color, #e5e7eb);
+  padding-top: 4px;
 }
 
 .umap-scatter__filter-btn {

@@ -884,7 +884,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           threshold={causeMarginThreshold}
           onThresholdChange={setCauseMarginThreshold}
           onBinHover={setHoveredBinFeatureIds}
-          height={80}
+          height={120}
         />
         {/* Category filter buttons - horizontally stacked */}
         <div className="umap-scatter__filter-buttons">

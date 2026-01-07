@@ -71,13 +71,6 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
           ↓ Desc
         </button>
       </div>
-
-      {/* Template indicator (subtle) */}
-      {!isTemplateSort && (
-        <span className="status-panel__non-template" title="Selection highlight disabled when not on default sort">
-          (custom sort)
-        </span>
-      )}
     </div>
   )
 }
