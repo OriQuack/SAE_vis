@@ -26,7 +26,7 @@ const TAG_HISTOGRAM_SPACING = {
     margin: { top: 30, right: 4, bottom: 40, left: 25 },
     // Label offsets (relative to chart area)
     xLabelOffset: 34,   // Distance below chart for x-axis label
-    yLabelOffset: -34,  // Distance left of chart for y-axis label
+    yLabelOffset: -38,  // Distance left of chart for y-axis label
     xTickOffset: 18     // Distance below chart for x-axis tick labels
   }
 }

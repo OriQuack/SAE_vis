@@ -767,6 +767,21 @@ export function convertToD3Format(
     .extent([[1, 1], [innerWidth - 1, innerHeight - 1]])
     .nodeAlign((node: any) => node.stage || 0)
     .nodeSort(null as any)
+    .linkSort((a: any, b: any) => {
+      // Only reorder when links share the same target
+      // This prevents crossing when multiple sources link to the same terminal node
+      // (e.g., need_revision and monosemantic both linking to well_explained_terminal)
+      if (a.target === b.target) {
+        const sourceA = typeof a.source === 'number' ? nodes[a.source] : a.source
+        const sourceB = typeof b.source === 'number' ? nodes[b.source] : b.source
+        const stageA = sourceA?.stage ?? 0
+        const stageB = sourceB?.stage ?? 0
+        if (stageA !== stageB) {
+          return stageB - stageA  // Higher stage first → connects at top of target
+        }
+      }
+      return 0  // Preserve original order otherwise
+    })
 
   // 5. Process with D3
   const sankeyLayout = sankeyGenerator({

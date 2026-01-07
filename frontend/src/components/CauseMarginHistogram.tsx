@@ -1,0 +1,508 @@
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
+import { scaleLinear } from 'd3-scale'
+import { ThresholdHandles } from './ThresholdHandles'
+import { TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
+import { STRIPE_PATTERN } from '../lib/color-utils'
+import { getTagColor } from '../lib/tag-system'
+import type { CauseCategory } from '../lib/umap-utils'
+import '../styles/CauseMarginHistogram.css'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+interface CauseMarginHistogramProps {
+  /** All feature IDs to include in histogram */
+  featureIds: Set<number>
+  /** Decision margins per feature (from SVM classification) */
+  causeCategoryDecisionMargins: Map<number, Record<string, number>>
+  /** Current category assignments */
+  causeSelectionStates: Map<number, CauseCategory>
+  /** Manual vs auto tag source */
+  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  /** Current threshold value */
+  threshold: number
+  /** Callback when threshold changes */
+  onThresholdChange: (value: number) => void
+  /** Callback when hovering a bin (for scatter plot highlighting) */
+  onBinHover?: (featureIds: Set<number> | null) => void
+  /** Height of the histogram */
+  height?: number
+}
+
+interface MarginDataPoint {
+  featureId: number
+  margin: number
+  category: CauseCategory | 'unsure'
+  isManual: boolean
+}
+
+interface HistogramBin {
+  x0: number  // Bin start (margin value)
+  x1: number  // Bin end (margin value)
+  featureIds: number[]
+  categoryCounts: Record<CauseCategory | 'unsure', number>
+}
+
+interface BarSegment {
+  binIndex: number
+  x: number
+  y: number
+  width: number
+  height: number
+  color: string
+  category: CauseCategory | 'unsure'
+}
+
+// ============================================================================
+// CONSTANTS
+// ============================================================================
+
+const NUM_BINS = 40
+const MARGIN = { top: 0, right: 0, bottom: 22, left: 28 }
+const HANDLE_HEIGHT = 16
+const X_TICK_COUNT = 5
+const Y_TICK_COUNT = 3
+
+// Category order for stacking (bottom to top)
+const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
+  'noisy-activation',
+  'missed-N-gram',
+  'missed-context',
+  'well-explained',
+  'unsure'
+]
+
+// Map internal category names to display tag names for color lookup
+const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
+  'noisy-activation': 'Noisy Activation',
+  'missed-N-gram': 'Pattern Miss',
+  'missed-context': 'Context Miss',
+  'well-explained': 'Well-Explained'
+}
+
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
+
+/**
+ * Compute margin for a feature from decision margins map
+ * Margin = minimum absolute distance to any category boundary
+ */
+function computeFeatureMargin(
+  featureId: number,
+  decisionMargins: Map<number, Record<string, number>>
+): number {
+  const scores = decisionMargins.get(featureId)
+  if (!scores) return 0
+  return Math.min(...Object.values(scores).map(s => Math.abs(s)))
+}
+
+/**
+ * Get category color from tag system
+ */
+function getCategoryColor(category: CauseCategory | 'unsure'): string {
+  if (category === 'unsure') return UNSURE_GRAY
+  const tagName = CATEGORY_TO_TAG_NAME[category]
+  return getTagColor(TAG_CATEGORY_CAUSE, tagName) || UNSURE_GRAY
+}
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
+
+export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
+  featureIds,
+  causeCategoryDecisionMargins,
+  causeSelectionStates,
+  causeSelectionSources,
+  threshold,
+  onThresholdChange,
+  onBinHover,
+  height = 80
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(200)
+  const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+
+  // Observe container width for responsiveness
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const observer = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width)
+      }
+    })
+    observer.observe(container)
+    return () => observer.disconnect()
+  }, [])
+
+  // Compute margin data for all features
+  const marginData = useMemo((): MarginDataPoint[] => {
+    const data: MarginDataPoint[] = []
+
+    for (const featureId of featureIds) {
+      const margin = computeFeatureMargin(featureId, causeCategoryDecisionMargins)
+      const category = causeSelectionStates.get(featureId)
+      const source = causeSelectionSources.get(featureId)
+      const isManual = source === 'manual'
+
+      // Determine effective category (respecting threshold for auto-tagged)
+      let effectiveCategory: CauseCategory | 'unsure'
+      if (isManual && category) {
+        effectiveCategory = category
+      } else if (category && margin >= threshold) {
+        effectiveCategory = category
+      } else {
+        effectiveCategory = 'unsure'
+      }
+
+      data.push({
+        featureId,
+        margin,
+        category: effectiveCategory,
+        isManual
+      })
+    }
+
+    return data
+  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, threshold])
+
+  // Compute histogram bins with 95th percentile clipping
+  const { bins, maxMargin, maxCount, isClipped, clippedCount } = useMemo(() => {
+    if (marginData.length === 0) {
+      return { bins: [], maxMargin: 1, maxCount: 0, isClipped: false, clippedCount: 0 }
+    }
+
+    // Sort margins to find 97th percentile
+    const sortedMargins = marginData.map(d => d.margin).sort((a, b) => a - b)
+    const p97Index = Math.floor(sortedMargins.length * 0.97)
+    const maxMarginClipped = sortedMargins[p97Index] || sortedMargins[sortedMargins.length - 1] || 0.01
+    const actualMax = sortedMargins[sortedMargins.length - 1] || 0.01
+
+    // Track clipping info
+    const clipped = actualMax > maxMarginClipped * 1.01  // Small tolerance
+    const numClipped = clipped ? sortedMargins.length - p97Index - 1 : 0
+
+    const binWidth = maxMarginClipped / NUM_BINS
+
+    // Initialize bins
+    const histBins: HistogramBin[] = []
+    for (let i = 0; i < NUM_BINS; i++) {
+      histBins.push({
+        x0: i * binWidth,
+        x1: (i + 1) * binWidth,
+        featureIds: [],
+        categoryCounts: {
+          'noisy-activation': 0,
+          'missed-N-gram': 0,
+          'missed-context': 0,
+          'well-explained': 0,
+          'unsure': 0
+        }
+      })
+    }
+
+    // Assign features to bins (clamp to last bin if beyond clipped max)
+    for (const point of marginData) {
+      const binIndex = Math.min(Math.floor(point.margin / binWidth), NUM_BINS - 1)
+      histBins[binIndex].featureIds.push(point.featureId)
+      histBins[binIndex].categoryCounts[point.category]++
+    }
+
+    // Find max count for y-scale
+    const maxC = Math.max(...histBins.map(b =>
+      Object.values(b.categoryCounts).reduce((a, c) => a + c, 0)
+    ), 1)
+
+    return { bins: histBins, maxMargin: maxMarginClipped, maxCount: maxC, isClipped: clipped, clippedCount: numClipped }
+  }, [marginData])
+
+  // Calculate chart dimensions
+  const chartWidth = containerWidth - MARGIN.left - MARGIN.right
+  const chartHeight = height - MARGIN.top - MARGIN.bottom - HANDLE_HEIGHT
+
+  // Create scales
+  const xScale = useMemo(() =>
+    scaleLinear().domain([0, maxMargin]).range([0, chartWidth]),
+    [maxMargin, chartWidth]
+  )
+
+  const yScale = useMemo(() =>
+    scaleLinear().domain([0, maxCount]).range([chartHeight, 0]),
+    [maxCount, chartHeight]
+  )
+
+  // Calculate bar segments for rendering
+  const barSegments = useMemo((): BarSegment[] => {
+    const segments: BarSegment[] = []
+    const binWidth = chartWidth / NUM_BINS
+    const barPadding = 1
+
+    for (let binIndex = 0; binIndex < bins.length; binIndex++) {
+      const bin = bins[binIndex]
+      let cumulativeHeight = 0
+
+      for (const category of CATEGORY_STACK_ORDER) {
+        const count = bin.categoryCounts[category]
+        if (count === 0) continue
+
+        const barHeight = chartHeight - yScale(count)
+        const y = chartHeight - cumulativeHeight - barHeight
+
+        segments.push({
+          binIndex,
+          x: binIndex * binWidth + barPadding,
+          y,
+          width: Math.max(binWidth - barPadding * 2, 1),
+          height: barHeight,
+          color: getCategoryColor(category),
+          category
+        })
+
+        cumulativeHeight += barHeight
+      }
+    }
+
+    return segments
+  }, [bins, chartWidth, chartHeight, yScale])
+
+  // Threshold position in pixels
+  const thresholdX = xScale(threshold)
+
+  // Handle threshold update from dragging
+  const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
+    onThresholdChange(newThresholds[0])
+  }, [onThresholdChange])
+
+  // Handle bin hover
+  const handleBinMouseEnter = useCallback((binIndex: number, e: React.MouseEvent) => {
+    setHoveredBinIndex(binIndex)
+    setTooltipPosition({ x: e.clientX, y: e.clientY })
+
+    if (onBinHover && bins[binIndex]) {
+      onBinHover(new Set(bins[binIndex].featureIds))
+    }
+  }, [bins, onBinHover])
+
+  const handleBinMouseMove = useCallback((e: React.MouseEvent) => {
+    setTooltipPosition({ x: e.clientX, y: e.clientY })
+  }, [])
+
+  const handleBinMouseLeave = useCallback(() => {
+    setHoveredBinIndex(null)
+    setTooltipPosition(null)
+    onBinHover?.(null)
+  }, [onBinHover])
+
+  // Tooltip content
+  const tooltipContent = useMemo(() => {
+    if (hoveredBinIndex === null || !bins[hoveredBinIndex]) return null
+    const bin = bins[hoveredBinIndex]
+    const total = Object.values(bin.categoryCounts).reduce((a, c) => a + c, 0)
+
+    return {
+      range: `${bin.x0.toFixed(3)} - ${bin.x1.toFixed(3)}`,
+      total,
+      counts: bin.categoryCounts
+    }
+  }, [hoveredBinIndex, bins])
+
+  if (featureIds.size === 0 || causeCategoryDecisionMargins.size === 0) {
+    return (
+      <div className="cause-margin-histogram cause-margin-histogram--empty" ref={containerRef}>
+        <span className="cause-margin-histogram__empty-text">
+          No classification data
+        </span>
+      </div>
+    )
+  }
+
+  return (
+    <div className="cause-margin-histogram" ref={containerRef}>
+      <div className="cause-margin-histogram__header">
+        <span className="subheader">Filter</span>
+        {isClipped && (
+          <span className="cause-margin-histogram__clipped-indicator">+{clippedCount} clipped</span>
+        )}
+      </div>
+
+      <svg
+        width={containerWidth}
+        height={height - 16}
+        className="cause-margin-histogram__svg"
+      >
+        {/* SVG Pattern for unsure zone */}
+        <defs>
+          <pattern
+            id="unsureZoneStripe"
+            patternUnits="userSpaceOnUse"
+            width={STRIPE_PATTERN.width}
+            height={STRIPE_PATTERN.height}
+            patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+          >
+            <rect
+              width={STRIPE_PATTERN.stripeWidth}
+              height={STRIPE_PATTERN.height}
+              fill={UNSURE_GRAY}
+              opacity={0.3}
+            />
+          </pattern>
+        </defs>
+
+        <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
+          {/* Zone backgrounds */}
+          {/* Unsure zone (left of threshold) - striped */}
+          <rect
+            x={0}
+            y={0}
+            width={Math.max(0, thresholdX)}
+            height={chartHeight}
+            fill="url(#unsureZoneStripe)"
+          />
+          {/* Confident zone (right of threshold) - white */}
+          <rect
+            x={Math.max(0, thresholdX)}
+            y={0}
+            width={Math.max(0, chartWidth - thresholdX)}
+            height={chartHeight}
+            fill="#ffffff"
+          />
+
+          {/* Category bars */}
+          {barSegments.map((segment, i) => (
+            <rect
+              key={i}
+              x={segment.x}
+              y={segment.y}
+              width={segment.width}
+              height={segment.height}
+              fill={segment.color}
+              opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={(e) => handleBinMouseEnter(segment.binIndex, e)}
+              onMouseMove={handleBinMouseMove}
+              onMouseLeave={handleBinMouseLeave}
+            />
+          ))}
+
+          {/* Y-axis line */}
+          <line
+            x1={0}
+            y1={0}
+            x2={0}
+            y2={chartHeight}
+            stroke="#d1d5db"
+            strokeWidth={1}
+          />
+
+          {/* Y-axis ticks */}
+          {Array.from({ length: Y_TICK_COUNT + 1 }, (_, i) => {
+            const value = Math.round((maxCount / Y_TICK_COUNT) * i)
+            const y = chartHeight - (chartHeight / Y_TICK_COUNT) * i
+            return (
+              <g key={`y-tick-${i}`}>
+                <line x1={-3} y1={y} x2={0} y2={y} stroke="#d1d5db" strokeWidth={1} />
+                <text x={-5} y={y + 3} fontSize={8} fill="#6b7280" textAnchor="end">
+                  {value}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* X-axis line */}
+          <line
+            x1={0}
+            y1={chartHeight}
+            x2={chartWidth}
+            y2={chartHeight}
+            stroke="#d1d5db"
+            strokeWidth={1}
+          />
+
+          {/* X-axis ticks */}
+          {Array.from({ length: X_TICK_COUNT + 1 }, (_, i) => {
+            const value = (maxMargin / X_TICK_COUNT) * i
+            const x = (chartWidth / X_TICK_COUNT) * i
+            const isLast = i === X_TICK_COUNT
+            return (
+              <g key={`x-tick-${i}`}>
+                <line x1={x} y1={chartHeight} x2={x} y2={chartHeight + 3} stroke="#d1d5db" strokeWidth={1} />
+                <text
+                  x={x}
+                  y={chartHeight + 12}
+                  fontSize={8}
+                  fill="#6b7280"
+                  textAnchor={i === 0 ? 'start' : isLast ? 'end' : 'middle'}
+                >
+                  {isLast && isClipped ? `${value.toFixed(2)}+` : value.toFixed(2)}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* X-axis label */}
+          <text
+            x={chartWidth / 2}
+            y={chartHeight + 24}
+            fontSize={10}
+            fill="#374151"
+            textAnchor="middle"
+            fontWeight={500}
+          >
+            Unsure Boundary: {threshold.toFixed(2)}
+          </text>
+
+          {/* Threshold handle */}
+          <ThresholdHandles
+            orientation="horizontal"
+            bounds={{ min: 0, max: chartWidth }}
+            thresholds={[threshold]}
+            metricRange={{ min: 0, max: maxMargin }}
+            position={{ x: 0, y: 0 }}
+            lineBounds={{ min: 0, max: chartHeight }}
+            showThresholdLine={true}
+            showDragTooltip={true}
+            onUpdate={handleThresholdUpdate}
+            handleDimensions={{ width: 16, height: 12 }}
+          />
+        </g>
+      </svg>
+
+      {/* Tooltip */}
+      {tooltipContent && tooltipPosition && (
+        <div
+          className="cause-margin-histogram__tooltip"
+          style={{
+            left: tooltipPosition.x + 10,
+            top: tooltipPosition.y - 10
+          }}
+        >
+          <div className="cause-margin-histogram__tooltip-header">
+            Margin: {tooltipContent.range}
+          </div>
+          <div className="cause-margin-histogram__tooltip-total">
+            Total: {tooltipContent.total} features
+          </div>
+          {Object.entries(tooltipContent.counts)
+            .filter(([, count]) => count > 0)
+            .map(([cat, count]) => (
+              <div key={cat} className="cause-margin-histogram__tooltip-row">
+                <span
+                  className="cause-margin-histogram__tooltip-color"
+                  style={{ backgroundColor: getCategoryColor(cat as CauseCategory | 'unsure') }}
+                />
+                <span>{cat === 'unsure' ? 'Unsure' : CATEGORY_TO_TAG_NAME[cat as CauseCategory]}: {count}</span>
+              </div>
+            ))
+          }
+        </div>
+      )}
+    </div>
+  )
+}
+
+export default CauseMarginHistogram

@@ -13,6 +13,7 @@ import {
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
+import CauseMarginHistogram from './CauseMarginHistogram'
 
 // Darker unsure gray for scatterplot points (better visibility on white background)
 const DARK_UNSURE_GRAY = '#686868ff'
@@ -118,6 +119,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const [localVisibleCategories, setLocalVisibleCategories] = useState<Set<FilterCategory>>(
     new Set(['unsure'])
   )
+
+  // State for histogram bin hover highlighting on scatter plot
+  const [hoveredBinFeatureIds, setHoveredBinFeatureIds] = useState<Set<number> | null>(null)
   const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
   // Hover state disabled - no grid cells
@@ -496,6 +500,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isAutoTagged = !isManual && causeSelectionSources.get(point.feature_id) === 'auto'
       const isSelected = point.feature_id === selectedFeatureId
+      const isHoveredBin = hoveredBinFeatureIds?.has(point.feature_id)
 
       // Skip selected feature here - will draw it last on top
       if (isSelected) continue
@@ -515,6 +520,32 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green
       } else {
         color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
+      }
+
+      // Highlight effect for histogram bin hover
+      if (isHoveredBin) {
+        // Draw larger highlighted point with bright border
+        const highlightRadius = brushedPointRadius + 2
+        // White background for visibility
+        ctx.beginPath()
+        ctx.arc(cx, cy, highlightRadius + 1, 0, Math.PI * 2)
+        ctx.fillStyle = '#ffffff'
+        ctx.globalAlpha = 1
+        ctx.fill()
+        // Yellow highlight ring
+        ctx.beginPath()
+        ctx.arc(cx, cy, highlightRadius + 1.5, 0, Math.PI * 2)
+        ctx.strokeStyle = '#fbbf24'  // Amber/yellow highlight
+        ctx.lineWidth = 2
+        ctx.globalAlpha = 1
+        ctx.stroke()
+        // Filled point on top
+        ctx.beginPath()
+        ctx.arc(cx, cy, highlightRadius, 0, Math.PI * 2)
+        ctx.fillStyle = color
+        ctx.globalAlpha = 1
+        ctx.fill()
+        continue
       }
 
       if (isManual) {
@@ -633,7 +664,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Reset alpha
     ctx.globalAlpha = 1
     // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleCategories is already accounted for via pointsToRender filtering
-  }, [pointsToRender, spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory])
+  }, [pointsToRender, spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory, hoveredBinFeatureIds])
 
 
   // ============================================================================
@@ -842,10 +873,20 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
       </div>
 
-      {/* Filter panel */}
+      {/* Filter panel - histogram on top, horizontal buttons below */}
       <div className="umap-scatter__filter-panel">
-        <span className="umap-scatter__filter-title subheader-instruction">Filter</span>
-        {/* Category filter buttons - vertically stacked */}
+        {/* Margin threshold histogram */}
+        <CauseMarginHistogram
+          featureIds={new Set(featureIds)}
+          causeCategoryDecisionMargins={causeCategoryDecisionMargins}
+          causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
+          causeSelectionSources={causeSelectionSources}
+          threshold={causeMarginThreshold}
+          onThresholdChange={setCauseMarginThreshold}
+          onBinHover={setHoveredBinFeatureIds}
+          height={80}
+        />
+        {/* Category filter buttons - horizontally stacked */}
         <div className="umap-scatter__filter-buttons">
           {FILTER_CATEGORIES.map(cat => (
             <button
@@ -863,18 +904,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               {cat.label}
             </button>
           ))}
-        </div>
-        {/* Margin threshold slider */}
-        <div className="umap-scatter__threshold-slider">
-          <label>Unsure Boundary: {causeMarginThreshold.toFixed(2)}</label>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.01}
-            value={causeMarginThreshold}
-            onChange={(e) => setCauseMarginThreshold(parseFloat(e.target.value))}
-          />
         </div>
       </div>
 

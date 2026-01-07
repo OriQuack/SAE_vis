@@ -1,0 +1,85 @@
+/* ============================================================================
+   CauseMarginHistogram - Compact histogram for Stage 3 unsure boundary
+   ============================================================================ */
+
+.cause-margin-histogram {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.cause-margin-histogram--empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 60px;
+}
+
+.cause-margin-histogram__empty-text {
+  font-size: 11px;
+  color: var(--text-tertiary, #9ca3af);
+  font-style: italic;
+}
+
+/* Header with label */
+.cause-margin-histogram__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.cause-margin-histogram__clipped-indicator {
+  font-size: 9px;
+  color: var(--text-tertiary, #9ca3af);
+  font-style: italic;
+}
+
+/* SVG container */
+.cause-margin-histogram__svg {
+  overflow: visible;
+}
+
+/* Tooltip */
+.cause-margin-histogram__tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 4px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  font-size: 11px;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+.cause-margin-histogram__tooltip-header {
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.cause-margin-histogram__tooltip-total {
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.cause-margin-histogram__tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.cause-margin-histogram__tooltip-color {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
