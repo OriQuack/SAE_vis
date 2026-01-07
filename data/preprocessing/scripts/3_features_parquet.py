@@ -126,6 +126,10 @@ class FeaturesParquetCreator:
         logger.info("Loading first merge distances from clustering...")
         self.first_merge_distances = self._load_first_merge_distances()
 
+        # Load frac_nonzero from Neuronpedia data
+        logger.info("Loading frac_nonzero from Neuronpedia...")
+        self.frac_nonzero = self._load_frac_nonzero()
+
     def _find_project_root(self) -> Path:
         """Find the project root directory (interface)."""
         current = Path.cwd()
@@ -317,6 +321,38 @@ class FeaturesParquetCreator:
             return 1.0 - distance
         return None
 
+    def _load_frac_nonzero(self) -> Dict[int, float]:
+        """
+        Load frac_nonzero (fraction of non-zero activations) from Neuronpedia data.
+
+        Returns:
+            Dict mapping feature_id to frac_nonzero value
+        """
+        frac_nonzero = {}
+
+        frac_nonzero_path = self.project_root / "data/raw/neuronpedia_frac_nonzero/frac_nonzero.json"
+
+        if frac_nonzero_path.exists():
+            try:
+                with open(frac_nonzero_path, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+                # Convert string keys to int
+                for key, value in data.items():
+                    frac_nonzero[int(key)] = float(value)
+
+                logger.info(f"Loaded frac_nonzero for {len(frac_nonzero)} features")
+            except Exception as e:
+                logger.warning(f"Error loading frac_nonzero: {e}")
+        else:
+            logger.warning(f"frac_nonzero file not found: {frac_nonzero_path}")
+
+        return frac_nonzero
+
+    def _get_frac_nonzero(self, feature_id: int) -> Optional[float]:
+        """Get frac_nonzero for a feature."""
+        return self.frac_nonzero.get(feature_id, None)
+
     def _get_explainer_from_data_source(self, data_source: str) -> str:
         """Extract explainer prefix from data_source name (e.g., 'llama_e-llama_s' -> 'llama_e')."""
         if "_e-" in data_source:
@@ -425,6 +461,9 @@ class FeaturesParquetCreator:
             # Higher values = feature is more similar to its neighbors
             first_merge_similarity = self._get_first_merge_distance(int(feature_id))
 
+            # Get frac_nonzero (fraction of non-zero activations from Neuronpedia)
+            frac_nonzero = self._get_frac_nonzero(int(feature_id))
+
             # Get explainer prefix for matching with scorers
             explainer_prefix = self._get_explainer_from_data_source(data_source)
 
@@ -472,7 +511,8 @@ class FeaturesParquetCreator:
                     "score_detection": score_detection,
                     "score_embedding": score_embedding,
                     "decoder_similarity": decoder_sim,
-                    "decoder_similarity_merge_threshold": first_merge_similarity
+                    "decoder_similarity_merge_threshold": first_merge_similarity,
+                    "frac_nonzero": frac_nonzero
                 }
                 rows.append(row_data)
 
@@ -510,6 +550,7 @@ class FeaturesParquetCreator:
             pl.col("explanation_text").first(),
             pl.col("decoder_similarity").first(),
             pl.col("decoder_similarity_merge_threshold").first(),
+            pl.col("frac_nonzero").first(),
             pl.col("semantic_similarity").first(),  # NEW: List of pairwise similarities
             pl.col("scorer_scores").alias("scores")  # This is now List(Struct)
         ])
@@ -561,6 +602,7 @@ class FeaturesParquetCreator:
             "explanation_text",
             "decoder_similarity",
             "decoder_similarity_merge_threshold",
+            "frac_nonzero",
             "semantic_similarity",  # NEW: Replaces semsim_mean/max
             "scores"
         ]
@@ -662,6 +704,7 @@ class FeaturesParquetCreator:
                 "explanation_text": str(df["explanation_text"].dtype),
                 "decoder_similarity": "List(Struct([Field('feature_id', UInt32), Field('cosine_similarity', Float32)]))",
                 "decoder_similarity_merge_threshold": f"{df['decoder_similarity_merge_threshold'].dtype} - Similarity threshold when feature first merges in agglomerative clustering (1 - distance). Higher = more similar to neighbors.",
+                "frac_nonzero": f"{df['frac_nonzero'].dtype} - Fraction of non-zero activations from Neuronpedia. Higher = feature activates more frequently.",
                 "semantic_similarity": "List(Struct([Field('explainer', Categorical), Field('cosine_similarity', Float32)]))",
                 "scores": "List(Struct([Field('scorer', Utf8), Field('fuzz', Float32), Field('simulation', Float32), Field('detection', Float32), Field('embedding', Float32)]))"
             },
@@ -669,6 +712,7 @@ class FeaturesParquetCreator:
                 "unique_llm_explainers": df["llm_explainer"].n_unique(),
                 "features_with_decoder_similarity": len([v for v in self.decoder_similarities.values() if v]),
                 "features_with_merge_threshold": len(self.first_merge_distances),
+                "features_with_frac_nonzero": len(self.frac_nonzero),
                 "explanation_embeddings_loaded": len(self.explanation_embeddings_df),
                 "scores_sources_loaded": len(self.scores_data)
             },

@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-06T20:24:56.974051",
+  "created_at": "2026-01-07T15:01:10.947513",
   "script_version": "1.0",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 49152,
@@ -10,12 +10,14 @@
     "score_detection": "Float32",
     "score_embedding": "Float32",
     "explanation_semantic_sim": "Float32",
+    "frac_nonzero": "Float32",
     "intra_feature_sim": "Float32",
     "intra_feature_sim_std": "Float32",
     "score_embedding_std": "Float32",
     "score_fuzz_std": "Float32",
     "score_detection_std": "Float32",
     "explanation_semantic_sim_std": "Float32",
+    "frac_nonzero_std": "Float32",
     "dist_missed_ngram": "Float32",
     "dist_missed_context": "Float32",
     "dist_noisy_activation": "Float32",
@@ -32,7 +34,8 @@
     "score_embedding",
     "score_fuzz",
     "score_detection",
-    "explanation_semantic_sim"
+    "explanation_semantic_sim",
+    "frac_nonzero"
   ],
   "anchor_coordinates": {
     "missed_ngram": {
@@ -41,14 +44,16 @@
         0.11750000000000001,
         0.475,
         0.525,
-        0.409254789352417
+        0.409254789352417,
+        0.0035199999999999997
       ],
       "standardized": [
         -0.4194694533449185,
         -0.7828589660171466,
-        -0.5168680357536165,
+        -0.516868035753616,
         0.051548168887938194,
-        -0.05403256762017762
+        -0.05403256762017762,
+        -0.16348310381727288
       ]
     },
     "missed_context": {
@@ -57,14 +62,16 @@
         0.11750000000000001,
         0.55,
         0.425,
-        0.409254789352417
+        0.409254789352417,
+        0.0035199999999999997
       ],
       "standardized": [
         -0.4194694533449185,
         -0.7828589660171466,
-        -0.049398531220407924,
+        -0.04939853122040724,
         -0.6055025710316135,
-        -0.05403256762017762
+        -0.05403256762017762,
+        -0.16348310381727288
       ]
     },
     "noisy_activation": {
@@ -73,14 +80,16 @@
         0.11750000000000001,
         0.475,
         0.425,
-        0.27089568972587585
+        0.27089568972587585,
+        0.007189999999999999
       ],
       "standardized": [
         -0.91677332738098,
         -0.7828589660171466,
-        -0.5168680357536165,
+        -0.516868035753616,
         -0.6055025710316135,
-        -1.2661852661277406
+        -1.2661852661277406,
+        0.010969556822679532
       ]
     }
   },
@@ -110,8 +119,8 @@
       "p90": 0.4975
     },
     "score_fuzz": {
-      "mean": 0.5579254150390626,
-      "std": 0.1604382630267962,
+      "mean": 0.5579254150390625,
+      "std": 0.16043826302679617,
       "min": 0.0,
       "max": 1.0,
       "p5": 0.275,
@@ -144,6 +153,18 @@
       "p50": 0.409254789352417,
       "p75": 0.49340733885765076,
       "p90": 0.5664968490600586
+    },
+    "frac_nonzero": {
+      "mean": 0.00695923095703125,
+      "std": 0.021037215723799088,
+      "min": 2e-05,
+      "max": 0.9911,
+      "p5": 0.00068,
+      "p10": 0.00097,
+      "p25": 0.00172,
+      "p50": 0.0035199999999999997,
+      "p75": 0.007189999999999999,
+      "p90": 0.01362
     }
   },
   "processing_stats": {
@@ -151,13 +172,13 @@
     "explanations_processed": 49152,
     "missing_values_filled": 11,
     "anchor_distribution": {
-      "missed_ngram": 23973,
-      "missed_context": 15594,
-      "noisy_activation": 9585
+      "missed_ngram": 23836,
+      "missed_context": 15499,
+      "noisy_activation": 9817
     },
-    "n_clusters": 7,
-    "n_noise_features": 6002,
-    "n_clustered_features": 10382
+    "n_clusters": 2,
+    "n_noise_features": 31,
+    "n_clustered_features": 16353
   },
   "config_used": {
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
@@ -175,7 +196,8 @@
         "score_embedding",
         "score_fuzz",
         "score_detection",
-        "explanation_semantic_sim"
+        "explanation_semantic_sim",
+        "frac_nonzero"
       ]
     },
     "anchors": {
@@ -184,21 +206,24 @@
         "score_embedding": "p25",
         "score_fuzz": "p25",
         "score_detection": "p50",
-        "explanation_semantic_sim": "p50"
+        "explanation_semantic_sim": "p50",
+        "frac_nonzero": "p50"
       },
       "missed_context": {
         "intra_feature_sim": "p50",
         "score_embedding": "p25",
         "score_fuzz": "p50",
         "score_detection": "p25",
-        "explanation_semantic_sim": "p50"
+        "explanation_semantic_sim": "p50",
+        "frac_nonzero": "p50"
       },
       "noisy_activation": {
         "intra_feature_sim": "p10",
         "score_embedding": "p25",
         "score_fuzz": "p25",
         "score_detection": "p25",
-        "explanation_semantic_sim": "p10"
+        "explanation_semantic_sim": "p10",
+        "frac_nonzero": "p75"
       }
     },
     "processing": {

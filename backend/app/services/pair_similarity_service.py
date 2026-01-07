@@ -4,10 +4,9 @@ Pair similarity-based sorting service for feature pairs.
 Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
 from user-labeled feature pairs. Scores pairs by signed distance from SVM decision boundary.
 
-13-dimensional pair vectors using symmetric operations:
-- 4 dims: A + B (combined properties)
-- 4 dims: |A - B| (dissimilarity)
-- 4 dims: A * B (interaction)
+11-dimensional pair vectors using symmetric operations:
+- 5 dims: A + B (combined properties)
+- 5 dims: |A - B| (dissimilarity)
 - 1 dim: decoder similarity between A and B
 """
 
@@ -36,7 +35,7 @@ logger = logging.getLogger(__name__)
 class PairSimilarityService:
     """Service for calculating feature pair similarity scores."""
 
-    # 4 metrics used for PAIR SVM similarity calculation
+    # 5 metrics used for PAIR SVM similarity calculation
     # Only intrinsic feature properties from activation and inter-feature data
     # Note: Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
     PAIR_METRICS = [
@@ -44,6 +43,7 @@ class PairSimilarityService:
         'intra_semantic_sim',        # Feature-level: semantic consistency within activations
         'inter_ngram_jaccard',       # Feature-level: lexical similarity between features (max of char/word)
         'inter_semantic_sim',        # Feature-level: semantic similarity between features
+        'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
     ]
 
     def __init__(
@@ -73,10 +73,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 13-dimensional using symmetric operations:
-        - 4 dims: A + B (combined properties)
-        - 4 dims: |A - B| (dissimilarity)
-        - 4 dims: A * B (interaction)
+        Pair vectors are 11-dimensional using symmetric operations:
+        - 5 dims: A + B (combined properties)
+        - 5 dims: |A - B| (dissimilarity)
         - 1 dim: decoder similarity between A and B (pair-specific metric from _extract_pair_metrics)
 
         Only uses feature-level metrics (no explanation-related metrics).
@@ -354,17 +353,18 @@ class PairSimilarityService:
 
     async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract the 4 PAIR_METRICS for pair SVM calculations.
+        Extract the 5 PAIR_METRICS for pair SVM calculations.
 
         Metrics extracted:
         - From activation_display: intra_ngram_jaccard, intra_semantic_sim
         - From inter-feature data: inter_ngram_jaccard, inter_semantic_sim
+        - From features.parquet: frac_nonzero
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 4 pair metrics
+            DataFrame with feature_id and all 5 pair metrics
         """
         try:
             logger.info(f"[_extract_pair_feature_metrics] Starting extraction for {len(feature_ids)} features")
@@ -376,9 +376,12 @@ class PairSimilarityService:
                 logger.error("Main dataframe not initialized")
                 return None
 
-            # Filter to requested features and get unique feature IDs
+            # Filter to requested features and get unique feature IDs + frac_nonzero
             lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
-            base_df = lf.select("feature_id").unique().collect()
+            base_df = lf.select([
+                "feature_id",
+                pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
+            ]).unique(subset=["feature_id"]).collect()
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
             logger.info(f"[_extract_pair_feature_metrics] Base features: {len(base_df)}")
@@ -624,7 +627,7 @@ class PairSimilarityService:
         """
         Calculate similarity scores for all pairs using SVM.
 
-        13-dim symmetric pair vector = [A+B (4)] + [|A-B| (4)] + [A*B (4)] + [decoder_sim (1)]
+        11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
 
         Args:
             metrics_df: DataFrame with metrics for all features
@@ -642,7 +645,7 @@ class PairSimilarityService:
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (13-dimensional: 4*3 + 1)
+        # Build pair vectors (11-dimensional: 5*2 + 1)
         pair_vectors = {}
         pair_key_list = []
 
@@ -660,18 +663,17 @@ class PairSimilarityService:
                 pair_vectors[pair_key] = None
                 continue
 
-            # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
+            # Build symmetric 11-dim vector: concat(A+B, |A-B|, decoder_sim)
             # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims (PAIR_METRICS)
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims (PAIR_METRICS)
+            main_metrics = metrics_matrix[main_idx[0]]  # 5 dims (PAIR_METRICS)
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 5 dims (PAIR_METRICS)
             pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
-            # Symmetric operations
-            pair_sum = main_metrics + similar_metrics  # Combined properties (4 dims)
-            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (4 dims)
-            pair_product = main_metrics * similar_metrics  # Interaction (4 dims)
+            # Symmetric operations (removed product term to reduce overfitting with few samples)
+            pair_sum = main_metrics + similar_metrics  # Combined properties (5 dims)
+            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (5 dims)
 
-            pair_vector = np.concatenate([pair_sum, pair_diff, pair_product, [pair_metric]])
+            pair_vector = np.concatenate([pair_sum, pair_diff, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
         # Check cache
@@ -757,7 +759,7 @@ class PairSimilarityService:
         This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
 
-        13-dim symmetric pair vector = [A+B (4)] + [|A-B| (4)] + [A*B (4)] + [decoder_sim (1)]
+        11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
 
         Args:
             metrics_df: DataFrame with metrics for all features
@@ -775,7 +777,7 @@ class PairSimilarityService:
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (13-dimensional: 4*3 + 1)
+        # Build pair vectors (11-dimensional: 5*2 + 1)
         pair_vectors = {}
         pair_key_list = []
 
@@ -793,18 +795,17 @@ class PairSimilarityService:
                 pair_vectors[pair_key] = None
                 continue
 
-            # Build symmetric 13-dim vector: concat(A+B, |A-B|, A*B, decoder_sim)
+            # Build symmetric 11-dim vector: concat(A+B, |A-B|, decoder_sim)
             # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 4 dims (PAIR_METRICS)
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 4 dims (PAIR_METRICS)
+            main_metrics = metrics_matrix[main_idx[0]]  # 5 dims (PAIR_METRICS)
+            similar_metrics = metrics_matrix[similar_idx[0]]  # 5 dims (PAIR_METRICS)
             pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
 
-            # Symmetric operations
-            pair_sum = main_metrics + similar_metrics  # Combined properties (4 dims)
-            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (4 dims)
-            pair_product = main_metrics * similar_metrics  # Interaction (4 dims)
+            # Symmetric operations (removed product term to reduce overfitting with few samples)
+            pair_sum = main_metrics + similar_metrics  # Combined properties (5 dims)
+            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (5 dims)
 
-            pair_vector = np.concatenate([pair_sum, pair_diff, pair_product, [pair_metric]])
+            pair_vector = np.concatenate([pair_sum, pair_diff, [pair_metric]])
             pair_vectors[pair_key] = pair_vector
 
         # Check cache (reuse model from main pair scoring)

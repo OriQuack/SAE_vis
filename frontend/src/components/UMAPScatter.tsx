@@ -12,7 +12,10 @@ import {
   type CauseCategory
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
+
+// Darker unsure gray for scatterplot points (better visibility on white background)
+const DARK_UNSURE_GRAY = '#686868ff'
 // Triangle grid disabled - using density heatmap
 // import { computeTriangleGrid, cellToSvgPoints } from '../lib/triangle-grid'
 import '../styles/UMAPScatter.css'
@@ -480,7 +483,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Point styling
     const brushedPointRadius = 2
     const manualPointAlpha = 1
-    const untaggedPointAlpha = 0.4  // Alpha for untagged points
+    const untaggedPointAlpha = 0.4  // Alpha for auto-tagged points
+    const unsurePointAlpha = 0.4    // Alpha for unsure points
 
     // Find the selected feature's point for explainer positions
     const selectedPoint = (selectedFeatureId != null && spreadPoints)
@@ -506,7 +510,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       // Determine color based on effective category
       let color: string
       if (effectiveCategory === 'unsure') {
-        color = '#6b7280'  // Dark gray for unsure
+        color = DARK_UNSURE_GRAY
       } else if (effectiveCategory === 'well-explained') {
         color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green
       } else {
@@ -532,8 +536,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         // Untagged points: simple gray
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
-        ctx.fillStyle = '#6b7280'  // Dark gray for untagged
-        ctx.globalAlpha = untaggedPointAlpha
+        ctx.fillStyle = DARK_UNSURE_GRAY
+        ctx.globalAlpha = unsurePointAlpha
         ctx.fill()
       }
     }
@@ -544,7 +548,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       const selectedEffectiveCategory = getEffectiveCategory(selectedFeatureId!)
       let categoryColor: string
       if (selectedEffectiveCategory === 'unsure') {
-        categoryColor = '#6b7280'
+        categoryColor = DARK_UNSURE_GRAY
       } else if (selectedEffectiveCategory === 'well-explained') {
         categoryColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
       } else {
@@ -683,27 +687,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       >
         {/* Chart area */}
         <div className="umap-scatter__chart">
-        {/* Canvas for points (clickable) */}
-        <canvas
-          ref={canvasRef}
-          width={chartWidth * (window.devicePixelRatio || 1)}
-          height={chartHeight * (window.devicePixelRatio || 1)}
-          className="umap-scatter__canvas"
-          style={{ width: chartWidth, height: chartHeight, cursor: isOverPoint ? 'pointer' : 'default' }}
-          onClick={handleCanvasClick}
-          onMouseMove={handleCanvasMouseMove}
-          onMouseLeave={handleCanvasMouseLeave}
-        />
-
-        {/* SVG for contours and triangle outline */}
+        {/* SVG for contour fills (background layer - below points) */}
         <svg
-          ref={svgRef}
-          className="umap-scatter__svg"
+          className="umap-scatter__svg umap-scatter__svg--fills"
           width={chartWidth}
           height={chartHeight}
           style={{ pointerEvents: 'none' }}
         >
-          {/* Category contours */}
+          {/* Category contour fills only */}
           {categoryContours.map(({ category, color, paths }) => (
             <g key={category} className="umap-scatter__contour-group">
               {paths.map((path, i) => (
@@ -712,9 +703,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
                   d={path}
                   fill={color}
                   fillOpacity={contourStyle.fillOpacity * CONTOUR_CONFIG.levelOpacities[Math.min(i, CONTOUR_CONFIG.levelOpacities.length - 1)]}
-                  stroke={color}
-                  strokeWidth={contourStyle.strokeWidth}
-                  strokeOpacity={contourStyle.strokeOpacity}
+                  stroke="none"
                 />
               ))}
             </g>
@@ -730,6 +719,43 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               className="umap-scatter__triangle-outline"
             />
           )}
+        </svg>
+
+        {/* Canvas for points (clickable) - middle layer */}
+        <canvas
+          ref={canvasRef}
+          width={chartWidth * (window.devicePixelRatio || 1)}
+          height={chartHeight * (window.devicePixelRatio || 1)}
+          className="umap-scatter__canvas"
+          style={{ width: chartWidth, height: chartHeight, cursor: isOverPoint ? 'pointer' : 'default' }}
+          onClick={handleCanvasClick}
+          onMouseMove={handleCanvasMouseMove}
+          onMouseLeave={handleCanvasMouseLeave}
+        />
+
+        {/* SVG for contour strokes (top layer - above points) */}
+        <svg
+          ref={svgRef}
+          className="umap-scatter__svg umap-scatter__svg--strokes"
+          width={chartWidth}
+          height={chartHeight}
+          style={{ pointerEvents: 'none' }}
+        >
+          {/* Category contour strokes only */}
+          {categoryContours.map(({ category, color, paths }) => (
+            <g key={category} className="umap-scatter__contour-group">
+              {paths.map((path, i) => (
+                <path
+                  key={i}
+                  d={path}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={contourStyle.strokeWidth}
+                  strokeOpacity={contourStyle.strokeOpacity}
+                />
+              ))}
+            </g>
+          ))}
 
           {/* Triangle cell grid disabled - using density heatmap instead */}
           {/* {gridState && scales && Array.from(gridState.leafCells).map(cellKey => {
@@ -828,10 +854,10 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
               onClick={() => toggleCategory(cat.id)}
               style={{
                 '--filter-color': cat.id === 'unsure'
-                  ? '#6b7280'
+                  ? UNSURE_GRAY
                   : cat.id === 'well-explained'
                     ? getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-                    : getTagColor(TAG_CATEGORY_CAUSE, cat.label) || '#6b7280'
+                    : getTagColor(TAG_CATEGORY_CAUSE, cat.label) || UNSURE_GRAY
               } as React.CSSProperties}
             >
               {cat.label}

@@ -13,12 +13,13 @@ Output:
 - explanation_barycentric.parquet: Per-explanation embeddings with 2D positions
 - explanation_barycentric_metadata.json: Processing metadata
 
-Metrics Vector (5D):
+Metrics Vector (6D):
 1. intra_feature_sim: max(char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity)
 2. score_embedding: Per explanation
 3. score_fuzz: Per explanation
 4. score_detection: Per explanation
 5. explanation_semantic_sim: Per feature (avg across explainer pairs)
+6. frac_nonzero: Per feature (fraction of non-zero activations from Neuronpedia)
 
 Anchors (Triangle Vertices):
 - Missed N-gram: Low fuzz score (explanation misses lexical patterns)
@@ -54,7 +55,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-METRICS = ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim"]
+METRICS = ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim", "frac_nonzero"]
 ANCHOR_NAMES = ["missed_ngram", "missed_context", "noisy_activation"]
 
 
@@ -91,21 +92,24 @@ def load_config(config_path: Optional[str] = None) -> Dict:
                 "score_embedding": "p75",
                 "score_fuzz": "min",
                 "score_detection": "p75",
-                "explanation_semantic_sim": "p75"
+                "explanation_semantic_sim": "p75",
+                "frac_nonzero": "p50"
             },
             "missed_context": {
                 "intra_feature_sim": "p75",
                 "score_embedding": "min",
                 "score_fuzz": "p75",
                 "score_detection": "min",
-                "explanation_semantic_sim": "p75"
+                "explanation_semantic_sim": "p75",
+                "frac_nonzero": "p50"
             },
             "noisy_activation": {
                 "intra_feature_sim": "min",
                 "score_embedding": "p75",
                 "score_fuzz": "p75",
                 "score_detection": "p75",
-                "explanation_semantic_sim": "min"
+                "explanation_semantic_sim": "min",
+                "frac_nonzero": "p75"
             }
         },
         "processing": {
@@ -241,6 +245,11 @@ class BarycentricEmbeddingProcessor:
                 .alias("explanation_semantic_sim")
         ])
 
+        # frac_nonzero is already a per-feature column, fill nulls
+        df = df.with_columns([
+            pl.col("frac_nonzero").fill_null(0.0)
+        ])
+
         # Select relevant columns
         df = df.select([
             "feature_id",
@@ -248,7 +257,8 @@ class BarycentricEmbeddingProcessor:
             "score_fuzz",
             "score_detection",
             "score_embedding",
-            "explanation_semantic_sim"
+            "explanation_semantic_sim",
+            "frac_nonzero"
         ])
 
         return df
@@ -478,7 +488,7 @@ class BarycentricEmbeddingProcessor:
     def _compute_clusters(self):
         """Run HDBSCAN clustering on mean metric vectors per feature.
 
-        Clusters features in the 5D standardized metric space for batch tagging.
+        Clusters features in the 6D standardized metric space for batch tagging.
         Each feature gets a cluster_id (-1 for noise points).
         """
         logger.info("Computing HDBSCAN clusters...")

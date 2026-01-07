@@ -48,6 +48,7 @@ METRICS_FOR_SVM = [
     'score_fuzz',
     'score_detection',
     'explanation_semantic_sim',
+    'frac_nonzero',
 ]
 
 if TYPE_CHECKING:
@@ -76,7 +77,7 @@ class UMAPService:
 
         Returns:
             Tuple of (anchor_matrix, anchor_categories) where:
-            - anchor_matrix: (3, 5) array of raw metric vectors
+            - anchor_matrix: (3, 6) array of raw metric vectors
             - anchor_categories: List of category names in same order
         """
         if self._anchor_metrics is not None:
@@ -306,11 +307,11 @@ class UMAPService:
         with user's manual tags.
 
         Args:
-            metrics_matrix: (N, 5) feature metric matrix (raw values)
+            metrics_matrix: (N, 6) feature metric matrix (raw values)
             feature_ids: Array of feature IDs
             cause_selections: Dict mapping feature_id to category (manual tags)
             feature_id_to_idx: Dict mapping feature_id to matrix index
-            anchor_matrix: (3, 5) anchor metric matrix (raw values)
+            anchor_matrix: (3, 6) anchor metric matrix (raw values)
             anchor_categories: List of category names for each anchor
 
         Returns:
@@ -407,12 +408,13 @@ class UMAPService:
         """Extract MEAN metrics per feature from barycentric parquet for SVM training.
 
         Computes mean across 3 explainers for each feature.
+        Also loads frac_nonzero from features.parquet (per-feature, not per-explainer).
 
         Args:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id and mean metrics
+            DataFrame with feature_id and mean metrics (including frac_nonzero)
         """
         try:
             if self.data_service._barycentric_lazy is None:
@@ -430,9 +432,25 @@ class UMAPService:
                 pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
             ]).collect()
 
+            # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
+            if self.data_service._df_lazy is not None:
+                frac_df = self.data_service._df_lazy.filter(
+                    pl.col("feature_id").is_in(feature_ids)
+                ).select([
+                    "feature_id",
+                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero")
+                ]).unique(subset=["feature_id"]).collect()
+
+                # Join frac_nonzero to the main metrics
+                df = df.join(frac_df, on="feature_id", how="left")
+                logger.info(f"Joined frac_nonzero from features.parquet")
+
             # Fill null values
             for metric in METRICS_FOR_SVM:
-                df = df.with_columns(pl.col(metric).fill_null(0.0))
+                if metric in df.columns:
+                    df = df.with_columns(pl.col(metric).fill_null(0.0))
+                else:
+                    df = df.with_columns(pl.lit(0.0).alias(metric))
 
             logger.info(f"Extracted mean of {len(METRICS_FOR_SVM)} metrics for {len(df)} features from barycentric data")
             return df

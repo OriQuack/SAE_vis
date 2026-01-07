@@ -405,7 +405,7 @@ export const NEUTRAL_ICON_COLORS = {
  * Centralized unsure/untagged color used across all components
  * Used for: badges, buttons, bars, tags, table states
  */
-export const UNSURE_GRAY = '#e0e0e0ff'
+export const UNSURE_GRAY = '#e0e0e0'
 
 // ============================================================================
 // SANKEY DIAGRAM COLORS - Centralized color definitions for Sankey visualization
@@ -423,7 +423,7 @@ export const SANKEY_COLORS = {
 
   // Link colors (used for Sankey links and flow overlays)
   // Light gray for links - solid color with opacity 1.0 for clean rendering
-  LINK_COLOR: '#f5f6f7',              // Very light gray for all sankey links
+  LINK_COLOR: '#eff1f2ff',              // Very light gray for all sankey links
 
   // Segment colors
   SEGMENT_STROKE: '#ffffff',          // White stroke between segments

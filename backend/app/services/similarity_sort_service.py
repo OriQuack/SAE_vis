@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 5 metrics used for SINGLE FEATURE SVM similarity calculation
+    # 6 metrics used for SINGLE FEATURE SVM similarity calculation
     # Same as Stage 3 (Cause) for uniformity - uses composite intra_feature_sim
     METRICS = [
         'intra_feature_sim',         # Activation-level: max(char_ngram, word_ngram, semantic) - composite consistency
@@ -39,6 +39,7 @@ class SimilaritySortService:
         'score_fuzz',                # Score: fuzzy matching score
         'score_detection',           # Score: detection score
         'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations (semsim_mean)
+        'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
     ]
 
     def __init__(self, data_service: "DataService"):
@@ -529,6 +530,8 @@ class SimilaritySortService:
                     pl.col("score_detection").fill_null(0.0).alias("score_detection"),
                     # Explanation semantic similarity (semsim_mean)
                     pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
+                    # Neuronpedia: fraction of non-zero activations
+                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
                 ]).unique(subset=["feature_id"]).collect()
 
                 logger.info(f"[_extract_metrics] Main dataframe metrics extracted: {len(base_df)} features")

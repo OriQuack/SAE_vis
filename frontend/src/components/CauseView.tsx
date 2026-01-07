@@ -1036,7 +1036,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 variant="causeBrushed"
                 badges={[{ label: 'Filtered', count: sortedFilteredFeatureList.length }]}
                 columnHeader={{
-                  label: sortMode === 'default' ? 'Feature ID' : 'Decision Margin',
+                  label: sortMode === 'default' ? 'Feature ID' : '|Decision Margin|',
                   sortDirection: selectedSortDirection,
                   onClick: toggleSelectedSortDirection,
                   isSortable: true

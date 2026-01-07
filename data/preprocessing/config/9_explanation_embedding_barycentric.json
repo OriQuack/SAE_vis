@@ -9,7 +9,7 @@
     "metadata_path": "data/master/explanation_barycentric_metadata.json"
   },
   "metrics": {
-    "order": ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim"]
+    "order": ["intra_feature_sim", "score_embedding", "score_fuzz", "score_detection", "explanation_semantic_sim", "frac_nonzero"]
   },
   "anchors": {
     "missed_ngram": {
@@ -17,21 +17,24 @@
       "score_embedding": "p25",
       "score_fuzz": "p25",
       "score_detection": "p50",
-      "explanation_semantic_sim": "p50"
+      "explanation_semantic_sim": "p50",
+      "frac_nonzero": "p50"
     },
     "missed_context": {
       "intra_feature_sim": "p50",
       "score_embedding": "p25",
       "score_fuzz": "p50",
       "score_detection": "p25",
-      "explanation_semantic_sim": "p50"
+      "explanation_semantic_sim": "p50",
+      "frac_nonzero": "p50"
     },
     "noisy_activation": {
       "intra_feature_sim": "p10",
       "score_embedding": "p25",
       "score_fuzz": "p25",
       "score_detection": "p25",
-      "explanation_semantic_sim": "p10"
+      "explanation_semantic_sim": "p10",
+      "frac_nonzero": "p75"
     }
   },
   "processing": {
