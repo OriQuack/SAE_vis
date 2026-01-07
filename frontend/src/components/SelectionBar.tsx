@@ -396,9 +396,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
 
     // Define cause categories in render order
     const causeCategories = [
-      { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
       { key: 'missedNgram', label: 'Pattern Miss', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
       { key: 'missedContext', label: 'Context Miss', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
+      { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
       { key: 'wellExplained', label: 'Well-Explained', manual: causeCounts.wellExplained, auto: causeCounts.wellExplainedAuto },
     ]
 

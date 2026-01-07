@@ -709,14 +709,14 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                       )
                     } else {
                       // Stage 3: Cause Analysis - 4 cause categories + unsure
-                      const noisyActivationCount = counts.noisyActivation ?? 0
                       const missedNgramCount = counts.missedNgram ?? 0
                       const missedContextCount = counts.missedContext ?? 0
+                      const noisyActivationCount = counts.noisyActivation ?? 0
                       const wellExplainedCount = counts.wellExplained ?? 0
 
-                      const noisyActivationPct = (noisyActivationCount / total) * 100
                       const missedNgramPct = (missedNgramCount / total) * 100
                       const missedContextPct = (missedContextCount / total) * 100
+                      const noisyActivationPct = (noisyActivationCount / total) * 100
                       const wellExplainedPct = (wellExplainedCount / total) * 100
 
                       // Get stage2 colors for well-explained (green)
@@ -726,12 +726,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                         <div className="commit-hover-tooltip__content">
                           {/* Mini vertical bar for cause categories */}
                           <div className="commit-hover-tooltip__bar">
-                            {noisyActivationCount > 0 && (
-                              <div
-                                className="commit-hover-tooltip__bar-segment"
-                                style={{ height: `${noisyActivationPct}%`, backgroundColor: stageColors.confirmed }}
-                              />
-                            )}
                             {missedNgramCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
@@ -744,6 +738,12 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                                 style={{ height: `${missedContextPct}%`, backgroundColor: stageColors.rejected }}
                               />
                             )}
+                            {noisyActivationCount > 0 && (
+                              <div
+                                className="commit-hover-tooltip__bar-segment"
+                                style={{ height: `${noisyActivationPct}%`, backgroundColor: stageColors.confirmed }}
+                              />
+                            )}
                             {wellExplainedCount > 0 && (
                               <div
                                 className="commit-hover-tooltip__bar-segment"
@@ -754,16 +754,16 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                           {/* Text counts - order matches bar */}
                           <div className="commit-hover-tooltip__counts">
                             <span className="commit-hover-tooltip__count">
-                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
-                              Noisy Activation: {noisyActivationCount}
-                            </span>
-                            <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.autoSelected }} />
                               Pattern Miss: {missedNgramCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
                               Context Miss: {missedContextCount}
+                            </span>
+                            <span className="commit-hover-tooltip__count">
+                              <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
+                              Noisy Activation: {noisyActivationCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stage2Colors.confirmed }} />

@@ -14,9 +14,9 @@ interface OverviewSummaryProps {
 
 // Tag display names for Stage 3 causes (well-explained merges to Stage 2)
 const CAUSE_TAG_CONFIG: Record<string, { display: string }> = {
-  'noisy-activation': { display: 'Noisy Activation' },
+  'missed-N-gram': { display: 'Pattern Miss' },
   'missed-context': { display: 'Context Miss' },
-  'missed-N-gram': { display: 'Pattern Miss' }
+  'noisy-activation': { display: 'Noisy Activation' }
 }
 
 /**
@@ -71,9 +71,9 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
   // Stage 3: Count by cause tag (well-explained excluded, merged to Stage 2)
   const stage3Counts = useMemo(() => {
     const counts: Record<string, { manual: number; auto: number }> = {
-      'noisy-activation': { manual: 0, auto: 0 },
+      'missed-N-gram': { manual: 0, auto: 0 },
       'missed-context': { manual: 0, auto: 0 },
-      'missed-N-gram': { manual: 0, auto: 0 }
+      'noisy-activation': { manual: 0, auto: 0 }
     }
     causeSelectionStates.forEach((tag, id) => {
       if (tag !== 'well-explained' && counts[tag]) {

@@ -819,7 +819,7 @@ export function updateStage3CauseSegments(
   }
 
   // Group features by cause category (excluding well-explained which goes to terminal)
-  const causeCategories = ['noisy-activation', 'missed-N-gram', 'missed-context'] as const
+  const causeCategories = ['missed-N-gram', 'missed-context', 'noisy-activation'] as const
   const categoryFeatures: Map<string, Set<number>> = new Map()
 
   causeCategories.forEach(cat => categoryFeatures.set(cat, new Set()))
@@ -984,9 +984,9 @@ export function buildStage4FromTaggedStates(
 
   // Create terminal nodes for cause categories (excluding well-explained, which merges to Stage 2)
   const causeCategories = [
-    { id: 'noisy_activation_terminal', tagName: 'Noisy Activation', key: 'noisy-activation' },
+    { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' },
     { id: 'context_miss_terminal', tagName: 'Context Miss', key: 'missed-context' },
-    { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' }
+    { id: 'noisy_activation_terminal', tagName: 'Noisy Activation', key: 'noisy-activation' }
   ]
 
   // Find index of first terminal node to insert cause terminals before it

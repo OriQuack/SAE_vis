@@ -41,7 +41,8 @@ interface HistogramBin {
   x0: number  // Bin start (margin value)
   x1: number  // Bin end (margin value)
   featureIds: number[]
-  categoryCounts: Record<CauseCategory | 'unsure', number>
+  manualCounts: Record<CauseCategory | 'unsure', number>
+  autoCounts: Record<CauseCategory | 'unsure', number>
 }
 
 interface BarSegment {
@@ -52,6 +53,7 @@ interface BarSegment {
   height: number
   color: string
   category: CauseCategory | 'unsure'
+  isManual: boolean
 }
 
 // ============================================================================
@@ -191,18 +193,20 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
     // Initialize bins
     const histBins: HistogramBin[] = []
+    const emptyCounts = () => ({
+      'noisy-activation': 0,
+      'missed-N-gram': 0,
+      'missed-context': 0,
+      'well-explained': 0,
+      'unsure': 0
+    })
     for (let i = 0; i < NUM_BINS; i++) {
       histBins.push({
         x0: i * binWidth,
         x1: (i + 1) * binWidth,
         featureIds: [],
-        categoryCounts: {
-          'noisy-activation': 0,
-          'missed-N-gram': 0,
-          'missed-context': 0,
-          'well-explained': 0,
-          'unsure': 0
-        }
+        manualCounts: emptyCounts(),
+        autoCounts: emptyCounts()
       })
     }
 
@@ -210,13 +214,19 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     for (const point of marginData) {
       const binIndex = Math.min(Math.floor(point.margin / binWidth), NUM_BINS - 1)
       histBins[binIndex].featureIds.push(point.featureId)
-      histBins[binIndex].categoryCounts[point.category]++
+      if (point.isManual) {
+        histBins[binIndex].manualCounts[point.category]++
+      } else {
+        histBins[binIndex].autoCounts[point.category]++
+      }
     }
 
-    // Find max count for y-scale
-    const maxC = Math.max(...histBins.map(b =>
-      Object.values(b.categoryCounts).reduce((a, c) => a + c, 0)
-    ), 1)
+    // Find max count for y-scale (sum of manual + auto)
+    const maxC = Math.max(...histBins.map(b => {
+      const manualTotal = Object.values(b.manualCounts).reduce((a, c) => a + c, 0)
+      const autoTotal = Object.values(b.autoCounts).reduce((a, c) => a + c, 0)
+      return manualTotal + autoTotal
+    }), 1)
 
     return { bins: histBins, maxMargin: maxMarginClipped, maxCount: maxC, isClipped: clipped, clippedCount: numClipped }
   }, [marginData])
@@ -236,7 +246,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     [maxCount, chartHeight]
   )
 
-  // Calculate bar segments for rendering
+  // Calculate bar segments for rendering (manual first, then auto for each category)
   const barSegments = useMemo((): BarSegment[] => {
     const segments: BarSegment[] = []
     const binWidth = chartWidth / NUM_BINS
@@ -247,23 +257,46 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       let cumulativeHeight = 0
 
       for (const category of CATEGORY_STACK_ORDER) {
-        const count = bin.categoryCounts[category]
-        if (count === 0) continue
+        const manualCount = bin.manualCounts[category]
+        const autoCount = bin.autoCounts[category]
 
-        const barHeight = chartHeight - yScale(count)
-        const y = chartHeight - cumulativeHeight - barHeight
+        // Manual segment (solid fill) - bottom
+        if (manualCount > 0) {
+          const barHeight = chartHeight - yScale(manualCount)
+          const y = chartHeight - cumulativeHeight - barHeight
 
-        segments.push({
-          binIndex,
-          x: binIndex * binWidth + barPadding,
-          y,
-          width: Math.max(binWidth - barPadding * 2, 1),
-          height: barHeight,
-          color: getCategoryColor(category),
-          category
-        })
+          segments.push({
+            binIndex,
+            x: binIndex * binWidth + barPadding,
+            y,
+            width: Math.max(binWidth - barPadding * 2, 1),
+            height: barHeight,
+            color: getCategoryColor(category),
+            category,
+            isManual: true
+          })
 
-        cumulativeHeight += barHeight
+          cumulativeHeight += barHeight
+        }
+
+        // Auto segment (striped fill) - top
+        if (autoCount > 0) {
+          const barHeight = chartHeight - yScale(autoCount)
+          const y = chartHeight - cumulativeHeight - barHeight
+
+          segments.push({
+            binIndex,
+            x: binIndex * binWidth + barPadding,
+            y,
+            width: Math.max(binWidth - barPadding * 2, 1),
+            height: barHeight,
+            color: getCategoryColor(category),
+            category,
+            isManual: false
+          })
+
+          cumulativeHeight += barHeight
+        }
       }
     }
 
@@ -302,12 +335,23 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   const tooltipContent = useMemo(() => {
     if (hoveredBinIndex === null || !bins[hoveredBinIndex]) return null
     const bin = bins[hoveredBinIndex]
-    const total = Object.values(bin.categoryCounts).reduce((a, c) => a + c, 0)
+    const manualTotal = Object.values(bin.manualCounts).reduce((a, c) => a + c, 0)
+    const autoTotal = Object.values(bin.autoCounts).reduce((a, c) => a + c, 0)
+    const total = manualTotal + autoTotal
+
+    // Combine counts for display
+    const counts: Record<CauseCategory | 'unsure', { manual: number; auto: number }> = {
+      'noisy-activation': { manual: bin.manualCounts['noisy-activation'], auto: bin.autoCounts['noisy-activation'] },
+      'missed-N-gram': { manual: bin.manualCounts['missed-N-gram'], auto: bin.autoCounts['missed-N-gram'] },
+      'missed-context': { manual: bin.manualCounts['missed-context'], auto: bin.autoCounts['missed-context'] },
+      'well-explained': { manual: bin.manualCounts['well-explained'], auto: bin.autoCounts['well-explained'] },
+      'unsure': { manual: bin.manualCounts['unsure'], auto: bin.autoCounts['unsure'] }
+    }
 
     return {
       range: `${bin.x0.toFixed(3)} - ${bin.x1.toFixed(3)}`,
       total,
-      counts: bin.categoryCounts
+      counts
     }
   }, [hoveredBinIndex, bins])
 
@@ -335,8 +379,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
         height={height - 16}
         className="cause-margin-histogram__svg"
       >
-        {/* SVG Pattern for unsure zone */}
+        {/* SVG Patterns */}
         <defs>
+          {/* Pattern for unsure zone background */}
           <pattern
             id="unsureZoneStripe"
             patternUnits="userSpaceOnUse"
@@ -351,6 +396,25 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               opacity={0.3}
             />
           </pattern>
+          {/* Stripe patterns for auto-tagged category bars */}
+          {CATEGORY_STACK_ORDER.map(category => (
+            <pattern
+              key={`stripe-${category}`}
+              id={`stripe-${category}`}
+              patternUnits="userSpaceOnUse"
+              width={STRIPE_PATTERN.width}
+              height={STRIPE_PATTERN.height}
+              patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+            >
+              <rect width={STRIPE_PATTERN.width} height={STRIPE_PATTERN.height} fill={UNSURE_GRAY} />
+              <rect
+                width={STRIPE_PATTERN.stripeWidth}
+                height={STRIPE_PATTERN.height}
+                fill={getCategoryColor(category)}
+                opacity={STRIPE_PATTERN.opacity}
+              />
+            </pattern>
+          ))}
         </defs>
 
         <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
@@ -372,7 +436,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             fill="#ffffff"
           />
 
-          {/* Category bars */}
+          {/* Category bars - solid for manual, striped for auto */}
           {barSegments.map((segment, i) => (
             <rect
               key={i}
@@ -380,7 +444,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               y={segment.y}
               width={segment.width}
               height={segment.height}
-              fill={segment.color}
+              fill={segment.isManual ? segment.color : `url(#stripe-${segment.category})`}
               opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
               style={{ cursor: 'pointer' }}
               onMouseEnter={(e) => handleBinMouseEnter(segment.binIndex, e)}
@@ -488,14 +552,19 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             Total: {tooltipContent.total} features
           </div>
           {Object.entries(tooltipContent.counts)
-            .filter(([, count]) => count > 0)
-            .map(([cat, count]) => (
+            .filter(([, { manual, auto }]) => manual + auto > 0)
+            .map(([cat, { manual, auto }]) => (
               <div key={cat} className="cause-margin-histogram__tooltip-row">
                 <span
                   className="cause-margin-histogram__tooltip-color"
                   style={{ backgroundColor: getCategoryColor(cat as CauseCategory | 'unsure') }}
                 />
-                <span>{cat === 'unsure' ? 'Unsure' : CATEGORY_TO_TAG_NAME[cat as CauseCategory]}: {count}</span>
+                <span>
+                  {cat === 'unsure' ? 'Unsure' : CATEGORY_TO_TAG_NAME[cat as CauseCategory]}: {manual + auto}
+                  {manual > 0 && auto > 0 && ` (${manual}m/${auto}a)`}
+                  {manual > 0 && auto === 0 && ' (manual)'}
+                  {manual === 0 && auto > 0 && ' (auto)'}
+                </span>
               </div>
             ))
           }

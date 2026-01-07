@@ -131,9 +131,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     showHistogram: true,
     tags: [
       "Well-Explained",
-      "Noisy Activation",
+      "Pattern Miss",
       "Context Miss",
-      "Pattern Miss"
+      "Noisy Activation"
     ],
     relatedMetrics: [
       // Noisy Activation indicators

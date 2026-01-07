@@ -128,9 +128,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       // Use cause counts from causeSelectionStates for all cause categories
       const cCounts = getCauseCounts();
       return {
-        'Noisy Activation': cCounts.noisyActivation,
         'Pattern Miss': cCounts.missedNgram,
         'Context Miss': cCounts.missedContext,
+        'Noisy Activation': cCounts.noisyActivation,
         'Well-Explained': cCounts.wellExplained
       };
     }
