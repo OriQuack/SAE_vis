@@ -48,10 +48,37 @@
   min-height: 0;
 }
 
+/* ============================================================================
+   SVG LAYER SYSTEM - Background (links) and Foreground (nodes)
+   Flow overlay (z-index: 100) renders between these layers
+   ============================================================================ */
 .sankey-diagram__svg {
   display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
+}
+
+/* Background layer: Links only (below flow overlay z-index: 100) */
+.sankey-diagram__svg--background {
+  z-index: 1;
+}
+
+/* Foreground layer: Nodes, histograms, labels (above flow overlay z-index: 100) */
+.sankey-diagram__svg--foreground {
+  z-index: 150;
+  pointer-events: none;  /* Allow clicks through to links below */
+}
+
+/* Restore pointer events for interactive elements in foreground */
+.sankey-diagram__svg--foreground .sankey-diagram__nodes {
+  pointer-events: auto;
+}
+
+.sankey-diagram__svg--foreground .sankey-diagram__node-labels {
+  pointer-events: none;  /* Labels don't need interaction */
 }
 
 /* Empty State */

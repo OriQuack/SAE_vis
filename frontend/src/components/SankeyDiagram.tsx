@@ -8,9 +8,7 @@ import {
   getLinkColor,
   getSankeyPath,
   applyRightToLeftTransform,
-  RIGHT_SANKEY_MARGIN,
-  LINK_OPACITY,
-  applyOpacity
+  RIGHT_SANKEY_MARGIN
 } from '../lib/sankey-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
 // Removed: SankeyTreeNode, getNodeMetrics, getNodeSegments - using v2 system
@@ -167,17 +165,15 @@ const SankeyLink: React.FC<{
   if (!sourceNode) return null
 
   const path = getSankeyPath(link)
-  const baseColor = getLinkColor(link)
-
-  // Apply opacity using centralized constants
-  const opacity = isHovered ? LINK_OPACITY.HOVER : LINK_OPACITY.DEFAULT
-  const color = applyOpacity(baseColor, opacity)
+  // Use pre-computed light color with opacity 1.0 (color already includes visual opacity)
+  const color = getLinkColor(link)
 
   return (
     <path
       d={path}
       fill="none"
       stroke={color}
+      strokeOpacity={isHovered ? 0.8 : 1.0}
       strokeWidth={Math.max(1, link.width || 0)}
       style={{
         transition: `all 500ms cubic-bezier(0.4, 0.0, 0.2, 1)`
@@ -665,7 +661,27 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         className="sankey-diagram__container"
         style={{ width: '100%', height: '100%', position: 'relative' }}
       >
-        <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg">
+        {/* Background SVG layer: Links only (below flow overlay) */}
+        <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg sankey-diagram__svg--background">
+          <rect width={containerSize.width} height={containerSize.height} fill={SANKEY_COLORS.BACKGROUND} />
+          <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
+            {/* Links */}
+            <g className="sankey-diagram__links">
+              {layout.links.map((link, index) => (
+                <SankeyLink
+                  key={`link-${index}`}
+                  link={link}
+                  onMouseEnter={() => setHoveredLinkIndex(index)}
+                  onMouseLeave={() => setHoveredLinkIndex(null)}
+                  isHovered={hoveredLinkIndex === index}
+                />
+              ))}
+            </g>
+          </g>
+        </svg>
+
+        {/* Foreground SVG layer: Nodes, histograms, labels (above flow overlay) */}
+        <svg width={containerSize.width} height={containerSize.height} className="sankey-diagram__svg sankey-diagram__svg--foreground">
           <defs>
             {/* Stripe patterns for terminal segments - colored stripes on gray background */}
             {/* Uses STRIPE_PATTERN constants for unified styling */}
@@ -714,24 +730,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               />
             </pattern>
           </defs>
-          <rect width={containerSize.width} height={containerSize.height} fill={SANKEY_COLORS.BACKGROUND} />
 
           <g transform={`translate(${layout.margin.left},${layout.margin.top})`}>
-            {/* Links */}
-            <g className="sankey-diagram__links">
-              {layout.links.map((link, index) => (
-                <SankeyLink
-                  key={`link-${index}`}
-                  link={link}
-                  onMouseEnter={() => setHoveredLinkIndex(index)}
-                  onMouseLeave={() => setHoveredLinkIndex(null)}
-                  isHovered={hoveredLinkIndex === index}
-                />
-              ))}
-            </g>
-
-            {/* Metric labels removed - metric name now shown in node labels */}
-
             {/* Nodes */}
             <g className="sankey-diagram__nodes">
               {(() => {
@@ -804,7 +804,6 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                   // Skip placeholder nodes
                   if (node.id === 'placeholder_vertical_bar') return null
 
-                  const labelX = isRightToLeft && node.x1 !== undefined ? node.x1 + 4 : (node.x0 !== undefined ? node.x0 - 4 : 0)
                   const textAnchor = isRightToLeft ? 'start' : 'end'
                   const isHovered = hoveredNodeId === node.id
 
@@ -872,12 +871,18 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                             return lineIndex === 0 ? 16 : 12
                           }
 
+                          // Increase gap for selected/enlarged labels to prevent overlap with segment
+                          // Check both segment-level selection (Stage 1/2) and node-level selection (Stage 3)
+                          const isNodeSelected = tableSelectedNodeIds.includes(node.id || '')
+                          const labelGap = (isNodeSelected || isSelectedSegment || shouldEnlargeLabel) ? 6 : 4
+                          const segmentLabelX = isRightToLeft && node.x1 !== undefined ? node.x1 + labelGap : (node.x0 !== undefined ? node.x0 - labelGap : 0)
+
                           return (
                             <g key={`segment-label-${segmentIndex}`}>
                               {labelLines.map((line: string, lineIndex: number) => (
                                 <g key={lineIndex}>
                                   <OutlinedLabel
-                                    x={labelX}
+                                    x={segmentLabelX}
                                     y={segmentCenterY + verticalOffset + (lineIndex * lineHeight)}
                                     text={line}
                                     fontSize={getBaseFontSize(lineIndex)}
@@ -895,7 +900,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   // Fallback: if no segments, render simple label
                   // For stage3_segment with no segments yet, show "Unsure" as initial state
-                  const fallbackLabelX = isRightToLeft ? node.x1! + 4 : node.x0! - 4
+                  const fallbackIsNodeSelected = tableSelectedNodeIds.includes(node.id || '')
+                  const fallbackGap = fallbackIsNodeSelected ? 6 : 4
+                  const fallbackLabelX = isRightToLeft ? node.x1! + fallbackGap : node.x0! - fallbackGap
                   const fallbackTextAnchor = isRightToLeft ? 'start' : 'end'
                   const fallbackIsHovered = hoveredNodeId === node.id
                   const fallbackNodeCenterY = ((node.y0 ?? 0) + (node.y1 ?? 0)) / 2

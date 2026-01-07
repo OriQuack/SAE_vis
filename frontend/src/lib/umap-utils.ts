@@ -723,21 +723,25 @@ export interface CategoryContour {
  *
  * @param points - Array of UMAP points
  * @param causeStates - Map of feature IDs to cause categories
+ * @param causeSelectionSources - Map of feature IDs to selection sources ('manual' | 'auto')
  * @param width - Chart width in pixels
  * @param height - Chart height in pixels
  * @param scales - UMAP scales for coordinate conversion
  * @param bandwidth - KDE bandwidth (default 20)
  * @param thresholds - Number of contour levels (default 4)
+ * @param excludeManual - If true, exclude manually tagged features from contours (default true)
  * @returns Array of CategoryContour objects
  */
 export function computeCategoryContours(
   points: UmapPoint[],
   causeStates: Map<number, CauseCategory>,
+  causeSelectionSources: Map<number, 'manual' | 'auto'>,
   width: number,
   height: number,
   scales: UmapScales,
   bandwidth: number = 20,
-  thresholds: number = 4
+  thresholds: number = 4,
+  excludeManual: boolean = true
 ): CategoryContour[] {
   const colors = getSelectionColors('stage3')
   const pathGenerator = geoPath()
@@ -756,6 +760,13 @@ export function computeCategoryContours(
     // Filter points for this category
     const categoryPoints = points.filter(p => {
       const state = causeStates.get(p.feature_id)
+      const source = causeSelectionSources.get(p.feature_id)
+
+      // Exclude manually tagged features from contours (they represent user decisions, not predictions)
+      if (excludeManual && source === 'manual') {
+        return false
+      }
+
       if (category === 'unsure') {
         return !state
       }

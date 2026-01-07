@@ -111,8 +111,9 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const setCauseMarginThreshold = useVisualizationStore(state => state.setCauseMarginThreshold)
 
   // Filter state: use prop if provided, fallback to local state
+  // Initially show only 'unsure' - user starts by reviewing uncertain features
   const [localVisibleCategories, setLocalVisibleCategories] = useState<Set<FilterCategory>>(
-    new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'well-explained', 'unsure'])
+    new Set(['unsure'])
   )
   const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
@@ -219,7 +220,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const [contourStyle, setContourStyle] = useState({
     fillOpacity: 0.1,
     strokeOpacity: 1,
-    strokeWidth: 1,
+    strokeWidth: 2,
     bandwidth: 10,
     levels: 6
   })
@@ -299,20 +300,24 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // }, [filteredSpreadPoints])
 
   // Compute category contours for visualization
+  // Uses ALL spread points (not filtered by visibility) so contours always show as context
+  // Excludes manually tagged features - contours represent predictions/auto-tags only
   const categoryContours = useMemo(() => {
-    if (!filteredSpreadPoints || filteredSpreadPoints.length < 3 || !scales || chartWidth <= 0 || chartHeight <= 0) {
+    if (!spreadPoints || spreadPoints.length < 3 || !scales || chartWidth <= 0 || chartHeight <= 0) {
       return []
     }
     return computeCategoryContours(
-      filteredSpreadPoints,
+      spreadPoints,  // Use all points, not filtered by visibility
       causeSelectionStates as Map<number, CauseCategory>,
+      causeSelectionSources,  // Pass sources to exclude manual tags
       chartWidth,
       chartHeight,
       scales,
       contourStyle.bandwidth,
-      contourStyle.levels
+      contourStyle.levels,
+      true  // excludeManual = true
     )
-  }, [filteredSpreadPoints, causeSelectionStates, chartWidth, chartHeight, scales, contourStyle.bandwidth, contourStyle.levels])
+  }, [spreadPoints, causeSelectionStates, causeSelectionSources, chartWidth, chartHeight, scales, contourStyle.bandwidth, contourStyle.levels])
 
   // Grid-related code disabled - using density heatmap instead
   // const maxCellCount = useMemo(() => {
@@ -670,7 +675,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   }
 
   return (
-    <div ref={containerRef} className={`umap-scatter ${className}`} style={containerStyle}>
+    <div ref={containerRef} className={`umap-scatter ${className}${causeClassificationLoading ? ' umap-scatter--training' : ''}`} style={containerStyle}>
       {/* Centered chart wrapper - square size, centered in container */}
       <div
         className="umap-scatter__chart-wrapper"
@@ -840,7 +845,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             type="range"
             min={0}
             max={1}
-            step={0.05}
+            step={0.01}
             value={causeMarginThreshold}
             onChange={(e) => setCauseMarginThreshold(parseFloat(e.target.value))}
           />

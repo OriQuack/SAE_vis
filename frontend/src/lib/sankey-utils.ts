@@ -7,7 +7,8 @@ import type {
 import {
   CATEGORY_DECODER_SIMILARITY,
   CATEGORY_SEMANTIC_SIMILARITY,
-  UNSURE_GRAY
+  UNSURE_GRAY,
+  SANKEY_COLORS
 } from './constants'
 import { getMetricBaseColor } from './color-utils'
 
@@ -447,8 +448,8 @@ export function getNodeColor(node: D3SankeyNode): string {
  * Returns a fixed neutral gray color for all links for visual consistency
  */
 export function getLinkColor(_link: D3SankeyLink): string {
-  // Fixed neutral gray for all links - matches root node color
-  return '#d1d5db'
+  // Fixed neutral gray for all links - uses centralized constant
+  return SANKEY_COLORS.LINK_COLOR
 }
 
 // ============================================================================

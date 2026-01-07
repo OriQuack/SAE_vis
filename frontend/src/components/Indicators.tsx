@@ -40,9 +40,9 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
   isAuto = false
 }) => {
   // Get tag color from pre-computed colors (or gray for unselected)
-  // Special handling: Well-Explained uses TAG_CATEGORY_QUALITY, Unsure uses dark gray
+  // Special handling: Well-Explained uses TAG_CATEGORY_QUALITY
   const baseTagColor = tagName === 'Unsure'
-    ? '#6b7280'  // Dark gray for unsure
+    ? UNSURE_GRAY  // Use standard unsure color
     : tagName === 'Well-Explained'
       ? getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green from quality category
       : getTagColor(tagCategoryId, tagName) || '#9ca3af'
@@ -56,9 +56,9 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 
   const isClickable = !!onClick
 
-  // Tag background color (gray for unselected, actual color otherwise)
-  const tagBgColor = tagName === 'Unsure' ? '#e5e7eb' : baseTagColor
-  const tagTextColor = tagName === 'Unsure' ? '#6b7280' : '#000'
+  // Tag background color and text color - consistent black text for all tags
+  const tagBgColor = baseTagColor
+  const tagTextColor = '#000'
 
   // Check if stripe pattern should be applied
   const showStripe = isAuto && tagName !== 'Unsure'

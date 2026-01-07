@@ -92,6 +92,8 @@
   display: flex;
   overflow: visible;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  position: relative;
+  z-index: 150; /* Above SankeyToSelectionFlowOverlay (z-index: 100) */
 }
 
 .selection-state-bar__segment {

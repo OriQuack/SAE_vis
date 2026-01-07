@@ -22,6 +22,10 @@ import '../styles/CauseView.css'
 // ============================================================================
 // Layout: [Content: UMAP + Selected Features List + Right Panel]
 
+// Maximum features to show in initial unsure filter view
+// Auto-adjustment will set causeMarginThreshold to show at most this many unsure features
+const MAX_INITIAL_UNSURE_FEATURES = 100
+
 // Commit history types
 export interface CauseCommitCounts {
   noisyActivation: number
@@ -91,6 +95,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Shared margin threshold from store (used by UMAPScatter and SelectionPanel)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
+  const setCauseMarginThreshold = useVisualizationStore(state => state.setCauseMarginThreshold)
 
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
@@ -102,16 +107,16 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [selectedPage, setSelectedPage] = useState(0)
 
   // Pagination for selected features list
-  const ITEMS_PER_PAGE = 8
+  const ITEMS_PER_PAGE = 5
   const rightPanelRef = useRef<HTMLDivElement>(null)
 
   const hasAutoTaggedRef = useRef(false)
 
   // Filter state: which categories to show (shared with UMAPScatter)
-  // Initially show cause categories (user can immediately start tagging)
+  // Initially show only 'unsure' - user starts by reviewing uncertain features
   type FilterCategory = CauseCategory | 'unsure'
   const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
-    new Set(['noisy-activation', 'missed-N-gram', 'missed-context', 'unsure'])
+    new Set(['unsure'])
   )
 
   // Mark as already auto-tagged when revisiting (prevents re-initialization)
@@ -213,6 +218,88 @@ const CauseView: React.FC<CauseViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references, causeClassificationLoading removed to prevent infinite loop
   }, [isRevisitingStage3, selectedFeatureIds])
 
+  // ============================================================================
+  // AUTO-ADJUST UNSURE BOUNDARY - Set threshold to show at most MAX_INITIAL_UNSURE_FEATURES
+  // ============================================================================
+  const hasAutoAdjustedBoundaryRef = useRef(false)
+
+  useEffect(() => {
+    // Debug: Log every time the effect is evaluated
+    console.log('[CauseView] Auto-adjust effect evaluated:', {
+      alreadyAdjusted: hasAutoAdjustedBoundaryRef.current,
+      isRevisiting: isRevisitingStage3,
+      marginsSize: causeCategoryDecisionMargins?.size ?? 0,
+      loading: causeClassificationLoading,
+      featuresSize: selectedFeatureIds?.size ?? 0
+    })
+
+    // Guard: Only run once, after classification completes
+    if (hasAutoAdjustedBoundaryRef.current) return
+    if (isRevisitingStage3) return
+    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
+    if (causeClassificationLoading) return
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
+
+    console.log('[CauseView] Auto-adjust effect RUNNING (passed all guards)')
+    hasAutoAdjustedBoundaryRef.current = true
+
+    // Collect all margins for non-manually-tagged features
+    const margins: number[] = []
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') return  // Skip manually tagged
+
+      const categoryScores = causeCategoryDecisionMargins.get(featureId)
+      if (!categoryScores) {
+        margins.push(0)  // No scores = treat as margin 0 (most unsure)
+        return
+      }
+
+      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+      margins.push(margin)
+    })
+
+    // Sort margins ascending (lowest = most unsure)
+    margins.sort((a, b) => a - b)
+
+    console.log('[CauseView] Auto-adjust unsure boundary:', {
+      totalMargins: margins.length,
+      maxAllowed: MAX_INITIAL_UNSURE_FEATURES,
+      minMargin: margins[0],
+      maxMargin: margins[margins.length - 1],
+      marginAt100: margins[Math.min(MAX_INITIAL_UNSURE_FEATURES - 1, margins.length - 1)]
+    })
+
+    // Find the threshold that gives us exactly MAX_INITIAL_UNSURE_FEATURES unsure
+    // The Nth lowest margin feature becomes the cutoff
+    if (margins.length > MAX_INITIAL_UNSURE_FEATURES) {
+      // Set threshold just above the MAX_INITIAL_UNSURE_FEATURES-th margin
+      // This ensures exactly MAX features have margin < threshold (are unsure)
+      const targetMargin = margins[MAX_INITIAL_UNSURE_FEATURES - 1]
+      const nextMargin = margins[MAX_INITIAL_UNSURE_FEATURES]
+      // Set threshold between the 100th and 101st feature's margin
+      const newThreshold = (targetMargin + nextMargin) / 2
+
+      console.log('[CauseView] Setting threshold to show exactly', MAX_INITIAL_UNSURE_FEATURES, 'unsure:', {
+        targetMargin,
+        nextMargin,
+        newThreshold: newThreshold.toFixed(4)
+      })
+      setCauseMarginThreshold(newThreshold)
+    } else {
+      // Fewer features than MAX - set threshold to include all
+      const maxMargin = margins[margins.length - 1] || 0
+      const newThreshold = maxMargin + 0.01  // Slightly above max to include all
+
+      console.log('[CauseView] Fewer than MAX features, including all:', {
+        totalFeatures: margins.length,
+        newThreshold: newThreshold.toFixed(4)
+      })
+      setCauseMarginThreshold(newThreshold)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once after classification, dependencies are stable
+  }, [isRevisitingStage3, causeCategoryDecisionMargins, causeClassificationLoading, selectedFeatureIds])
+
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
   // Wait for metric scores to be calculated before creating the commit
@@ -259,10 +346,14 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
-  // Convert selected feature IDs to array for ScrollableItemList
-  const selectedFeatureList = useMemo(() => {
-    return Array.from(umapBrushedFeatureIds)
-  }, [umapBrushedFeatureIds])
+  // All features filtered by visible categories (replaces brush selection)
+  const filteredFeatureIds = useMemo(() => {
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return []
+    return Array.from(selectedFeatureIds).filter(featureId => {
+      const effectiveCategory = getEffectiveCategory(featureId)
+      return visibleCategories.has(effectiveCategory)
+    })
+  }, [selectedFeatureIds, getEffectiveCategory, visibleCategories])
 
   // Create decision margin lookup map from SVM classification results
   // Decision margin = min absolute distance to any category boundary
@@ -282,43 +373,35 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [causeCategoryDecisionMargins])
 
-  // Sort selected features by mode (feature ID or decision margin)
-  const sortedSelectedFeatureList = useMemo(() => {
+  // Sort filtered features by mode (feature ID or decision margin)
+  const sortedFilteredFeatureList = useMemo(() => {
     if (sortMode === 'default') {
       // Sort by feature ID
-      return [...selectedFeatureList].sort((a, b) =>
+      return [...filteredFeatureIds].sort((a, b) =>
         selectedSortDirection === 'asc' ? a - b : b - a
       )
     } else {
       // Sort by decision margin (uncertainty)
-      if (decisionMarginMap.size === 0) return selectedFeatureList
-      return [...selectedFeatureList].sort((a, b) => {
+      if (decisionMarginMap.size === 0) return filteredFeatureIds
+      return [...filteredFeatureIds].sort((a, b) => {
         const marginA = decisionMarginMap.get(a) ?? 0
         const marginB = decisionMarginMap.get(b) ?? 0
         return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
       })
     }
-  }, [selectedFeatureList, decisionMarginMap, selectedSortDirection, sortMode])
+  }, [filteredFeatureIds, decisionMarginMap, selectedSortDirection, sortMode])
 
   // Template sort: decisionMargin mode with asc direction
   const isTemplateSort = sortMode === 'decisionMargin' && selectedSortDirection === 'asc'
 
-  // Filter sorted selected features by visible categories
-  const filteredSelectedFeatureList = useMemo(() => {
-    return sortedSelectedFeatureList.filter(featureId => {
-      const effectiveCategory = getEffectiveCategory(featureId)
-      return visibleCategories.has(effectiveCategory)
-    })
-  }, [sortedSelectedFeatureList, getEffectiveCategory, visibleCategories])
-
-  // Pagination for selected features list (uses filtered list)
-  const selectedTotalPages = Math.ceil(filteredSelectedFeatureList.length / ITEMS_PER_PAGE)
-  const paginatedSelectedFeatureList = useMemo(() => {
-    return filteredSelectedFeatureList.slice(
+  // Pagination for filtered features list
+  const selectedTotalPages = Math.ceil(sortedFilteredFeatureList.length / ITEMS_PER_PAGE)
+  const paginatedFeatureList = useMemo(() => {
+    return sortedFilteredFeatureList.slice(
       selectedPage * ITEMS_PER_PAGE,
       (selectedPage + 1) * ITEMS_PER_PAGE
     )
-  }, [filteredSelectedFeatureList, selectedPage])
+  }, [sortedFilteredFeatureList, selectedPage])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -386,11 +469,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [filteredFeatureList.length, currentFeatureIndex])
 
-  // Reset selected index when brushed features change (auto-select first feature)
+  // Reset selected index when visible categories change (auto-select first feature)
   useEffect(() => {
     setCurrentSelectedIndex(0)
     setSelectedPage(0)
-  }, [umapBrushedFeatureIds])
+  }, [visibleCategories])
 
   // Track right panel width for ActivationExample
   useEffect(() => {
@@ -415,8 +498,8 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     } else {
-      // activeListSource === 'selected' - uses filteredSelectedFeatureList
-      const featureId = filteredSelectedFeatureList[currentSelectedIndex]
+      // activeListSource === 'selected' - uses sortedFilteredFeatureList
+      const featureId = sortedFilteredFeatureList[currentSelectedIndex]
       if (featureId === undefined) return null
       const feature = featureListWithMetadata.find(f => f.featureId === featureId)
       if (!feature) return null
@@ -426,7 +509,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         activation: activationExamples[feature.featureId] || null
       }
     }
-  }, [activeListSource, filteredFeatureList, currentFeatureIndex, filteredSelectedFeatureList, currentSelectedIndex, featureListWithMetadata, activationExamples])
+  }, [activeListSource, filteredFeatureList, currentFeatureIndex, sortedFilteredFeatureList, currentSelectedIndex, featureListWithMetadata, activationExamples])
 
   // Find the best explanation (max quality score)
   const bestExplanation = useMemo(() => {
@@ -471,8 +554,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Handle click on a point in UMAP scatter
   const handleUMAPFeatureSelect = useCallback((featureId: number) => {
-    // Find the feature in filteredSelectedFeatureList
-    const index = filteredSelectedFeatureList.indexOf(featureId)
+    // Find the feature in sortedFilteredFeatureList
+    const index = sortedFilteredFeatureList.indexOf(featureId)
     if (index !== -1) {
       setCurrentSelectedIndex(index)
       setActiveListSource('selected')
@@ -487,7 +570,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         setActiveListSource('all')
       }
     }
-  }, [filteredSelectedFeatureList, filteredFeatureList])
+  }, [sortedFilteredFeatureList, filteredFeatureList])
 
   // Toggle sort direction for selected features list
   const toggleSelectedSortDirection = useCallback(() => {
@@ -601,7 +684,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const handleNavigateNext = useCallback(() => {
     setCurrentSelectedIndex(i => {
-      const newIndex = Math.min(filteredSelectedFeatureList.length - 1, i + 1)
+      const newIndex = Math.min(sortedFilteredFeatureList.length - 1, i + 1)
       // Update page if needed
       const newPage = Math.floor(newIndex / ITEMS_PER_PAGE)
       if (newPage !== selectedPage) {
@@ -609,7 +692,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       }
       return newIndex
     })
-  }, [filteredSelectedFeatureList.length, selectedPage])
+  }, [sortedFilteredFeatureList.length, selectedPage])
 
   // ============================================================================
   // TAG BUTTON HANDLERS
@@ -646,10 +729,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, category)
 
     // Auto-advance to next feature in selected list (only when tagging, not untagging)
-    if (currentSelectedIndex < filteredSelectedFeatureList.length - 1) {
+    if (currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, filteredSelectedFeatureList.length, handleNavigateNext])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext])
 
   // Handle Unsure click - clear cause category and advance
   const handleUnsureClick = useCallback(() => {
@@ -660,10 +743,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, null)
 
     // Auto-advance to next feature
-    if (currentSelectedIndex < filteredSelectedFeatureList.length - 1) {
+    if (currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, filteredSelectedFeatureList.length, handleNavigateNext])
+  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -951,14 +1034,14 @@ const CauseView: React.FC<CauseViewProps> = ({
               <ScrollableItemList
                 className="cause-view__selected-overlay"
                 variant="causeBrushed"
-                badges={[{ label: 'Selected', count: filteredSelectedFeatureList.length }]}
+                badges={[{ label: 'Filtered', count: sortedFilteredFeatureList.length }]}
                 columnHeader={{
                   label: sortMode === 'default' ? 'Feature ID' : 'Decision Margin',
                   sortDirection: selectedSortDirection,
                   onClick: toggleSelectedSortDirection,
                   isSortable: true
                 }}
-                items={paginatedSelectedFeatureList}
+                items={paginatedFeatureList}
                 renderItem={renderBottomRowFeatureItem}
                 sortConfig={{ getDisplayScore }}
                 currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
@@ -1095,7 +1178,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigatePrevious}
-                        disabled={currentSelectedIndex === 0 || filteredSelectedFeatureList.length === 0}
+                        disabled={currentSelectedIndex === 0 || sortedFilteredFeatureList.length === 0}
                       >
                         ← Prev
                       </button>
@@ -1141,7 +1224,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigateNext}
-                        disabled={currentSelectedIndex >= filteredSelectedFeatureList.length - 1 || filteredSelectedFeatureList.length === 0}
+                        disabled={currentSelectedIndex >= sortedFilteredFeatureList.length - 1 || sortedFilteredFeatureList.length === 0}
                       >
                         Next →
                       </button>

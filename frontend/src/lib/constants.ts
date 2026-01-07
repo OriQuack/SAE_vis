@@ -421,6 +421,10 @@ export const SANKEY_COLORS = {
   ROOT_FILL: '#e0e0e0',               // Root node fill (same as UNSURE_GRAY without alpha)
   NODE_OPACITY: 1,                 // Slightly transparent for softer appearance
 
+  // Link colors (used for Sankey links and flow overlays)
+  // Light gray for links - solid color with opacity 1.0 for clean rendering
+  LINK_COLOR: '#f5f6f7',              // Very light gray for all sankey links
+
   // Segment colors
   SEGMENT_STROKE: '#ffffff',          // White stroke between segments
 

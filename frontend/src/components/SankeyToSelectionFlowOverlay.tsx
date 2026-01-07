@@ -4,6 +4,7 @@ import {
   calculateSankeyToSelectionFlows,
   calculateCauseStageFlows
 } from '../lib/sankey-selection-flow-utils'
+import { SANKEY_COLORS } from '../lib/constants'
 import type { SelectionCategory, FlowPathData } from '../types'
 import '../styles/SankeyToSelectionFlowOverlay.css'
 
@@ -218,21 +219,28 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
           }}
         >
           <g className="sankey-to-selection-flow-overlay__flows">
-            {flows.map((flow) => (
-              <path
-                key={flow.id}
-                className="sankey-to-selection-flow-overlay__flow"
-                d={flow.pathD}
-                fill={flow.color}
-                fillOpacity={0.3}
-                stroke="none"
-                style={{
-                  pointerEvents: 'none'
-                }}
-              >
-                <title>{`${flow.featureCount} features → Selection Bar`}</title>
-              </path>
-            ))}
+            {flows.map((flow) => {
+              // For stage 3, use pre-computed sankey link color (opacity baked in) to avoid confusion with unsure color
+              const isStage3 = selectedSankeySegment?.nodeId === 'stage3_segment'
+              const fillColor = isStage3 ? SANKEY_COLORS.LINK_COLOR : flow.color
+              const fillOpacity = isStage3 ? 1.0 : 0.3
+
+              return (
+                <path
+                  key={flow.id}
+                  className="sankey-to-selection-flow-overlay__flow"
+                  d={flow.pathD}
+                  fill={fillColor}
+                  fillOpacity={fillOpacity}
+                  stroke="none"
+                  style={{
+                    pointerEvents: 'none'
+                  }}
+                >
+                  <title>{`${flow.featureCount} features → Selection Bar`}</title>
+                </path>
+              )
+            })}
           </g>
         </svg>
       )}

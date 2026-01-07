@@ -21,6 +21,13 @@
   --contour-levels: 4;          /* Number of contour lines */
 }
 
+/* Training state - dim the UMAP while SVM is running */
+.umap-scatter--training {
+  opacity: 0.6;
+  pointer-events: none;
+  cursor: wait;
+}
+
 /* Chart wrapper - square size, centered in container */
 .umap-scatter__chart-wrapper {
   position: relative;
