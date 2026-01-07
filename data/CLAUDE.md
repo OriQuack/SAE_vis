@@ -89,6 +89,7 @@ data/
 - `semantic_similarity`: List of pairwise similarities with other explainers
 - `quality_score`: Computed quality metric
 - `scores`: Nested structure with all scorer evaluations (embedding, fuzz, detection)
+- `frac_nonzero`: Fraction of non-zero activations (used in Stage 3 SVM)
 
 **Usage**: Feature grouping, table display, similarity calculations
 
@@ -147,14 +148,22 @@ data/
 - `feature_id`, `llm_explainer` (3 rows per feature, one per explainer)
 - `position_x`, `position_y` (barycentric 2D coordinates)
 - `nearest_anchor` (closest cause category: noisy-activation, missed-N-gram, missed-context)
-- Metric scores: `intra_feature_sim`, `score_embedding`, `score_fuzz`, `score_detection`, `explanation_semantic_sim`
+- `cluster_id` (HDBSCAN cluster assignment for feature grouping)
+- Metric scores: `intra_feature_sim`, `score_embedding`, `score_fuzz`, `score_detection`, `explanation_semantic_sim`, `frac_nonzero`
+- Standard deviations: `*_std` columns for all metrics
 
-**Algorithm**: Barycentric projection from 5D metric space to 2D using inverse distance weighting to 3 anchor points
+**Algorithm**: Barycentric projection from 6D metric space to 2D using inverse distance weighting to 3 anchor points
+
+**HDBSCAN Clustering**:
+- Pre-computed cluster assignments for feature grouping
+- Parameters: min_cluster_size=10, min_samples=5, cluster_selection_epsilon=0.2
+- Used for visual grouping in UMAPScatter
 
 **Usage**:
 - Frontend displays mean position across 3 explainers per feature
 - Detail view shows individual explainer positions when feature selected
-- SVM classification uses metric scores for One-vs-Rest prediction
+- SVM classification uses 6D metric vectors for One-vs-Rest prediction
+- Cluster_id enables feature grouping visualization
 
 ### 11. thematic_codes.parquet (~6KB)
 **Thematic-LM analysis output**
@@ -324,6 +333,6 @@ The goal is efficient, reproducible data processing for a research visualization
 
 ---
 
-**Pipeline Version**: 3.0 (Dual N-gram Architecture)
-**Last Updated**: December 2025
+**Pipeline Version**: 3.1 (6D Barycentric + HDBSCAN)
+**Last Updated**: January 2026
 **Status**: Conference-ready research prototype

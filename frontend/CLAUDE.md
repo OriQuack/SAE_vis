@@ -82,16 +82,18 @@ The application implements a 4-stage workflow for tagging features:
 |-------|-----------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
 | 4. Summary/Regeneration | `RegenerationView.tsx` | Summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis (CauseView)
-- **UMAP Scatter**: Barycentric projection visualization with density contours
+- **UMAP Scatter**: Barycentric projection from 6D metric space with density contours
+- **Metrics**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
-- **Metric Scores**: Displayed to help users decide which category to assign
 - **Manual Tagging**: Click features to assign cause categories
 - **SVM Classification**: After tagging 1+ feature per category, SVM predicts remaining
+- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence with threshold-based auto-tagging
 - **Contour Update**: Contours show predicted category distributions after classification
+- **Status Panel**: Sorting controls (sort by default metric or uncertainty)
 
 ### Stage 4: Summary/Regeneration (RegenerationView)
 - **OverviewSummary**: Shows manual vs auto tagging breakdown per tag across all stages
@@ -108,7 +110,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (27 files)
+├── components/                    # React Components (30 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -119,8 +121,11 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
 │   ├── CauseView.tsx             # Stage 3: Root cause analysis
-│   ├── CauseMetricParallelCoords.tsx # Parallel coordinates for cause metrics
+│   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
 │   ├── UMAPScatter.tsx           # UMAP scatter plot (Stage 3)
+│   ├── StatusPanel.tsx           # Sorting controls for scrollable lists
+│   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
+│   ├── ConvergenceIndicator.tsx  # SVM convergence indicator
 │   ├── SelectionPanel.tsx        # Unified selection panel
 │   ├── SelectionBar.tsx          # Selection state bar
 │   ├── TagStagePanel.tsx         # Stage navigation
@@ -180,7 +185,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (25 files)
+├── styles/                       # CSS Files (28 files)
 │   ├── base.css                  # Base styles, CSS variables
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
@@ -191,8 +196,9 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── QualityView.css           # Stage 2 styles
 │   ├── CauseView.css             # Stage 3 styles
-│   ├── CauseMetricParallelCoords.css # Parallel coords styles
+│   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
 │   ├── UMAPScatter.css           # UMAP scatter styles
+│   ├── StatusPanel.css           # Status panel styles
 │   ├── SelectionPanel.css        # Selection panel styles
 │   ├── SelectionBar.css          # Selection bar styles
 │   ├── TagStagePanel.css         # Stage panel styles
@@ -247,11 +253,12 @@ frontend/src/
 
 **CauseView.tsx** - Stage 3: Root Cause Analysis
 - Mode: `cause`
-- UMAP scatter plot with barycentric projections
-- CauseMetricParallelCoords for metric visualization
+- UMAP scatter plot with barycentric projections from 6D metric space
+- CauseMarginHistogram for SVM decision margin visualization
 - Features start as "unsure" (no pre-assignment)
 - SVM-based classification after manual tagging
-- Tags: Noisy Activation / Missed N-gram / Missed Context / Well-Explained
+- Tags: Well-Explained / Pattern Miss / Context Miss / Noisy Activation
+- StatusPanel for sorting controls
 
 **UMAPScatter.tsx** - UMAP Visualization (Stage 3)
 - Canvas-based scatter plot for performance
@@ -260,11 +267,18 @@ frontend/src/
 - Density contours per cause category
 - Lasso selection for batch operations
 - Explainer position detail view on feature selection
+- HDBSCAN cluster visualization
 
-**CauseMetricParallelCoords.tsx** - Parallel Coordinates (Stage 3)
-- Parallel coordinates visualization for cause metrics
-- Shows metric distributions across cause categories
-- Interactive axis highlighting
+**CauseMarginHistogram.tsx** - Decision Margin Histogram (Stage 3)
+- SVM decision margin histogram with threshold handles
+- Category-colored stacked bars (manual vs auto distinction)
+- Supports filtering features by histogram bins
+- Bin hover interaction with UMAP scatter highlighting
+
+**StatusPanel.tsx** - Sorting Controls
+- Sort mode toggle (default metric vs uncertainty)
+- Sort direction controls (ascending/descending)
+- Used across Stage 1, 2, and 3 views
 
 **AlluvialDiagram.tsx** - Comparison View
 - Cross-explainer flow visualization

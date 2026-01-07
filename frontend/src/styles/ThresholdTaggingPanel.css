@@ -78,11 +78,6 @@
   min-height: 0;
 }
 
-/* Subheader uses shared .subheader class from base.css */
-.threshold-tagging-panel__indicator-section .subheader {
-  padding: 0 4px;
-}
-
 /* ============================================================================
  * BUTTONS SECTION - Action buttons on the right
  * ============================================================================ */
@@ -178,11 +173,6 @@
   gap: 4px;
   flex: 6;  /* 7:3 ratio with indicator section */
   min-height: 0;  /* Allow flex children to shrink below content size */
-}
-
-/* Subheader uses shared .subheader class from base.css */
-.threshold-tagging-panel__lists-section .subheader {
-  padding: 0 4px;
 }
 
 .threshold-tagging-panel__lists-container {

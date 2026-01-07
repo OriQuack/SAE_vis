@@ -154,10 +154,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (27 files)
+│   │   ├── components/    # UI components (30 files)
 │   │   ├── lib/          # D3 utilities, helpers (32 files)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (25 files)
+│   │   ├── styles/       # CSS files (28 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -201,9 +201,11 @@ npm run dev -- --port 3003
 - **Alluvial Diagram**: Cross-explainer flow comparison (comparison overlay)
 - **Feature Split View**: Stage 1 - Pair similarity analysis with clustering
 - **Quality View**: Stage 2 - Feature quality assessment
+- **Cause View**: Stage 3 - Root cause analysis with UMAP scatter and decision margin histogram
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
 - **Tag Stage Panel**: 4-stage navigation (Feature Splitting → Quality → Cause → Summary)
+- **Status Panel**: Sorting controls for scrollable lists (sort mode, direction)
 - **Commit History**: Save and restore tagging state snapshots
 
 ### 4-Stage Tagging Workflow
@@ -212,15 +214,18 @@ npm run dev -- --port 3003
 |-------|------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Noisy Activation / Missed N-gram / Missed Context / Well-Explained |
+| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
 | 4. Summary | `RegenerationView` | Summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis
-- **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 5D metric space)
+- **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 6D metric space)
+- **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
 - **Manual Tagging**: User tags features into cause categories
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
+- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution
 - **Contour Visualization**: Shows category distributions on UMAP after classification
+- **HDBSCAN Clustering**: Pre-computed cluster assignments for feature grouping
 
 ### Stage 4: Summary/Regeneration
 - **OverviewSummary**: Manual vs auto tagging breakdown per tag across all stages

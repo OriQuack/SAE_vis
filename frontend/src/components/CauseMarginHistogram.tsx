@@ -66,6 +66,15 @@ const HANDLE_HEIGHT = 16
 const X_TICK_COUNT = 5
 const Y_TICK_COUNT = 3
 
+// Compact stripe pattern for narrow histogram bars (half of standard 12px)
+const HISTOGRAM_STRIPE = {
+  width: 6,
+  height: 6,
+  stripeWidth: 3,
+  rotation: STRIPE_PATTERN.rotation,
+  opacity: STRIPE_PATTERN.opacity
+}
+
 // Category order for stacking (bottom to top)
 const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
   'noisy-activation',
@@ -127,6 +136,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   const [containerWidth, setContainerWidth] = useState(200)
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [liveThreshold, setLiveThreshold] = useState<number | null>(null)
 
   // Observe container width for responsiveness
   useEffect(() => {
@@ -303,13 +313,25 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return segments
   }, [bins, chartWidth, chartHeight, yScale])
 
+  // Use live threshold during drag, otherwise use prop
+  const effectiveThreshold = liveThreshold ?? threshold
+
   // Threshold position in pixels
-  const thresholdX = xScale(threshold)
+  const thresholdX = xScale(effectiveThreshold)
 
   // Handle threshold update from dragging
   const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
     onThresholdChange(newThresholds[0])
   }, [onThresholdChange])
+
+  // Handle live drag updates for visual feedback
+  const handleDragUpdate = useCallback((newThresholds: number[]) => {
+    setLiveThreshold(newThresholds[0])
+  }, [])
+
+  const handleDragEnd = useCallback(() => {
+    setLiveThreshold(null)
+  }, [])
 
   // Handle bin hover
   const handleBinMouseEnter = useCallback((binIndex: number, e: React.MouseEvent) => {
@@ -396,22 +418,22 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               opacity={0.3}
             />
           </pattern>
-          {/* Stripe patterns for auto-tagged category bars */}
+          {/* Stripe patterns for auto-tagged category bars (compact size for narrow bars) */}
           {CATEGORY_STACK_ORDER.map(category => (
             <pattern
               key={`stripe-${category}`}
               id={`stripe-${category}`}
               patternUnits="userSpaceOnUse"
-              width={STRIPE_PATTERN.width}
-              height={STRIPE_PATTERN.height}
-              patternTransform={`rotate(${-STRIPE_PATTERN.rotation})`}
+              width={HISTOGRAM_STRIPE.width}
+              height={HISTOGRAM_STRIPE.height}
+              patternTransform={`rotate(${-HISTOGRAM_STRIPE.rotation})`}
             >
-              <rect width={STRIPE_PATTERN.width} height={STRIPE_PATTERN.height} fill={UNSURE_GRAY} />
+              <rect width={HISTOGRAM_STRIPE.width} height={HISTOGRAM_STRIPE.height} fill={UNSURE_GRAY} />
               <rect
-                width={STRIPE_PATTERN.stripeWidth}
-                height={STRIPE_PATTERN.height}
+                width={HISTOGRAM_STRIPE.stripeWidth}
+                height={HISTOGRAM_STRIPE.height}
                 fill={getCategoryColor(category)}
-                opacity={STRIPE_PATTERN.opacity}
+                opacity={HISTOGRAM_STRIPE.opacity}
               />
             </pattern>
           ))}
@@ -517,7 +539,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             textAnchor="middle"
             fontWeight={500}
           >
-            Unsure Boundary: {threshold.toFixed(2)}
+            Unsure Boundary: {effectiveThreshold.toFixed(2)}
           </text>
 
           {/* Threshold handle */}
@@ -531,6 +553,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             showThresholdLine={true}
             showDragTooltip={true}
             onUpdate={handleThresholdUpdate}
+            onDragUpdate={handleDragUpdate}
+            onDragEnd={handleDragEnd}
             handleDimensions={{ width: 16, height: 12 }}
           />
         </g>

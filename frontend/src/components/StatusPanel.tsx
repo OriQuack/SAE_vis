@@ -29,7 +29,6 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   onSortModeChange,
   onSortDirectionChange,
   defaultModeLabel,
-  isTemplateSort,
   className = ''
 }) => {
   return (

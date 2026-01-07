@@ -15,8 +15,6 @@
 
 import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
-import { TAG_CATEGORY_QUALITY } from '../lib/constants'
-import { getTagColor } from '../lib/tag-system'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 import '../styles/ParallelCoordinates.css'
 
@@ -50,9 +48,13 @@ const METRICS: MetricConfig[] = [
 ]
 
 // Layout constants
-const MARGIN = { top: 10, right: 30, bottom: 30, left: 30 }
+const MARGIN = { top: 6, right: 30, bottom: 32, left: 30 }
 const MIN_WIDTH = 250
 const MIN_HEIGHT = 80
+
+// Line colors (matches CauseView legend)
+const LINE_COLOR = '#000000'
+const WELL_EXPLAINED_COLOR = '#22c55e'
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -115,10 +117,6 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
     observer.observe(svgWrapperRef.current)
     return () => observer.disconnect()
   }, [])
-
-  // Line colors
-  const lineColor = '#000000'
-  const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#22c55e'
 
   // Calculate dimensions and scales (responsive to SVG wrapper size)
   const { width, height, innerHeight, xScale, yScale } = useMemo(() => {
@@ -187,47 +185,6 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
 
   return (
     <div className={`cause-metric-parallel-coords ${className}`.trim()}>
-      {/* Header row with title and legend */}
-      <div className="cause-metric-parallel-coords__header">
-        <h4 className="subheader">Metrics</h4>
-        <div className="cause-metric-parallel-coords__legend">
-        <div className="cause-metric-parallel-coords__legend-item">
-          <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
-            <line
-              x1="0" y1="6" x2="24" y2="6"
-              stroke={wellExplainedColor}
-              strokeWidth="1"
-              opacity="0.4"
-            />
-          </svg>
-          <span className="cause-metric-parallel-coords__legend-label">
-            Well-Explained ({wellExplainedScores.size})
-          </span>
-        </div>
-        <div className="cause-metric-parallel-coords__legend-item">
-          <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
-            <line
-              x1="0" y1="6" x2="24" y2="6"
-              stroke={lineColor}
-              strokeWidth="2.5"
-              strokeLinecap="round"
-            />
-            <circle cx="12" cy="6" r="3" fill={lineColor} stroke="white" strokeWidth="1" />
-          </svg>
-          <span className="cause-metric-parallel-coords__legend-label">
-            Current Feature
-          </span>
-        </div>
-        <div className="cause-metric-parallel-coords__legend-item">
-          <svg width="24" height="12" className="cause-metric-parallel-coords__legend-line">
-            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
-          </svg>
-          <span className="cause-metric-parallel-coords__legend-label">
-            Random (0.5)
-          </span>
-        </div>
-        </div>
-      </div>
       {/* SVG wrapper for size measurement */}
       <div ref={svgWrapperRef} className="cause-metric-parallel-coords__svg-wrapper">
         <svg
@@ -294,7 +251,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
               key={id}
               points={points}
               className="cause-metric-parallel-coords__background-line"
-              style={{ stroke: wellExplainedColor }}
+              style={{ stroke: WELL_EXPLAINED_COLOR }}
             />
           ))}
 
@@ -303,7 +260,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
             <polyline
               points={foregroundLine}
               className="cause-metric-parallel-coords__foreground-line"
-              style={{ stroke: lineColor }}
+              style={{ stroke: LINE_COLOR }}
             />
           )}
 
@@ -318,7 +275,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
                 cy={yScale(value)}
                 r={4}
                 className="cause-metric-parallel-coords__foreground-point"
-                style={{ fill: lineColor }}
+                style={{ fill: LINE_COLOR }}
               />
             )
           })}

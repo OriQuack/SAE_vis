@@ -163,7 +163,6 @@
   align-items: center;
   gap: 6px;
   flex-shrink: 0;
-  padding: 4px 8px;
   background-color: transparent;
   border: none;
 }
@@ -231,13 +230,27 @@
  * EXPLANATION ROW - Left metrics (no border) + Right explanation (bordered)
  * ============================================================================ */
 
+/* Metrics header - same pattern as explanation header */
+.cause-view__metrics-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+
+/* Metrics legend - right-aligned */
+.cause-view__metrics-legend {
+  display: flex;
+  align-items: center;
+}
+
 /* Cause metrics container - fills remaining space */
 .cause-view__metrics-container {
   flex: 1;
   min-height: 0;
   display: flex;
   align-items: stretch;
-  padding: 2px 8px;
 }
 
 /* Right: Explanation section */
@@ -258,6 +271,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: space-between;
   flex-shrink: 0;
   padding: 0 6px;
 }
@@ -530,8 +544,6 @@
   gap: 8px;
   flex-shrink: 0;
   padding: 8px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
 }
 
 .cause-view__action-section {
@@ -543,7 +555,6 @@
 .cause-view__action-header {
   display: flex;
   align-items: center;
-  gap: 4px;
 }
 
 .cause-view__substage-number {

@@ -1107,6 +1107,30 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
 
                     {/* Parallel Coordinates - between activation and explanation */}
+                    <div className="cause-view__metrics-header">
+                      <h4 className="subheader">Metrics</h4>
+                      <div className="cause-view__metrics-legend">
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
+                          </svg>
+                          <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
+                        </div>
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
+                            <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
+                          </svg>
+                          <span className="legend-label">Current Feature</span>
+                        </div>
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
+                          </svg>
+                          <span className="legend-label">Random (0.5)</span>
+                        </div>
+                      </div>
+                    </div>
                     <div className="cause-view__metrics-container">
                       <CauseMetricParallelCoords
                         wellExplainedScores={wellExplainedScores}

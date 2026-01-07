@@ -155,14 +155,25 @@ Barycentric projections and SVM-based cause classification:
 
 ```python
 # services/umap_service.py
+# Metrics used for SVM (6D feature space):
+METRICS_FOR_SVM = [
+    'intra_feature_sim',
+    'score_embedding',
+    'score_fuzz',
+    'score_detection',
+    'explanation_semantic_sim',
+    'frac_nonzero',  # Fraction of non-zero activations
+]
+
 async def get_umap_projection(feature_ids):
     # Returns precomputed 2D positions from explanation_barycentric.parquet
     # Mean position across 3 explainers per feature
     # Includes explainer_positions for detail view
+    # Includes HDBSCAN cluster_id assignments
 
 async def get_cause_classification(feature_ids, cause_selections):
     # Trains One-vs-Rest SVMs for each cause category
-    # Uses mean metric vectors per feature (averaged across 3 explainers)
+    # Uses 6D metric vectors per feature (averaged across 3 explainers)
     # Returns predicted_category and decision_scores per feature
 ```
 
@@ -455,7 +466,8 @@ SVM cause classification for features (Stage 3)
   - feature_id, llm_explainer
   - position_x, position_y (barycentric 2D coordinates)
   - nearest_anchor (closest cause category anchor)
-  - Metric scores: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim
+  - cluster_id (HDBSCAN cluster assignment)
+  - Metric scores: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 
 ## Development Workflow
 
