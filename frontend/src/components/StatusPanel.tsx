@@ -4,8 +4,8 @@ import '../styles/StatusPanel.css'
 // ============================================================================
 // STATUS PANEL - Sorting controls for scrollable lists
 // ============================================================================
-// Displays sort mode toggle (primary metric vs uncertainty) and sort direction
-// When sorting differs from template, selection highlighting is disabled in the view
+// Displays 4 descriptive sort options combining metric + direction
+// Each button clearly describes what will be shown first
 
 interface StatusPanelProps {
   // Sort state
@@ -14,8 +14,9 @@ interface StatusPanelProps {
   onSortModeChange: (mode: 'default' | 'decisionMargin') => void
   onSortDirectionChange: (direction: 'asc' | 'desc') => void
 
-  // Labels (stage-specific)
-  defaultModeLabel: string  // "Decoder sim" or "Quality score"
+  // Stage-specific labels for default metric options
+  defaultAscLabel: string   // e.g., "Least similar first" or "Lowest quality first"
+  defaultDescLabel: string  // e.g., "Most similar first" or "Highest quality first"
 
   // Template indicator
   isTemplateSort: boolean
@@ -28,46 +29,55 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   sortDirection,
   onSortModeChange,
   onSortDirectionChange,
-  defaultModeLabel,
+  defaultAscLabel,
+  defaultDescLabel,
   className = ''
 }) => {
+  // Helper to check if a sort option is active
+  const isActive = (mode: 'default' | 'decisionMargin', direction: 'asc' | 'desc') =>
+    sortMode === mode && sortDirection === direction
+
+  // Helper to handle combined mode + direction change
+  const handleSortChange = (mode: 'default' | 'decisionMargin', direction: 'asc' | 'desc') => {
+    if (sortMode !== mode) onSortModeChange(mode)
+    if (sortDirection !== direction) onSortDirectionChange(direction)
+  }
+
   return (
     <div className={`status-panel ${className}`}>
-      {/* Sort Mode Group */}
-      <span className="status-panel__label">Sort by:</span>
-      <div className="status-panel__group">
-        <button
-          className={`status-panel__button ${sortMode === 'default' ? 'status-panel__button--active' : ''}`}
-          onClick={() => onSortModeChange('default')}
-        >
-          {defaultModeLabel}
-        </button>
-        <button
-          className={`status-panel__button ${sortMode === 'decisionMargin' ? 'status-panel__button--active' : ''}`}
-          onClick={() => onSortModeChange('decisionMargin')}
-        >
-          Uncertainty
-        </button>
-      </div>
+      <span className="status-panel__label">Sort:</span>
 
-      {/* Divider */}
-      <div className="status-panel__divider" />
-
-      {/* Sort Direction Group */}
+      {/* All 4 sort options as combined buttons */}
       <div className="status-panel__group">
+        {/* Default metric options */}
         <button
-          className={`status-panel__button status-panel__button--icon ${sortDirection === 'asc' ? 'status-panel__button--active' : ''}`}
-          onClick={() => onSortDirectionChange('asc')}
-          title="Ascending"
+          className={`status-panel__button ${isActive('default', 'asc') ? 'status-panel__button--active' : ''}`}
+          onClick={() => handleSortChange('default', 'asc')}
         >
-          ↑ Asc
+          {defaultAscLabel}
         </button>
         <button
-          className={`status-panel__button status-panel__button--icon ${sortDirection === 'desc' ? 'status-panel__button--active' : ''}`}
-          onClick={() => onSortDirectionChange('desc')}
-          title="Descending"
+          className={`status-panel__button ${isActive('default', 'desc') ? 'status-panel__button--active' : ''}`}
+          onClick={() => handleSortChange('default', 'desc')}
         >
-          ↓ Desc
+          {defaultDescLabel}
+        </button>
+
+        {/* Divider */}
+        <div className="status-panel__divider" />
+
+        {/* Decision margin options: low margin = uncertain, high margin = confident */}
+        <button
+          className={`status-panel__button ${isActive('decisionMargin', 'asc') ? 'status-panel__button--active' : ''}`}
+          onClick={() => handleSortChange('decisionMargin', 'asc')}
+        >
+          Most Uncertain First
+        </button>
+        <button
+          className={`status-panel__button ${isActive('decisionMargin', 'desc') ? 'status-panel__button--active' : ''}`}
+          onClick={() => handleSortChange('decisionMargin', 'desc')}
+        >
+          Most Confident First
         </button>
       </div>
     </div>

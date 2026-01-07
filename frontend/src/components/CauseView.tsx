@@ -1011,7 +1011,8 @@ const CauseView: React.FC<CauseViewProps> = ({
             sortDirection={selectedSortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSelectedSortDirection}
-            defaultModeLabel="Feature ID"
+            defaultAscLabel="Lowest ID First"
+            defaultDescLabel="Highest ID First"
             isTemplateSort={isTemplateSort}
           />
 

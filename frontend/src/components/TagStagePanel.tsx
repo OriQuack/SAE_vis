@@ -424,12 +424,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
               </button>
 
               {/* Inline Tags for this stage */}
-              <div className={`stage-tags ${isActive ? 'stage-tags--active' : ''} ${isCompleted ? 'stage-tags--completed' : ''} ${isFuture ? 'stage-tags--future' : ''}`}>
+              <div className="stage-tags">
                 {stageTags.map((node) => (
                   <div
                     key={node.id}
                     data-node-id={node.id}
-                    className={`stage-tag-badge ${isActive ? 'stage-tag-badge--active' : ''}`}
+                    className="stage-tag-badge"
                     style={{ backgroundColor: node.color, borderColor: node.color }}
                     title={`${node.tag}: ${node.count.toLocaleString()} features`}
                   >

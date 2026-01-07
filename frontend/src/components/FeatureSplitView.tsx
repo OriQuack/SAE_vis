@@ -890,7 +890,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             sortDirection={sortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSortDirection}
-            defaultModeLabel="Decoder sim"
+            defaultAscLabel="Least Similar First"
+            defaultDescLabel="Most Similar First"
             isTemplateSort={isTemplateSort}
           />
 

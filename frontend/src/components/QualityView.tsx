@@ -839,7 +839,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             sortDirection={sortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSortDirection}
-            defaultModeLabel="Quality score"
+            defaultAscLabel="Lowest Quality First"
+            defaultDescLabel="Highest Quality First"
             isTemplateSort={isTemplateSort}
           />
 

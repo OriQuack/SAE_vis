@@ -61,7 +61,7 @@ interface BarSegment {
 // ============================================================================
 
 const NUM_BINS = 40
-const MARGIN = { top: 0, right: 0, bottom: 22, left: 28 }
+const MARGIN = { top: 0, right: 8, bottom: 24, left: 36 }
 const HANDLE_HEIGHT = 16
 const X_TICK_COUNT = 5
 const Y_TICK_COUNT = 3
@@ -391,9 +391,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     <div className="cause-margin-histogram" ref={containerRef}>
       <div className="cause-margin-histogram__header">
         <span className="subheader">Filter</span>
-        {isClipped && (
-          <span className="cause-margin-histogram__clipped-indicator">+{clippedCount} clipped</span>
-        )}
       </div>
 
       <svg
@@ -475,6 +472,19 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             />
           ))}
 
+          {/* Clipped indicator - top right of chart */}
+          {isClipped && (
+            <text
+              x={chartWidth}
+              y={-2}
+              fontSize={10}
+              fill="#666"
+              textAnchor="end"
+            >
+              +{clippedCount} clipped
+            </text>
+          )}
+
           {/* Y-axis line */}
           <line
             x1={0}
@@ -492,7 +502,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             return (
               <g key={`y-tick-${i}`}>
                 <line x1={-3} y1={y} x2={0} y2={y} stroke="#d1d5db" strokeWidth={1} />
-                <text x={-5} y={y + 3} fontSize={8} fill="#6b7280" textAnchor="end">
+                <text x={-8} y={y + 4} fontSize={10} fill="#666" textAnchor="end">
                   {value}
                 </text>
               </g>
@@ -519,9 +529,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
                 <line x1={x} y1={chartHeight} x2={x} y2={chartHeight + 3} stroke="#d1d5db" strokeWidth={1} />
                 <text
                   x={x}
-                  y={chartHeight + 12}
-                  fontSize={8}
-                  fill="#6b7280"
+                  y={chartHeight + 14}
+                  fontSize={10}
+                  fill="#666"
                   textAnchor={i === 0 ? 'start' : isLast ? 'end' : 'middle'}
                 >
                   {isLast && isClipped ? `${value.toFixed(2)}+` : value.toFixed(2)}
