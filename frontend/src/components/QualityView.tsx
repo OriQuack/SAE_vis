@@ -155,7 +155,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [filteredTableData, tableData?.explainer_ids])
 
   // Use sortable list hook for sorting logic
-  // Template: decisionMargin mode + ascending (least confident first)
+  // Initial: default mode (Quality score) + ascending
+  // Template: decisionMargin mode + ascending (least confident first) - used when SVM is trained
   const {
     sortMode,
     setSortMode,
@@ -173,7 +174,9 @@ const QualityView: React.FC<QualityViewProps> = ({
     defaultLabel: 'Quality score',
     defaultDirection: 'asc',
     templateMode: 'decisionMargin',
-    templateDirection: 'asc'
+    templateDirection: 'asc',
+    initialMode: 'default',
+    initialDirection: 'asc'
   })
 
   // Track if we've auto-switched to decision margin mode for this session
@@ -188,10 +191,11 @@ const QualityView: React.FC<QualityViewProps> = ({
         !hasAutoSwitchedToDecisionMarginRef.current) {
       hasAutoSwitchedToDecisionMarginRef.current = true
       setSortMode('decisionMargin')
+      setSortDirection('asc')
       setCurrentFeatureIndex(0)
       setActiveListSource('all')
     }
-  }, [tagAutomaticState?.histogramData, tagAutomaticState?.mode, setSortMode, setActiveListSource])
+  }, [tagAutomaticState?.histogramData, tagAutomaticState?.mode, setSortMode, setSortDirection, setActiveListSource])
 
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting

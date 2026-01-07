@@ -15,9 +15,12 @@ export interface SortableListConfig<T, K> {
   decisionMarginScores: Map<K, number>
   defaultLabel: string      // e.g., 'Quality score', 'Decoder sim'
   defaultDirection?: 'asc' | 'desc'  // default: 'desc' (used as initial direction for default mode)
-  // Template configuration - defines the "default" sort state for this view
+  // Template configuration - defines the "canonical" sort state for this view (used for isTemplateSort)
   templateMode?: 'default' | 'decisionMargin'  // default: 'decisionMargin'
   templateDirection?: 'asc' | 'desc'           // default: 'asc'
+  // Initial state configuration - defines the starting sort state (defaults to template values)
+  initialMode?: 'default' | 'decisionMargin'
+  initialDirection?: 'asc' | 'desc'
 }
 
 export interface SortableListResult<T> {
@@ -44,16 +47,18 @@ export function useSortableList<T, K>({
   defaultLabel,
   defaultDirection: _defaultDirection = 'desc',  // Kept for backward compatibility, but sortDirection is used
   templateMode = 'decisionMargin',
-  templateDirection = 'asc'
+  templateDirection = 'asc',
+  initialMode,
+  initialDirection
 }: SortableListConfig<T, K>): SortableListResult<T> {
   void _defaultDirection  // Consume to avoid unused variable warning
   // Sort mode: 'default' (primary metric) or 'decisionMargin' (SVM uncertainty)
-  // Initialize to template mode
-  const [sortMode, setSortModeInternal] = useState<'default' | 'decisionMargin'>(templateMode)
+  // Initialize to initialMode if provided, otherwise use templateMode
+  const [sortMode, setSortModeInternal] = useState<'default' | 'decisionMargin'>(initialMode ?? templateMode)
 
   // Sort direction: applies to both modes
-  // Initialize to template direction
-  const [sortDirection, setSortDirectionInternal] = useState<'asc' | 'desc'>(templateDirection)
+  // Initialize to initialDirection if provided, otherwise use templateDirection
+  const [sortDirection, setSortDirectionInternal] = useState<'asc' | 'desc'>(initialDirection ?? templateDirection)
 
   const [isPulsing, setIsPulsing] = useState(false)
 

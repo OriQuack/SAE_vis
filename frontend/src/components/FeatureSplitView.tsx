@@ -405,7 +405,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [filteredTableData, allClusterPairs, selectedFeatureIds])
 
   // Use sortable list hook for sorting logic
-  // Template: decisionMargin mode + ascending (least confident first)
+  // Initial: default mode (Decoder sim) + descending
+  // Template: decisionMargin mode + ascending (least confident first) - used when SVM is trained
   const {
     sortMode,
     setSortMode,
@@ -423,7 +424,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     defaultLabel: 'Decoder sim',
     defaultDirection: 'desc',
     templateMode: 'decisionMargin',
-    templateDirection: 'asc'
+    templateDirection: 'asc',
+    initialMode: 'default',
+    initialDirection: 'desc'
   })
 
   // Track if we've auto-switched to decision margin mode for this session
@@ -434,10 +437,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     if (tagAutomaticState?.histogramData && !hasAutoSwitchedToDecisionMarginRef.current) {
       hasAutoSwitchedToDecisionMarginRef.current = true
       setSortMode('decisionMargin')
+      setSortDirection('asc')
       setCurrentPairIndex(0)
       setActiveListSource('all')
     }
-  }, [tagAutomaticState?.histogramData, setSortMode, setActiveListSource])
+  }, [tagAutomaticState?.histogramData, setSortMode, setSortDirection, setActiveListSource])
 
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting
