@@ -292,7 +292,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         {/* Convergence indicator at top of middle section */}
         <div className="threshold-tagging-panel__indicator-section">
           <h4 className="subheader subheader--with-value">
-            <span>Prediction Flip Rate</span>
+            Prediction Flip Rate
             {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
               <span className="subheader__value">
                 {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%

@@ -381,8 +381,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
           {/* Decoder Similarity */}
           <div className="pair-info__similarity">
-            <span className="similarity__label">Decoder Similarity:</span>
-            <span className="similarity__value">
+            <span className="subheader__label">Decoder Similarity:</span>
+            <span className="subheader__value">
               {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
             </span>
           </div>

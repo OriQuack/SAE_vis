@@ -7,10 +7,56 @@ import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/umap-utils'
 import '../styles/CauseMarginHistogram.css'
 
-// Label width estimation for threshold labels
-const LABEL_CHAR_WIDTH = 8   // Approximate width per character at 14px font
-const ARROW_WIDTH = 16       // Arrow symbol width
-const LABEL_PADDING = 4      // Small buffer from edge
+// ============================================================================
+// LAYOUT CONFIGURATION (all sizing/positioning)
+// ============================================================================
+
+const LAYOUT = {
+  // Component structure
+  header: {
+    height: 24,  // Header text + margin (matches CSS)
+  },
+
+  // Chart margins (space for axes and labels)
+  margin: {
+    top: 20,     // Space for threshold label arrow
+    right: 0,
+    bottom: 30,  // Space for x-axis ticks and label
+    left: 36,    // Space for y-axis ticks
+  },
+
+  // Axis styling
+  axis: {
+    tickLength: 3,
+    xTickCount: 5,
+    yTickCount: 3,
+    labelOffset: {
+      xTick: 14,      // Distance from axis to tick labels
+      xLabel: 26,     // Distance from axis to axis label
+      yTick: 8,       // Distance from axis to tick labels (horizontal)
+      yTextAdjust: 4, // Vertical centering for y-axis text
+    },
+  },
+
+  // Threshold label positioning
+  thresholdLabel: {
+    charWidth: 8,    // Approximate width per character at 14px font
+    arrowWidth: 16,  // Arrow symbol width
+    padding: 4,      // Buffer from chart edge
+    yOffset: -8,     // Vertical position above chart
+  },
+
+  // Threshold handle dimensions
+  handle: {
+    width: 16,
+    height: 12,
+  },
+
+  // Bar styling
+  bar: {
+    padding: 1,  // Gap between bars
+  },
+} as const
 
 // ============================================================================
 // TYPES
@@ -68,14 +114,14 @@ interface BarSegment {
 }
 
 // ============================================================================
-// CONSTANTS
+// HISTOGRAM CONFIGURATION (data/binning)
 // ============================================================================
 
 const NUM_BINS = 40
-const MARGIN = { top: 20, right: 0, bottom: 30, left: 36 }
-const HEADER_HEIGHT = 24 // ~16px text + 4px margin + 4px buffer (matches CSS)
-const X_TICK_COUNT = 5
-const Y_TICK_COUNT = 3
+
+// ============================================================================
+// VISUAL CONFIGURATION (colors, patterns)
+// ============================================================================
 
 // Compact stripe pattern for narrow histogram bars (half of standard 12px)
 const HISTOGRAM_STRIPE = {
@@ -263,27 +309,41 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return { bins: histBins, maxMargin: displayMax, maxCount: maxC }
   }, [marginData])
 
-  // Calculate chart dimensions
-  const svgHeight = height - HEADER_HEIGHT
-  const chartWidth = containerWidth - MARGIN.left - MARGIN.right
-  const chartHeight = svgHeight - MARGIN.top - MARGIN.bottom
+  // Calculate all dimensions from container width and height prop
+  const dimensions = useMemo(() => {
+    const svgHeight = height - LAYOUT.header.height
+    const chartWidth = containerWidth - LAYOUT.margin.left - LAYOUT.margin.right
+    const chartHeight = svgHeight - LAYOUT.margin.top - LAYOUT.margin.bottom
+
+    return {
+      svg: {
+        width: containerWidth,
+        height: svgHeight,
+      },
+      chart: {
+        width: chartWidth,
+        height: chartHeight,
+      },
+      transform: `translate(${LAYOUT.margin.left}, ${LAYOUT.margin.top})`,
+    }
+  }, [height, containerWidth])
 
   // Create scales
   const xScale = useMemo(() =>
-    scaleLinear().domain([0, maxMargin]).range([0, chartWidth]),
-    [maxMargin, chartWidth]
+    scaleLinear().domain([0, maxMargin]).range([0, dimensions.chart.width]),
+    [maxMargin, dimensions.chart.width]
   )
 
   const yScale = useMemo(() =>
-    scaleLinear().domain([0, maxCount]).range([chartHeight, 0]),
-    [maxCount, chartHeight]
+    scaleLinear().domain([0, maxCount]).range([dimensions.chart.height, 0]),
+    [maxCount, dimensions.chart.height]
   )
 
   // Calculate bar segments for rendering (manual first, then auto for each category)
   const barSegments = useMemo((): BarSegment[] => {
     const segments: BarSegment[] = []
-    const binWidth = chartWidth / NUM_BINS
-    const barPadding = 1
+    const binWidth = dimensions.chart.width / NUM_BINS
+    const { height: chartHeight } = dimensions.chart
 
     for (let binIndex = 0; binIndex < bins.length; binIndex++) {
       const bin = bins[binIndex]
@@ -300,9 +360,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
           segments.push({
             binIndex,
-            x: binIndex * binWidth + barPadding,
+            x: binIndex * binWidth + LAYOUT.bar.padding,
             y,
-            width: Math.max(binWidth - barPadding * 2, 1),
+            width: Math.max(binWidth - LAYOUT.bar.padding * 2, 1),
             height: barHeight,
             color: getCategoryColor(category),
             category,
@@ -319,9 +379,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
           segments.push({
             binIndex,
-            x: binIndex * binWidth + barPadding,
+            x: binIndex * binWidth + LAYOUT.bar.padding,
             y,
-            width: Math.max(binWidth - barPadding * 2, 1),
+            width: Math.max(binWidth - LAYOUT.bar.padding * 2, 1),
             height: barHeight,
             color: getCategoryColor(category),
             category,
@@ -334,7 +394,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
 
     return segments
-  }, [bins, chartWidth, chartHeight, yScale])
+  }, [bins, dimensions.chart, yScale])
 
   // Use live threshold during drag, otherwise use prop
   const effectiveThreshold = liveThreshold ?? threshold
@@ -345,16 +405,17 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   // Calculate label position with clipping to avoid overflow
   const labelPosition = useMemo(() => {
     const labelText = isTopMode ? 'Confident' : 'Unsure'
-    const labelWidth = labelText.length * LABEL_CHAR_WIDTH + ARROW_WIDTH
+    const { charWidth, arrowWidth, padding } = LAYOUT.thresholdLabel
+    const labelWidth = labelText.length * charWidth + arrowWidth
 
     if (isTopMode) {
       // Right side: anchor=start, shift left if would overflow
-      return Math.min(chartWidth - labelWidth - LABEL_PADDING, thresholdX + 4)
+      return Math.min(dimensions.chart.width - labelWidth - padding, thresholdX + 4)
     } else {
       // Left side: anchor=end, shift right if would overflow
-      return Math.max(labelWidth + LABEL_PADDING, thresholdX - 4)
+      return Math.max(labelWidth + padding, thresholdX - 4)
     }
-  }, [isTopMode, chartWidth, thresholdX])
+  }, [isTopMode, dimensions.chart.width, thresholdX])
 
   // Handle threshold update from dragging
   const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
@@ -435,16 +496,17 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   }
 
   return (
-    <div className="cause-margin-histogram" ref={containerRef} style={{ height, border: '2px solid red' }}>
+    <div className="cause-margin-histogram" ref={containerRef} style={{ height }}>
       <div className="cause-margin-histogram__header">
         <span className="subheader subheader--with-value">
-          Unsure Boundary: <span className="subheader__value">{sortMode === 'decisionMargin' && sortDirection === 'desc' ? 'Top' : 'Low'} {unsurePercentage}%</span>
+          Unsure Boundary
+          <span className="subheader__value">{sortMode === 'decisionMargin' && sortDirection === 'desc' ? 'Top' : 'Low'} {unsurePercentage}%</span>
         </span>
       </div>
 
       <svg
-        width={containerWidth}
-        height={svgHeight}
+        width={dimensions.svg.width}
+        height={dimensions.svg.height}
         className="cause-margin-histogram__svg"
       >
         {/* SVG Patterns */}
@@ -485,22 +547,22 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           ))}
         </defs>
 
-        <g transform={`translate(${MARGIN.left}, ${MARGIN.top})`}>
+        <g transform={dimensions.transform}>
           {/* Zone backgrounds - Left = unsure (striped), Right = candidates (white) - always */}
           {/* Left zone (unsure - below threshold) */}
           <rect
             x={0}
             y={0}
             width={Math.max(0, thresholdX)}
-            height={chartHeight}
+            height={dimensions.chart.height}
             fill="url(#unsureZoneStripe)"
           />
           {/* Right zone (candidates - above threshold) */}
           <rect
             x={Math.max(0, thresholdX)}
             y={0}
-            width={Math.max(0, chartWidth - thresholdX)}
-            height={chartHeight}
+            width={Math.max(0, dimensions.chart.width - thresholdX)}
+            height={dimensions.chart.height}
             fill="#ffffff"
           />
 
@@ -526,19 +588,19 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             x1={0}
             y1={0}
             x2={0}
-            y2={chartHeight}
+            y2={dimensions.chart.height}
             stroke="#d1d5db"
             strokeWidth={1}
           />
 
           {/* Y-axis ticks */}
-          {Array.from({ length: Y_TICK_COUNT + 1 }, (_, i) => {
-            const value = Math.round((maxCount / Y_TICK_COUNT) * i)
-            const y = chartHeight - (chartHeight / Y_TICK_COUNT) * i
+          {Array.from({ length: LAYOUT.axis.yTickCount + 1 }, (_, i) => {
+            const value = Math.round((maxCount / LAYOUT.axis.yTickCount) * i)
+            const y = dimensions.chart.height - (dimensions.chart.height / LAYOUT.axis.yTickCount) * i
             return (
               <g key={`y-tick-${i}`}>
-                <line x1={-3} y1={y} x2={0} y2={y} stroke="#d1d5db" strokeWidth={1} />
-                <text x={-8} y={y + 4} fontSize={10} fill="#666" textAnchor="end">
+                <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#d1d5db" strokeWidth={1} />
+                <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={10} fill="#666" textAnchor="end">
                   {value}
                 </text>
               </g>
@@ -548,25 +610,25 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           {/* X-axis line */}
           <line
             x1={0}
-            y1={chartHeight}
-            x2={chartWidth}
-            y2={chartHeight}
+            y1={dimensions.chart.height}
+            x2={dimensions.chart.width}
+            y2={dimensions.chart.height}
             stroke="#d1d5db"
             strokeWidth={1}
           />
 
           {/* X-axis ticks */}
-          {Array.from({ length: X_TICK_COUNT + 1 }, (_, i) => {
-            const value = (maxMargin / X_TICK_COUNT) * i
-            const x = (chartWidth / X_TICK_COUNT) * i
+          {Array.from({ length: LAYOUT.axis.xTickCount + 1 }, (_, i) => {
+            const value = (maxMargin / LAYOUT.axis.xTickCount) * i
+            const x = (dimensions.chart.width / LAYOUT.axis.xTickCount) * i
             const isFirst = i === 0
-            const isLast = i === X_TICK_COUNT
+            const isLast = i === LAYOUT.axis.xTickCount
             return (
               <g key={`x-tick-${i}`}>
-                <line x1={x} y1={chartHeight} x2={x} y2={chartHeight + 3} stroke="#d1d5db" strokeWidth={1} />
+                <line x1={x} y1={dimensions.chart.height} x2={x} y2={dimensions.chart.height + LAYOUT.axis.tickLength} stroke="#d1d5db" strokeWidth={1} />
                 <text
                   x={x}
-                  y={chartHeight + 14}
+                  y={dimensions.chart.height + LAYOUT.axis.labelOffset.xTick}
                   fontSize={10}
                   fill="#666"
                   textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
@@ -579,8 +641,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
           {/* X-axis label */}
           <text
-            x={chartWidth / 2}
-            y={chartHeight + 26}
+            x={dimensions.chart.width / 2}
+            y={dimensions.chart.height + LAYOUT.axis.labelOffset.xLabel}
             fontSize={10}
             fill="#666"
             textAnchor="middle"
@@ -591,24 +653,24 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           {/* Threshold handle */}
           <ThresholdHandles
             orientation="horizontal"
-            bounds={{ min: 0, max: chartWidth }}
+            bounds={{ min: 0, max: dimensions.chart.width }}
             thresholds={[threshold]}
             metricRange={{ min: 0, max: maxMargin }}
             position={{ x: 0, y: 0 }}
-            lineBounds={{ min: 0, max: chartHeight }}
+            lineBounds={{ min: 0, max: dimensions.chart.height }}
             showThresholdLine={true}
             showDragTooltip={true}
             onUpdate={handleThresholdUpdate}
             onDragUpdate={handleDragUpdate}
             onDragEnd={handleDragEnd}
-            handleDimensions={{ width: 16, height: 12 }}
+            handleDimensions={{ width: LAYOUT.handle.width, height: LAYOUT.handle.height }}
           />
 
           {/* Threshold label with arrow - clips to stay within bounds */}
           {isTopMode ? (
             <text
               x={labelPosition}
-              y={-8}
+              y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="start"
               fontSize={14}
               fontWeight={600}
@@ -620,7 +682,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           ) : (
             <text
               x={labelPosition}
-              y={-8}
+              y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="end"
               fontSize={14}
               fontWeight={600}

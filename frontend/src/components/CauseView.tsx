@@ -1183,14 +1183,13 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                     {/* Best Explanation Header */}
                     <div className="cause-view__explanation-header">
-                      <h4 className="subheader">Best Explanation</h4>
-                      {/* Quality Score */}
-                      <div className="pair-info__similarity">
-                        <span className="similarity__label">Quality Score:</span>
-                        <span className="similarity__value">
+                      <span className="subheader subheader--with-value">
+                        Best Explanation
+                        <span className="subheader__label">Quality Score:</span>
+                        <span className="subheader__value">
                           {bestExplanation?.qualityScore !== undefined ? bestExplanation.qualityScore.toFixed(3) : 'N/A'}
                         </span>
-                      </div>
+                      </span>
                     </div>
                     {/* Semantic similarity legend */}
                     <div className="cause-view__explanation-legend">

@@ -915,14 +915,13 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
-                    <h4 className="subheader">Explanations</h4>
-                    {/* Avg. Quality Score */}
-                    <div className="pair-info__similarity">
-                      <span className="similarity__label">Avg. Quality Score:</span>
-                      <span className="similarity__value">
+                    <span className="subheader subheader--with-value">
+                      Explanations
+                      <span className="subheader__label">Avg. Quality Score:</span>
+                      <span className="subheader__value">
                         {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
                       </span>
-                    </div>
+                    </span>
                     {/* Semantic similarity legend - shapes and colors */}
                     <div className="quality-view__explanation-legend">
                       <span className="legend-group-label">Semantic Similarity:</span>

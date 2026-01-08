@@ -154,19 +154,18 @@ body {
   padding: 0;
 }
 
-/* Subheader Instruction - Descriptive text following a subheader */
-.subheader-instruction {
-  font-size: 13px;
-  font-weight: 600;
-  color: #000000;
-  margin: 0;
-}
-
 .subheader--with-value {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+}
+
+.subheader__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #1f2937;
+  text-transform: none;
 }
 
 .subheader__value {
@@ -176,12 +175,20 @@ body {
   font-family: 'Consolas', 'Monaco', monospace;
   text-transform: none;
   letter-spacing: normal;
+  text-decoration: underline;
+}
+
+.instruction-subheader {
+  font-size: 13px;
+  font-weight: 600;
+  color: #000000;
+  margin: 0;
 }
 
 /* ============================================================================
-   COMMON ACTION BUTTONS - Shared button styles across tagging panels
-   Matches .nav__button style: white background, 11px font
-   ============================================================================ */
+COMMON ACTION BUTTONS - Shared button styles across tagging panels
+Matches .nav__button style: white background, 11px font
+============================================================================ */
 
 /* Base action button - white background (matches nav__button) */
 .action-button {

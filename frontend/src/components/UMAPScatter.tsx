@@ -882,7 +882,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       </div>
 
       {/* Filter panel - histogram on top, horizontal buttons below */}
-      <div className="umap-scatter__filter-panel" style={{ border: '2px solid blue' }}>
+      <div className="umap-scatter__filter-panel">
         {/* Margin threshold histogram */}
         <CauseMarginHistogram
           featureIds={new Set(featureIds)}
