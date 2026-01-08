@@ -21,7 +21,7 @@ const LAYOUT = {
   margin: {
     top: 20,     // Space for threshold label arrow
     right: 0,
-    bottom: 30,  // Space for x-axis ticks and label
+    bottom: 32,  // Space for x-axis ticks and label
     left: 36,    // Space for y-axis ticks
   },
 
@@ -32,7 +32,7 @@ const LAYOUT = {
     yTickCount: 3,
     labelOffset: {
       xTick: 14,      // Distance from axis to tick labels
-      xLabel: 26,     // Distance from axis to axis label
+      xLabel: 28,     // Distance from axis to axis label
       yTick: 8,       // Distance from axis to tick labels (horizontal)
       yTextAdjust: 4, // Vertical centering for y-axis text
     },
@@ -643,7 +643,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           <text
             x={dimensions.chart.width / 2}
             y={dimensions.chart.height + LAYOUT.axis.labelOffset.xLabel}
-            fontSize={10}
+            fontSize={12}
             fill="#666"
             textAnchor="middle"
           >

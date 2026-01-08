@@ -13,7 +13,6 @@ import {
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
-import CauseMarginHistogram from './CauseMarginHistogram'
 
 // Darker unsure gray for scatterplot points (better visibility on white background)
 const DARK_UNSURE_GRAY = '#686868ff'
@@ -40,9 +39,9 @@ interface UMAPScatterProps {
   visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
   onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
-  sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel
-  sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (affects histogram display)
-  onPercentageChange?: (percentage: number) => void  // Callback when unsure percentage changes
+  sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel (for visibility filtering)
+  sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (for visibility filtering)
+  hoveredBinFeatureIds?: Set<number> | null  // Feature IDs to highlight from histogram bin hover
 }
 
 // Margin configuration
@@ -69,7 +68,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   onFeatureSelect,
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
-  onPercentageChange
+  hoveredBinFeatureIds = null
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -108,9 +107,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
 
-  // Shared margin threshold from store
+  // Shared margin threshold from store (used for visibility filtering)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
-  const setCauseMarginThreshold = useVisualizationStore(state => state.setCauseMarginThreshold)
 
   // Filter state: use prop if provided, fallback to local state
   // Initially show only 'unsure' - user starts by reviewing uncertain features
@@ -118,8 +116,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     new Set(['unsure'])
   )
 
-  // State for histogram bin hover highlighting on scatter plot
-  const [hoveredBinFeatureIds, setHoveredBinFeatureIds] = useState<Set<number> | null>(null)
   const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
   // Hover state disabled - no grid cells
@@ -878,64 +874,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
             {label.shortName}
           </div>
         ))}
-        </div>
-      </div>
-
-      {/* Filter panel - histogram on top, horizontal buttons below */}
-      <div className="umap-scatter__filter-panel">
-        {/* Margin threshold histogram */}
-        <CauseMarginHistogram
-          featureIds={new Set(featureIds)}
-          causeCategoryDecisionMargins={causeCategoryDecisionMargins}
-          causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
-          causeSelectionSources={causeSelectionSources}
-          threshold={causeMarginThreshold}
-          onThresholdChange={setCauseMarginThreshold}
-          onBinHover={setHoveredBinFeatureIds}
-          height={220}
-          sortMode={sortMode}
-          sortDirection={sortDirection}
-          onPercentageChange={onPercentageChange}
-        />
-      </div>
-
-      {/* Legend panel - separate box */}
-      <div className="umap-scatter__legend-panel">
-        <span className="umap-scatter__legend-title subheader-instruction">Legend</span>
-
-        {/* Feature Count - stroke width */}
-        <div className="umap-scatter__legend-section">
-          <span className="umap-scatter__legend-label">Feature Count</span>
-          <div className="umap-scatter__stroke-legend-bar">
-            <svg width="100%" height="14" viewBox="0 0 60 14" preserveAspectRatio="none">
-              <line x1="0" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="0.3" />
-              <line x1="15" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="1.9" />
-              <line x1="35" y1="7" x2="60" y2="7" stroke="#000" strokeWidth="3.5" />
-            </svg>
-          </div>
-          <div className="umap-scatter__stroke-legend-labels">
-            <span>Few</span>
-            <span>Many</span>
-          </div>
-        </div>
-
-        {/* Tag Status - ring vs filled */}
-        <div className="umap-scatter__legend-section">
-          <span className="umap-scatter__legend-label">Tag Status</span>
-          <div className="umap-scatter__tag-legend-items">
-            <div className="umap-scatter__tag-legend-item">
-              <svg width="12" height="12" viewBox="0 0 12 12">
-                <circle cx="6" cy="6" r="3.25" fill="none" stroke="#6b7280" strokeWidth="1.5" />
-              </svg>
-              <span>Not Tagged</span>
-            </div>
-            <div className="umap-scatter__tag-legend-item">
-              <svg width="12" height="12" viewBox="0 0 12 12">
-                <circle cx="6" cy="6" r="4" fill="#6b7280" />
-              </svg>
-              <span>Tagged</span>
-            </div>
-          </div>
         </div>
       </div>
 

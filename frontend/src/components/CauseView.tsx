@@ -15,6 +15,7 @@ import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit }
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
 import StatusPanel from './StatusPanel'
+import CauseMarginHistogram from './CauseMarginHistogram'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -105,6 +106,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
+  // State for histogram bin hover highlighting (passed to UMAPScatter)
+  const [hoveredBinFeatureIds, setHoveredBinFeatureIds] = useState<Set<number> | null>(null)
 
   // Pagination for selected features list
   const ITEMS_PER_PAGE = 5
@@ -1057,56 +1060,74 @@ const CauseView: React.FC<CauseViewProps> = ({
 
           {/* Main content: Top row + Bottom action bar */}
           <div className="cause-view__content">
-          {/* Top row: UMAP + Selected list overlay + Detail panel */}
+          {/* Top row: Left column (top panel + UMAP) + Right panel */}
           <div className="cause-view__row-top">
-            {/* UMAP wrapper - contains scatter and overlay */}
-            <div className="cause-view__umap-wrapper">
-              <UMAPScatter
-                featureIds={stableFeatureIds}
-                className="cause-view__umap"
-                selectedFeatureId={selectedFeatureData?.featureId ?? null}
-                visibleCategories={visibleCategories}
-                onVisibleCategoriesChange={setVisibleCategories}
-                onFeatureSelect={handleUMAPFeatureSelect}
-                sortMode={sortMode}
-                sortDirection={selectedSortDirection}
-                onPercentageChange={setTargetPercentage}
-              />
+            {/* Left column - histogram/list on top, UMAP below */}
+            <div className="cause-view__left-column">
+              {/* Top panel - histogram + scrollable list side by side, NO padding/margin */}
+              <div className="cause-view__top-panel">
+                <CauseMarginHistogram
+                  featureIds={selectedFeatureIds || new Set()}
+                  causeCategoryDecisionMargins={causeCategoryDecisionMargins}
+                  causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
+                  causeSelectionSources={causeSelectionSources}
+                  threshold={causeMarginThreshold}
+                  onThresholdChange={setCauseMarginThreshold}
+                  onBinHover={setHoveredBinFeatureIds}
+                  height={230}
+                  sortMode={sortMode}
+                  sortDirection={selectedSortDirection}
+                  onPercentageChange={setTargetPercentage}
+                />
+                <ScrollableItemList
+                  className="cause-view__top-list"
+                  variant="causeBrushed"
+                  badges={[{ label: 'Features', count: sortedFilteredFeatureList.length }]}
+                  columnHeader={{
+                    label: sortMode === 'default' ? 'Feature ID' : '|Decision Margin|',
+                    sortDirection: selectedSortDirection,
+                    onClick: toggleSelectedSortDirection,
+                    isSortable: true
+                  }}
+                  items={paginatedFeatureList}
+                  renderItem={renderBottomRowFeatureItem}
+                  sortConfig={{ getDisplayScore }}
+                  currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
+                  isActive={activeListSource === 'selected'}
+                  emptyMessage="Select a cell with features"
+                  pageNavigation={{
+                    currentPage: selectedPage,
+                    totalPages: selectedTotalPages,
+                    onPreviousPage: () => {
+                      if (selectedPage > 0) {
+                        setSelectedPage(selectedPage - 1)
+                        setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
+                      }
+                    },
+                    onNextPage: () => {
+                      if (selectedPage < selectedTotalPages - 1) {
+                        setSelectedPage(selectedPage + 1)
+                        setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
+                      }
+                    }
+                  }}
+                />
+              </div>
 
-              {/* Selected list - positioned inside UMAP wrapper */}
-              <ScrollableItemList
-                className="cause-view__selected-overlay"
-                variant="causeBrushed"
-                badges={[{ label: 'Features', count: sortedFilteredFeatureList.length }]}
-                columnHeader={{
-                  label: sortMode === 'default' ? 'Feature ID' : '|Decision Margin|',
-                  sortDirection: selectedSortDirection,
-                  onClick: toggleSelectedSortDirection,
-                  isSortable: true
-                }}
-                items={paginatedFeatureList}
-                renderItem={renderBottomRowFeatureItem}
-                sortConfig={{ getDisplayScore }}
-                currentIndex={activeListSource === 'selected' ? currentSelectedIndex % ITEMS_PER_PAGE : -1}
-                isActive={activeListSource === 'selected'}
-                emptyMessage="Select a cell with features"
-                pageNavigation={{
-                  currentPage: selectedPage,
-                  totalPages: selectedTotalPages,
-                  onPreviousPage: () => {
-                    if (selectedPage > 0) {
-                      setSelectedPage(selectedPage - 1)
-                      setCurrentSelectedIndex((selectedPage - 1) * ITEMS_PER_PAGE)
-                    }
-                  },
-                  onNextPage: () => {
-                    if (selectedPage < selectedTotalPages - 1) {
-                      setSelectedPage(selectedPage + 1)
-                      setCurrentSelectedIndex((selectedPage + 1) * ITEMS_PER_PAGE)
-                    }
-                  }
-                }}
-              />
+              {/* UMAP wrapper - fills remaining vertical space */}
+              <div className="cause-view__umap-wrapper">
+                <UMAPScatter
+                  featureIds={stableFeatureIds}
+                  className="cause-view__umap"
+                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
+                  visibleCategories={visibleCategories}
+                  onVisibleCategoriesChange={setVisibleCategories}
+                  onFeatureSelect={handleUMAPFeatureSelect}
+                  sortMode={sortMode}
+                  sortDirection={selectedSortDirection}
+                  hoveredBinFeatureIds={hoveredBinFeatureIds}
+                />
+              </div>
             </div>
 
             {/* Right: Activation examples, explanations, and action buttons */}
@@ -1310,7 +1331,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 <h4 className="subheader">Batch Tagging</h4>
                 {/* Tag Selected Cell */}
                 <div className="cause-view__action-section">
-                  <span className="cause-view__action-header subheader-instruction">
+                  <span className="cause-view__action-header instruction-subheader">
                     Tag Selected Cell as
                   </span>
                   <div className="cause-view__action-row">

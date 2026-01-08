@@ -59,7 +59,7 @@
 }
 
 .scrollable-list__badge-label {
-  /* Font styles inherited from .subheader-instruction */
+  /* Font styles inherited from .instruction-subheader */
   text-transform: none;
   letter-spacing: 0;
 }
