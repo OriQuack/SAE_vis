@@ -294,7 +294,11 @@ body {
   font-size: 12px;
   color: #6b7280;
   margin-top: 2px;
-  min-height: 16px;
+}
+
+/* Remove space when legend has no visible children */
+.action-button__legend:not(:has(*)) {
+  display: none;
 }
 
 .action-button__legend-item {

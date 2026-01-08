@@ -22,9 +22,8 @@ import '../styles/CauseView.css'
 // ============================================================================
 // Layout: [Content: UMAP + Selected Features List + Right Panel]
 
-// Maximum features to show in initial unsure filter view
-// Auto-adjustment will set causeMarginThreshold to show at most this many unsure features
-const MAX_INITIAL_UNSURE_FEATURES = 100
+// Initial unsure boundary percentage (Low 1% of features by decision margin)
+const INITIAL_UNSURE_PERCENTAGE = 1
 
 // Commit history types
 export interface CauseCommitCounts {
@@ -105,6 +104,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [sortMode, setSortMode] = useState<'default' | 'decisionMargin'>('decisionMargin')
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
+  const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
 
   // Pagination for selected features list
   const ITEMS_PER_PAGE = 5
@@ -131,22 +131,15 @@ const CauseView: React.FC<CauseViewProps> = ({
     ? stage3FinalCommit.featureIds
     : getSelectedNodeFeatures()
 
-  // Extract well-explained feature IDs from causeSelectionStates (features individually tagged as well-explained)
-  const wellExplainedFeatureIds = useMemo(() => {
-    const wellExplained = new Set<number>()
-    causeSelectionStates.forEach((category, featureId) => {
-      if (category === 'well-explained') {
-        wellExplained.add(featureId)
-      }
-    })
-    return wellExplained
-  }, [causeSelectionStates])
 
   // Helper type for effective category
   type EffectiveCategory = CauseCategory | 'unsure'
 
-  // Get effective category for a feature (considering margin threshold)
-  // Priority: manual tags > auto-tags with margin check > unsure
+  // Determine if we're in "Top" mode (Most Confident First)
+  const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
+
+  // Get effective category for a feature (semantic - not based on mode)
+  // Below threshold = unsure (always), Above threshold = predicted category
   const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
     const category = causeSelectionStates.get(featureId)
     const source = causeSelectionSources.get(featureId)
@@ -155,7 +148,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // Priority 2: Auto-tagged with margin check
+    // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
@@ -166,6 +159,23 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     return category || 'unsure'
   }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
+
+  // Helper: check if feature is visible based on mode and threshold
+  // Low mode: show below-threshold (unsure), Top mode: show above-threshold (candidates)
+  const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
+    const source = causeSelectionSources.get(featureId)
+    // Manual tags are always visible
+    if (source === 'manual') return true
+
+    // Get margin for this feature
+    const categoryScores = causeCategoryDecisionMargins?.get(featureId)
+    if (!categoryScores) return true  // No scores = show it
+
+    const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+
+    // Visibility depends on mode
+    return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold
+  }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
 
   // ============================================================================
   // METRIC SCORE INITIALIZATION - Calculate scores when entering Stage 3
@@ -219,20 +229,11 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [isRevisitingStage3, selectedFeatureIds])
 
   // ============================================================================
-  // AUTO-ADJUST UNSURE BOUNDARY - Set threshold to show at most MAX_INITIAL_UNSURE_FEATURES
+  // AUTO-ADJUST UNSURE BOUNDARY - Set threshold to show Low INITIAL_UNSURE_PERCENTAGE%
   // ============================================================================
   const hasAutoAdjustedBoundaryRef = useRef(false)
 
   useEffect(() => {
-    // Debug: Log every time the effect is evaluated
-    console.log('[CauseView] Auto-adjust effect evaluated:', {
-      alreadyAdjusted: hasAutoAdjustedBoundaryRef.current,
-      isRevisiting: isRevisitingStage3,
-      marginsSize: causeCategoryDecisionMargins?.size ?? 0,
-      loading: causeClassificationLoading,
-      featuresSize: selectedFeatureIds?.size ?? 0
-    })
-
     // Guard: Only run once, after classification completes
     if (hasAutoAdjustedBoundaryRef.current) return
     if (isRevisitingStage3) return
@@ -240,7 +241,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (causeClassificationLoading) return
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
 
-    console.log('[CauseView] Auto-adjust effect RUNNING (passed all guards)')
     hasAutoAdjustedBoundaryRef.current = true
 
     // Collect all margins for non-manually-tagged features
@@ -262,43 +262,75 @@ const CauseView: React.FC<CauseViewProps> = ({
     // Sort margins ascending (lowest = most unsure)
     margins.sort((a, b) => a - b)
 
-    console.log('[CauseView] Auto-adjust unsure boundary:', {
-      totalMargins: margins.length,
-      maxAllowed: MAX_INITIAL_UNSURE_FEATURES,
-      minMargin: margins[0],
-      maxMargin: margins[margins.length - 1],
-      marginAt100: margins[Math.min(MAX_INITIAL_UNSURE_FEATURES - 1, margins.length - 1)]
-    })
+    // Calculate target index for INITIAL_UNSURE_PERCENTAGE% of features
+    const targetCount = Math.max(1, Math.ceil(margins.length * INITIAL_UNSURE_PERCENTAGE / 100))
+    const targetIndex = Math.min(targetCount - 1, margins.length - 1)
 
-    // Find the threshold that gives us exactly MAX_INITIAL_UNSURE_FEATURES unsure
-    // The Nth lowest margin feature becomes the cutoff
-    if (margins.length > MAX_INITIAL_UNSURE_FEATURES) {
-      // Set threshold just above the MAX_INITIAL_UNSURE_FEATURES-th margin
-      // This ensures exactly MAX features have margin < threshold (are unsure)
-      const targetMargin = margins[MAX_INITIAL_UNSURE_FEATURES - 1]
-      const nextMargin = margins[MAX_INITIAL_UNSURE_FEATURES]
-      // Set threshold between the 100th and 101st feature's margin
+    if (margins.length > targetCount && targetIndex + 1 < margins.length) {
+      // Set threshold between target feature and next one
+      const targetMargin = margins[targetIndex]
+      const nextMargin = margins[targetIndex + 1]
       const newThreshold = (targetMargin + nextMargin) / 2
-
-      console.log('[CauseView] Setting threshold to show exactly', MAX_INITIAL_UNSURE_FEATURES, 'unsure:', {
-        targetMargin,
-        nextMargin,
-        newThreshold: newThreshold.toFixed(4)
-      })
       setCauseMarginThreshold(newThreshold)
     } else {
-      // Fewer features than MAX - set threshold to include all
+      // Fewer features than target - set threshold to include all
       const maxMargin = margins[margins.length - 1] || 0
-      const newThreshold = maxMargin + 0.01  // Slightly above max to include all
-
-      console.log('[CauseView] Fewer than MAX features, including all:', {
-        totalFeatures: margins.length,
-        newThreshold: newThreshold.toFixed(4)
-      })
-      setCauseMarginThreshold(newThreshold)
+      setCauseMarginThreshold(maxMargin + 0.01)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once after classification, dependencies are stable
   }, [isRevisitingStage3, causeCategoryDecisionMargins, causeClassificationLoading, selectedFeatureIds])
+
+  // Memoize sorted margins for threshold calculations when switching modes
+  const sortedMargins = useMemo(() => {
+    if (!selectedFeatureIds || !causeCategoryDecisionMargins) return []
+
+    const margins: number[] = []
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      if (source === 'manual') return  // Skip manually tagged
+
+      const categoryScores = causeCategoryDecisionMargins.get(featureId)
+      if (!categoryScores) {
+        margins.push(0)
+        return
+      }
+      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+      margins.push(margin)
+    })
+
+    return margins.sort((a, b) => a - b)
+  }, [selectedFeatureIds, causeCategoryDecisionMargins, causeSelectionSources])
+
+  // Track previous isTopMode to detect mode switches
+  const prevIsTopModeRef = useRef(isTopMode)
+
+  // Recalculate threshold when switching between Low/Top modes to maintain same percentage
+  useEffect(() => {
+    // Only trigger on mode switch (not initial render)
+    if (prevIsTopModeRef.current === isTopMode) return
+    prevIsTopModeRef.current = isTopMode
+
+    if (sortedMargins.length === 0) return
+
+    // Calculate threshold to maintain same percentage from opposite end
+    const targetCount = Math.max(1, Math.ceil(sortedMargins.length * _targetPercentage / 100))
+
+    if (isTopMode) {
+      // Top X%: threshold at (100 - X) percentile so X% of features are ABOVE
+      const targetIndex = Math.max(0, sortedMargins.length - targetCount)
+      const newThreshold = targetIndex > 0
+        ? (sortedMargins[targetIndex - 1] + sortedMargins[targetIndex]) / 2
+        : sortedMargins[0] - 0.01
+      setCauseMarginThreshold(newThreshold)
+    } else {
+      // Low X%: threshold at X percentile so X% of features are BELOW
+      const targetIndex = Math.min(targetCount - 1, sortedMargins.length - 1)
+      const newThreshold = targetIndex + 1 < sortedMargins.length
+        ? (sortedMargins[targetIndex] + sortedMargins[targetIndex + 1]) / 2
+        : sortedMargins[sortedMargins.length - 1] + 0.01
+      setCauseMarginThreshold(newThreshold)
+    }
+  }, [isTopMode, sortedMargins, _targetPercentage, setCauseMarginThreshold])
 
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
@@ -346,14 +378,20 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
-  // All features filtered by visible categories (replaces brush selection)
+  // All features filtered by visibility (mode-based) and category filter
   const filteredFeatureIds = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return []
     return Array.from(selectedFeatureIds).filter(featureId => {
+      // First check mode-based visibility (threshold)
+      if (!isVisibleInCurrentMode(featureId)) return false
+      // In Top mode, show all above-threshold candidates regardless of category filter
+      // (they have predicted categories, not 'unsure')
+      // In Low mode, apply category filter (typically filtering 'unsure')
+      if (isTopMode) return true
       const effectiveCategory = getEffectiveCategory(featureId)
       return visibleCategories.has(effectiveCategory)
     })
-  }, [selectedFeatureIds, getEffectiveCategory, visibleCategories])
+  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
 
   // Create decision margin lookup map from SVM classification results
   // Decision margin = min absolute distance to any category boundary
@@ -942,9 +980,10 @@ const CauseView: React.FC<CauseViewProps> = ({
       ? 'Unsure'
       : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
 
-    // Determine if auto (well-explained from segment or below-threshold auto-tags are considered "auto")
-    const isAuto = causeSource === 'auto' ||
-      (wellExplainedFeatureIds.has(featureId) && causeSource !== 'manual')
+    // Stripe pattern only in Top mode for non-manual features (above-threshold candidates)
+    // Low mode: no stripe (unsure features, no auto-tagging shown)
+    // Top mode: stripe for candidates (above threshold, showing predicted category)
+    const isAuto = isTopMode && causeSource !== 'manual' && effectiveCategory !== 'unsure'
 
     return (
       <TagBadge
@@ -956,7 +995,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         isAuto={isAuto}
       />
     )
-  }, [getEffectiveCategory, causeSelectionSources, wellExplainedFeatureIds, handleSelectedListClick])
+  }, [getEffectiveCategory, causeSelectionSources, isTopMode, handleSelectedListClick])
 
   // ============================================================================
   // RENDER
@@ -1029,13 +1068,16 @@ const CauseView: React.FC<CauseViewProps> = ({
                 visibleCategories={visibleCategories}
                 onVisibleCategoriesChange={setVisibleCategories}
                 onFeatureSelect={handleUMAPFeatureSelect}
+                sortMode={sortMode}
+                sortDirection={selectedSortDirection}
+                onPercentageChange={setTargetPercentage}
               />
 
               {/* Selected list - positioned inside UMAP wrapper */}
               <ScrollableItemList
                 className="cause-view__selected-overlay"
                 variant="causeBrushed"
-                badges={[{ label: 'Filtered', count: sortedFilteredFeatureList.length }]}
+                badges={[{ label: 'Features', count: sortedFilteredFeatureList.length }]}
                 columnHeader={{
                   label: sortMode === 'default' ? 'Feature ID' : '|Decision Margin|',
                   sortDirection: selectedSortDirection,

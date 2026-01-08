@@ -426,7 +426,8 @@
   flex-direction: column;
   padding: 0px 4px;
   z-index: 100;
-  width: 400px;
+  width: calc(100% - 220px);  /* 210px scrollable list + 10px gap */
+  height: 230px;  /* Match scrollable list height */
 }
 
 .umap-scatter__filter-buttons {

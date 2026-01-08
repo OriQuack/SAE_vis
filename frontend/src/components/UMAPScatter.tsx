@@ -12,7 +12,7 @@ import {
   type CauseCategory
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import CauseMarginHistogram from './CauseMarginHistogram'
 
 // Darker unsure gray for scatterplot points (better visibility on white background)
@@ -40,6 +40,9 @@ interface UMAPScatterProps {
   visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
   onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
+  sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel
+  sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (affects histogram display)
+  onPercentageChange?: (percentage: number) => void  // Callback when unsure percentage changes
 }
 
 // Margin configuration
@@ -47,14 +50,6 @@ const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
-
-const FILTER_CATEGORIES: { id: FilterCategory; label: string }[] = [
-  { id: 'noisy-activation', label: 'Noisy Activation' },
-  { id: 'missed-N-gram', label: 'Pattern Miss' },
-  { id: 'missed-context', label: 'Context Miss' },
-  { id: 'well-explained', label: 'Well-Explained' },
-  { id: 'unsure', label: 'Unsure' }
-]
 
 // Short name mapping for each LLM explainer (using full model names from backend)
 const EXPLAINER_SHORT_NAMES: Record<string, string> = {
@@ -70,8 +65,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   className = '',
   selectedFeatureId = null,
   visibleCategories: propVisibleCategories,
-  onVisibleCategoriesChange,
-  onFeatureSelect
+  // onVisibleCategoriesChange - removed filter buttons
+  onFeatureSelect,
+  sortMode = 'decisionMargin',
+  sortDirection = 'asc',
+  onPercentageChange
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -116,7 +114,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
 
   // Filter state: use prop if provided, fallback to local state
   // Initially show only 'unsure' - user starts by reviewing uncertain features
-  const [localVisibleCategories, setLocalVisibleCategories] = useState<Set<FilterCategory>>(
+  const [localVisibleCategories] = useState<Set<FilterCategory>>(
     new Set(['unsure'])
   )
 
@@ -129,21 +127,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   //   cellKey: string
   //   position: { x: number; y: number }
   // } | null>(null)
-
-  // Toggle category visibility
-  const toggleCategory = useCallback((category: FilterCategory) => {
-    const next = new Set(visibleCategories)
-    if (next.has(category)) {
-      next.delete(category)
-    } else {
-      next.add(category)
-    }
-    if (onVisibleCategoriesChange) {
-      onVisibleCategoriesChange(next)
-    } else {
-      setLocalVisibleCategories(next)
-    }
-  }, [visibleCategories, onVisibleCategoriesChange])
 
   // Check if all 3 categories have at least one manual tag (for SVM classification)
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
@@ -270,8 +253,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return new Set(Object.keys(manualCauseSelections).map(Number))
   }, [manualCauseSelections])
 
-  // Helper: get effective category for a feature (considering margin threshold)
-  // Priority: manual tags > auto-tags with margin check > unsure
+  // Determine if we're in "Top" mode (Most Confident First)
+  const isTopMode = sortMode === 'decisionMargin' && sortDirection === 'desc'
+
+  // Helper: get effective category for a feature (semantic - not based on mode)
+  // Below threshold = unsure (always), Above threshold = predicted category
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
     const isManual = manuallyTaggedIds.has(featureId)
     const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
@@ -279,7 +265,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Priority 1: Manual tags respected (user intent takes precedence)
     if (isManual && category) return category
 
-    // Priority 2: Auto-tagged with margin check
+    // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (categoryScores) {
@@ -291,14 +277,36 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return category || 'unsure'
   }, [manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
 
-  // Filter spread points by visible categories
+  // Helper: check if feature is visible based on mode and threshold
+  // Low mode: show below-threshold (unsure), Top mode: show above-threshold (candidates)
+  const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
+    const isManual = manuallyTaggedIds.has(featureId)
+    // Manual tags are always visible
+    if (isManual) return true
+
+    // Get margin for this feature
+    const categoryScores = causeCategoryDecisionMargins?.get(featureId)
+    if (!categoryScores) return true  // No scores = show it
+
+    const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+
+    // Visibility depends on mode
+    return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold
+  }, [manuallyTaggedIds, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
+
+  // Filter spread points by visibility (mode-based) and category filter
   const filteredSpreadPoints = useMemo(() => {
     if (!spreadPoints) return null
     return spreadPoints.filter(point => {
+      // First check mode-based visibility (threshold)
+      if (!isVisibleInCurrentMode(point.feature_id)) return false
+      // In Top mode, show all above-threshold candidates regardless of category filter
+      if (isTopMode) return true
+      // In Low mode, apply category filter
       const category = getEffectiveCategory(point.feature_id)
       return visibleCategories.has(category)
     })
-  }, [spreadPoints, getEffectiveCategory, visibleCategories])
+  }, [spreadPoints, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
 
   // Triangle grid disabled - using density heatmap instead
   // const gridState = useMemo(() => {
@@ -498,16 +506,15 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Draw on-demand feature points (manually tagged, brushed, selected)
     for (const point of pointsToRender) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
-      const isAutoTagged = !isManual && causeSelectionSources.get(point.feature_id) === 'auto'
       const isSelected = point.feature_id === selectedFeatureId
       const isHoveredBin = hoveredBinFeatureIds?.has(point.feature_id)
 
       // Skip selected feature here - will draw it last on top
       if (isSelected) continue
 
-      // Apply filter: skip points whose effective category is not visible
+      // Apply visibility filter - same logic as filteredSpreadPoints
       const effectiveCategory = getEffectiveCategory(point.feature_id)
-      if (!visibleCategories.has(effectiveCategory)) continue
+      if (!isTopMode && !visibleCategories.has(effectiveCategory)) continue
 
       const cx = scales.xScale(point.x)
       const cy = scales.yScale(point.y)
@@ -555,21 +562,22 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         ctx.fillStyle = color
         ctx.globalAlpha = manualPointAlpha
         ctx.fill()
-      } else if (isAutoTagged) {
-        // Auto-tagged points: hollow circles (ring only) with cause category color
+      } else if (effectiveCategory !== 'unsure') {
+        // Above threshold (candidate): colored ring showing predicted category
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
         ctx.strokeStyle = color
-        ctx.lineWidth = 0.5
+        ctx.lineWidth = 1
         ctx.globalAlpha = untaggedPointAlpha
         ctx.stroke()
       } else {
-        // Untagged points: simple gray
+        // Unsure points: gray ring (not filled)
         ctx.beginPath()
         ctx.arc(cx, cy, brushedPointRadius, 0, Math.PI * 2)
-        ctx.fillStyle = DARK_UNSURE_GRAY
+        ctx.strokeStyle = DARK_UNSURE_GRAY
+        ctx.lineWidth = 1
         ctx.globalAlpha = unsurePointAlpha
-        ctx.fill()
+        ctx.stroke()
       }
     }
 
@@ -874,7 +882,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       </div>
 
       {/* Filter panel - histogram on top, horizontal buttons below */}
-      <div className="umap-scatter__filter-panel">
+      <div className="umap-scatter__filter-panel" style={{ border: '2px solid blue' }}>
         {/* Margin threshold histogram */}
         <CauseMarginHistogram
           featureIds={new Set(featureIds)}
@@ -884,27 +892,11 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           threshold={causeMarginThreshold}
           onThresholdChange={setCauseMarginThreshold}
           onBinHover={setHoveredBinFeatureIds}
-          height={120}
+          height={220}
+          sortMode={sortMode}
+          sortDirection={sortDirection}
+          onPercentageChange={onPercentageChange}
         />
-        {/* Category filter buttons - horizontally stacked */}
-        <div className="umap-scatter__filter-buttons">
-          {FILTER_CATEGORIES.map(cat => (
-            <button
-              key={cat.id}
-              className={`umap-scatter__filter-btn${visibleCategories.has(cat.id) ? ' umap-scatter__filter-btn--active' : ''}`}
-              onClick={() => toggleCategory(cat.id)}
-              style={{
-                '--filter-color': cat.id === 'unsure'
-                  ? UNSURE_GRAY
-                  : cat.id === 'well-explained'
-                    ? getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-                    : getTagColor(TAG_CATEGORY_CAUSE, cat.label) || UNSURE_GRAY
-              } as React.CSSProperties}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {/* Legend panel - separate box */}
