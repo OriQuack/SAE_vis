@@ -12,16 +12,11 @@ import '../styles/CauseMarginHistogram.css'
 // ============================================================================
 
 const LAYOUT = {
-  // Component structure
-  header: {
-    height: 24,  // Header text + margin (matches CSS)
-  },
-
   // Chart margins (space for axes and labels)
   margin: {
     top: 20,     // Space for threshold label arrow
-    right: 0,
-    bottom: 32,  // Space for x-axis ticks and label
+    right: 10,
+    bottom: 36,  // Space for x-axis ticks and label
     left: 36,    // Space for y-axis ticks
   },
 
@@ -40,8 +35,8 @@ const LAYOUT = {
 
   // Threshold label positioning
   thresholdLabel: {
-    charWidth: 8,    // Approximate width per character at 14px font
-    arrowWidth: 16,  // Arrow symbol width
+    charWidth: 7,    // Approximate width per character at 12px font
+    arrowWidth: 13,  // Arrow symbol width
     padding: 4,      // Buffer from chart edge
     yOffset: -8,     // Vertical position above chart
   },
@@ -75,8 +70,6 @@ interface CauseMarginHistogramProps {
   threshold: number
   /** Callback when threshold changes */
   onThresholdChange: (value: number) => void
-  /** Callback when hovering a bin (for scatter plot highlighting) */
-  onBinHover?: (featureIds: Set<number> | null) => void
   /** Height of the histogram */
   height?: number
   /** Sort mode from StatusPanel */
@@ -186,7 +179,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   causeSelectionSources,
   threshold,
   onThresholdChange,
-  onBinHover,
   height = 80,
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
@@ -200,6 +192,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
   // Determine if we're in "Top X%" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && sortDirection === 'desc'
+
+  // Use live threshold during drag for interactive bar updates, otherwise use prop
+  const effectiveThreshold = liveThreshold ?? threshold
 
   // Observe container width for responsiveness
   useEffect(() => {
@@ -215,7 +210,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return () => observer.disconnect()
   }, [])
 
-  // Compute margin data for all features
+  // Compute margin data for all features (uses effectiveThreshold for interactive updates)
   const marginData = useMemo((): MarginDataPoint[] => {
     const data: MarginDataPoint[] = []
 
@@ -231,7 +226,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       if (isManual && category) {
         effectiveCategory = category
       } else if (category) {
-        const isUnsure = margin < threshold
+        const isUnsure = margin < effectiveThreshold
         effectiveCategory = isUnsure ? 'unsure' : category
       } else {
         effectiveCategory = 'unsure'
@@ -246,17 +241,17 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
 
     return data
-  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, threshold])
+  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold])
 
   // Calculate percentage of features in unsure zone (candidates to review)
   // Top mode: features above threshold; Low mode: features below threshold
   const unsurePercentage = useMemo(() => {
     if (marginData.length === 0) return 0
     const unsureCount = isTopMode
-      ? marginData.filter(d => d.margin > threshold).length
-      : marginData.filter(d => d.margin < threshold).length
+      ? marginData.filter(d => d.margin > effectiveThreshold).length
+      : marginData.filter(d => d.margin < effectiveThreshold).length
     return Math.round((unsureCount / marginData.length) * 100)
-  }, [marginData, threshold, isTopMode])
+  }, [marginData, effectiveThreshold, isTopMode])
 
   // Compute histogram bins (no clipping - show full range)
   const { bins, maxMargin, maxCount } = useMemo(() => {
@@ -311,7 +306,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
   // Calculate all dimensions from container width and height prop
   const dimensions = useMemo(() => {
-    const svgHeight = height - LAYOUT.header.height
+    const svgHeight = height
     const chartWidth = containerWidth - LAYOUT.margin.left - LAYOUT.margin.right
     const chartHeight = svgHeight - LAYOUT.margin.top - LAYOUT.margin.bottom
 
@@ -396,9 +391,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return segments
   }, [bins, dimensions.chart, yScale])
 
-  // Use live threshold during drag, otherwise use prop
-  const effectiveThreshold = liveThreshold ?? threshold
-
   // Threshold position in pixels
   const thresholdX = xScale(effectiveThreshold)
 
@@ -432,24 +424,21 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
   }, [onThresholdChange, onPercentageChange, marginData, isTopMode])
 
-  // Handle live drag updates for visual feedback
+  // Handle live drag updates for visual feedback and store sync
   const handleDragUpdate = useCallback((newThresholds: number[]) => {
     setLiveThreshold(newThresholds[0])
-  }, [])
+    onThresholdChange(newThresholds[0])
+  }, [onThresholdChange])
 
   const handleDragEnd = useCallback(() => {
     setLiveThreshold(null)
   }, [])
 
-  // Handle bin hover
+  // Handle bin hover (tooltip only)
   const handleBinMouseEnter = useCallback((binIndex: number, e: React.MouseEvent) => {
     setHoveredBinIndex(binIndex)
     setTooltipPosition({ x: e.clientX, y: e.clientY })
-
-    if (onBinHover && bins[binIndex]) {
-      onBinHover(new Set(bins[binIndex].featureIds))
-    }
-  }, [bins, onBinHover])
+  }, [])
 
   const handleBinMouseMove = useCallback((e: React.MouseEvent) => {
     setTooltipPosition({ x: e.clientX, y: e.clientY })
@@ -458,8 +447,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   const handleBinMouseLeave = useCallback(() => {
     setHoveredBinIndex(null)
     setTooltipPosition(null)
-    onBinHover?.(null)
-  }, [onBinHover])
+  }, [])
 
   // Tooltip content
   const tooltipContent = useMemo(() => {
@@ -485,6 +473,11 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
   }, [hoveredBinIndex, bins])
 
+  // Report percentage on mount and when it changes
+  useEffect(() => {
+    onPercentageChange?.(unsurePercentage)
+  }, [unsurePercentage, onPercentageChange])
+
   if (featureIds.size === 0 || causeCategoryDecisionMargins.size === 0) {
     return (
       <div className="cause-margin-histogram cause-margin-histogram--empty" ref={containerRef}>
@@ -497,13 +490,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
   return (
     <div className="cause-margin-histogram" ref={containerRef} style={{ height }}>
-      <div className="cause-margin-histogram__header">
-        <span className="subheader subheader--with-value">
-          Unsure Boundary
-          <span className="subheader__value">{sortMode === 'decisionMargin' && sortDirection === 'desc' ? 'Top' : 'Low'} {unsurePercentage}%</span>
-        </span>
-      </div>
-
       <svg
         width={dimensions.svg.width}
         height={dimensions.svg.height}
@@ -589,7 +575,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             y1={0}
             x2={0}
             y2={dimensions.chart.height}
-            stroke="#d1d5db"
+            stroke="#000"
             strokeWidth={1}
           />
 
@@ -599,8 +585,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             const y = dimensions.chart.height - (dimensions.chart.height / LAYOUT.axis.yTickCount) * i
             return (
               <g key={`y-tick-${i}`}>
-                <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#d1d5db" strokeWidth={1} />
-                <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={10} fill="#666" textAnchor="end">
+                <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#000" strokeWidth={1} />
+                <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={10} fill="#000" textAnchor="end">
                   {value}
                 </text>
               </g>
@@ -613,7 +599,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             y1={dimensions.chart.height}
             x2={dimensions.chart.width}
             y2={dimensions.chart.height}
-            stroke="#d1d5db"
+            stroke="#000"
             strokeWidth={1}
           />
 
@@ -625,12 +611,12 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             const isLast = i === LAYOUT.axis.xTickCount
             return (
               <g key={`x-tick-${i}`}>
-                <line x1={x} y1={dimensions.chart.height} x2={x} y2={dimensions.chart.height + LAYOUT.axis.tickLength} stroke="#d1d5db" strokeWidth={1} />
+                <line x1={x} y1={dimensions.chart.height} x2={x} y2={dimensions.chart.height + LAYOUT.axis.tickLength} stroke="#000" strokeWidth={1} />
                 <text
                   x={x}
                   y={dimensions.chart.height + LAYOUT.axis.labelOffset.xTick}
                   fontSize={10}
-                  fill="#666"
+                  fill="#000"
                   textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                 >
                   {value.toFixed(2)}
@@ -644,7 +630,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             x={dimensions.chart.width / 2}
             y={dimensions.chart.height + LAYOUT.axis.labelOffset.xLabel}
             fontSize={12}
-            fill="#666"
+            fill="#000"
             textAnchor="middle"
           >
             |Decision Margin|
@@ -672,23 +658,23 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               x={labelPosition}
               y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="start"
-              fontSize={14}
+              fontSize={12}
               fontWeight={600}
               fill="#272121ff"
             >
               <tspan>Confident </tspan>
-              <tspan fontSize={16}>→</tspan>
+              <tspan fontSize={13}>→</tspan>
             </text>
           ) : (
             <text
               x={labelPosition}
               y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="end"
-              fontSize={14}
+              fontSize={12}
               fontWeight={600}
               fill="#272121ff"
             >
-              <tspan fontSize={16}>← </tspan>
+              <tspan fontSize={13}>← </tspan>
               <tspan>Unsure</tspan>
             </text>
           )}

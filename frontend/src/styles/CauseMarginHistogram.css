@@ -21,20 +21,6 @@
   font-style: italic;
 }
 
-/* Header with label */
-.cause-margin-histogram__header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.cause-margin-histogram__clipped-indicator {
-  font-size: 9px;
-  color: var(--text-tertiary, #9ca3af);
-  font-style: italic;
-}
-
 /* SVG container */
 .cause-margin-histogram__svg {
   overflow: visible;

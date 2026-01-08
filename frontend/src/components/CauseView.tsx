@@ -106,8 +106,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
-  // State for histogram bin hover highlighting (passed to UMAPScatter)
-  const [hoveredBinFeatureIds, setHoveredBinFeatureIds] = useState<Set<number> | null>(null)
 
   // Pagination for selected features list
   const ITEMS_PER_PAGE = 5
@@ -1066,19 +1064,27 @@ const CauseView: React.FC<CauseViewProps> = ({
             <div className="cause-view__left-column">
               {/* Top panel - histogram + scrollable list side by side, NO padding/margin */}
               <div className="cause-view__top-panel">
-                <CauseMarginHistogram
-                  featureIds={selectedFeatureIds || new Set()}
-                  causeCategoryDecisionMargins={causeCategoryDecisionMargins}
-                  causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
-                  causeSelectionSources={causeSelectionSources}
-                  threshold={causeMarginThreshold}
-                  onThresholdChange={setCauseMarginThreshold}
-                  onBinHover={setHoveredBinFeatureIds}
-                  height={230}
-                  sortMode={sortMode}
-                  sortDirection={selectedSortDirection}
-                  onPercentageChange={setTargetPercentage}
-                />
+                {/* Histogram section with header */}
+                <div className="cause-view__histogram-section">
+                  <div className="cause-view__header-row">
+                    <h4 className="subheader">Unsure Boundary</h4>
+                    <span className="subheader__value">
+                      {sortMode === 'decisionMargin' && selectedSortDirection === 'desc' ? 'Top' : 'Low'} {_targetPercentage}%
+                    </span>
+                  </div>
+                  <CauseMarginHistogram
+                    featureIds={selectedFeatureIds || new Set()}
+                    causeCategoryDecisionMargins={causeCategoryDecisionMargins}
+                    causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
+                    causeSelectionSources={causeSelectionSources}
+                    threshold={causeMarginThreshold}
+                    onThresholdChange={setCauseMarginThreshold}
+                    height={210}
+                    sortMode={sortMode}
+                    sortDirection={selectedSortDirection}
+                    onPercentageChange={setTargetPercentage}
+                  />
+                </div>
                 <ScrollableItemList
                   className="cause-view__top-list"
                   variant="causeBrushed"
@@ -1125,7 +1131,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onFeatureSelect={handleUMAPFeatureSelect}
                   sortMode={sortMode}
                   sortDirection={selectedSortDirection}
-                  hoveredBinFeatureIds={hoveredBinFeatureIds}
                 />
               </div>
             </div>

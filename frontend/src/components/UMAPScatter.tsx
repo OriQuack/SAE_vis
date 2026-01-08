@@ -41,7 +41,6 @@ interface UMAPScatterProps {
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
   sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel (for visibility filtering)
   sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (for visibility filtering)
-  hoveredBinFeatureIds?: Set<number> | null  // Feature IDs to highlight from histogram bin hover
 }
 
 // Margin configuration
@@ -67,8 +66,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // onVisibleCategoriesChange - removed filter buttons
   onFeatureSelect,
   sortMode = 'decisionMargin',
-  sortDirection = 'asc',
-  hoveredBinFeatureIds = null
+  sortDirection = 'asc'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -503,7 +501,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     for (const point of pointsToRender) {
       const isManual = manuallyTaggedIds.has(point.feature_id)
       const isSelected = point.feature_id === selectedFeatureId
-      const isHoveredBin = hoveredBinFeatureIds?.has(point.feature_id)
 
       // Skip selected feature here - will draw it last on top
       if (isSelected) continue
@@ -523,32 +520,6 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'  // Green
       } else {
         color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
-      }
-
-      // Highlight effect for histogram bin hover
-      if (isHoveredBin) {
-        // Draw larger highlighted point with bright border
-        const highlightRadius = brushedPointRadius + 2
-        // White background for visibility
-        ctx.beginPath()
-        ctx.arc(cx, cy, highlightRadius + 1, 0, Math.PI * 2)
-        ctx.fillStyle = '#ffffff'
-        ctx.globalAlpha = 1
-        ctx.fill()
-        // Yellow highlight ring
-        ctx.beginPath()
-        ctx.arc(cx, cy, highlightRadius + 1.5, 0, Math.PI * 2)
-        ctx.strokeStyle = '#fbbf24'  // Amber/yellow highlight
-        ctx.lineWidth = 2
-        ctx.globalAlpha = 1
-        ctx.stroke()
-        // Filled point on top
-        ctx.beginPath()
-        ctx.arc(cx, cy, highlightRadius, 0, Math.PI * 2)
-        ctx.fillStyle = color
-        ctx.globalAlpha = 1
-        ctx.fill()
-        continue
       }
 
       if (isManual) {
@@ -668,7 +639,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     // Reset alpha
     ctx.globalAlpha = 1
     // eslint-disable-next-line react-hooks/exhaustive-deps -- visibleCategories is already accounted for via pointsToRender filtering
-  }, [pointsToRender, spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory, hoveredBinFeatureIds])
+  }, [pointsToRender, spreadPoints, scales, causeSelectionStates, causeSelectionSources, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory])
 
 
   // ============================================================================
