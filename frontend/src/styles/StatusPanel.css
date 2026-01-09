@@ -62,7 +62,7 @@
 .status-panel__button[style*="--tag-color"].status-panel__button--active {
   background: var(--tag-color, #374151);
   border-color: var(--tag-color, #374151);
-  color: #fff;
+  color: #000;
 }
 
 .status-panel__button[style*="--tag-color"]:hover:not(.status-panel__button--active) {

@@ -154,16 +154,16 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_REGENERATION]: {
     id: TAG_CATEGORY_REGENERATION,
-    label: "Regeneration",
+    label: "Summary",
     stageOrder: 4,
     metric: null,
     defaultThresholds: [],
     showHistogram: false,
     tags: [],
     relatedMetrics: [],
-    description: "Regeneration stage for feature explanation improvement",
+    description: "Summary of tagging results across all stages",
     parentTagForNextStage: null,
-    instruction: "Regenerate explanations with identified causes",
+    instruction: "Review tagging results and statistics",
     tagColors: {},
     parentTag: null
   }

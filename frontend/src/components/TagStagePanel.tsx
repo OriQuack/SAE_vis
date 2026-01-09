@@ -135,7 +135,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       };
     }
 
-    // Stage 4 (regeneration) or unknown: return empty counts
+    // Stage 4 (summary) or unknown: return empty counts
     const counts: Record<string, number> = {};
     category.tags.forEach((tag) => {
       counts[tag] = 0;

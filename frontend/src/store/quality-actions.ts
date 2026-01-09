@@ -109,8 +109,12 @@ export const createQualityActions = (set: any, get: any) => ({
       return
     }
 
-    // Get all feature IDs from table data
-    const allFeatureIds = tableData.features.map((f: any) => f.feature_id)
+    // Get feature IDs from selected Sankey node (not all table data)
+    // This matches how DecisionMarginHistogram filters features for the histogram API call
+    const selectedNodeFeatures = state.getSelectedNodeFeatures()
+    const allFeatureIds = selectedNodeFeatures && selectedNodeFeatures.size > 0
+      ? Array.from(selectedNodeFeatures)
+      : tableData.features.map((f: any) => f.feature_id)
 
     try {
       set({ isSimilaritySortLoading: true })

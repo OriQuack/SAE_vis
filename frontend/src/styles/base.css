@@ -158,7 +158,6 @@ body {
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 4px;
 }
 
 .subheader__label {
@@ -166,6 +165,7 @@ body {
   font-weight: 500;
   color: #1f2937;
   text-transform: none;
+  margin-left: 12px;
 }
 
 .subheader__value {
@@ -176,6 +176,7 @@ body {
   text-transform: none;
   letter-spacing: normal;
   text-decoration: underline;
+  margin-left: 2px;
 }
 
 .instruction-subheader {

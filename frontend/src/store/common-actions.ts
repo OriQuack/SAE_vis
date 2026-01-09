@@ -697,8 +697,8 @@ export const createCommonActions = (set: any, get: any) => ({
       state.activateCategoryTable(TAG_CATEGORY_CAUSE)
     } else if (activeStageCategory === TAG_CATEGORY_CAUSE) {
       // This is the cause table (multi-class feature selection)
-      // Next step is Regeneration
-      console.log('[Store.moveToNextStep] Transitioning from Cause to Regeneration')
+      // Next step is Summary
+      console.log('[Store.moveToNextStep] Transitioning from Cause to Summary')
       state.activateCategoryTable(TAG_CATEGORY_REGENERATION)
     } else {
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)

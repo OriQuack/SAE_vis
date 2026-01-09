@@ -443,7 +443,7 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
   },
 
   /**
-   * Activate Stage 4: Regeneration
+   * Activate Stage 4: Summary
    * Expands the Stage 3 segment into terminal nodes for each cause category,
    * using actual cause selection states (from CauseView tagging).
    */

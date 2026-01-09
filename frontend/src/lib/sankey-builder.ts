@@ -915,7 +915,7 @@ export function deriveFeatureSetsFromCauseSelections(
 }
 
 /**
- * Build Stage 4: Regeneration
+ * Build Stage 4: Summary
  *
  * Expands the Stage 3 segment node into terminal nodes for each cause category.
  * Uses actual cause selection states (from CauseView tagging) to determine
