@@ -33,6 +33,9 @@ interface StatusPanelProps {
   onFilterChange?: (value: string | null) => void
   filterDisabled?: boolean  // Show filter but disable it (e.g., in "Most Uncertain First" mode)
 
+  // Disable "Most Confident First" button (e.g., before SVM is trained in Cause view)
+  mostConfidentDisabled?: boolean
+
   className?: string
 }
 
@@ -47,6 +50,7 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   filterValue,
   onFilterChange,
   filterDisabled = false,
+  mostConfidentDisabled = false,
   className = ''
 }) => {
   // Helper to check if a sort option is active
@@ -93,6 +97,8 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
         <button
           className={`status-panel__button ${isActive('decisionMargin', 'desc') ? 'status-panel__button--active' : ''}`}
           onClick={() => handleSortChange('decisionMargin', 'desc')}
+          disabled={mostConfidentDisabled}
+          title={mostConfidentDisabled ? 'Tag 2+ features per category to enable' : undefined}
         >
           Most Confident First
         </button>

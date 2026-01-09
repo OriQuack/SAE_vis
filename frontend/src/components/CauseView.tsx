@@ -13,10 +13,15 @@ import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
-import { calculateCauseMetricScores } from '../lib/cause-tagging-utils'
+import {
+  calculateCauseMetricScores,
+  getEffectiveCategory as getEffectiveCategoryUtil,
+  isFeatureVisibleInMode
+} from '../lib/cause-tagging-utils'
 import StatusPanel from './StatusPanel'
 import CauseMarginHistogram from './CauseMarginHistogram'
 import { ThresholdHandleIcon } from './ThresholdHandles'
+import { useResizeObserver } from '../lib/utils'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -106,12 +111,20 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('selected')
   const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
   const [sortMode, setSortMode] = useState<'default' | 'decisionMargin'>('decisionMargin')
-  const [containerWidth, setContainerWidth] = useState(600)
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Sort by specific tag (only used in Top mode / Most Confident First)
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
+  // Track if user has ever clicked "Most Confident First" - hides placeholder permanently
+  const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
 
-  const rightPanelRef = useRef<HTMLDivElement>(null)
+  // Right panel container width (for ActivationExample)
+  const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: 600,
+    defaultHeight: 400,
+    debounceMs: 16,
+    debugId: 'cause-view-right-panel'
+  })
+  const containerWidth = rightPanelSize.width - 16  // Account for padding
 
   const hasAutoTaggedRef = useRef(false)
 
@@ -141,6 +154,13 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
 
+  // Track when user first enters Top mode (to hide batch tagging placeholder permanently)
+  useEffect(() => {
+    if (isTopMode && !hasEverBeenTopMode) {
+      setHasEverBeenTopMode(true)
+    }
+  }, [isTopMode, hasEverBeenTopMode])
+
   // Check if we can train SVM (need MIN_TAGS_PER_CATEGORY per cause category)
   const { canTrainSVM, manualTagCountsByCategory } = useMemo(() => {
     const counts: Record<string, number> = {
@@ -166,43 +186,26 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [isTopMode, filterByTag])
 
-  // Get effective category for a feature (semantic - not based on mode)
-  // Below threshold = unsure (always), Above threshold = predicted category
+  // Get effective category for a feature - delegates to utility function
   const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
-    const category = causeSelectionStates.get(featureId)
-    const source = causeSelectionSources.get(featureId)
-    const isManual = source === 'manual'
-
-    // Priority 1: Manual tags respected (user intent takes precedence)
-    if (isManual && category) return category
-
-    // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
-    if (category && causeCategoryDecisionMargins) {
-      const categoryScores = causeCategoryDecisionMargins.get(featureId)
-      if (categoryScores) {
-        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-        if (margin < causeMarginThreshold) return 'unsure'
-      }
-    }
-
-    return category || 'unsure'
+    return getEffectiveCategoryUtil(
+      featureId,
+      causeSelectionStates as Map<number, CauseCategory>,
+      causeSelectionSources,
+      causeCategoryDecisionMargins,
+      causeMarginThreshold
+    )
   }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
-  // Helper: check if feature is visible based on mode and threshold
-  // Low mode: show below-threshold (unsure), Top mode: show above-threshold (candidates)
+  // Check if feature is visible based on mode and threshold - delegates to utility function
   const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
-    const source = causeSelectionSources.get(featureId)
-    // Manual tags are always visible
-    if (source === 'manual') return true
-
-    // Get margin for this feature
-    const categoryScores = causeCategoryDecisionMargins?.get(featureId)
-    if (!categoryScores) return true  // No scores = show it
-
-    const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-
-    // Visibility depends on mode
-    return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold
+    return isFeatureVisibleInMode(
+      featureId,
+      causeSelectionSources,
+      causeCategoryDecisionMargins,
+      causeMarginThreshold,
+      isTopMode
+    )
   }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
 
   // ============================================================================
@@ -549,16 +552,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     prevCanTrainSVMRef.current = canTrainSVM
   }, [canTrainSVM])
 
-  // Track right panel width for ActivationExample
-  useEffect(() => {
-    if (!rightPanelRef.current) return
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width || 600
-      setContainerWidth(width - 16)
-    })
-    observer.observe(rightPanelRef.current)
-    return () => observer.disconnect()
-  }, [])
 
   // Get selected feature data for right panel (based on which list is active)
   // Uses filtered lists to respect category filter
@@ -779,42 +772,18 @@ const CauseView: React.FC<CauseViewProps> = ({
       return
     }
 
-    // Compute whether this tag will cause canTrainSVM to become true
-    // This prevents race condition where auto-navigation fires before reset effect
-    const willTriggerSVM = !canTrainSVM && (() => {
-      // Check if adding this manual tag would meet the threshold
-      const newCounts = { ...manualTagCountsByCategory }
-      // Only increment if this is a new manual tag (not already manually tagged for this category)
-      if (currentCauseSource !== 'manual' || currentCauseCategory !== category) {
-        newCounts[category] = (newCounts[category] || 0) + 1
-      }
-      return CAUSE_CATEGORIES.every(cat => newCounts[cat] >= MIN_TAGS_PER_CATEGORY)
-    })()
-
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory])
 
-    // Auto-advance to next feature in selected list (only when tagging, not untagging)
-    // Disabled after SVM is trained (canTrainSVM) or if this tag will trigger SVM training
-    if (!canTrainSVM && !willTriggerSVM && currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
-      setTimeout(() => handleNavigateNext(), 150)
-    }
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext, canTrainSVM, manualTagCountsByCategory])
-
-  // Handle Unsure click - clear cause category and advance
+  // Handle Unsure click - clear cause category
   const handleUnsureClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
 
     // Clear the cause category to null (unsure)
     setCauseCategory(featureId, null)
-
-    // Auto-advance to next feature
-    // Disabled after SVM is trained (canTrainSVM) because list updates after each tag
-    if (!canTrainSVM && currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
-      setTimeout(() => handleNavigateNext(), 150)
-    }
-  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext, canTrainSVM])
+  }, [selectedFeatureData, setCauseCategory])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -1101,6 +1070,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             filterValue={filterByTag}
             onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
             filterDisabled={!isTopMode}
+            mostConfidentDisabled={!canTrainSVM}
           />
 
           {/* Main content: Top row + Bottom action bar */}
@@ -1368,8 +1338,8 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
                 <h4 className="subheader">Batch Tagging</h4>
-                {/* Show placeholder when batch tagging is not available */}
-                {!isTopMode ? (
+                {/* Show placeholder only if user has never clicked "Most Confident First" */}
+                {!isTopMode && !hasEverBeenTopMode ? (
                   // Substage 2: Need to switch to "Most Confident First" mode
                   <div className="cause-view__batch-placeholder">
                     <div className="cause-view__batch-placeholder-content">

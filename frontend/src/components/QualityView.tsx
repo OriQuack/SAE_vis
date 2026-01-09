@@ -15,6 +15,7 @@ import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
 import StatusPanel from './StatusPanel'
+import { useResizeObserver } from '../lib/utils'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -78,9 +79,14 @@ const QualityView: React.FC<QualityViewProps> = ({
   const ITEMS_PER_PAGE = 10
   const currentPage = Math.floor(currentFeatureIndex / ITEMS_PER_PAGE)
 
-  // Right panel container width state (for ActivationExample)
-  const [containerWidth, setContainerWidth] = useState(600)
-  const rightPanelRef = useRef<HTMLDivElement>(null)
+  // Right panel container width (for ActivationExample)
+  const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
+    defaultWidth: 600,
+    defaultHeight: 400,
+    debounceMs: 16,
+    debugId: 'quality-view-right-panel'
+  })
+  const containerWidth = rightPanelSize.width - 16  // Account for padding
 
   // Dependencies for selectedFeatureIds
   const sankeyStructure = leftPanel?.sankeyStructure
@@ -337,16 +343,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])
 
-  // Track right panel width for ActivationExample
-  useEffect(() => {
-    if (!rightPanelRef.current) return
-    const observer = new ResizeObserver(entries => {
-      const width = entries[0]?.contentRect.width || 600
-      setContainerWidth(width - 16) // Account for padding
-    })
-    observer.observe(rightPanelRef.current)
-    return () => observer.disconnect()
-  }, [])
 
   // ============================================================================
   // SELECTED FEATURE DATA (for right panel)

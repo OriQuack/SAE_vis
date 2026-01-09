@@ -421,3 +421,81 @@ export function autoTagFeatures(
 
   return { causeStates, causeSources, causeScores }
 }
+
+// ============================================================================
+// EFFECTIVE CATEGORY & VISIBILITY UTILITIES
+// Used by CauseView and UMAPScatter for consistent category/visibility logic
+// ============================================================================
+
+/**
+ * Get effective category for a feature based on manual tags, SVM predictions, and threshold.
+ * - Manual tags take priority (user intent)
+ * - Auto-tagged features below threshold = 'unsure'
+ * - Auto-tagged features above threshold = predicted category
+ *
+ * @param featureId - Feature to check
+ * @param causeSelectionStates - Map of feature ID to cause category
+ * @param causeSelectionSources - Map of feature ID to source ('manual' | 'auto')
+ * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
+ * @param causeMarginThreshold - Threshold for classifying as 'unsure'
+ * @returns Effective category ('unsure' if below threshold or untagged)
+ */
+export function getEffectiveCategory(
+  featureId: number,
+  causeSelectionStates: Map<number, CauseCategory>,
+  causeSelectionSources: Map<number, 'manual' | 'auto'>,
+  causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
+  causeMarginThreshold: number
+): CauseCategory | 'unsure' {
+  const category = causeSelectionStates.get(featureId)
+  const source = causeSelectionSources.get(featureId)
+  const isManual = source === 'manual'
+
+  // Priority 1: Manual tags respected (user intent takes precedence)
+  if (isManual && category) return category
+
+  // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
+  if (category && causeCategoryDecisionMargins) {
+    const categoryScores = causeCategoryDecisionMargins.get(featureId)
+    if (categoryScores) {
+      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+      if (margin < causeMarginThreshold) return 'unsure'
+    }
+  }
+
+  return category || 'unsure'
+}
+
+/**
+ * Check if feature is visible based on mode and threshold.
+ * - Manual tags are always visible
+ * - Low mode: show below-threshold (unsure features)
+ * - Top mode: show above-threshold (confident candidates)
+ *
+ * @param featureId - Feature to check
+ * @param causeSelectionSources - Map of feature ID to source ('manual' | 'auto')
+ * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
+ * @param causeMarginThreshold - Threshold for visibility boundary
+ * @param isTopMode - True for "Top" mode (most confident), false for "Low" mode (least confident)
+ * @returns True if feature should be visible in current mode
+ */
+export function isFeatureVisibleInMode(
+  featureId: number,
+  causeSelectionSources: Map<number, 'manual' | 'auto'>,
+  causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
+  causeMarginThreshold: number,
+  isTopMode: boolean
+): boolean {
+  const source = causeSelectionSources.get(featureId)
+  // Manual tags are always visible
+  if (source === 'manual') return true
+
+  // Get margin for this feature
+  const categoryScores = causeCategoryDecisionMargins?.get(featureId)
+  if (!categoryScores) return true  // No scores = show it
+
+  const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+
+  // Visibility depends on mode
+  return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold
+}

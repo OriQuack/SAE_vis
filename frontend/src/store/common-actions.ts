@@ -629,16 +629,16 @@ export const createCommonActions = (set: any, get: any) => ({
         set({ isRevisitingStage1: false, isRevisitingStage2: false })
       }
     } else if (stageNumber === 3) {
-      // Check if we're in Stage 4 (stage3_segment no longer exists)
-      if (currentStage >= 4) {
+      // Check if we've already been to Stage 3 (returning from any stage >= 3)
+      if (currentStage >= 3) {
         selectedNodeId = 'root'
         segmentIndex = 0
         set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: true })
-        console.log('[Store.activateCategoryTable] Returning to Stage 3 from Stage 4, selecting root, setting revisiting flag')
+        console.log('[Store.activateCategoryTable] Returning to Stage 3, selecting root, setting revisiting flag')
       } else {
         selectedNodeId = 'stage3_segment'
         segmentIndex = 0  // Use segment 0 for flow overlay; selection border handled specially for stage3_segment
-        // Clear revisiting flags when moving to Stage 3
+        // First time entering Stage 3
         set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: false })
       }
     } else if (stageNumber === 4) {

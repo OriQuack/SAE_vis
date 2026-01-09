@@ -58,6 +58,13 @@
   background: rgba(59, 130, 246, 0.25);
 }
 
+/* Disabled button state - matches filter section disabled style */
+.status-panel__button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 /* Filter button with tag color - uses CSS variable */
 .status-panel__button[style*="--tag-color"].status-panel__button--active {
   background: var(--tag-color, #374151);

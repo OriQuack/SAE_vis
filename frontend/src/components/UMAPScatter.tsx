@@ -13,6 +13,10 @@ import {
 } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
+import {
+  getEffectiveCategory as getEffectiveCategoryUtil,
+  isFeatureVisibleInMode
+} from '../lib/cause-tagging-utils'
 
 // Darker unsure gray for scatterplot points (better visibility on white background)
 const DARK_UNSURE_GRAY = '#686868ff'
@@ -255,43 +259,27 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && sortDirection === 'desc'
 
-  // Helper: get effective category for a feature (semantic - not based on mode)
-  // Below threshold = unsure (always), Above threshold = predicted category
+  // Get effective category for a feature - delegates to utility function
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
-    const isManual = manuallyTaggedIds.has(featureId)
-    const category = causeSelectionStates.get(featureId) as CauseCategory | undefined
+    return getEffectiveCategoryUtil(
+      featureId,
+      causeSelectionStates as Map<number, CauseCategory>,
+      causeSelectionSources,
+      causeCategoryDecisionMargins,
+      causeMarginThreshold
+    )
+  }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
-    // Priority 1: Manual tags respected (user intent takes precedence)
-    if (isManual && category) return category
-
-    // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
-    if (category && causeCategoryDecisionMargins) {
-      const categoryScores = causeCategoryDecisionMargins.get(featureId)
-      if (categoryScores) {
-        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-        if (margin < causeMarginThreshold) return 'unsure'
-      }
-    }
-
-    return category || 'unsure'
-  }, [manuallyTaggedIds, causeSelectionStates, causeCategoryDecisionMargins, causeMarginThreshold])
-
-  // Helper: check if feature is visible based on mode and threshold
-  // Low mode: show below-threshold (unsure), Top mode: show above-threshold (candidates)
+  // Check if feature is visible based on mode and threshold - delegates to utility function
   const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
-    const isManual = manuallyTaggedIds.has(featureId)
-    // Manual tags are always visible
-    if (isManual) return true
-
-    // Get margin for this feature
-    const categoryScores = causeCategoryDecisionMargins?.get(featureId)
-    if (!categoryScores) return true  // No scores = show it
-
-    const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-
-    // Visibility depends on mode
-    return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold
-  }, [manuallyTaggedIds, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
+    return isFeatureVisibleInMode(
+      featureId,
+      causeSelectionSources,
+      causeCategoryDecisionMargins,
+      causeMarginThreshold,
+      isTopMode
+    )
+  }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
 
   // Filter spread points by visibility (mode-based) and category filter
   const filteredSpreadPoints = useMemo(() => {
