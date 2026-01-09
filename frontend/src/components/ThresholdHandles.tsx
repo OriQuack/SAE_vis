@@ -2,6 +2,89 @@ import React, { useState, useRef, useCallback } from 'react'
 import { OKABE_ITO_PALETTE, NEUTRAL_ICON_COLORS } from '../lib/constants'
 
 // ============================================================================
+// THRESHOLD HANDLE ICON - Standalone icon for use in buttons
+// ============================================================================
+
+interface ThresholdHandleIconProps {
+  /** Orientation determines grip line direction: horizontal = vertical lines, vertical = horizontal lines */
+  orientation?: 'horizontal' | 'vertical'
+  /** Icon width in pixels */
+  width?: number
+  /** Icon height in pixels */
+  height?: number
+  /** Fill color for the handle background */
+  fillColor?: string
+  /** Optional CSS class name */
+  className?: string
+}
+
+/**
+ * Standalone threshold handle icon matching the interactive ThresholdHandles design.
+ * Use in buttons to indicate threshold-related actions.
+ */
+export const ThresholdHandleIcon: React.FC<ThresholdHandleIconProps> = ({
+  orientation = 'horizontal',
+  width = 20,
+  height = 16,
+  fillColor = OKABE_ITO_PALETTE.BLUE,
+  className
+}) => {
+  const centerX = width / 2
+  const centerY = height / 2
+  const gripSpacing = 5
+  const gripPadding = 4
+
+  return (
+    <svg
+      className={className}
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+    >
+      {/* Handle background */}
+      <rect
+        x={0}
+        y={0}
+        width={width}
+        height={height}
+        rx={4}
+        fill={fillColor}
+        stroke="#fff"
+        strokeWidth={1.5}
+      />
+      {/* Grip lines */}
+      {orientation === 'horizontal'
+        ? // Vertical grip lines for horizontal handles
+          [-gripSpacing, 0, gripSpacing].map((offset, i) => (
+            <line
+              key={i}
+              x1={centerX + offset}
+              y1={gripPadding}
+              x2={centerX + offset}
+              y2={height - gripPadding}
+              stroke="#fff"
+              strokeWidth={2}
+              strokeLinecap="round"
+            />
+          ))
+        : // Horizontal grip lines for vertical handles
+          [-gripSpacing, 0, gripSpacing].map((offset, i) => (
+            <line
+              key={i}
+              x1={gripPadding}
+              y1={centerY + offset}
+              x2={width - gripPadding}
+              y2={centerY + offset}
+              stroke="#fff"
+              strokeWidth={2}
+              strokeLinecap="round"
+            />
+          ))}
+    </svg>
+  )
+}
+
+// ============================================================================
 // TYPES
 // ============================================================================
 

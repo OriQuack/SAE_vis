@@ -41,12 +41,6 @@ const LAYOUT = {
     yOffset: -8,     // Vertical position above chart
   },
 
-  // Threshold handle dimensions
-  handle: {
-    width: 16,
-    height: 12,
-  },
-
   // Bar styling
   bar: {
     padding: 1,  // Gap between bars
@@ -645,11 +639,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             position={{ x: 0, y: 0 }}
             lineBounds={{ min: 0, max: dimensions.chart.height }}
             showThresholdLine={true}
-            showDragTooltip={true}
             onUpdate={handleThresholdUpdate}
             onDragUpdate={handleDragUpdate}
             onDragEnd={handleDragEnd}
-            handleDimensions={{ width: LAYOUT.handle.width, height: LAYOUT.handle.height }}
           />
 
           {/* Threshold label with arrow - clips to stay within bounds */}

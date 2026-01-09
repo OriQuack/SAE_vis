@@ -6,8 +6,8 @@ import ScrollableItemList from './ScrollableItemList'
 import ConvergenceIndicator from './ConvergenceIndicator'
 // Backup: import BimodalityIndicator from './ModalityIndicator'
 import { TagBadge } from './Indicators'
+import { ThresholdHandleIcon } from './ThresholdHandles'
 import { getTagColor } from '../lib/tag-system'
-import { SANKEY_COLORS } from '../lib/constants'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -382,15 +382,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               disabled={!hasItemsToTag}
               title={hasItemsToTag ? 'Apply auto-tags and sort by uncertainty' : `No ${mode === 'pair' ? 'pairs' : 'features'} in threshold regions to tag`}
             >
-              <svg className="batch-button-icon" width="28" height="20" viewBox="0 0 24 16">
-                <rect x="1" y="1" width="22" height="14" rx="3"
-                      fill={SANKEY_COLORS.THRESHOLD_ICON_FILL}
-                      stroke="#fff"
-                      strokeWidth="1.5"/>
-                <line x1="6" y1="5" x2="18" y2="5" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="6" y1="8" x2="18" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="6" y1="11" x2="18" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
+              <ThresholdHandleIcon
+                className="batch-button-icon"
+                orientation="horizontal"
+              />
               <span className="batch-button-text">Confirm Threshold</span>
             </button>
             <div className="action-button__legend action-button__legend--two-lines">

@@ -1,6 +1,11 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef, useEffect } from 'react'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
+
+// Virtualization threshold - only virtualize lists larger than this
+const VIRTUALIZATION_THRESHOLD = 100
+const ESTIMATED_ITEM_HEIGHT = 32
 
 // ============================================================================
 // SCROLLABLE ITEM LIST - Reusable scrollable sidebar list component
@@ -128,6 +133,24 @@ export function ScrollableItemList<T = any>({
   className = ''
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Virtualization for large lists
+  const shouldVirtualize = items.length > VIRTUALIZATION_THRESHOLD
+
+  const virtualizer = useVirtualizer({
+    count: items.length,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => ESTIMATED_ITEM_HEIGHT,
+    overscan: 5 // Render 5 extra items above/below viewport
+  })
+
+  // Scroll to currentIndex when it changes (for virtualized lists)
+  useEffect(() => {
+    if (shouldVirtualize && currentIndex >= 0 && currentIndex < items.length) {
+      virtualizer.scrollToIndex(currentIndex, { align: 'center', behavior: 'auto' })
+    }
+  }, [currentIndex, shouldVirtualize, items.length, virtualizer])
 
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {
@@ -190,10 +213,60 @@ export function ScrollableItemList<T = any>({
       )}
 
       {/* Scrollable list container */}
-      <div className="scrollable-list__container">
+      <div className="scrollable-list__container" ref={containerRef}>
         {items.length === 0 ? (
           <div className="scrollable-list__empty">{emptyMessage}</div>
+        ) : shouldVirtualize ? (
+          // Virtualized rendering for large lists
+          <div
+            style={{
+              height: virtualizer.getTotalSize(),
+              width: '100%',
+              position: 'relative'
+            }}
+          >
+            {virtualizer.getVirtualItems().map(virtualRow => {
+              const index = virtualRow.index
+              const item = items[index]
+              const isCurrent = index === currentIndex
+              const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
+
+              const itemClasses = [
+                'scrollable-list-item',
+                isCurrent && 'scrollable-list-item--current',
+                isHighlighted && 'scrollable-list-item--highlighted'
+              ].filter(Boolean).join(' ')
+
+              const itemContent = renderItem(item, index)
+
+              return (
+                <div
+                  key={virtualRow.key}
+                  className={itemClasses}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`
+                  }}
+                >
+                  {sortConfig ? (
+                    <div className="pair-item-with-score">
+                      {itemContent}
+                      <span className="pair-similarity-score">
+                        {sortConfig.getDisplayScore(item)?.toFixed(2) ?? '—'}
+                      </span>
+                    </div>
+                  ) : (
+                    itemContent
+                  )}
+                </div>
+              )
+            })}
+          </div>
         ) : (
+          // Non-virtualized rendering for small lists
           items.map((item, index) => {
             const isCurrent = index === currentIndex
             const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
@@ -204,7 +277,6 @@ export function ScrollableItemList<T = any>({
               isHighlighted && 'scrollable-list-item--highlighted'
             ].filter(Boolean).join(' ')
 
-            // Render item content, optionally wrapped with score display
             const itemContent = renderItem(item, index)
 
             return (
