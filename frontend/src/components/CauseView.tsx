@@ -1126,7 +1126,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     causeSelectionSources={causeSelectionSources}
                     threshold={causeMarginThreshold}
                     onThresholdChange={setCauseMarginThreshold}
-                    height={210}
+                    height={190}
                     sortMode={sortMode}
                     sortDirection={selectedSortDirection}
                     onPercentageChange={setTargetPercentage}
@@ -1368,6 +1368,20 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
                 <h4 className="subheader">Batch Tagging</h4>
+                {/* Show placeholder when batch tagging is not available */}
+                {!isTopMode ? (
+                  // Substage 2: Need to switch to "Most Confident First" mode
+                  <div className="cause-view__batch-placeholder">
+                    <div className="cause-view__batch-placeholder-content">
+                      <div className="cause-view__batch-placeholder-instruction">
+                        <span className="cause-view__batch-placeholder-number">2</span>
+                        Click "Most Confident First" to enable batch tagging
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  // Batch tagging available - show buttons
+                  <>
                 {/* Legend for swatch patterns */}
                 <div className="cause-view__swatch-legend">
                   <div className="cause-view__swatch-legend-item">
@@ -1628,6 +1642,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
