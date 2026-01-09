@@ -11,12 +11,19 @@ interface ConvergenceIndicatorProps {
 // Threshold bands (discrete zones with semantic meaning)
 // Using Okabe-Ito colorblind-safe palette with 15% opacity for background tints
 const THRESHOLD_BANDS = [
-  { min: 0, max: 0.03, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '16', label: 'Good' },    // #009E73 at 15% opacity
-  { min: 0.03, max: 0.15, color: OKABE_ITO_PALETTE.YELLOW + '16', label: 'Warning' },    // #F0E442 at 19% opacity
-  { min: 0.15, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '16', label: 'Bad' },     // #D55E00 at 15% opacity
+  { min: 0, max: 0.01, color: OKABE_ITO_PALETTE.BLUISH_GREEN + '16', label: 'Good' },    // #009E73 at 15% opacity
+  { min: 0.01, max: 0.10, color: OKABE_ITO_PALETTE.YELLOW + '16', label: 'Warning' },    // #F0E442 at 19% opacity
+  { min: 0.10, max: 1.0, color: OKABE_ITO_PALETTE.VERMILLION + '16', label: 'Bad' },     // #D55E00 at 15% opacity
 ] as const
 
-const THRESHOLD_LINES = [0.03, 0.15] // 5% and 10% reference lines
+const THRESHOLD_LINES = [0.01, 0.10] // 5% and 10% reference lines
+
+// Default container dimensions (used until resize observer measures actual size)
+const DEFAULT_WIDTH = 200
+const DEFAULT_HEIGHT = 100
+
+// Number of data points to show in the sparkline (sliding window)
+export const FLIP_HISTORY_WINDOW_SIZE = 20
 
 /**
  * ConvergenceIndicator - Displays Decision Flip Rate (DFR) trend
@@ -26,8 +33,8 @@ const THRESHOLD_LINES = [0.03, 0.15] // 5% and 10% reference lines
 export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flipTracking }) => {
   // Use resize observer for responsive sizing
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
-    defaultWidth: 200,
-    defaultHeight: 100,
+    defaultWidth: DEFAULT_WIDTH,
+    defaultHeight: DEFAULT_HEIGHT,
     debounceMs: 16,
     debugId: 'convergence-indicator'
   })

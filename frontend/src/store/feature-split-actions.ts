@@ -1,4 +1,5 @@
 import * as api from '../api'
+import { FLIP_HISTORY_WINDOW_SIZE } from '../components/ConvergenceIndicator'
 
 // ============================================================================
 // FEATURE SPLIT ACTIONS (Stage 1 - Pairs)
@@ -384,7 +385,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
 
           // Use pendingBatchOperation flag to determine isBatch
           updatedFlipTracking = {
-            flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration }].slice(-10),
+            flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration }].slice(-FLIP_HISTORY_WINDOW_SIZE),
             totalIterations: newIteration,
             flippedBins: new Set<number>(),
             previousPredictions: currentPredictions

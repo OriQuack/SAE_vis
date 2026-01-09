@@ -66,6 +66,11 @@ class PairSimilarityService:
         self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
         self._max_cache_size = 100  # Prevent unbounded growth
 
+        # Metrics cache: feature_ids hash -> metrics_df
+        # Caches extracted metrics DataFrame to avoid repeated 3-query + 2-join operations
+        self._metrics_cache: Dict[str, pl.DataFrame] = {}
+        self._max_metrics_cache_size = 10
+
     async def get_pair_similarity_sorted(
         self,
         request: PairSimilaritySortRequest
@@ -351,9 +356,20 @@ class PairSimilarityService:
     # METRIC EXTRACTION
     # =========================================================================
 
+    def _get_metrics_cache_key(self, feature_ids: List[int]) -> str:
+        """Generate cache key from sorted feature IDs."""
+        return hashlib.md5(str(sorted(feature_ids)).encode()).hexdigest()
+
+    def clear_metrics_cache(self):
+        """Clear metrics cache (call on data reload)."""
+        self._metrics_cache.clear()
+        logger.info("Pair metrics cache cleared")
+
     async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
         Extract the 5 PAIR_METRICS for pair SVM calculations.
+
+        Uses in-memory caching to avoid repeated 3-query + 2-join operations.
 
         Metrics extracted:
         - From activation_display: intra_ngram_jaccard, intra_semantic_sim
@@ -366,6 +382,12 @@ class PairSimilarityService:
         Returns:
             DataFrame with feature_id and all 5 pair metrics
         """
+        # Check cache first
+        cache_key = self._get_metrics_cache_key(feature_ids)
+        if cache_key in self._metrics_cache:
+            logger.info(f"[_extract_pair_feature_metrics] Using cached metrics for {len(feature_ids)} features")
+            return self._metrics_cache[cache_key]
+
         try:
             logger.info(f"[_extract_pair_feature_metrics] Starting extraction for {len(feature_ids)} features")
 
@@ -413,6 +435,15 @@ class PairSimilarityService:
                     )
 
             logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with pair metrics")
+
+            # Cache result for subsequent calls with same features
+            if len(self._metrics_cache) >= self._max_metrics_cache_size:
+                oldest_key = next(iter(self._metrics_cache))
+                self._metrics_cache.pop(oldest_key)
+                logger.info("[_extract_pair_feature_metrics] Metrics cache full, evicted oldest entry")
+            self._metrics_cache[cache_key] = result_df
+            logger.info(f"[_extract_pair_feature_metrics] Cached metrics (cache size: {len(self._metrics_cache)})")
+
             return result_df
 
         except Exception as e:

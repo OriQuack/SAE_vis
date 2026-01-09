@@ -489,20 +489,94 @@ class SimilaritySortService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 5 metrics for the specified features.
+        Extract all 6 metrics for the specified features.
 
-        Metrics extracted (same as Stage 3 for uniformity):
-        - From activation_display: intra_feature_sim (composite: max of char_ngram, word_ngram, semantic)
-        - From main dataframe: score_embedding, score_fuzz, score_detection, explanation_semantic_sim
+        Uses pre-aggregated barycentric parquet for fast extraction (same as CauseView).
+        Falls back to legacy extraction if barycentric data not available.
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 5 metrics
+            DataFrame with feature_id and all 6 metrics
+        """
+        # Try fast path: barycentric parquet (pre-aggregated)
+        if self.data_service._barycentric_lazy is not None:
+            result = await self._extract_metrics_from_barycentric(feature_ids)
+            if result is not None and len(result) > 0:
+                return result
+            logger.warning("[_extract_metrics_legacy] Barycentric extraction failed, falling back to legacy")
+
+        # Fallback to legacy extraction
+        return await self._extract_metrics_legacy(feature_ids)
+
+    async def _extract_metrics_from_barycentric(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+        """
+        Extract metrics from pre-aggregated barycentric parquet (fast path).
+
+        This mirrors umap_service._extract_metrics_from_barycentric() for consistent
+        performance with CauseView.
+
+        Args:
+            feature_ids: List of feature IDs to extract metrics for
+
+        Returns:
+            DataFrame with feature_id and all 6 metrics (mean across explainers)
         """
         try:
-            logger.info(f"[_extract_metrics] Starting extraction for {len(feature_ids)} features")
+            logger.info(f"[_extract_metrics_from_barycentric] Extracting metrics for {len(feature_ids)} features")
+
+            # Compute mean across 3 explainers for each feature
+            df = self.data_service._barycentric_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).group_by("feature_id").agg([
+                pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
+                pl.col("score_embedding").mean().alias("score_embedding"),
+                pl.col("score_fuzz").mean().alias("score_fuzz"),
+                pl.col("score_detection").mean().alias("score_detection"),
+                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
+            ]).collect()
+
+            # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
+            if self.data_service._df_lazy is not None:
+                frac_df = self.data_service._df_lazy.filter(
+                    pl.col("feature_id").is_in(feature_ids)
+                ).select([
+                    "feature_id",
+                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero")
+                ]).unique(subset=["feature_id"]).collect()
+
+                # Join frac_nonzero to the main metrics
+                df = df.join(frac_df, on="feature_id", how="left")
+
+            # Fill null values
+            for metric in self.METRICS:
+                if metric in df.columns:
+                    df = df.with_columns(pl.col(metric).fill_null(0.0))
+                else:
+                    df = df.with_columns(pl.lit(0.0).alias(metric))
+
+            logger.info(f"[_extract_metrics_from_barycentric] Extracted {len(self.METRICS)} metrics for {len(df)} features")
+            return df
+
+        except Exception as e:
+            logger.error(f"[_extract_metrics_from_barycentric] Failed: {e}", exc_info=True)
+            return None
+
+    async def _extract_metrics_legacy(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+        """
+        Legacy metric extraction from main dataframe + activation_display.
+
+        This is slower than barycentric extraction but serves as fallback.
+
+        Args:
+            feature_ids: List of feature IDs to extract metrics for
+
+        Returns:
+            DataFrame with feature_id and all 6 metrics
+        """
+        try:
+            logger.info(f"[_extract_metrics_legacy] Starting extraction for {len(feature_ids)} features")
 
             # Get the main dataframe
             lf = self.data_service._df_lazy
@@ -511,14 +585,14 @@ class SimilaritySortService:
                 logger.error("Main dataframe not initialized")
                 return None
 
-            logger.info("[_extract_metrics] Main dataframe loaded")
+            logger.info("[_extract_metrics_legacy] Main dataframe loaded")
 
             # Filter to requested features
             lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
-            logger.info("[_extract_metrics] Filtered to requested features")
+            logger.info("[_extract_metrics_legacy] Filtered to requested features")
 
             # Extract metrics from main dataframe
-            logger.info("[_extract_metrics] Extracting main dataframe metrics")
+            logger.info("[_extract_metrics_legacy] Extracting main dataframe metrics")
 
             try:
                 # Extract scores and semsim_mean
@@ -534,26 +608,26 @@ class SimilaritySortService:
                     pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
                 ]).unique(subset=["feature_id"]).collect()
 
-                logger.info(f"[_extract_metrics] Main dataframe metrics extracted: {len(base_df)} features")
+                logger.info(f"[_extract_metrics_legacy] Main dataframe metrics extracted: {len(base_df)} features")
             except Exception as agg_error:
-                logger.error(f"[_extract_metrics] Main dataframe extraction failed: {agg_error}", exc_info=True)
+                logger.error(f"[_extract_metrics_legacy] Main dataframe extraction failed: {agg_error}", exc_info=True)
                 raise
 
             # Cast feature_id to UInt32 to match activation dataframe
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
             # Extract activation-level metrics (intra-feature)
-            logger.info("[_extract_metrics] Extracting activation metrics")
+            logger.info("[_extract_metrics_legacy] Extracting activation metrics")
             activation_df = await self._extract_activation_metrics(feature_ids)
-            logger.info(f"[_extract_metrics] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
+            logger.info(f"[_extract_metrics_legacy] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
 
             # Join all metrics together
-            logger.info("[_extract_metrics] Joining all metrics")
+            logger.info("[_extract_metrics_legacy] Joining all metrics")
             result_df = base_df
 
             if activation_df is not None:
                 result_df = result_df.join(activation_df, on="feature_id", how="left")
-                logger.info("[_extract_metrics] Joined activation metrics")
+                logger.info("[_extract_metrics_legacy] Joined activation metrics")
 
             # Fill nulls with 0 for missing metrics
             for metric in self.METRICS:
