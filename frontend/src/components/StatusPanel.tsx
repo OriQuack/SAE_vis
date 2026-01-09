@@ -4,8 +4,14 @@ import '../styles/StatusPanel.css'
 // ============================================================================
 // STATUS PANEL - Sorting controls for scrollable lists
 // ============================================================================
-// Displays 4 descriptive sort options combining metric + direction
-// Each button clearly describes what will be shown first
+// Displays sort options + optional filter buttons (for Cause view)
+
+// Filter option type for cause categories
+interface FilterOption {
+  value: string
+  label: string
+  color: string
+}
 
 interface StatusPanelProps {
   // Sort state
@@ -14,12 +20,18 @@ interface StatusPanelProps {
   onSortModeChange: (mode: 'default' | 'decisionMargin') => void
   onSortDirectionChange: (direction: 'asc' | 'desc') => void
 
-  // Stage-specific labels for default metric options
-  defaultAscLabel: string   // e.g., "Least similar first" or "Lowest quality first"
-  defaultDescLabel: string  // e.g., "Most similar first" or "Highest quality first"
+  // Stage-specific labels for default metric options (optional - if not provided, default buttons hidden)
+  defaultAscLabel?: string
+  defaultDescLabel?: string
 
   // Template indicator
   isTemplateSort: boolean
+
+  // Filter options (optional - for Cause view)
+  filterOptions?: FilterOption[]
+  filterValue?: string | null
+  onFilterChange?: (value: string | null) => void
+  filterDisabled?: boolean  // Show filter but disable it (e.g., in "Most Uncertain First" mode)
 
   className?: string
 }
@@ -31,6 +43,10 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   onSortDirectionChange,
   defaultAscLabel,
   defaultDescLabel,
+  filterOptions,
+  filterValue,
+  onFilterChange,
+  filterDisabled = false,
   className = ''
 }) => {
   // Helper to check if a sort option is active
@@ -47,24 +63,25 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
     <div className={`status-panel ${className}`}>
       <span className="status-panel__label">Sort:</span>
 
-      {/* All 4 sort options as combined buttons */}
       <div className="status-panel__group">
-        {/* Default metric options */}
-        <button
-          className={`status-panel__button ${isActive('default', 'asc') ? 'status-panel__button--active' : ''}`}
-          onClick={() => handleSortChange('default', 'asc')}
-        >
-          {defaultAscLabel}
-        </button>
-        <button
-          className={`status-panel__button ${isActive('default', 'desc') ? 'status-panel__button--active' : ''}`}
-          onClick={() => handleSortChange('default', 'desc')}
-        >
-          {defaultDescLabel}
-        </button>
-
-        {/* Divider */}
-        <div className="status-panel__divider" />
+        {/* Default metric options (only shown if labels provided) */}
+        {defaultAscLabel && defaultDescLabel && (
+          <>
+            <button
+              className={`status-panel__button ${isActive('default', 'asc') ? 'status-panel__button--active' : ''}`}
+              onClick={() => handleSortChange('default', 'asc')}
+            >
+              {defaultAscLabel}
+            </button>
+            <button
+              className={`status-panel__button ${isActive('default', 'desc') ? 'status-panel__button--active' : ''}`}
+              onClick={() => handleSortChange('default', 'desc')}
+            >
+              {defaultDescLabel}
+            </button>
+            <div className="status-panel__divider" />
+          </>
+        )}
 
         {/* Decision margin options: low margin = uncertain, high margin = confident */}
         <button
@@ -80,6 +97,34 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
           Most Confident First
         </button>
       </div>
+
+      {/* Filter options (optional - shown on the right) */}
+      {filterOptions && onFilterChange && (
+        <div className={`status-panel__filter-section ${filterDisabled ? 'status-panel__filter-section--disabled' : ''}`}>
+          <div className="status-panel__divider status-panel__divider--vertical" />
+          <span className="status-panel__label">Filter:</span>
+          <div className="status-panel__group">
+            <button
+              className={`status-panel__button ${filterValue === null && !filterDisabled ? 'status-panel__button--active' : ''}`}
+              onClick={() => !filterDisabled && onFilterChange(null)}
+              disabled={filterDisabled}
+            >
+              All
+            </button>
+            {filterOptions.map(option => (
+              <button
+                key={option.value}
+                className={`status-panel__button ${filterValue === option.value && !filterDisabled ? 'status-panel__button--active' : ''}`}
+                style={{ '--tag-color': option.color } as React.CSSProperties}
+                onClick={() => !filterDisabled && onFilterChange(option.value)}
+                disabled={filterDisabled}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

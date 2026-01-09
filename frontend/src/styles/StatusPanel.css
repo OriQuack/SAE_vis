@@ -58,6 +58,17 @@
   background: rgba(59, 130, 246, 0.25);
 }
 
+/* Filter button with tag color - uses CSS variable */
+.status-panel__button[style*="--tag-color"].status-panel__button--active {
+  background: var(--tag-color, #374151);
+  border-color: var(--tag-color, #374151);
+  color: #fff;
+}
+
+.status-panel__button[style*="--tag-color"]:hover:not(.status-panel__button--active) {
+  border-color: var(--tag-color, #9ca3af);
+}
+
 /* Icon buttons (direction toggles) */
 .status-panel__button--icon {
   padding: 2px 6px;
@@ -70,6 +81,23 @@
   background: #d1d5db;
   flex-shrink: 0;
   margin: 0 6px;
+}
+
+/* Filter section wrapper */
+.status-panel__filter-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Disabled filter section */
+.status-panel__filter-section--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.status-panel__filter-section--disabled .status-panel__label {
+  color: #9ca3af;
 }
 
 /* Non-template indicator */

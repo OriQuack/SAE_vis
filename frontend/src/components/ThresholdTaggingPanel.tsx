@@ -391,7 +391,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 <line x1="6" y1="8" x2="18" y2="8" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
                 <line x1="6" y1="11" x2="18" y2="11" stroke="#fff" strokeWidth="2" strokeLinecap="round"/>
               </svg>
-              <span className="batch-button-text">Tag by Threshold</span>
+              <span className="batch-button-text">Confirm Threshold</span>
             </button>
             <div className="action-button__legend action-button__legend--two-lines">
               <div className="action-button__legend-row">

@@ -71,10 +71,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Stage 2 selection states (for well-explained background lines)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
 
-
-  // UMAP selected features
-  const umapBrushedFeatureIds = useVisualizationStore(state => state.umapBrushedFeatureIds)
-
   // Table data and activation examples for feature detail view
   const tableData = useVisualizationStore(state => state.tableData)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
@@ -106,6 +102,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [containerWidth, setContainerWidth] = useState(600)
   const [selectedPage, setSelectedPage] = useState(0)
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
+  // Sort by specific tag (only used in Top mode / Most Confident First)
+  const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
 
   // Pagination for selected features list
   const ITEMS_PER_PAGE = 5
@@ -138,6 +136,13 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
+
+  // Reset filterByTag when leaving Top mode
+  useEffect(() => {
+    if (!isTopMode && filterByTag !== null) {
+      setFilterByTag(null)
+    }
+  }, [isTopMode, filterByTag])
 
   // Get effective category for a feature (semantic - not based on mode)
   // Below threshold = unsure (always), Above threshold = predicted category
@@ -385,14 +390,19 @@ const CauseView: React.FC<CauseViewProps> = ({
     return Array.from(selectedFeatureIds).filter(featureId => {
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(featureId)) return false
-      // In Top mode, show all above-threshold candidates regardless of category filter
-      // (they have predicted categories, not 'unsure')
+      // In Top mode, apply tag filter if set
+      if (isTopMode) {
+        if (filterByTag) {
+          const predicted = causeSelectionStates.get(featureId)
+          return predicted === filterByTag
+        }
+        return true
+      }
       // In Low mode, apply category filter (typically filtering 'unsure')
-      if (isTopMode) return true
       const effectiveCategory = getEffectiveCategory(featureId)
       return visibleCategories.has(effectiveCategory)
     })
-  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
+  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates])
 
   // Create decision margin lookup map from SVM classification results
   // Decision margin = min absolute distance to any category boundary
@@ -791,22 +801,45 @@ const CauseView: React.FC<CauseViewProps> = ({
   // SELECTED TAGGING HANDLERS
   // ============================================================================
 
-  // Tag all selected features with a specific cause category (excluding manually tagged)
-  const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
-    console.log('[CauseView] Tag Selected As:', category)
+  // Tag ALL confident features (all three categories at once)
+  const handleTagAllConfident = useCallback(() => {
+    console.log('[CauseView] Tag All Confident Features')
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
-    // 2. Apply tags to selected features that aren't manually tagged
-    // isActualManual=false because this is a batch operation (lasso selection)
-    umapBrushedFeatureIds.forEach(featureId => {
+    // 2. Apply tags to all filtered features that aren't manually tagged
+    filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip manually tagged features - preserve user's explicit choices
       if (source === 'manual') return
+      // Tag features with their predicted category
+      const predictedCategory = causeSelectionStates.get(featureId)
+      if (predictedCategory === 'missed-N-gram' || predictedCategory === 'missed-context' || predictedCategory === 'noisy-activation') {
+        setCauseCategory(featureId, predictedCategory, false)
+      }
+    })
+  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
+
+  // Tag confident features that are predicted as the specified category
+  // Only confirms features already predicted as that category (doesn't retag other categories)
+  const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
+    console.log('[CauseView] Confirm Confident Features As:', category)
+
+    // 1. Create new commit FIRST (copies current state with manual tags only)
+    createCommit('tagAll')
+
+    // 2. Apply tags only to features that are already predicted as this category
+    filteredFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      // Skip manually tagged features - preserve user's explicit choices
+      if (source === 'manual') return
+      // Only tag features that match the target category
+      const predictedCategory = causeSelectionStates.get(featureId)
+      if (predictedCategory !== category) return
       setCauseCategory(featureId, category, false)
     })
-  }, [umapBrushedFeatureIds, causeSelectionSources, setCauseCategory, createCommit])
+  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
@@ -923,38 +956,34 @@ const CauseView: React.FC<CauseViewProps> = ({
     return { patternMiss, contextMiss, noisyActivation, unsure, total }
   }, [selectedFeatureIds, causeSelectionSources, getEffectiveCategory])
 
-  // Compute composition of selected cell (brushed features) by category
-  // Only counts non-manually-tagged features (these are what batch tagging will affect)
-  // Note: Excludes well-explained (they are tagged individually, not by SVM batch tagging)
-  const selectedCellComposition = useMemo(() => {
-    let patternMiss = 0, contextMiss = 0, noisyActivation = 0, unsure = 0
+  // Compute batch tagging composition based on filtered features (for "Tag Confident Features as")
+  // Uses filteredFeatureIds which respects the current filterByTag setting
+  const filteredBatchComposition = useMemo(() => {
+    let patternMiss = 0, contextMiss = 0, noisyActivation = 0
     let manualCount = 0
 
-    umapBrushedFeatureIds.forEach(featureId => {
+    filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip manually tagged features - they won't be re-tagged
       if (source === 'manual') {
         manualCount++
         return
       }
-      // Skip well-explained features - they are tagged individually, not by batch tagging
-      const effectiveCategory = getEffectiveCategory(featureId)
-      if (effectiveCategory === 'well-explained') return
-
-      switch (effectiveCategory) {
+      const category = causeSelectionStates.get(featureId)
+      switch (category) {
         case 'missed-N-gram': patternMiss++; break
         case 'missed-context': contextMiss++; break
         case 'noisy-activation': noisyActivation++; break
-        default: unsure++
       }
     })
 
-    const taggableCount = patternMiss + contextMiss + noisyActivation + unsure
-    return { patternMiss, contextMiss, noisyActivation, unsure, manualCount, taggableCount }
-  }, [umapBrushedFeatureIds, causeSelectionSources, getEffectiveCategory])
+    const taggableCount = patternMiss + contextMiss + noisyActivation
+    return { patternMiss, contextMiss, noisyActivation, manualCount, taggableCount }
+  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates])
 
   // Memoize featureIds array to prevent unnecessary UMAPScatter re-renders
   // Array.from creates a new array reference on every call, so we memoize it
+  // Always pass ALL features - filtering is done inside UMAPScatter via filterByTag prop
   const stableFeatureIds = useMemo(() => {
     return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
   }, [selectedFeatureIds])
@@ -1043,17 +1072,23 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       {/* Body: Content area */}
       <div className="cause-view__body">
-        {/* Main column: StatusPanel + Content */}
+        {/* Main column: StatusPanel (with filter in Top mode) + Content */}
         <div className="cause-view__main">
-          {/* Status panel - sorting controls */}
+          {/* Status panel - sorting controls + filter (in Top mode) */}
           <StatusPanel
             sortMode={sortMode}
             sortDirection={selectedSortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSelectedSortDirection}
-            defaultAscLabel="Lowest ID First"
-            defaultDescLabel="Highest ID First"
             isTemplateSort={isTemplateSort}
+            filterOptions={[
+              { value: 'missed-N-gram', label: 'Pattern Miss', color: missedNgramColor },
+              { value: 'missed-context', label: 'Context Miss', color: missedContextColor },
+              { value: 'noisy-activation', label: 'Noisy Activation', color: noisyActivationColor }
+            ]}
+            filterValue={filterByTag}
+            onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
+            filterDisabled={!isTopMode}
           />
 
           {/* Main content: Top row + Bottom action bar */}
@@ -1131,6 +1166,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onFeatureSelect={handleUMAPFeatureSelect}
                   sortMode={sortMode}
                   sortDirection={selectedSortDirection}
+                  filterByTag={isTopMode ? filterByTag : null}
                 />
               </div>
             </div>
@@ -1334,135 +1370,154 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Action buttons section - always visible below detail */}
               <div className="cause-view__action-buttons">
                 <h4 className="subheader">Batch Tagging</h4>
-                {/* Tag Selected Cell */}
+                {/* Tag Confident Features */}
                 <div className="cause-view__action-section">
                   <span className="cause-view__action-header instruction-subheader">
-                    Tag Selected Cell as
+                    Tag Confident Features with
                   </span>
                   <div className="cause-view__action-row">
                     <div className="action-button-item">
                       <button
                         className="action-button"
+                        onClick={handleTagAllConfident}
+                        disabled={!isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
+                        title="Confirm all confident predictions"
+                      >
+                        Decision Boundary
+                      </button>
+                      <div className="action-button__legend">
+                        {isTopMode && filterByTag === null ? (
+                          filteredBatchComposition.taggableCount > 0 ? (
+                            <>
+                              {filteredBatchComposition.patternMiss > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                </span>
+                              )}
+                              {filteredBatchComposition.contextMiss > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                </span>
+                              )}
+                              {filteredBatchComposition.noisyActivation > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                </span>
+                              )}
+                              <span className="action-button__legend-arrow">→</span>
+                              {filteredBatchComposition.patternMiss > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                </span>
+                              )}
+                              {filteredBatchComposition.contextMiss > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                </span>
+                              )}
+                              {filteredBatchComposition.noisyActivation > 0 && (
+                                <span className="action-button__legend-item">
+                                  <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                                  <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                </span>
+                              )}
+                            </>
+                          ) : <span>&nbsp;</span>
+                        ) : (
+                          <span>&nbsp;</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="action-button-item">
+                      <button
+                        className="action-button"
                         onClick={() => handleTagSelectedAs('missed-N-gram')}
-                        disabled={selectedCellComposition.taggableCount === 0}
-                        title="Tag all selected features as Pattern Miss"
+                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
+                        title="Confirm all Pattern Miss predictions"
                       >
                         Pattern Miss
                       </button>
                       <div className="action-button__legend">
-                        {/* Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
-                        {/* Note: Well-Explained tagged individually, not by batch tagging */}
-                        {selectedCellComposition.patternMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
-                          </span>
+                        {isTopMode ? (
+                          filteredBatchComposition.patternMiss > 0 ? (
+                            <>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                              </span>
+                              <span className="action-button__legend-arrow">→</span>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                              </span>
+                            </>
+                          ) : <span>&nbsp;</span>
+                        ) : (
+                          <span>&nbsp;</span>
                         )}
-                        {selectedCellComposition.contextMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.noisyActivation > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.unsure > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
-                          </span>
-                        )}
-                        <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
-                        </span>
                       </div>
                     </div>
                     <div className="action-button-item">
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('missed-context')}
-                        disabled={selectedCellComposition.taggableCount === 0}
-                        title="Tag all selected features as Context Miss"
+                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
+                        title="Confirm all Context Miss predictions"
                       >
                         Context Miss
                       </button>
                       <div className="action-button__legend">
-                        {selectedCellComposition.patternMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
-                          </span>
+                        {isTopMode ? (
+                          filteredBatchComposition.contextMiss > 0 ? (
+                            <>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                              </span>
+                              <span className="action-button__legend-arrow">→</span>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                              </span>
+                            </>
+                          ) : <span>&nbsp;</span>
+                        ) : (
+                          <span>&nbsp;</span>
                         )}
-                        {selectedCellComposition.contextMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.noisyActivation > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.unsure > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
-                          </span>
-                        )}
-                        <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
-                        </span>
                       </div>
                     </div>
                     <div className="action-button-item">
                       <button
                         className="action-button"
                         onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={selectedCellComposition.taggableCount === 0}
-                        title="Tag all selected features as Noisy Activation"
+                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
+                        title="Confirm all Noisy Activation predictions"
                       >
                         Noisy Activation
                       </button>
                       <div className="action-button__legend">
-                        {selectedCellComposition.patternMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.patternMiss}</span>
-                          </span>
+                        {isTopMode ? (
+                          filteredBatchComposition.noisyActivation > 0 ? (
+                            <>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                              </span>
+                              <span className="action-button__legend-arrow">→</span>
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                                <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                              </span>
+                            </>
+                          ) : <span>&nbsp;</span>
+                        ) : (
+                          <span>&nbsp;</span>
                         )}
-                        {selectedCellComposition.contextMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.contextMiss}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.noisyActivation > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{selectedCellComposition.noisyActivation}</span>
-                          </span>
-                        )}
-                        {selectedCellComposition.unsure > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                            <span className="action-button__legend-count">{selectedCellComposition.unsure}</span>
-                          </span>
-                        )}
-                        <span className="action-button__legend-arrow">→</span>
-                        <span className="action-button__legend-item">
-                          <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                          <span className="action-button__legend-count">{selectedCellComposition.taggableCount}</span>
-                        </span>
                       </div>
                     </div>
                   </div>
@@ -1478,7 +1533,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         disabled={remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                         title="Auto-tag remaining features using SVM decision boundary"
                       >
-                        Tag All Remaining by SVM
+                        Tag All Unsure by Decision Boundary
                       </button>
                       <div className="action-button__legend">
                         {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}

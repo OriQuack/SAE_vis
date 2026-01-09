@@ -331,7 +331,7 @@
 
 .umap-scatter__unified-legend {
   position: absolute;
-  top: 8px;
+  top: 20px;
   left: 8px;
   display: flex;
   flex-direction: column;
@@ -348,12 +348,7 @@
 .umap-scatter__legend-section {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-}
-
-.umap-scatter__legend-items {
-  display: flex;
-  gap: 10px;
+  gap: 4px;
 }
 
 .umap-scatter__legend-item {

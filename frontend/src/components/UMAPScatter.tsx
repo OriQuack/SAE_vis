@@ -41,6 +41,7 @@ interface UMAPScatterProps {
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
   sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel (for visibility filtering)
   sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (for visibility filtering)
+  filterByTag?: CauseCategory | null  // Filter to show only features with this predicted category
 }
 
 // Margin configuration
@@ -66,7 +67,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // onVisibleCategoriesChange - removed filter buttons
   onFeatureSelect,
   sortMode = 'decisionMargin',
-  sortDirection = 'asc'
+  sortDirection = 'asc',
+  filterByTag = null
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -294,13 +296,19 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return spreadPoints.filter(point => {
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(point.feature_id)) return false
-      // In Top mode, show all above-threshold candidates regardless of category filter
-      if (isTopMode) return true
+      // In Top mode, apply filterByTag if set
+      if (isTopMode) {
+        if (filterByTag) {
+          const predicted = causeSelectionStates.get(point.feature_id)
+          return predicted === filterByTag
+        }
+        return true
+      }
       // In Low mode, apply category filter
       const category = getEffectiveCategory(point.feature_id)
       return visibleCategories.has(category)
     })
-  }, [spreadPoints, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
+  }, [spreadPoints, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates])
 
   // Triangle grid disabled - using density heatmap instead
   // const gridState = useMemo(() => {
@@ -856,7 +864,33 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
         </div>
       )}
 
-      {/* Cell hover tooltip disabled - no grid cells */}
+      {/* Legend - explains visual encodings */}
+      <div className="umap-scatter__unified-legend">
+        <span className="instruction-subheader">Legend</span>
+        <div className="umap-scatter__legend-section">
+          {/* Filled circle = tagged */}
+          <div className="umap-scatter__legend-item">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="4" fill="#686868" />
+            </svg>
+            <span>Tagged</span>
+          </div>
+          {/* Ring = untagged */}
+          <div className="umap-scatter__legend-item">
+            <svg width="14" height="14" viewBox="0 0 14 14">
+              <circle cx="7" cy="7" r="3.5" fill="none" stroke="#686868" strokeWidth="1.5" />
+            </svg>
+            <span>Untagged</span>
+          </div>
+          {/* Contour = prediction density */}
+          <div className="umap-scatter__legend-item">
+            <svg width="20" height="14" viewBox="0 0 20 14">
+              <ellipse cx="10" cy="7" rx="8" ry="5" fill="#686868" fillOpacity={contourStyle.fillOpacity} stroke="#686868" strokeWidth={contourStyle.strokeWidth} strokeOpacity={contourStyle.strokeOpacity} />
+            </svg>
+            <span>Prediction Density</span>
+          </div>
+        </div>
+      </div>
 
     </div>
   )
