@@ -27,6 +27,12 @@ import '../styles/CauseView.css'
 // Initial unsure boundary percentage (Low 1% of features by decision margin)
 const INITIAL_UNSURE_PERCENTAGE = 1
 
+// Minimum manual tags required per cause category before SVM training
+const MIN_TAGS_PER_CATEGORY = 2
+
+// Cause categories for SVM training (excludes well-explained)
+const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
+
 // Commit history types
 export interface CauseCommitCounts {
   noisyActivation: number
@@ -134,6 +140,24 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
+
+  // Check if we can train SVM (need MIN_TAGS_PER_CATEGORY per cause category)
+  const { canTrainSVM, manualTagCountsByCategory } = useMemo(() => {
+    const counts: Record<string, number> = {
+      'noisy-activation': 0,
+      'missed-N-gram': 0,
+      'missed-context': 0
+    }
+
+    causeSelectionStates.forEach((category, featureId) => {
+      if (causeSelectionSources.get(featureId) === 'manual' && counts[category] !== undefined) {
+        counts[category]++
+      }
+    })
+
+    const canTrain = CAUSE_CATEGORIES.every(cat => counts[cat] >= MIN_TAGS_PER_CATEGORY)
+    return { canTrainSVM: canTrain, manualTagCountsByCategory: counts }
+  }, [causeSelectionStates, causeSelectionSources])
 
   // Reset filterByTag when leaving Top mode
   useEffect(() => {
@@ -512,6 +536,19 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentSelectedIndex(0)
   }, [visibleCategories])
 
+  // Track previous canTrainSVM value to detect transition
+  const prevCanTrainSVMRef = useRef(canTrainSVM)
+
+  // Reset selected index to first element when canTrainSVM becomes true
+  // This is needed because the list updates (SVM predictions) after the threshold is met
+  useEffect(() => {
+    if (canTrainSVM && !prevCanTrainSVMRef.current) {
+      // Transition from false -> true: reset to first element
+      setCurrentSelectedIndex(0)
+    }
+    prevCanTrainSVMRef.current = canTrainSVM
+  }, [canTrainSVM])
+
   // Track right panel width for ActivationExample
   useEffect(() => {
     if (!rightPanelRef.current) return
@@ -742,14 +779,27 @@ const CauseView: React.FC<CauseViewProps> = ({
       return
     }
 
+    // Compute whether this tag will cause canTrainSVM to become true
+    // This prevents race condition where auto-navigation fires before reset effect
+    const willTriggerSVM = !canTrainSVM && (() => {
+      // Check if adding this manual tag would meet the threshold
+      const newCounts = { ...manualTagCountsByCategory }
+      // Only increment if this is a new manual tag (not already manually tagged for this category)
+      if (currentCauseSource !== 'manual' || currentCauseCategory !== category) {
+        newCounts[category] = (newCounts[category] || 0) + 1
+      }
+      return CAUSE_CATEGORIES.every(cat => newCounts[cat] >= MIN_TAGS_PER_CATEGORY)
+    })()
+
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
 
     // Auto-advance to next feature in selected list (only when tagging, not untagging)
-    if (currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
+    // Disabled after SVM is trained (canTrainSVM) or if this tag will trigger SVM training
+    if (!canTrainSVM && !willTriggerSVM && currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext, canTrainSVM, manualTagCountsByCategory])
 
   // Handle Unsure click - clear cause category and advance
   const handleUnsureClick = useCallback(() => {
@@ -760,10 +810,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, null)
 
     // Auto-advance to next feature
-    if (currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
+    // Disabled after SVM is trained (canTrainSVM) because list updates after each tag
+    if (!canTrainSVM && currentSelectedIndex < sortedFilteredFeatureList.length - 1) {
       setTimeout(() => handleNavigateNext(), 150)
     }
-  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext])
+  }, [selectedFeatureData, setCauseCategory, currentSelectedIndex, sortedFilteredFeatureList.length, handleNavigateNext, canTrainSVM])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -1021,14 +1072,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       <div className="view-header">
         <span className="view-title">Cause Analysis</span>
         <span className="view-description">
-          Validate{' '}
-          <span
-            className="view-tag-badge"
-            style={{ backgroundColor: wellExplainedColor }}
-          >
-            Well-Explained
-          </span>
-          {' '}features. Identify root cause for features that{' '}
+          Identify root cause for features that{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: needRevisionColor }}
@@ -1086,6 +1130,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                     sortMode={sortMode}
                     sortDirection={selectedSortDirection}
                     onPercentageChange={setTargetPercentage}
+                    canTrainSVM={canTrainSVM}
+                    manualTagCountsByCategory={manualTagCountsByCategory}
                   />
                 </div>
                 <ScrollableItemList
@@ -1352,7 +1398,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button action-button--with-icon"
                         onClick={() => handleTagSelectedAs('missed-N-gram')}
-                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
+                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
                         title="Confirm all Pattern Miss predictions"
                       >
                         <ThresholdHandleIcon
@@ -1385,7 +1431,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button action-button--with-icon"
                         onClick={() => handleTagSelectedAs('missed-context')}
-                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
+                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
                         title="Confirm all Context Miss predictions"
                       >
                         <ThresholdHandleIcon
@@ -1418,7 +1464,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button action-button--with-icon"
                         onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={!isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
+                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
                         title="Confirm all Noisy Activation predictions"
                       >
                         <ThresholdHandleIcon
@@ -1457,7 +1503,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button action-button--with-icon"
                         onClick={handleTagAllConfident}
-                        disabled={!isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
+                        disabled={!canTrainSVM || !isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
                         title="Confirm all confident predictions"
                       >
                         <ThresholdHandleIcon
@@ -1518,7 +1564,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="action-button action-button--with-icon"
                         onClick={handleTagRemainingByBoundary}
-                        disabled={remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                        disabled={!canTrainSVM || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                         title="Auto-tag remaining features using SVM decision boundary"
                       >
                         <svg className="batch-button-icon" width="24" height="20" viewBox="0 0 20 16">

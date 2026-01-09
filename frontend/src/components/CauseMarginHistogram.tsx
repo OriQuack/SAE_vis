@@ -72,6 +72,10 @@ interface CauseMarginHistogramProps {
   sortDirection?: 'asc' | 'desc'
   /** Callback when percentage changes (due to threshold drag) */
   onPercentageChange?: (percentage: number) => void
+  /** Whether SVM can be trained (enough manual tags per category) */
+  canTrainSVM?: boolean
+  /** Manual tag counts per category for progress display */
+  manualTagCountsByCategory?: Record<string, number>
 }
 
 interface MarginDataPoint {
@@ -176,7 +180,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   height = 80,
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
-  onPercentageChange
+  onPercentageChange,
+  canTrainSVM = true,
+  manualTagCountsByCategory
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(200)
@@ -471,6 +477,36 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   useEffect(() => {
     onPercentageChange?.(unsurePercentage)
   }, [unsurePercentage, onPercentageChange])
+
+  // Get category colors for placeholder display
+  const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
+
+  // Show placeholder when not enough tags for SVM training
+  if (!canTrainSVM) {
+    return (
+      <div className="cause-margin-histogram cause-margin-histogram--placeholder" ref={containerRef} style={{ height }}>
+        <div className="cause-margin-histogram__placeholder-content">
+          <div className="cause-margin-histogram__main-instruction">
+            <span className="cause-margin-histogram__stage-number">1</span>
+            Tag 2+ features in each category
+          </div>
+          <div className="cause-margin-histogram__progress-row">
+            <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: noisyActivationColor }}>
+              Noisy Activation: {manualTagCountsByCategory?.['noisy-activation'] || 0}/2
+            </span>
+            <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedNgramColor }}>
+              Pattern Miss: {manualTagCountsByCategory?.['missed-N-gram'] || 0}/2
+            </span>
+            <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedContextColor }}>
+              Context Miss: {manualTagCountsByCategory?.['missed-context'] || 0}/2
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (featureIds.size === 0 || causeCategoryDecisionMargins.size === 0) {
     return (

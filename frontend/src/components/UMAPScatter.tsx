@@ -50,6 +50,9 @@ const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 // Cause categories for decision space validation (3 categories)
 const CAUSE_CATEGORIES = ['noisy-activation', 'missed-N-gram', 'missed-context']
 
+// Minimum manual tags required per cause category before SVM training
+const MIN_TAGS_PER_CATEGORY = 2
+
 // Short name mapping for each LLM explainer (using full model names from backend)
 const EXPLAINER_SHORT_NAMES: Record<string, string> = {
   'hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4': 'Llama',
@@ -124,7 +127,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   //   position: { x: number; y: number }
   // } | null>(null)
 
-  // Check if all 3 categories have at least one manual tag (for SVM classification)
+  // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, string> = {}
@@ -137,7 +140,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
       }
     })
 
-    const missingCount = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < 1).length
+    const missingCount = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < MIN_TAGS_PER_CATEGORY).length
 
     return {
       canUseDecisionSpace: missingCount === 0,
@@ -708,8 +711,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           height={chartHeight}
           style={{ pointerEvents: 'none' }}
         >
-          {/* Category contour fills only */}
-          {categoryContours.map(({ category, color, paths }) => (
+          {/* Category contour fills only - hidden until enough manual tags */}
+          {canUseDecisionSpace && categoryContours.map(({ category, color, paths }) => (
             <g key={category} className="umap-scatter__contour-group">
               {paths.map((path, i) => (
                 <path
@@ -755,8 +758,8 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
           height={chartHeight}
           style={{ pointerEvents: 'none' }}
         >
-          {/* Category contour strokes only */}
-          {categoryContours.map(({ category, color, paths }) => (
+          {/* Category contour strokes only - hidden until enough manual tags */}
+          {canUseDecisionSpace && categoryContours.map(({ category, color, paths }) => (
             <g key={category} className="umap-scatter__contour-group">
               {paths.map((path, i) => (
                 <path

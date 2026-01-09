@@ -610,14 +610,23 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   }
   const tagColor = getTagColor(tagCategory, tagName) || (currentStage >= 2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
 
-  // Stage 4 shows "Overview" title only, stages 1-3 show "Filter" with instructions
+  // Stage 4 shows "Overview" title only, Stage 3 shows "Filter" without instruction, Stages 1-2 show "Filter" with instructions
   const isStage4 = currentStage === 4
+  const isStage3 = currentStage === 3
 
   return (
     <div className={`sankey-diagram ${className}`}>
       <div className="view-header">
         {isStage4 ? (
           <span className="view-title">Overview</span>
+        ) : isStage3 ? (
+          <>
+            <span className="view-title">Filter</span>
+            {/* Placeholder to maintain layout - invisible but preserves height */}
+            <span className="view-description" style={{ visibility: 'hidden' }}>
+              Placeholder text to maintain layout height
+            </span>
+          </>
         ) : (
           <>
             <span className="view-title">Filter</span>
