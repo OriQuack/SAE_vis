@@ -70,7 +70,8 @@ const API_ENDPOINTS = {
   UMAP_PROJECTION: "/umap-projection",
   CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test",
-  STAGE3_QUALITY_SCORES: "/stage3-quality-scores"
+  STAGE3_QUALITY_SCORES: "/stage3-quality-scores",
+  COLD_START_SUGGESTIONS: "/cold-start-suggestions"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -803,6 +804,82 @@ export async function getStage3QualityScores(
     histogramBins: data.histogram?.bins?.length || 0,
     statistics: data.statistics,
     hasBimodality: !!data.bimodality
+  })
+
+  return data
+}
+
+// ============================================================================
+// COLD-START SUGGESTIONS
+// ============================================================================
+
+export interface ColdStartSuggestion {
+  id: string
+  cluster_id: number
+  is_medoid: boolean
+  diversity_reason: string
+  metrics?: Record<string, number>
+}
+
+export interface ColdStartSuggestionsResponse {
+  suggestions: ColdStartSuggestion[]
+  total_suggestions: number
+  mode: 'feature' | 'pair'
+  num_clusters: number
+  cache_hit: boolean
+}
+
+/**
+ * Get cold-start suggestions for bootstrapping SVM training.
+ *
+ * Uses k-medoids clustering to select diverse, representative samples
+ * from the metric space. Helps users tag effectively before the SVM
+ * can train (minimum 3 selected + 3 rejected required).
+ *
+ * @param mode - 'feature' for Stage 2, 'pair' for Stage 1
+ * @param featureIds - Feature IDs in current segment
+ * @param numSuggestions - Number of suggestions (default 8)
+ * @param threshold - Clustering threshold (required for pair mode)
+ */
+export async function getColdStartSuggestions(
+  mode: 'feature' | 'pair',
+  featureIds: number[],
+  numSuggestions: number = 8,
+  threshold?: number
+): Promise<ColdStartSuggestionsResponse> {
+  console.log('[API] getColdStartSuggestions called with:', {
+    mode,
+    featureCount: featureIds.length,
+    numSuggestions,
+    threshold
+  })
+
+  const requestBody = {
+    mode,
+    feature_ids: featureIds,
+    num_suggestions: numSuggestions,
+    ...(threshold !== undefined && { threshold })
+  }
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.COLD_START_SUGGESTIONS}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody)
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Cold-start suggestions error:', response.status, errorText)
+    throw new Error(`Failed to fetch cold-start suggestions: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getColdStartSuggestions response:', {
+    totalSuggestions: data.total_suggestions,
+    numClusters: data.num_clusters,
+    cacheHit: data.cache_hit
   })
 
   return data

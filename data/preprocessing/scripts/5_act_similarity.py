@@ -432,10 +432,20 @@ class ActivationSimilarityProcessor:
 
         # Define punctuation including Unicode smart quotes
         # \u201c=" \u201d=" \u2018=' \u2019='
+        # NOTE: Do NOT include '_' here - it's part of Python identifiers
         punct_chars = '.,!?;:"\'\n\t()[]{}\u201c\u201d\u2018\u2019`'
 
         for i, token in enumerate(tokens):
-            token_clean = token.lstrip('_▁').strip()
+            # Handle standalone '▁' token (space marker only) - skip without updating position
+            if token == '▁':
+                # Save current word if exists, but don't start new empty word
+                if current_word:
+                    words_with_positions.append((current_word, word_start_pos))
+                    current_word = ""
+                continue
+
+            # Strip only '▁' prefix, preserve '_' for Python identifiers like __init__
+            token_clean = token.lstrip('▁').strip()
 
             if token.startswith('▁'):
                 # New word boundary (space prefix)

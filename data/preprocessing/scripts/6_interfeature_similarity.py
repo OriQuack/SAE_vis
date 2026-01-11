@@ -319,6 +319,61 @@ class InterFeatureSimilarityProcessor:
 
         return selected
 
+    def _get_examples_from_embeddings(self, feature_id: int) -> List[Tuple[int, float, List[str], int]]:
+        """Get activation examples using prompt IDs from pre-computed embeddings.
+
+        This ensures we only use examples that have pre-computed embeddings,
+        avoiding the "Prompt X not found in embeddings" warning.
+
+        Args:
+            feature_id: Feature ID to get examples for
+
+        Returns:
+            List of tuples: (prompt_id, max_activation, prompt_tokens, max_token_pos)
+        """
+        # Get prompt IDs from pre-computed embeddings
+        feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
+
+        if len(feature_embeddings) == 0:
+            return []
+
+        # Extract stored prompt IDs from embeddings (convert to Python list)
+        stored_prompt_ids = feature_embeddings["prompt_ids"][0].to_list()
+
+        if not stored_prompt_ids or len(stored_prompt_ids) == 0:
+            return []
+
+        # Fetch activation data for these specific prompt IDs
+        feature_df = self.activation_df.filter(
+            (pl.col("feature_id") == feature_id) &
+            (pl.col("prompt_id").is_in(stored_prompt_ids))
+        )
+
+        if len(feature_df) == 0:
+            return []
+
+        # Build examples list
+        examples = []
+        for row in feature_df.to_dicts():
+            prompt_id = row["prompt_id"]
+            max_activation = row.get("max_activation", 0.0)
+            prompt_tokens = row.get("prompt_tokens", [])
+            activation_pairs = row.get("activation_pairs", [])
+
+            # Find position with max activation
+            if activation_pairs:
+                max_pair = max(activation_pairs, key=lambda x: x["activation_value"])
+                max_token_pos = max_pair["token_position"]
+            else:
+                max_token_pos = 0
+
+            examples.append((prompt_id, max_activation, prompt_tokens, max_token_pos))
+
+        # Sort by activation descending (consistent with quantile sampling)
+        examples = sorted(examples, key=lambda x: x[1], reverse=True)
+
+        return examples
+
     def _extract_token_window(self, tokens: List[str], center_pos: int, window_size: int) -> List[str]:
         """Extract symmetric window around center position.
 
@@ -388,10 +443,20 @@ class InterFeatureSimilarityProcessor:
 
         # Define punctuation including Unicode smart quotes
         # \u201c=" \u201d=" \u2018=' \u2019='
+        # NOTE: Do NOT include '_' here - it's part of Python identifiers
         punct_chars = '.,!?;:"\'\n\t()[]{}\u201c\u201d\u2018\u2019`'
 
         for i, token in enumerate(tokens):
-            token_clean = token.lstrip('_▁').strip()
+            # Handle standalone '▁' token (space marker only) - skip without updating position
+            if token == '▁':
+                # Save current word if exists, but don't start new empty word
+                if current_word:
+                    words_with_positions.append((current_word, word_start_pos))
+                    current_word = ""
+                continue
+
+            # Strip only '▁' prefix, preserve '_' for Python identifiers like __init__
+            token_clean = token.lstrip('▁').strip()
 
             if token.startswith('▁'):
                 # New word boundary (space prefix)
@@ -710,9 +775,8 @@ class InterFeatureSimilarityProcessor:
             selected_char_ngram_sets.append(ngram_set)
             all_char_ngrams.extend(list(ngram_set))
 
-        # Find most frequent char n-gram
+        # Find most frequent char n-gram (for position tracking/visualization)
         max_char_ngram = None
-        char_jaccard = None
         if all_char_ngrams:
             char_counter = Counter(all_char_ngrams)
             # Tie-breaker: if counts equal, prefer longer n-gram (more specific)
@@ -720,24 +784,21 @@ class InterFeatureSimilarityProcessor:
             tied_ngrams = [(ng, cnt) for ng, cnt in char_counter.items() if cnt == max_count]
             max_char_ngram = max(tied_ngrams, key=lambda x: (x[1], len(x[0])))[0]
 
-            # Compute binary Jaccard for this specific n-gram
-            main_has_ngram = sum(1 for s in main_char_ngram_sets if max_char_ngram in s)
-            selected_has_ngram = sum(1 for s in selected_char_ngram_sets if max_char_ngram in s)
-
-            # Binary Jaccard: |A ∩ B| / |A ∪ B| where A and B are sets of examples containing the n-gram
-            total_has_ngram = main_has_ngram + selected_has_ngram
-            unique_examples = len(main_calc_examples) + len(selected_calc_examples)
-
-            if total_has_ngram > 0:
-                # Union = all unique examples that have the n-gram
-                # Intersection = examples in both groups that have it (but they're different examples)
-                # For cross-feature: we use a simpler approach
-                # Jaccard = min(main_count, selected_count) / max(main_count, selected_count) if both > 0
-                if main_has_ngram > 0 and selected_has_ngram > 0:
-                    char_jaccard = float(min(main_has_ngram, selected_has_ngram) /
-                                        max(main_has_ngram, selected_has_ngram))
+        # Compute standard pairwise Jaccard: |A ∩ B| / |A ∪ B| for all (main, selected) pairs
+        char_pairwise_jaccards = []
+        for main_set in main_char_ngram_sets:
+            for selected_set in selected_char_ngram_sets:
+                if len(main_set) == 0 and len(selected_set) == 0:
+                    jaccard = 1.0  # Both empty = perfect similarity
+                elif len(main_set) == 0 or len(selected_set) == 0:
+                    jaccard = 0.0  # One empty, one not
                 else:
-                    char_jaccard = 0.0
+                    intersection = len(main_set & selected_set)
+                    union = len(main_set | selected_set)
+                    jaccard = intersection / union if union > 0 else 0.0
+                char_pairwise_jaccards.append(jaccard)
+
+        char_jaccard = float(np.mean(char_pairwise_jaccards)) if char_pairwise_jaccards else None
 
         # Phase 1: Extract word n-grams from ALL calc examples for frequency counting
         all_word_ngrams = []
@@ -758,9 +819,8 @@ class InterFeatureSimilarityProcessor:
             selected_word_ngram_sets.append(ngram_set)
             all_word_ngrams.extend(list(ngram_set))
 
-        # Find most frequent word n-gram
+        # Find most frequent word n-gram (for position tracking/visualization)
         max_word_ngram = None
-        word_jaccard = None
         if all_word_ngrams:
             word_counter = Counter(all_word_ngrams)
             # Tie-breaker: if counts equal, prefer longer phrase (more words = more specific)
@@ -768,15 +828,21 @@ class InterFeatureSimilarityProcessor:
             tied_ngrams = [(ng, cnt) for ng, cnt in word_counter.items() if cnt == max_count]
             max_word_ngram = max(tied_ngrams, key=lambda x: (x[1], len(x[0].split())))[0]
 
-            # Compute binary Jaccard for this specific n-gram
-            main_has_ngram = sum(1 for s in main_word_ngram_sets if max_word_ngram in s)
-            selected_has_ngram = sum(1 for s in selected_word_ngram_sets if max_word_ngram in s)
+        # Compute standard pairwise Jaccard: |A ∩ B| / |A ∪ B| for all (main, selected) pairs
+        word_pairwise_jaccards = []
+        for main_set in main_word_ngram_sets:
+            for selected_set in selected_word_ngram_sets:
+                if len(main_set) == 0 and len(selected_set) == 0:
+                    jaccard = 1.0  # Both empty = perfect similarity
+                elif len(main_set) == 0 or len(selected_set) == 0:
+                    jaccard = 0.0  # One empty, one not
+                else:
+                    intersection = len(main_set & selected_set)
+                    union = len(main_set | selected_set)
+                    jaccard = intersection / union if union > 0 else 0.0
+                word_pairwise_jaccards.append(jaccard)
 
-            if main_has_ngram > 0 and selected_has_ngram > 0:
-                word_jaccard = float(min(main_has_ngram, selected_has_ngram) /
-                                    max(main_has_ngram, selected_has_ngram))
-            elif main_has_ngram > 0 or selected_has_ngram > 0:
-                word_jaccard = 0.0
+        word_jaccard = float(np.mean(word_pairwise_jaccards)) if word_pairwise_jaccards else None
 
         # Phase 2: Extract position data for the max n-grams using DISPLAY examples only
         main_char_positions = self._find_char_ngram_positions_in_examples(
@@ -828,9 +894,9 @@ class InterFeatureSimilarityProcessor:
         if len(decoder_similar) < self.proc_params["top_n_decoder_similar"]:
             self.stats["features_with_insufficient_decoder_similar"] += 1
 
-        # Get activation examples for main feature - Phase 1: Load ALL examples (16 total: 4 per quantile)
-        main_feature_df = self.activation_df.filter(pl.col("feature_id") == feature_id)
-        main_all_examples = self._select_top_quantile_examples(main_feature_df)
+        # Get activation examples for main feature using prompt IDs from embeddings
+        # This ensures we only use examples that have pre-computed embeddings
+        main_all_examples = self._get_examples_from_embeddings(feature_id)
 
         if len(main_all_examples) == 0:
             self.stats["features_with_no_activations"] += 1
@@ -855,9 +921,9 @@ class InterFeatureSimilarityProcessor:
 
         # Process each decoder-similar feature
         for selected_feature_id, decoder_sim in decoder_similar:
-            # Phase 1: Get ALL activation examples for selected feature (16 total: 4 per quantile)
-            selected_feature_df = self.activation_df.filter(pl.col("feature_id") == selected_feature_id)
-            selected_all_examples = self._select_top_quantile_examples(selected_feature_df)
+            # Get activation examples using prompt IDs from embeddings
+            # This ensures we only use examples that have pre-computed embeddings
+            selected_all_examples = self._get_examples_from_embeddings(selected_feature_id)
 
             if len(selected_all_examples) == 0:
                 continue

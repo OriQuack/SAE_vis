@@ -137,7 +137,13 @@ class ActivationEmbeddingProcessor:
             "features_processed": 0,
             "features_with_no_activations": 0,
             "total_examples_embedded": 0,
-            "total_embeddings_generated": 0
+            "total_embeddings_generated": 0,
+            # Alignment statistics
+            "alignment_exact_match": 0,
+            "alignment_special_tokens_added": 0,
+            "alignment_tokens_truncated": 0,
+            "alignment_total_examples": 0,
+            "max_token_diff": 0
         }
 
         # Load models
@@ -170,7 +176,7 @@ class ActivationEmbeddingProcessor:
             except Exception as e:
                 logger.warning(f"Could not set device: {e}")
 
-    def _select_quantile_examples(self, feature_df: pl.DataFrame) -> List[Tuple[int, float, List[str], int]]:
+    def _select_quantile_examples(self, feature_df: pl.DataFrame) -> List[Tuple[int, float, List[str], int, List[Dict]]]:
         """Select examples using rank-based sampling for even distribution.
 
         Uses rank-based (positional) sampling instead of value-based quantiles
@@ -180,7 +186,7 @@ class ActivationEmbeddingProcessor:
             feature_df: DataFrame with activation examples for a single feature
 
         Returns:
-            List of tuples: (prompt_id, max_activation, prompt_tokens, max_token_pos)
+            List of tuples: (prompt_id, max_activation, prompt_tokens, max_token_pos, activation_pairs)
         """
         # Filter out rows with no activations
         feature_df = feature_df.filter(pl.col("num_activations") > 0)
@@ -233,7 +239,8 @@ class ActivationEmbeddingProcessor:
                 row["prompt_id"],
                 row["max_activation"],
                 row["prompt_tokens"],
-                max_token_pos
+                max_token_pos,
+                activation_pairs or []  # Include activation_pairs for weighted pooling
             ))
 
         return result
@@ -257,13 +264,26 @@ class ActivationEmbeddingProcessor:
     def _normalize_token(self, token: str) -> str:
         """Strip SentencePiece '▁' prefix from token.
 
+        Handles tokens like '▁▁▁▁' (indentation) by converting them to spaces.
+        '▁' is U+2581 LOWER ONE EIGHTH BLOCK, used as word boundary marker.
+
         Args:
             token: Token string (may have '▁' prefix)
 
         Returns:
-            Token without '▁' prefix
+            Token with '▁' converted: leading ▁ removed, remaining ▁ become spaces
         """
-        return token.lstrip('▁')
+        if not token:
+            return token
+        # Count leading ▁ characters
+        stripped = token.lstrip('▁')
+        num_leading = len(token) - len(stripped)
+        if num_leading > 0:
+            # First ▁ is word boundary (becomes space in join), rest become literal spaces
+            # For '▁▁▁▁' -> we want 3 spaces (first is word boundary handled by join)
+            extra_spaces = ' ' * (num_leading - 1) if num_leading > 1 else ''
+            return extra_spaces + stripped
+        return token
 
     def _reconstruct_text(self, tokens: List[str]) -> str:
         """Reconstruct natural text from subword tokens.
@@ -296,8 +316,250 @@ class ActivationEmbeddingProcessor:
 
         return " ".join(words)
 
+    def _compute_char_spans(self, tokens: List[str]) -> List[Tuple[int, int]]:
+        """Compute character spans for each token in reconstructed text.
+
+        Maps tokens to their (start_char, end_char) positions in the text
+        that would be produced by _reconstruct_text.
+
+        Args:
+            tokens: List of token strings with '▁' marking word boundaries
+
+        Returns:
+            List of (start_char, end_char) tuples for each token
+        """
+        spans = []
+        current_pos = 0
+
+        for i, token in enumerate(tokens):
+            if token == '▁':
+                # Standalone space token - represents the space character itself
+                if current_pos > 0:
+                    start = current_pos
+                    end = current_pos + 1
+                    current_pos += 1
+                else:
+                    start = 0
+                    end = 0
+                spans.append((start, end))
+            elif token.startswith('▁'):
+                # Word boundary - add space before (except at start)
+                if current_pos > 0:
+                    current_pos += 1  # Account for space from join()
+
+                # Handle multiple ▁ (e.g., '▁▁▁▁' for indentation)
+                stripped = token.lstrip('▁')
+                num_leading = len(token) - len(stripped)
+                extra_spaces = num_leading - 1  # First ▁ is word boundary
+
+                start = current_pos
+                # Token content = extra_spaces + stripped text
+                token_len = extra_spaces + len(stripped)
+                end = current_pos + token_len
+                spans.append((start, end))
+                current_pos = end
+            else:
+                # Continuation token - no space
+                start = current_pos
+                end = current_pos + len(token)
+                spans.append((start, end))
+                current_pos = end
+
+        return spans
+
+    def _compute_char_spans_for_embedding(self, tokens: List[str], text: str) -> List[Tuple[int, int]]:
+        """Compute character spans for embedding model tokens.
+
+        Different from _compute_char_spans because embedding tokenizers may have
+        special tokens like <0x0D> that represent characters differently.
+
+        Args:
+            tokens: List of tokens from embedding model tokenizer
+            text: The original text that was tokenized
+
+        Returns:
+            List of (start_char, end_char) tuples for each token
+        """
+        spans = []
+        current_pos = 0
+        text_len = len(text)
+
+        for token in tokens:
+            # Handle special tokens that don't appear in text
+            if token.startswith('<0x') and token.endswith('>'):
+                # Hex-encoded special character (e.g., <0x0D> for \r)
+                # These map to single characters in the text
+                if current_pos < text_len:
+                    spans.append((current_pos, current_pos + 1))
+                    current_pos += 1
+                else:
+                    spans.append((current_pos, current_pos))
+            elif token == '\n' or token == '\r':
+                # Newline/carriage return
+                if current_pos < text_len:
+                    spans.append((current_pos, current_pos + 1))
+                    current_pos += 1
+                else:
+                    spans.append((current_pos, current_pos))
+            elif token == '▁':
+                # Standalone space
+                if current_pos > 0 and current_pos < text_len:
+                    spans.append((current_pos, current_pos + 1))
+                    current_pos += 1
+                else:
+                    spans.append((current_pos, current_pos))
+            elif token.startswith('▁'):
+                # Word with leading space
+                if current_pos > 0 and current_pos < text_len and text[current_pos] == ' ':
+                    current_pos += 1  # Skip the space
+                stripped = token.lstrip('▁')
+                num_leading = len(token) - len(stripped)
+                extra_spaces = num_leading - 1
+                start = current_pos
+                token_len = extra_spaces + len(stripped)
+                end = min(current_pos + token_len, text_len)
+                spans.append((start, end))
+                current_pos = end
+            else:
+                # Regular token
+                start = current_pos
+                end = min(current_pos + len(token), text_len)
+                spans.append((start, end))
+                current_pos = end
+
+        return spans
+
+    def _map_activations_to_embedding_tokens(
+        self,
+        gemma_tokens: List[str],
+        activation_pairs: List[Dict],
+        embedding_text: str,
+        window_start: int,
+        window_end: int,
+        num_embedding_tokens: int
+    ) -> np.ndarray:
+        """Map Gemma 9B activation values to EmbeddingGemma token positions.
+
+        Uses character-level overlap to handle tokenizer differences between
+        Gemma 9B (activation source) and EmbeddingGemma (embedding model).
+
+        Args:
+            gemma_tokens: Original Gemma 9B tokens (full prompt, with '▁' prefixes)
+            activation_pairs: List of {token_position, activation_value}
+            embedding_text: Reconstructed text passed to embedding model
+            window_start: Start position of the token window in original prompt
+            window_end: End position of the token window in original prompt
+            num_embedding_tokens: Actual number of tokens in the embedding output
+                                  (includes special tokens like BOS/EOS)
+
+        Returns:
+            Array of activation weights for each embedding token
+        """
+        # Step 1: Get window tokens and their character spans
+        window_tokens = gemma_tokens[window_start:window_end]
+        gemma_char_spans = self._compute_char_spans(window_tokens)
+
+        # Step 2: Build activation values for window tokens (map absolute to relative positions)
+        window_activations = np.zeros(len(window_tokens))
+        for pair in activation_pairs:
+            abs_pos = pair["token_position"]
+            rel_pos = abs_pos - window_start
+            if 0 <= rel_pos < len(window_tokens):
+                window_activations[rel_pos] = pair["activation_value"]
+
+        # Step 3: Get embedding model's tokenization and compute proper spans
+        embedding_tokens = self.sentence_model.tokenizer.tokenize(embedding_text)
+        emb_char_spans = self._compute_char_spans_for_embedding(embedding_tokens, embedding_text)
+
+        # Step 4: Map activations via character overlap (for content tokens only)
+        content_activations = np.zeros(len(embedding_tokens))
+        for emb_idx, (emb_start, emb_end) in enumerate(emb_char_spans):
+            max_activation = 0.0
+            for gemma_idx, (g_start, g_end) in enumerate(gemma_char_spans):
+                # Check for character overlap
+                overlap_start = max(emb_start, g_start)
+                overlap_end = min(g_end, emb_end)
+                if overlap_start < overlap_end:
+                    # Overlap exists - use max activation from overlapping tokens
+                    max_activation = max(max_activation, window_activations[gemma_idx])
+            content_activations[emb_idx] = max_activation
+
+        # Step 5: Handle special tokens (BOS, EOS, etc.)
+        # The embedding output may have more tokens than tokenize() returns
+        # Typically: [BOS] + content_tokens + [EOS] or similar
+        num_special_tokens = num_embedding_tokens - len(embedding_tokens)
+
+        # Track alignment statistics
+        self.stats["alignment_total_examples"] += 1
+        self.stats["max_token_diff"] = max(self.stats["max_token_diff"], abs(num_special_tokens))
+
+        # Log large discrepancies for debugging
+        if abs(num_special_tokens) > 5:
+            logger.debug(f"Large token diff: emb_tokens={num_embedding_tokens}, "
+                        f"tokenize()={len(embedding_tokens)}, diff={num_special_tokens}")
+
+        if num_special_tokens > 0:
+            self.stats["alignment_special_tokens_added"] += 1
+            # Assume special tokens are distributed as prefix and suffix
+            # Common pattern: 1 BOS at start, possibly 1 EOS at end
+            num_prefix = min(1, num_special_tokens)  # Usually 1 BOS token
+
+            # Build full activation array with zeros for special tokens
+            full_activations = np.zeros(num_embedding_tokens)
+            full_activations[num_prefix:num_prefix + len(content_activations)] = content_activations
+            return full_activations
+        elif num_special_tokens < 0:
+            self.stats["alignment_tokens_truncated"] += 1
+            # Embedding has fewer tokens than tokenize() returned
+            # This can happen due to tokenizer differences - truncate content_activations
+            return content_activations[:num_embedding_tokens]
+        else:
+            self.stats["alignment_exact_match"] += 1
+            return content_activations
+
+    def _weighted_pooling(
+        self,
+        token_embeddings: np.ndarray,
+        activation_weights: np.ndarray,
+        temperature: float = 10.0
+    ) -> np.ndarray:
+        """Apply softmax-weighted pooling with L2 normalization.
+
+        Formula: Σ(w_i * v_i) / Σ(w_i) where w_i = softmax(activation_i / temperature)
+
+        Args:
+            token_embeddings: Shape (num_tokens, embedding_dim)
+            activation_weights: Shape (num_tokens,) - raw activation values
+            temperature: Softmax temperature (higher = smoother weights)
+
+        Returns:
+            L2-normalized embedding vector of shape (embedding_dim,)
+        """
+        # Handle edge case: all zero activations -> fall back to mean pooling
+        if np.sum(activation_weights) == 0:
+            weighted_embedding = np.mean(token_embeddings, axis=0)
+        else:
+            # Apply softmax with temperature (numerically stable)
+            scaled = activation_weights / temperature
+            scaled = scaled - np.max(scaled)  # Prevent overflow
+            weights = np.exp(scaled)
+            weights = weights / np.sum(weights)
+
+            # Weighted average
+            weighted_embedding = np.sum(token_embeddings * weights[:, np.newaxis], axis=0)
+
+        # L2 normalize
+        norm = np.linalg.norm(weighted_embedding)
+        if norm > 0:
+            weighted_embedding = weighted_embedding / norm
+
+        return weighted_embedding.astype(np.float32)
+
     def process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute embeddings for quantile examples.
+
+        Uses activation-weighted pooling when pooling_mode is 'weighted'.
+        Falls back to mean pooling otherwise.
 
         Args:
             feature_id: Feature ID
@@ -321,28 +583,76 @@ class ActivationEmbeddingProcessor:
         self.stats["total_examples_embedded"] += len(examples)
 
         window_size = self.proc_params["token_window_size"]
+        pooling_mode = self.proc_params.get("pooling_mode", "mean")
+        temperature = self.proc_params.get("pooling_temperature", 10.0)
 
-        # Extract token windows and compute embeddings
-        prompt_ids = []
-        window_texts = []
-
-        for prompt_id, _, tokens, max_pos in examples:
-            window_tokens = self._extract_token_window(tokens, max_pos, window_size)
-            # Reconstruct natural text from subword tokens
+        # Pre-compute all window data
+        example_data = []
+        for prompt_id, _, tokens, max_pos, activation_pairs in examples:
+            half_window = window_size // 2
+            window_start = max(0, max_pos - half_window)
+            window_end = min(len(tokens), max_pos + half_window)
+            window_tokens = tokens[window_start:window_end]
             window_text = self._reconstruct_text(window_tokens)
 
-            prompt_ids.append(int(prompt_id))
-            window_texts.append(window_text)
+            if window_text.strip():
+                example_data.append({
+                    "prompt_id": int(prompt_id),
+                    "tokens": tokens,
+                    "window_text": window_text,
+                    "window_start": window_start,
+                    "window_end": window_end,
+                    "activation_pairs": activation_pairs
+                })
 
-        # Batch encode all windows for this feature
-        embeddings_list = []
-        if window_texts:
+        if not example_data:
+            return {
+                "feature_id": feature_id,
+                "sae_id": self.sae_id,
+                "prompt_ids": [],
+                "embeddings": []
+            }
+
+        prompt_ids = [d["prompt_id"] for d in example_data]
+        window_texts = [d["window_text"] for d in example_data]
+
+        if pooling_mode == "weighted":
+            # BATCH encode all texts at once to get token embeddings
+            all_token_embeddings = self.sentence_model.encode(
+                window_texts,
+                output_value="token_embeddings",
+                convert_to_tensor=True,
+                show_progress_bar=False
+            )
+
+            # Apply individual weights to each example
+            embeddings_list = []
+            for i, data in enumerate(example_data):
+                token_emb = all_token_embeddings[i]
+                if hasattr(token_emb, 'cpu'):
+                    token_emb = token_emb.cpu().numpy()
+                else:
+                    token_emb = np.array(token_emb)
+
+                activation_weights = self._map_activations_to_embedding_tokens(
+                    gemma_tokens=data["tokens"],
+                    activation_pairs=data["activation_pairs"],
+                    embedding_text=data["window_text"],
+                    window_start=data["window_start"],
+                    window_end=data["window_end"],
+                    num_embedding_tokens=len(token_emb)
+                )
+
+                embedding = self._weighted_pooling(token_emb, activation_weights, temperature)
+                embeddings_list.append(embedding.tolist())
+                self.stats["total_embeddings_generated"] += 1
+        else:
+            # Default mean pooling - batch encode
             embeddings = self.sentence_model.encode(
                 window_texts,
                 convert_to_tensor=False,
                 show_progress_bar=False
             )
-            # Convert to float32 first, then to list of lists for Polars
             embeddings_list = [emb.astype(np.float32).tolist() for emb in embeddings]
             self.stats["total_embeddings_generated"] += len(embeddings_list)
 
@@ -524,6 +834,23 @@ def main():
     logger.info(f"  Total examples embedded: {processor.stats['total_examples_embedded']:,}")
     logger.info(f"  Total embeddings generated: {processor.stats['total_embeddings_generated']:,}")
     logger.info(f"  Features with no activations: {processor.stats['features_with_no_activations']:,}")
+
+    # Print alignment statistics if weighted pooling was used
+    if processor.stats.get("alignment_total_examples", 0) > 0:
+        total = processor.stats["alignment_total_examples"]
+        exact = processor.stats["alignment_exact_match"]
+        special = processor.stats["alignment_special_tokens_added"]
+        truncated = processor.stats["alignment_tokens_truncated"]
+        max_diff = processor.stats["max_token_diff"]
+
+        logger.info("-" * 40)
+        logger.info("Token Alignment Statistics:")
+        logger.info(f"  Total examples aligned: {total:,}")
+        logger.info(f"  Exact token match: {exact:,} ({100*exact/total:.1f}%)")
+        logger.info(f"  Special tokens added: {special:,} ({100*special/total:.1f}%)")
+        logger.info(f"  Tokens truncated: {truncated:,} ({100*truncated/total:.1f}%)")
+        logger.info(f"  Max token count difference: {max_diff}")
+
     logger.info("=" * 80)
 
 

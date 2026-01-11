@@ -159,22 +159,23 @@ class ActivationDisplayProcessor:
             logger.info(f"Loaded similarity data for {len(self.similarity_df):,} features")
 
     def _process_tokens_array(self, tokens: List[str]) -> List[str]:
-        """Process token list, removing leading underscores but keeping as array.
+        """Process token list, removing SentencePiece markers but keeping as array.
 
         Args:
-            tokens: List of token strings (may have leading underscores)
+            tokens: List of token strings (may have '▁' SentencePiece prefix)
 
         Returns:
-            List of processed tokens (underscores removed)
+            List of processed tokens (SentencePiece markers removed, underscores preserved)
         """
         if not tokens:
             return []
 
         token_config = self.proc_params.get("token_processing", {})
 
-        # Remove leading underscores (both regular '_' and Unicode '▁') and whitespace
+        # Remove only SentencePiece '▁' prefix, preserve '_' for Python identifiers
+        # NOTE: Only strip '▁' (SentencePiece marker), NOT '_' (actual underscore in text)
         if token_config.get("remove_leading_underscore", True):
-            tokens = [t.lstrip('_▁').strip() for t in tokens]
+            tokens = [t.lstrip('▁').strip() for t in tokens]
 
         return tokens
 

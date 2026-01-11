@@ -7,7 +7,7 @@
   "description": "Configuration for creating optimized activation display data with dual n-gram pattern classification",
 
   "processing_parameters": {
-    "semantic_threshold": 0.3,
+    "semantic_threshold": 0.6,
     "lexical_threshold": 0.6,
     "token_processing": {
       "remove_leading_underscore": true,

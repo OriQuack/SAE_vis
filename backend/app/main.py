@@ -14,7 +14,8 @@ from .services.pair_similarity_service import PairSimilarityService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .services.activation_cache_service import activation_cache_service
 from .services.umap_service import UMAPService
-from .api import feature_groups, similarity_sort, cluster_candidates, umap
+from .services.cold_start_service import ColdStartService
+from .api import feature_groups, similarity_sort, cluster_candidates, umap, cold_start
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -45,10 +46,11 @@ similarity_sort_service = None
 pair_similarity_service = None
 cluster_candidate_service = None
 umap_service = None
+cold_start_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, umap_service
+    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, umap_service, cold_start_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -92,6 +94,14 @@ async def lifespan(app: FastAPI):
         umap_service = UMAPService(data_service=data_service)
         umap.set_umap_service(umap_service)
         logger.info("UMAP service initialized successfully")
+
+        # Initialize cold-start suggestions service
+        cold_start_service = ColdStartService(
+            data_service=data_service,
+            cluster_service=cluster_candidate_service
+        )
+        cold_start.set_cold_start_service(cold_start_service)
+        logger.info("Cold-start service initialized successfully")
 
         # Initialize activation cache service (pre-compute msgpack+gzip blob)
         await activation_cache_service.initialize()
