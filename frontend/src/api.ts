@@ -832,19 +832,19 @@ export interface ColdStartSuggestionsResponse {
 /**
  * Get cold-start suggestions for bootstrapping SVM training.
  *
- * Uses k-medoids clustering to select diverse, representative samples
+ * Uses Kennard-Stone algorithm to select diverse, representative samples
  * from the metric space. Helps users tag effectively before the SVM
  * can train (minimum 3 selected + 3 rejected required).
  *
  * @param mode - 'feature' for Stage 2, 'pair' for Stage 1
  * @param featureIds - Feature IDs in current segment
- * @param numSuggestions - Number of suggestions (default 8)
+ * @param numSuggestions - Number of suggestions (default 20)
  * @param threshold - Clustering threshold (required for pair mode)
  */
 export async function getColdStartSuggestions(
   mode: 'feature' | 'pair',
   featureIds: number[],
-  numSuggestions: number = 8,
+  numSuggestions: number = 20,
   threshold?: number
 ): Promise<ColdStartSuggestionsResponse> {
   console.log('[API] getColdStartSuggestions called with:', {

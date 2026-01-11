@@ -1,0 +1,39 @@
+{
+  "input_path": "data/master/interfeature_activation_similarity_raw.parquet",
+  "output_path": "data/master/interfeature_activation_similarity.parquet",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+
+  "description": "Configuration for filtering and classifying inter-feature similarity pairs. Reads raw data from script 6, applies thresholds, outputs classified pairs.",
+
+  "thresholds": {
+    "semantic_threshold": 0.5,
+    "char_jaccard_threshold": 0.3,
+    "word_jaccard_threshold": 0.3
+  },
+
+  "processing_notes": {
+    "input_source": "interfeature_activation_similarity_raw.parquet from script 6",
+    "classification_logic": "semantic_sim > threshold → Semantic pair; char_jaccard > threshold OR word_jaccard > threshold → Lexical pair",
+    "both_patterns": "Pairs meeting both conditions are added to both semantic_pairs and lexical_pairs",
+    "version": "1.0",
+    "dependencies": [
+      "6_interfeature_similarity.py must be run first to generate raw parquet"
+    ]
+  },
+
+  "schema_info": {
+    "table_name": "interfeature_activation_similarity",
+    "version": "5.0",
+    "field_descriptions": {
+      "feature_id": "Main feature ID (0-16383)",
+      "sae_id": "SAE model identifier",
+      "semantic_pairs": "Feature pairs with semantic similarity above threshold",
+      "lexical_pairs": "Feature pairs with lexical similarity above threshold (char OR word Jaccard)",
+      "pattern_type": "Classification: 'Semantic' or 'Lexical' (pairs can appear in both lists)"
+    },
+    "notes": {
+      "threshold_experimentation": "Run with different thresholds using CLI args: --semantic-threshold 0.5 --char-jaccard-threshold 0.4",
+      "quick_rerun": "This script is fast since it only filters pre-computed data from script 6"
+    }
+  }
+}

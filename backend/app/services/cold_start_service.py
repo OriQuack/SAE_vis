@@ -1,9 +1,9 @@
 """
-Cold-start suggestions service using k-medoids clustering.
+Cold-start suggestions service using Kennard-Stone algorithm.
 
 Provides diverse initial suggestions to bootstrap SVM-based tagging
-when users haven't tagged enough items yet. Uses k-medoids clustering
-to select representative samples from the metric space.
+when users haven't tagged enough items yet. Uses Kennard-Stone algorithm
+to select representative samples that maximally span the feature space.
 """
 
 import polars as pl
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 class ColdStartService:
-    """Service for generating cold-start suggestions using k-medoids clustering."""
+    """Service for generating cold-start suggestions using Kennard-Stone algorithm."""
 
     # Same 6 metrics as SimilaritySortService for features
     FEATURE_METRICS = [
@@ -84,7 +84,7 @@ class ColdStartService:
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
         """
-        Get diverse suggestions using k-medoids clustering.
+        Get diverse suggestions using Kennard-Stone algorithm.
 
         For features: Uses 6D metric space from barycentric parquet
         For pairs: Uses 11D symmetric pair vectors
@@ -93,7 +93,7 @@ class ColdStartService:
             request: Request with mode, feature_ids, num_suggestions, and optional threshold
 
         Returns:
-            Response with diverse suggestions (cluster medoids)
+            Response with diverse suggestions selected via Kennard-Stone
         """
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
@@ -128,7 +128,7 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get feature suggestions using k-medoids on 6D metric space."""
+        """Get feature suggestions using Kennard-Stone on 6D metric space."""
         feature_ids = request.feature_ids
         num_suggestions = min(request.num_suggestions, len(feature_ids))
 
@@ -143,36 +143,36 @@ class ColdStartService:
         feature_id_list = metrics_df["feature_id"].to_list()
         metrics_matrix = metrics_df.select(self.FEATURE_METRICS).to_numpy()
 
-        # Standardize for k-medoids
+        # Standardize for Kennard-Stone
         scaler = StandardScaler()
         metrics_scaled = scaler.fit_transform(metrics_matrix)
 
-        # K-medoids clustering
-        n_clusters = min(num_suggestions, len(feature_id_list))
-        medoid_indices = self._kmedoids_greedy(metrics_scaled, n_clusters)
+        # Select diverse samples via Kennard-Stone
+        n_select = min(num_suggestions, len(feature_id_list))
+        selected_indices = self._kennard_stone(metrics_scaled, n_select)
 
         # Build suggestions
         suggestions = []
-        for cluster_id, medoid_idx in enumerate(medoid_indices):
-            feature_id = feature_id_list[medoid_idx]
+        for idx, sample_idx in enumerate(selected_indices):
+            feature_id = feature_id_list[sample_idx]
             suggestions.append(ColdStartSuggestion(
                 id=str(feature_id),
-                cluster_id=cluster_id,
+                cluster_id=idx,
                 is_medoid=True,
-                diversity_reason=f"Cluster {cluster_id + 1} representative",
+                diversity_reason=f"Kennard-Stone sample {idx + 1}",
                 metrics={
-                    metric: float(metrics_matrix[medoid_idx, i])
+                    metric: float(metrics_matrix[sample_idx, i])
                     for i, metric in enumerate(self.FEATURE_METRICS)
                 }
             ))
 
-        logger.info(f"[ColdStart] Generated {len(suggestions)} feature suggestions from {n_clusters} clusters")
+        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse features via Kennard-Stone")
 
         return ColdStartSuggestionsResponse(
             suggestions=suggestions,
             total_suggestions=len(suggestions),
             mode='feature',
-            num_clusters=n_clusters,
+            num_clusters=n_select,
             cache_hit=False
         )
 
@@ -180,7 +180,7 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get pair suggestions using hierarchical clustering + k-medoids."""
+        """Get pair suggestions using Kennard-Stone on 11D pair vectors."""
         if self.cluster_service is None:
             raise RuntimeError("Cluster service required for pair mode")
 
@@ -245,7 +245,6 @@ class ColdStartService:
             # Symmetric 11D vector: [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
             pair_sum = main_metrics + similar_metrics
             pair_diff = np.abs(main_metrics - similar_metrics)
-            # Use 0 as placeholder for decoder_sim (not critical for diversity)
             pair_vector = np.concatenate([pair_sum, pair_diff, [0.0]])
 
             pair_vectors.append(pair_vector)
@@ -254,72 +253,68 @@ class ColdStartService:
         if len(valid_pairs) < num_suggestions:
             return self._random_fallback_pairs(valid_pairs, min(num_suggestions, len(valid_pairs)))
 
-        # K-medoids on pair vectors
+        # Kennard-Stone on pair vectors
         pair_matrix = np.array(pair_vectors)
         scaler = StandardScaler()
         pair_scaled = scaler.fit_transform(pair_matrix)
 
-        n_clusters = min(num_suggestions, len(valid_pairs))
-        medoid_indices = self._kmedoids_greedy(pair_scaled, n_clusters)
+        # Select diverse samples via Kennard-Stone
+        n_select = min(num_suggestions, len(valid_pairs))
+        selected_indices = self._kennard_stone(pair_scaled, n_select)
 
         suggestions = []
-        for cluster_id, medoid_idx in enumerate(medoid_indices):
-            pair = valid_pairs[medoid_idx]
+        for idx, sample_idx in enumerate(selected_indices):
+            pair = valid_pairs[sample_idx]
             suggestions.append(ColdStartSuggestion(
                 id=pair["pair_key"],
-                cluster_id=cluster_id,
+                cluster_id=idx,
                 is_medoid=True,
-                diversity_reason=f"Cluster {cluster_id + 1} representative"
+                diversity_reason=f"Kennard-Stone sample {idx + 1}"
             ))
 
-        logger.info(f"[ColdStart] Generated {len(suggestions)} pair suggestions from {n_clusters} clusters")
+        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse pairs via Kennard-Stone")
 
         return ColdStartSuggestionsResponse(
             suggestions=suggestions,
             total_suggestions=len(suggestions),
             mode='pair',
-            num_clusters=n_clusters,
+            num_clusters=n_select,
             cache_hit=False
         )
 
-    def _kmedoids_greedy(self, X: np.ndarray, k: int) -> List[int]:
+    def _kennard_stone(self, X: np.ndarray, n: int) -> List[int]:
         """
-        Greedy k-medoids using k-center initialization.
+        Kennard-Stone algorithm for diverse sample selection.
 
-        This is a simple but effective algorithm:
-        1. Pick first medoid randomly (or furthest from center)
-        2. Each subsequent medoid is the point furthest from existing medoids
+        Selects n samples that maximally span the feature space by iteratively
+        choosing points with maximum minimum distance to already selected points.
 
         Args:
             X: Data matrix (n_samples, n_features), should be pre-scaled
-            k: Number of medoids to select
+            n: Number of samples to select
 
         Returns:
-            List of medoid indices
+            List of selected sample indices
         """
         n_samples = X.shape[0]
-        if k >= n_samples:
+        if n >= n_samples:
             return list(range(n_samples))
 
-        # Start with point furthest from centroid
-        centroid = X.mean(axis=0)
-        distances_to_centroid = np.linalg.norm(X - centroid, axis=1)
-        first_medoid = np.argmax(distances_to_centroid)
+        # Compute pairwise distance matrix
+        dist_matrix = np.linalg.norm(X[:, np.newaxis] - X, axis=2)
 
-        medoids = [first_medoid]
-        min_distances = np.linalg.norm(X - X[first_medoid], axis=1)
+        # Start with the two points furthest apart
+        i, j = np.unravel_index(np.argmax(dist_matrix), dist_matrix.shape)
+        selected = [int(i), int(j)]
 
-        # Greedily add medoids (k-center style)
-        for _ in range(k - 1):
-            # Find point with maximum minimum distance to existing medoids
-            next_medoid = np.argmax(min_distances)
-            medoids.append(next_medoid)
+        # Greedily add points with max min-distance to selected set
+        while len(selected) < n:
+            min_distances = dist_matrix[selected].min(axis=0)
+            min_distances[selected] = -1  # Exclude already selected
+            next_idx = int(np.argmax(min_distances))
+            selected.append(next_idx)
 
-            # Update minimum distances
-            new_distances = np.linalg.norm(X - X[next_medoid], axis=1)
-            min_distances = np.minimum(min_distances, new_distances)
-
-        return medoids
+        return selected
 
     async def _extract_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """Extract 6D metrics from barycentric parquet (same as SimilaritySortService)."""

@@ -1,7 +1,7 @@
 """
 Pydantic models for cold-start suggestions feature.
 
-Provides diverse sample suggestions using k-medoids clustering to bootstrap
+Provides diverse sample suggestions using Kennard-Stone algorithm to bootstrap
 SVM-based tagging when users haven't tagged enough items yet.
 """
 
@@ -22,10 +22,10 @@ class ColdStartSuggestionRequest(BaseModel):
         min_length=6
     )
     num_suggestions: int = Field(
-        default=8,
-        description="Number of suggestions to return (should be >= 6 for 3+3 tagging)",
+        default=20,
+        description="Number of diverse suggestions to return",
         ge=6,
-        le=20
+        le=50
     )
     threshold: Optional[float] = Field(
         default=None,
@@ -44,15 +44,15 @@ class ColdStartSuggestion(BaseModel):
     )
     cluster_id: int = Field(
         ...,
-        description="Cluster ID from k-medoids"
+        description="Selection index from Kennard-Stone"
     )
     is_medoid: bool = Field(
         default=True,
-        description="Whether this item is the cluster medoid"
+        description="Whether this item was selected by Kennard-Stone"
     )
     diversity_reason: str = Field(
         ...,
-        description="Human-readable reason (e.g., 'Cluster 3 representative')"
+        description="Human-readable reason (e.g., 'Kennard-Stone sample 3')"
     )
     metrics: Optional[Dict[str, float]] = Field(
         default=None,
@@ -65,7 +65,7 @@ class ColdStartSuggestionsResponse(BaseModel):
 
     suggestions: List[ColdStartSuggestion] = Field(
         ...,
-        description="List of diverse suggestions (medoids from k-medoids clustering)"
+        description="List of diverse suggestions selected via Kennard-Stone"
     )
     total_suggestions: int = Field(
         ...,
@@ -77,7 +77,7 @@ class ColdStartSuggestionsResponse(BaseModel):
     )
     num_clusters: int = Field(
         ...,
-        description="Number of clusters formed"
+        description="Number of samples selected"
     )
     cache_hit: bool = Field(
         default=False,

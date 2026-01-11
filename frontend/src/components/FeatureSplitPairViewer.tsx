@@ -105,6 +105,7 @@ interface FeatureSplitPairViewerProps {
 
   // ScrollableItemList props for "All Pairs" list
   allPairsListProps?: {
+    listLabel: string  // Dynamic label: "Representative Pairs", "Untagged Pairs", or "Pairs"
     currentPagePairs: Array<PairData>
     totalPairCount: number
     isActive: boolean
@@ -308,7 +309,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         <ScrollableItemList
           variant="allPairs"
           badges={[
-            { label: 'All Pairs', count: `${allPairsListProps.totalPairCount} pairs` }
+            { label: allPairsListProps.listLabel, count: allPairsListProps.totalPairCount }
           ]}
           columnHeader={allPairsListProps.columnHeaderProps}
           items={allPairsListProps.currentPagePairs}

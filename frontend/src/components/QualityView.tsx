@@ -69,11 +69,21 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
 
-  // Hide tagged items toggle (default: true - hide already tagged features)
-  const [hideTagged, setHideTagged] = useState(true)
+  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  const [hideTagged, setHideTagged] = useState(false)
 
-  // Diversity sort: IDs of diverse features (cluster medoids) to show first
+  // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
+
+  // Auto-enable hideTagged once when SVM training starts
+  const hasAutoEnabledHideTagged = useRef(false)
+  const svmTrainingStarted = similarityScores.size > 0
+  useEffect(() => {
+    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
+      hasAutoEnabledHideTagged.current = true
+      setHideTagged(true)
+    }
+  }, [svmTrainingStarted])
 
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
@@ -179,7 +189,7 @@ const QualityView: React.FC<QualityViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          8  // Get 8 diverse features
+          20  // Get 20 diverse features via Kennard-Stone
         )
         setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
       } catch (error) {
@@ -898,7 +908,14 @@ const QualityView: React.FC<QualityViewProps> = ({
           <div className="quality-view__row-top">
             <ScrollableItemList
               variant="features"
-              badges={[{ label: 'Features', count: displayFeatures.length }]}
+              badges={[{
+                label: diversityFeatureIds.size > 0 && !svmTrainingStarted
+                  ? 'Representative Features'
+                  : hideTagged
+                    ? 'Untagged Features'
+                    : 'All Features',
+                count: displayFeatures.length
+              }]}
               columnHeader={columnHeaderProps}
               items={currentPageFeatures}
               renderItem={renderFeatureItem}

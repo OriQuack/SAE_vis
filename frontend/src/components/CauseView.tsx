@@ -116,10 +116,20 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
   // Track if user has ever clicked "Most Confident First" - hides placeholder permanently
   const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
-  // Hide tagged items toggle (default: true - hide already tagged features)
-  const [hideTagged, setHideTagged] = useState(true)
-  // Diversity sort: IDs of diverse features (cluster medoids) to show first
+  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  const [hideTagged, setHideTagged] = useState(false)
+  // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
+
+  // Auto-enable hideTagged once when SVM classification results are available
+  const hasAutoEnabledHideTagged = useRef(false)
+  const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
+  useEffect(() => {
+    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
+      hasAutoEnabledHideTagged.current = true
+      setHideTagged(true)
+    }
+  }, [svmTrainingStarted])
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -172,7 +182,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          8  // num suggestions
+          20  // Get 20 diverse features via Kennard-Stone
         )
         setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
       } catch (error) {
@@ -1189,7 +1199,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                 <ScrollableItemList
                   className="cause-view__top-list"
                   variant="causeBrushed"
-                  badges={[{ label: 'Features', count: sortedFilteredFeatureList.length }]}
+                  badges={[{
+                    label: sortMode === 'diversity' && !svmTrainingStarted
+                      ? 'Representative Features'
+                      : hideTagged
+                        ? 'Untagged Features'
+                        : 'All Features',
+                    count: sortedFilteredFeatureList.length
+                  }]}
                   columnHeader={columnHeaderProps}
                   items={sortedFilteredFeatureList}
                   renderItem={renderBottomRowFeatureItem}

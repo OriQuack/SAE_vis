@@ -124,20 +124,60 @@
 }
 
 .status-panel__checkbox-label {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
   color: #6b7280;
   cursor: pointer;
   white-space: nowrap;
+  user-select: none;
+  line-height: 1;
 }
 
 .status-panel__checkbox-label:hover {
   color: #374151;
 }
 
+.status-panel__checkbox-label:hover input[type="checkbox"] {
+  border-color: #9ca3af;
+}
+
 .status-panel__checkbox-label input[type="checkbox"] {
+  /* Custom white checkbox */
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
   cursor: pointer;
-  accent-color: #3b82f6;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.status-panel__checkbox-label input[type="checkbox"]:hover {
+  border-color: #9ca3af;
+}
+
+.status-panel__checkbox-label input[type="checkbox"]:checked {
+  background: white;
+  border-color: #3b82f6;
+}
+
+.status-panel__checkbox-label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid #3b82f6;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
 }

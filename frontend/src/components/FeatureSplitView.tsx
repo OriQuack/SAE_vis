@@ -60,11 +60,21 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
 
-  // Hide tagged items toggle (default: true - hide already tagged pairs)
-  const [hideTagged, setHideTagged] = useState(true)
+  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  const [hideTagged, setHideTagged] = useState(false)
 
-  // Diversity sort: IDs of diverse pairs (cluster medoids) to show first
+  // Diversity sort: IDs of diverse pairs (Kennard-Stone samples) to show first
   const [diversityPairIds, setDiversityPairIds] = useState<Set<string>>(new Set())
+
+  // Auto-enable hideTagged once when SVM training starts
+  const hasAutoEnabledHideTagged = useRef(false)
+  const svmTrainingStarted = pairSimilarityScores.size > 0
+  useEffect(() => {
+    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
+      hasAutoEnabledHideTagged.current = true
+      setHideTagged(true)
+    }
+  }, [svmTrainingStarted])
 
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -423,7 +433,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
-          8,  // Get 8 diverse pairs
+          20,  // Get 20 diverse pairs via Kennard-Stone
           clusteringThreshold
         )
         setDiversityPairIds(new Set(response.suggestions.map(s => s.id)))
@@ -968,6 +978,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             previewRejectKeys={previewRejectKeys}
             previewSelectKeys={previewSelectKeys}
             allPairsListProps={{
+              listLabel: diversityPairIds.size > 0 && !svmTrainingStarted
+                ? 'Representative Pairs'
+                : hideTagged
+                  ? 'Untagged Pairs'
+                  : 'All Pairs',
               currentPagePairs,
               totalPairCount: displayPairList.length,
               isActive: activeListSource === 'all',

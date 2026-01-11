@@ -50,12 +50,15 @@ def load_activation_similarity() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
 
 
 def load_interfeature_similarity() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Load interfeature_activation_similarity.parquet and extract similarity values.
+    """Load interfeature_activation_similarity_raw.parquet and extract similarity values.
+
+    Reads from the RAW parquet (before threshold filtering) to show full distribution.
+    Uses max_*_ngram_jaccard (specific n-gram Jaccard) to be comparable with intra-feature.
 
     Returns:
         Tuple of (semantic_sim, char_jaccard, word_jaccard) arrays
     """
-    path = Path("data/master/interfeature_activation_similarity.parquet")
+    path = Path("data/master/interfeature_activation_similarity_raw.parquet")
     print(f"Loading {path.name}...")
     df = pl.read_parquet(path)
 
@@ -63,36 +66,32 @@ def load_interfeature_similarity() -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     char_jaccard = []
     word_jaccard = []
 
-    # Collect from all pairs (semantic, lexical, both)
+    # Also collect overall set Jaccard for comparison
+    char_jaccard_set = []
+    word_jaccard_set = []
+
+    # Collect from all_pairs (raw, unfiltered data)
     for row in df.iter_rows(named=True):
-        for pair in (row.get("semantic_pairs", []) or []):
+        for pair in (row.get("all_pairs", []) or []):
             if pair.get("semantic_similarity") is not None:
                 semantic_sim.append(pair["semantic_similarity"])
+            # Use SPECIFIC n-gram Jaccard (comparable to intra-feature)
+            if pair.get("max_char_ngram_jaccard") is not None:
+                char_jaccard.append(pair["max_char_ngram_jaccard"])
+            if pair.get("max_word_ngram_jaccard") is not None:
+                word_jaccard.append(pair["max_word_ngram_jaccard"])
+            # Also collect set Jaccard for reference
             if pair.get("char_jaccard") is not None:
-                char_jaccard.append(pair["char_jaccard"])
+                char_jaccard_set.append(pair["char_jaccard"])
             if pair.get("word_jaccard") is not None:
-                word_jaccard.append(pair["word_jaccard"])
-
-        for pair in (row.get("lexical_pairs", []) or []):
-            if pair.get("semantic_similarity") is not None:
-                semantic_sim.append(pair["semantic_similarity"])
-            if pair.get("char_jaccard") is not None:
-                char_jaccard.append(pair["char_jaccard"])
-            if pair.get("word_jaccard") is not None:
-                word_jaccard.append(pair["word_jaccard"])
-
-        for pair in (row.get("both_pairs", []) or []):
-            if pair.get("semantic_similarity") is not None:
-                semantic_sim.append(pair["semantic_similarity"])
-            if pair.get("char_jaccard") is not None:
-                char_jaccard.append(pair["char_jaccard"])
-            if pair.get("word_jaccard") is not None:
-                word_jaccard.append(pair["word_jaccard"])
+                word_jaccard_set.append(pair["word_jaccard"])
 
     print(f"  Loaded {len(df)} features")
-    print(f"  Semantic sim: {len(semantic_sim)} values")
-    print(f"  Char Jaccard: {len(char_jaccard)} values")
-    print(f"  Word Jaccard: {len(word_jaccard)} values")
+    print(f"  Semantic sim: {len(semantic_sim)} values (ALL pairs)")
+    print(f"  Char Jaccard (specific n-gram): {len(char_jaccard)} values")
+    print(f"  Word Jaccard (specific n-gram): {len(word_jaccard)} values")
+    print(f"  [For reference] Char Jaccard (set overlap): {len(char_jaccard_set)} values, mean={np.mean(char_jaccard_set):.3f}")
+    print(f"  [For reference] Word Jaccard (set overlap): {len(word_jaccard_set)} values, mean={np.mean(word_jaccard_set):.3f}")
 
     return np.array(semantic_sim), np.array(char_jaccard), np.array(word_jaccard)
 
@@ -116,7 +115,7 @@ def create_visualization(semantic_sim: np.ndarray, char_jaccard: np.ndarray,
     ax1.hist(semantic_sim, bins=50, color='steelblue', alpha=0.7, edgecolor='black')
     ax1.axvline(np.mean(semantic_sim), color='red', linestyle='--', linewidth=2,
                 label=f'Mean: {np.mean(semantic_sim):.3f}')
-    ax1.axvline(0.3, color='green', linestyle=':', linewidth=2, label='Threshold: 0.3')
+    ax1.axvline(0.5, color='green', linestyle=':', linewidth=2, label='Threshold: 0.5')
     ax1.set_xlabel('Semantic Similarity', fontsize=12)
     ax1.set_ylabel('Frequency', fontsize=12)
     ax1.set_title('Semantic Similarity Distribution', fontsize=13, fontweight='bold')
@@ -134,7 +133,7 @@ def create_visualization(semantic_sim: np.ndarray, char_jaccard: np.ndarray,
     ax2.hist(char_jaccard, bins=50, color='coral', alpha=0.7, edgecolor='black')
     ax2.axvline(np.mean(char_jaccard), color='red', linestyle='--', linewidth=2,
                 label=f'Mean: {np.mean(char_jaccard):.3f}')
-    ax2.axvline(0.3, color='green', linestyle=':', linewidth=2, label='Threshold: 0.3')
+    ax2.axvline(0.4, color='green', linestyle=':', linewidth=2, label='Threshold: 0.4')
     ax2.set_xlabel('Top Char N-gram Jaccard', fontsize=12)
     ax2.set_ylabel('Frequency', fontsize=12)
     ax2.set_title('Character N-gram Jaccard Distribution', fontsize=13, fontweight='bold')
@@ -151,7 +150,7 @@ def create_visualization(semantic_sim: np.ndarray, char_jaccard: np.ndarray,
     ax3.hist(word_jaccard, bins=50, color='skyblue', alpha=0.7, edgecolor='black')
     ax3.axvline(np.mean(word_jaccard), color='red', linestyle='--', linewidth=2,
                 label=f'Mean: {np.mean(word_jaccard):.3f}')
-    ax3.axvline(0.3, color='green', linestyle=':', linewidth=2, label='Threshold: 0.3')
+    ax3.axvline(0.4, color='green', linestyle=':', linewidth=2, label='Threshold: 0.4')
     ax3.set_xlabel('Top Word N-gram Jaccard', fontsize=12)
     ax3.set_ylabel('Frequency', fontsize=12)
     ax3.set_title('Word N-gram Jaccard Distribution', fontsize=13, fontweight='bold')
@@ -175,8 +174,8 @@ def create_visualization(semantic_sim: np.ndarray, char_jaccard: np.ndarray,
                          c=semantic_sim[:min_len] if len(semantic_sim) >= min_len else 'blue',
                          cmap='viridis', edgecolors='black', linewidths=0.5)
     ax4.plot([0, 1], [0, 1], 'r--', linewidth=2, alpha=0.5, label='y=x')
-    ax4.axhline(0.3, color='green', linestyle=':', linewidth=1, alpha=0.5)
-    ax4.axvline(0.3, color='green', linestyle=':', linewidth=1, alpha=0.5)
+    ax4.axhline(0.4, color='green', linestyle=':', linewidth=1, alpha=0.5)
+    ax4.axvline(0.4, color='green', linestyle=':', linewidth=1, alpha=0.5)
     ax4.set_xlabel('Top Char N-gram Jaccard', fontsize=12)
     ax4.set_ylabel('Top Word N-gram Jaccard', fontsize=12)
     ax4.set_title('Char vs Word N-gram Jaccard', fontsize=13, fontweight='bold')
@@ -224,8 +223,8 @@ def main():
         print(f"Error processing activation similarity: {e}")
         print()
 
-    # 2. Inter-Feature Similarity (cross-feature)
-    print("2. INTER-FEATURE SIMILARITY (Cross-Feature)")
+    # 2. Inter-Feature Similarity (cross-feature, ALL pairs before threshold)
+    print("2. INTER-FEATURE SIMILARITY (Cross-Feature, Before Threshold)")
     print("-" * 80)
     try:
         inter_semantic, inter_char, inter_word = load_interfeature_similarity()
@@ -233,7 +232,7 @@ def main():
 
         create_visualization(
             inter_semantic, inter_char, inter_word,
-            'Inter-Feature Similarity (Cross-Feature)',
+            'Inter-Feature Similarity (Cross-Feature, ALL Pairs Before Threshold)',
             'temp_interfeature_similarity_dist.png'
         )
         print()
