@@ -100,11 +100,6 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   const [isLocalLoading, setIsLocalLoading] = useState(false)
   const [localHistogramData, setLocalHistogramData] = useState<any>(null)
 
-  // Cold-start suggestions state
-  const [suggestions, setSuggestions] = useState<api.ColdStartSuggestion[]>([])
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
-  const [suggestionsError, setSuggestionsError] = useState<string | null>(null)
-
   // Get histogram data from store (if available) or local state
   // IMPORTANT: Only use store histogram data if mode matches to avoid showing stale data from previous stage
   const storeHistogramData = tagAutomaticState?.mode === mode ? tagAutomaticState?.histogramData : null
@@ -171,45 +166,6 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
       })
     }
   }, [tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold])
-
-  // Fetch cold-start suggestions when in cold-start state (< 3 selected or < 3 rejected)
-  useEffect(() => {
-    const fetchSuggestions = async () => {
-      // Only fetch when in cold-start state (need more tags)
-      if (selectionCounts.selectedCount >= 3 && selectionCounts.rejectedCount >= 3) {
-        setSuggestions([])
-        return
-      }
-
-      // Need feature IDs to cluster
-      const featureIdArray = filteredFeatureIds ? Array.from(filteredFeatureIds) : []
-      if (featureIdArray.length < 6) {
-        setSuggestions([])
-        return
-      }
-
-      setSuggestionsLoading(true)
-      setSuggestionsError(null)
-
-      try {
-        const response = await api.getColdStartSuggestions(
-          mode,
-          featureIdArray,
-          8,  // Request 8 suggestions for flexibility
-          mode === 'pair' ? threshold : undefined
-        )
-        setSuggestions(response.suggestions)
-      } catch (error) {
-        console.error('[DecisionMarginHistogram] Failed to fetch suggestions:', error)
-        setSuggestionsError('Failed to load suggestions')
-        setSuggestions([])
-      } finally {
-        setSuggestionsLoading(false)
-      }
-    }
-
-    fetchSuggestions()
-  }, [mode, filteredFeatureIds, threshold, selectionCounts.selectedCount, selectionCounts.rejectedCount])
 
   // Fetch histogram data when component mounts or selection changes
   useEffect(() => {
@@ -581,44 +537,6 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
               {selectedLabel}: {selectionCounts.selectedCount}/3
             </span>
           </div>
-
-          {/* Cold-start suggestions */}
-          {suggestions.length > 0 && (
-            <div className="tag-panel__suggestions">
-              <div className="tag-panel__suggestions-header">
-                Suggested diverse {itemType} to start:
-              </div>
-              <div className="tag-panel__suggestions-list">
-                {suggestions.map((suggestion) => (
-                  <span
-                    key={suggestion.id}
-                    className="tag-panel__suggestion-item"
-                    title={suggestion.diversity_reason}
-                  >
-                    {mode === 'pair' ? `Pair ${suggestion.id}` : `#${suggestion.id}`}
-                    <span className="tag-panel__suggestion-cluster">
-                      C{suggestion.cluster_id + 1}
-                    </span>
-                  </span>
-                ))}
-              </div>
-              <div className="tag-panel__suggestions-hint">
-                Find these {itemType} above, then tag as {selectedLabel} or {rejectedLabel}
-              </div>
-            </div>
-          )}
-
-          {suggestionsLoading && (
-            <div className="tag-panel__suggestions-loading">
-              Loading suggestions...
-            </div>
-          )}
-
-          {suggestionsError && (
-            <div className="tag-panel__suggestions-error">
-              {suggestionsError}
-            </div>
-          )}
         </div>
       </div>
     )

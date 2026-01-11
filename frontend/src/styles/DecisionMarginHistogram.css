@@ -290,26 +290,8 @@
   margin-bottom: 8px;
 }
 
-.tag-panel__suggestion-item {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
-  font-size: 12px;
-  background-color: #f5f5f5;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  cursor: default;
-  user-select: text;
-}
-
-.tag-panel__suggestion-cluster {
-  font-size: 10px;
-  color: #888;
-  background-color: #e0e0e0;
-  padding: 1px 4px;
-  border-radius: 3px;
-}
+/* Note: .tag-panel__suggestion-item styles are now inline in the component
+   to match the Indicators.tsx TagBadge styling pattern */
 
 .tag-panel__suggestions-hint {
   font-size: 11px;

@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore, type CommitCounts } from '../store/index'
 import type { FeatureTableRow } from '../types'
+import * as api from '../api'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StatusPanel from './StatusPanel'
@@ -61,6 +62,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Hide tagged items toggle (default: true - hide already tagged pairs)
   const [hideTagged, setHideTagged] = useState(true)
+
+  // Diversity sort: IDs of diverse pairs (cluster medoids) to show first
+  const [diversityPairIds, setDiversityPairIds] = useState<Set<string>>(new Set())
 
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -407,8 +411,33 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       })
   }, [filteredTableData, allClusterPairs, selectedFeatureIds])
 
+  // Fetch diversity pair IDs (cluster medoids) for diversity sort
+  useEffect(() => {
+    const fetchDiversityIds = async () => {
+      if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
+        setDiversityPairIds(new Set())
+        return
+      }
+
+      try {
+        const response = await api.getColdStartSuggestions(
+          'pair',
+          Array.from(selectedFeatureIds),
+          8,  // Get 8 diverse pairs
+          clusteringThreshold
+        )
+        setDiversityPairIds(new Set(response.suggestions.map(s => s.id)))
+      } catch (error) {
+        console.error('[FeatureSplitView] Failed to fetch diversity IDs:', error)
+        setDiversityPairIds(new Set())
+      }
+    }
+
+    fetchDiversityIds()
+  }, [selectedFeatureIds, clusteringThreshold])
+
   // Use sortable list hook for sorting logic
-  // Initial: default mode (Decoder sim) + descending
+  // Initial: diversity mode (show medoids first) - helps users tag diverse samples
   // Template: decisionMargin mode + ascending (least confident first) - used when SVM is trained
   const {
     sortMode,
@@ -424,12 +453,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     getItemKey: (p: typeof rawPairList[0]) => p.pairKey,
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
     decisionMarginScores: pairSimilarityScores,
+    diversityIds: diversityPairIds,
     defaultLabel: 'Decoder sim',
     defaultDirection: 'desc',
     templateMode: 'decisionMargin',
     templateDirection: 'asc',
-    initialMode: 'default',
-    initialDirection: 'desc'
+    initialMode: 'diversity',
+    initialDirection: 'asc'
   })
 
   // Filter pairs based on hideTagged toggle
@@ -909,9 +939,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             sortDirection={sortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSortDirection}
+            hasDiversityIds={diversityPairIds.size > 0}
             defaultAscLabel="Least Similar First"
             defaultDescLabel="Most Similar First"
             isTemplateSort={isTemplateSort}
+            decisionMarginDisabled={!tagAutomaticState?.histogramData}
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />

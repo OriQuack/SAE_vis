@@ -205,7 +205,7 @@ export function ScrollableItemList<T = any>({
           title={columnHeader.onClick ? (columnHeader.isSortable ? 'Click to toggle sort direction' : 'Click to switch sort mode') : undefined}
         >
           <span className="column-header__label">
-            {columnHeader.sortDirection === 'asc' ? '▲' : '▼'} {columnHeader.label}
+            {columnHeader.sortDirection ? (columnHeader.sortDirection === 'asc' ? '▲' : '▼') : ''} {columnHeader.label}
           </span>
           {columnHeader.isSortable && (
             <span className="column-header__switch-badge">⇅</span>

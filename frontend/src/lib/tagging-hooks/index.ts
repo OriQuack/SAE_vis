@@ -12,6 +12,7 @@ export type { ListSource } from './useListNavigation'
 export { useBoundaryItems } from './useBoundaryItems'
 
 export { useSortableList } from './useSortableList'
+export type { SortMode } from './useSortableList'
 
 export {
   useCommitHistory,

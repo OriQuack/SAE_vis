@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import type { ListSource } from './useListNavigation'
+import type { SortMode } from './useSortableList'
 
 // ============================================================================
 // useTaggingNavigation - Centralized post-tagging navigation logic
@@ -16,8 +17,8 @@ import type { ListSource } from './useListNavigation'
 interface UseTaggingNavigationOptions {
   /** Current active list source ('all' | 'reject' | 'select') */
   activeListSource: ListSource
-  /** Current sort mode */
-  sortMode: 'default' | 'decisionMargin'
+  /** Current sort mode ('diversity' behaves like 'default' for navigation) */
+  sortMode: SortMode
   /** Current item index */
   currentIndex: number
   /** Total number of items in the list */

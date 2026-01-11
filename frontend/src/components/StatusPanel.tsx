@@ -1,4 +1,5 @@
 import React from 'react'
+import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/StatusPanel.css'
 
 // ============================================================================
@@ -15,10 +16,13 @@ interface FilterOption {
 
 interface StatusPanelProps {
   // Sort state
-  sortMode: 'default' | 'decisionMargin'
+  sortMode: SortMode
   sortDirection: 'asc' | 'desc'
-  onSortModeChange: (mode: 'default' | 'decisionMargin') => void
+  onSortModeChange: (mode: SortMode) => void
   onSortDirectionChange: (direction: 'asc' | 'desc') => void
+
+  // Diversity mode availability
+  hasDiversityIds?: boolean  // Show diversity button only when medoid IDs are available
 
   // Stage-specific labels for default metric options (optional - if not provided, default buttons hidden)
   defaultAscLabel?: string
@@ -33,8 +37,8 @@ interface StatusPanelProps {
   onFilterChange?: (value: string | null) => void
   filterDisabled?: boolean  // Show filter but disable it (e.g., in "Most Uncertain First" mode)
 
-  // Disable "Most Confident First" button (e.g., before SVM is trained in Cause view)
-  mostConfidentDisabled?: boolean
+  // Disable decision margin buttons (e.g., before SVM is trained - need 3+ tags per category)
+  decisionMarginDisabled?: boolean
 
   // Hide tagged items checkbox (optional - for all tagging views)
   hideTagged?: boolean
@@ -48,32 +52,47 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   sortDirection,
   onSortModeChange,
   onSortDirectionChange,
+  hasDiversityIds = false,
   defaultAscLabel,
   defaultDescLabel,
   filterOptions,
   filterValue,
   onFilterChange,
   filterDisabled = false,
-  mostConfidentDisabled = false,
+  decisionMarginDisabled = false,
   hideTagged,
   onHideTaggedChange,
   className = ''
 }) => {
   // Helper to check if a sort option is active
-  const isActive = (mode: 'default' | 'decisionMargin', direction: 'asc' | 'desc') =>
-    sortMode === mode && sortDirection === direction
+  const isActive = (mode: SortMode, direction?: 'asc' | 'desc') =>
+    sortMode === mode && (direction === undefined || sortDirection === direction)
 
   // Helper to handle combined mode + direction change
-  const handleSortChange = (mode: 'default' | 'decisionMargin', direction: 'asc' | 'desc') => {
+  const handleSortChange = (mode: SortMode, direction?: 'asc' | 'desc') => {
     if (sortMode !== mode) onSortModeChange(mode)
-    if (sortDirection !== direction) onSortDirectionChange(direction)
+    if (direction !== undefined && sortDirection !== direction) onSortDirectionChange(direction)
   }
 
   return (
     <div className={`status-panel ${className}`}>
-      <span className="status-panel__label">Sort:</span>
+      <span className="status-panel__label">View:</span>
 
       <div className="status-panel__group">
+        {/* Diversity option (only shown if medoid IDs are available) */}
+        {hasDiversityIds && (
+          <>
+            <button
+              className={`status-panel__button ${isActive('diversity') ? 'status-panel__button--active' : ''}`}
+              onClick={() => handleSortChange('diversity')}
+              title="Show only diverse representative samples (cluster medoids)"
+            >
+              Representatives Only
+            </button>
+            <div className="status-panel__divider" />
+          </>
+        )}
+
         {/* Default metric options (only shown if labels provided) */}
         {defaultAscLabel && defaultDescLabel && (
           <>
@@ -97,14 +116,16 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
         <button
           className={`status-panel__button ${isActive('decisionMargin', 'asc') ? 'status-panel__button--active' : ''}`}
           onClick={() => handleSortChange('decisionMargin', 'asc')}
+          disabled={decisionMarginDisabled}
+          title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
           Most Uncertain First
         </button>
         <button
           className={`status-panel__button ${isActive('decisionMargin', 'desc') ? 'status-panel__button--active' : ''}`}
           onClick={() => handleSortChange('decisionMargin', 'desc')}
-          disabled={mostConfidentDisabled}
-          title={mostConfidentDisabled ? 'Tag 2+ features per category to enable' : undefined}
+          disabled={decisionMarginDisabled}
+          title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
           Most Confident First
         </button>

@@ -17,6 +17,7 @@ import {
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
+import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 
 // Darker unsure gray for scatterplot points (better visibility on white background)
 const DARK_UNSURE_GRAY = '#686868ff'
@@ -43,7 +44,7 @@ interface UMAPScatterProps {
   visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
   onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
-  sortMode?: 'default' | 'decisionMargin'  // Sort mode from StatusPanel (for visibility filtering)
+  sortMode?: SortMode  // Sort mode from StatusPanel (for visibility filtering)
   sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (for visibility filtering)
   filterByTag?: CauseCategory | null  // Filter to show only features with this predicted category
 }
@@ -177,14 +178,17 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Memoization is handled in the store - it skips API call if data is already cached
   useEffect(() => {
     if (featureIds.length < 3) {
-      clearUmapProjection()
+      // Only clear if there's something to clear (prevents infinite loop)
+      if (umapProjection) {
+        clearUmapProjection()
+      }
       return
     }
 
     // Store handles memoization: skips API call if same featureIds already fetched
     fetchUmapProjection(featureIds)
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
-  }, [featureIds])
+  }, [featureIds, umapProjection])
 
   // Fetch SVM classification when manual tags change (separate from positions)
   // Uses ref-based guard to prevent infinite loops

@@ -5,6 +5,7 @@ import { TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/umap-utils'
+import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/CauseMarginHistogram.css'
 
 // ============================================================================
@@ -67,7 +68,7 @@ interface CauseMarginHistogramProps {
   /** Height of the histogram */
   height?: number
   /** Sort mode from StatusPanel */
-  sortMode?: 'default' | 'decisionMargin'
+  sortMode?: SortMode
   /** Sort direction from StatusPanel - affects boundary display (Low vs Top) when sortMode is decisionMargin */
   sortDirection?: 'asc' | 'desc'
   /** Callback when percentage changes (due to threshold drag) */

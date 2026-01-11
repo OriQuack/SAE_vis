@@ -9,7 +9,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
-import { useTaggingNavigation, type ListSource } from '../lib/tagging-hooks'
+import { useTaggingNavigation, type ListSource, type SortMode } from '../lib/tagging-hooks'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -94,7 +94,7 @@ interface FeatureSplitPairViewerProps {
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
   activeListSource?: ListSource  // Current active list source for auto-advance logic
-  sortMode?: 'default' | 'decisionMargin'  // Current sort mode
+  sortMode?: SortMode  // Current sort mode
   isLoading?: boolean  // Whether similarity scores are being calculated
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
@@ -110,7 +110,7 @@ interface FeatureSplitPairViewerProps {
     isActive: boolean
     columnHeaderProps: {
       label: string
-      sortDirection: 'asc' | 'desc'
+      sortDirection?: 'asc' | 'desc'
       onClick: () => void
     }
     getDisplayScore: (item: PairData) => number | undefined

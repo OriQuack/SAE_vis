@@ -1,6 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
+import * as api from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton } from './Indicators'
@@ -70,6 +71,9 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Hide tagged items toggle (default: true - hide already tagged features)
   const [hideTagged, setHideTagged] = useState(true)
+
+  // Diversity sort: IDs of diverse features (cluster medoids) to show first
+  const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
 
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
@@ -163,8 +167,32 @@ const QualityView: React.FC<QualityViewProps> = ({
     })
   }, [filteredTableData, tableData?.explainer_ids])
 
+  // Fetch diversity feature IDs (cluster medoids) for diversity sort
+  useEffect(() => {
+    const fetchDiversityIds = async () => {
+      if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
+        setDiversityFeatureIds(new Set())
+        return
+      }
+
+      try {
+        const response = await api.getColdStartSuggestions(
+          'feature',
+          Array.from(selectedFeatureIds),
+          8  // Get 8 diverse features
+        )
+        setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
+      } catch (error) {
+        console.error('[QualityView] Failed to fetch diversity IDs:', error)
+        setDiversityFeatureIds(new Set())
+      }
+    }
+
+    fetchDiversityIds()
+  }, [selectedFeatureIds])
+
   // Use sortable list hook for sorting logic
-  // Initial: default mode (Quality score) + ascending
+  // Initial: diversity mode (show medoids first) - helps users tag diverse samples
   // Template: decisionMargin mode + ascending (least confident first) - used when SVM is trained
   const {
     sortMode,
@@ -180,11 +208,12 @@ const QualityView: React.FC<QualityViewProps> = ({
     getItemKey: (f: typeof featureList[0]) => f.featureId,
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
     decisionMarginScores: similarityScores,
+    diversityIds: diversityFeatureIds,
     defaultLabel: 'Quality score',
     defaultDirection: 'asc',
     templateMode: 'decisionMargin',
     templateDirection: 'asc',
-    initialMode: 'default',
+    initialMode: 'diversity',
     initialDirection: 'asc'
   })
 
@@ -854,9 +883,11 @@ const QualityView: React.FC<QualityViewProps> = ({
             sortDirection={sortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSortDirection}
+            hasDiversityIds={diversityFeatureIds.size > 0}
             defaultAscLabel="Lowest Quality First"
             defaultDescLabel="Highest Quality First"
             isTemplateSort={isTemplateSort}
+            decisionMarginDisabled={!tagAutomaticState?.histogramData}
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />

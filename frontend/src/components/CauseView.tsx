@@ -1,6 +1,8 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
+import * as api from '../api'
+import { useSortableList } from '../lib/tagging-hooks/useSortableList'
 import UMAPScatter from './UMAPScatter'
 import { ScrollableItemList } from './ScrollableItemList'
 import { TagBadge, TagButton } from './Indicators'
@@ -109,8 +111,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('selected')
-  const [selectedSortDirection, setSelectedSortDirection] = useState<'asc' | 'desc'>('asc')
-  const [sortMode, setSortMode] = useState<'default' | 'decisionMargin'>('decisionMargin')
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Sort by specific tag (only used in Top mode / Most Confident First)
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
@@ -118,6 +118,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
   // Hide tagged items toggle (default: true - hide already tagged features)
   const [hideTagged, setHideTagged] = useState(true)
+  // Diversity sort: IDs of diverse features (cluster medoids) to show first
+  const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -159,19 +161,30 @@ const CauseView: React.FC<CauseViewProps> = ({
     ? stage3FinalCommit.featureIds
     : getSelectedNodeFeatures()
 
+  // Fetch diversity IDs (cluster medoids) for diversity sort mode
+  useEffect(() => {
+    const fetchDiversityIds = async () => {
+      if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
+        setDiversityFeatureIds(new Set())
+        return
+      }
+      try {
+        const response = await api.getColdStartSuggestions(
+          'feature',
+          Array.from(selectedFeatureIds),
+          8  // num suggestions
+        )
+        setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
+      } catch (error) {
+        console.error('[CauseView] Failed to fetch diversity IDs:', error)
+        setDiversityFeatureIds(new Set())
+      }
+    }
+    fetchDiversityIds()
+  }, [selectedFeatureIds])
 
   // Helper type for effective category
   type EffectiveCategory = CauseCategory | 'unsure'
-
-  // Determine if we're in "Top" mode (Most Confident First)
-  const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
-
-  // Track when user first enters Top mode (to hide batch tagging placeholder permanently)
-  useEffect(() => {
-    if (isTopMode && !hasEverBeenTopMode) {
-      setHasEverBeenTopMode(true)
-    }
-  }, [isTopMode, hasEverBeenTopMode])
 
   // Check if we can train SVM (need MIN_TAGS_PER_CATEGORY per cause category)
   const { canTrainSVM, manualTagCountsByCategory } = useMemo(() => {
@@ -191,13 +204,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     return { canTrainSVM: canTrain, manualTagCountsByCategory: counts }
   }, [causeSelectionStates, causeSelectionSources])
 
-  // Reset filterByTag when leaving Top mode
-  useEffect(() => {
-    if (!isTopMode && filterByTag !== null) {
-      setFilterByTag(null)
-    }
-  }, [isTopMode, filterByTag])
-
   // Get effective category for a feature - delegates to utility function
   const getEffectiveCategory = useCallback((featureId: number): EffectiveCategory => {
     return getEffectiveCategoryUtil(
@@ -208,17 +214,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       causeMarginThreshold
     )
   }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
-
-  // Check if feature is visible based on mode and threshold - delegates to utility function
-  const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
-    return isFeatureVisibleInMode(
-      featureId,
-      causeSelectionSources,
-      causeCategoryDecisionMargins,
-      causeMarginThreshold,
-      isTopMode
-    )
-  }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
 
   // ============================================================================
   // METRIC SCORE INITIALIZATION - Calculate scores when entering Stage 3
@@ -344,37 +339,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     return margins.sort((a, b) => a - b)
   }, [selectedFeatureIds, causeCategoryDecisionMargins, causeSelectionSources])
 
-  // Track previous isTopMode to detect mode switches
-  const prevIsTopModeRef = useRef(isTopMode)
-
-  // Recalculate threshold when switching between Low/Top modes to maintain same percentage
-  useEffect(() => {
-    // Only trigger on mode switch (not initial render)
-    if (prevIsTopModeRef.current === isTopMode) return
-    prevIsTopModeRef.current = isTopMode
-
-    if (sortedMargins.length === 0) return
-
-    // Calculate threshold to maintain same percentage from opposite end
-    const targetCount = Math.max(1, Math.ceil(sortedMargins.length * _targetPercentage / 100))
-
-    if (isTopMode) {
-      // Top X%: threshold at (100 - X) percentile so X% of features are ABOVE
-      const targetIndex = Math.max(0, sortedMargins.length - targetCount)
-      const newThreshold = targetIndex > 0
-        ? (sortedMargins[targetIndex - 1] + sortedMargins[targetIndex]) / 2
-        : sortedMargins[0] - 0.01
-      setCauseMarginThreshold(newThreshold)
-    } else {
-      // Low X%: threshold at X percentile so X% of features are BELOW
-      const targetIndex = Math.min(targetCount - 1, sortedMargins.length - 1)
-      const newThreshold = targetIndex + 1 < sortedMargins.length
-        ? (sortedMargins[targetIndex] + sortedMargins[targetIndex + 1]) / 2
-        : sortedMargins[sortedMargins.length - 1] + 0.01
-      setCauseMarginThreshold(newThreshold)
-    }
-  }, [isTopMode, sortedMargins, _targetPercentage, setCauseMarginThreshold])
-
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
   // Wait for metric scores to be calculated before creating the commit
@@ -421,6 +385,110 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Get tag color for header badge (Need Revision - parent tag from Stage 2)
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
+  // Create decision margin lookup map from SVM classification results
+  // Decision margin = min absolute distance to any category boundary
+  const decisionMarginMap = useMemo(() => {
+    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) {
+      return new Map<number, number>()
+    }
+    const map = new Map<number, number>()
+    causeCategoryDecisionMargins.forEach((categoryScores, featureId) => {
+      // Compute margin as min absolute value of all category scores
+      const scores = Object.values(categoryScores)
+      if (scores.length > 0) {
+        const margin = Math.min(...scores.map(s => Math.abs(s)))
+        map.set(featureId, margin)
+      }
+    })
+    return map
+  }, [causeCategoryDecisionMargins])
+
+  // Build feature items for useSortableList hook
+  const causeFeatureItems = useMemo(() => {
+    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return []
+    return Array.from(selectedFeatureIds).map(featureId => ({ featureId }))
+  }, [selectedFeatureIds])
+
+  // Use shared sorting hook for consistent behavior across views
+  const {
+    sortMode,
+    setSortMode,
+    sortDirection: selectedSortDirection,
+    setSortDirection: setSelectedSortDirection,
+    sortedItems: sortedFeatureItems,
+    columnHeaderProps,
+    isTemplateSort
+  } = useSortableList({
+    items: causeFeatureItems,
+    getItemKey: (item) => item.featureId,
+    getDefaultScore: (item) => item.featureId,  // Default sort by feature ID
+    decisionMarginScores: decisionMarginMap,
+    diversityIds: diversityFeatureIds,
+    defaultLabel: 'Feature ID',
+    initialMode: 'diversity',
+    templateMode: 'decisionMargin',
+    templateDirection: 'asc'
+  })
+
+  // Determine if we're in "Top" mode (Most Confident First)
+  const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
+
+  // Track when user first enters Top mode (to hide batch tagging placeholder permanently)
+  useEffect(() => {
+    if (isTopMode && !hasEverBeenTopMode) {
+      setHasEverBeenTopMode(true)
+    }
+  }, [isTopMode, hasEverBeenTopMode])
+
+  // Reset filterByTag when leaving Top mode
+  useEffect(() => {
+    if (!isTopMode && filterByTag !== null) {
+      setFilterByTag(null)
+    }
+  }, [isTopMode, filterByTag])
+
+  // Check if feature is visible based on mode and threshold - delegates to utility function
+  const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
+    return isFeatureVisibleInMode(
+      featureId,
+      causeSelectionSources,
+      causeCategoryDecisionMargins,
+      causeMarginThreshold,
+      isTopMode
+    )
+  }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
+
+  // Track previous isTopMode to detect mode switches
+  const prevIsTopModeRef = useRef(isTopMode)
+
+  // Recalculate threshold when switching between Low/Top modes to maintain same percentage
+  useEffect(() => {
+    // Only trigger on mode switch (not initial render)
+    if (prevIsTopModeRef.current === isTopMode) return
+    prevIsTopModeRef.current = isTopMode
+
+    if (sortedMargins.length === 0) return
+
+    // Calculate threshold to maintain same percentage from opposite end
+    const targetCount = Math.max(1, Math.ceil(sortedMargins.length * _targetPercentage / 100))
+
+    if (isTopMode) {
+      // Top X%: threshold at (100 - X) percentile so X% of features are ABOVE
+      const targetIndex = Math.max(0, sortedMargins.length - targetCount)
+      const newThreshold = targetIndex > 0
+        ? (sortedMargins[targetIndex - 1] + sortedMargins[targetIndex]) / 2
+        : sortedMargins[0] - 0.01
+      setCauseMarginThreshold(newThreshold)
+    } else {
+      // Low X%: threshold at X percentile so X% of features are BELOW
+      const targetIndex = Math.min(targetCount - 1, sortedMargins.length - 1)
+      const newThreshold = targetIndex + 1 < sortedMargins.length
+        ? (sortedMargins[targetIndex] + sortedMargins[targetIndex + 1]) / 2
+        : sortedMargins[sortedMargins.length - 1] + 0.01
+      setCauseMarginThreshold(newThreshold)
+    }
+  }, [isTopMode, sortedMargins, _targetPercentage, setCauseMarginThreshold])
+
   // All features filtered by visibility (mode-based) and category filter
   // When hideTagged=true, excludes manually tagged features (they're already done)
   const filteredFeatureIds = useMemo(() => {
@@ -444,44 +512,28 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates, causeSelectionSources, hideTagged])
 
-  // Create decision margin lookup map from SVM classification results
-  // Decision margin = min absolute distance to any category boundary
-  const decisionMarginMap = useMemo(() => {
-    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) {
-      return new Map<number, number>()
-    }
-    const map = new Map<number, number>()
-    causeCategoryDecisionMargins.forEach((categoryScores, featureId) => {
-      // Compute margin as min absolute value of all category scores
-      const scores = Object.values(categoryScores)
-      if (scores.length > 0) {
-        const margin = Math.min(...scores.map(s => Math.abs(s)))
-        map.set(featureId, margin)
-      }
-    })
-    return map
-  }, [causeCategoryDecisionMargins])
-
-  // Sort filtered features by mode (feature ID or decision margin)
+  // Apply visibility filters AFTER sorting (except diversity mode which bypasses all filters)
   const sortedFilteredFeatureList = useMemo(() => {
-    if (sortMode === 'default') {
-      // Sort by feature ID
-      return [...filteredFeatureIds].sort((a, b) =>
-        selectedSortDirection === 'asc' ? a - b : b - a
-      )
-    } else {
-      // Sort by decision margin (uncertainty)
-      if (decisionMarginMap.size === 0) return filteredFeatureIds
-      return [...filteredFeatureIds].sort((a, b) => {
-        const marginA = decisionMarginMap.get(a) ?? 0
-        const marginB = decisionMarginMap.get(b) ?? 0
-        return selectedSortDirection === 'asc' ? marginA - marginB : marginB - marginA
-      })
+    if (sortMode === 'diversity') {
+      // Diversity mode: hook already filtered to medoids, no additional filtering
+      return sortedFeatureItems.map(item => item.featureId)
     }
-  }, [filteredFeatureIds, decisionMarginMap, selectedSortDirection, sortMode])
 
-  // Template sort: decisionMargin mode with asc direction
-  const isTemplateSort = sortMode === 'decisionMargin' && selectedSortDirection === 'asc'
+    // Other modes: apply visibility filters
+    return sortedFeatureItems
+      .map(item => item.featureId)
+      .filter(featureId => {
+        if (hideTagged && causeSelectionSources.get(featureId) === 'manual') return false
+        if (!isVisibleInCurrentMode(featureId)) return false
+        if (isTopMode) {
+          if (filterByTag) {
+            return causeSelectionStates.get(featureId) === filterByTag
+          }
+          return true
+        }
+        return visibleCategories.has(getEffectiveCategory(featureId))
+      })
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, filterByTag, causeSelectionStates, visibleCategories, getEffectiveCategory])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -649,11 +701,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       }
     }
   }, [sortedFilteredFeatureList, filteredFeatureList])
-
-  // Toggle sort direction for selected features list
-  const toggleSelectedSortDirection = useCallback(() => {
-    setSelectedSortDirection(dir => dir === 'asc' ? 'desc' : 'asc')
-  }, [])
 
   // ============================================================================
   // COMMIT HISTORY HELPERS
@@ -998,25 +1045,42 @@ const CauseView: React.FC<CauseViewProps> = ({
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
   const unsureColor = UNSURE_GRAY
 
-  // Get display score for sortConfig (decision margin)
+  // Get display score for sortConfig (decision margin or undefined for diversity)
   const getDisplayScore = useCallback((featureId: number) => {
+    // No score display for diversity mode (items are just medoids)
+    if (sortMode === 'diversity') return undefined
     return decisionMarginMap.get(featureId)
-  }, [decisionMarginMap])
+  }, [decisionMarginMap, sortMode])
 
   // Render feature item for selected ScrollableItemList
   const renderBottomRowFeatureItem = useCallback((featureId: number, index: number) => {
-    const effectiveCategory = getEffectiveCategory(featureId)
     const causeSource = causeSelectionSources.get(featureId)
 
-    // Map effective category to tag name
-    const tagName = effectiveCategory === 'unsure'
-      ? 'Unsure'
-      : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
+    // In diversity mode, show all features as "Unsure" (initial exploration)
+    // Exception: manually tagged features should still show their tag
+    let tagName: string
+    let isAuto = false
 
-    // Stripe pattern only in Top mode for non-manual features (above-threshold candidates)
-    // Low mode: no stripe (unsure features, no auto-tagging shown)
-    // Top mode: stripe for candidates (above threshold, showing predicted category)
-    const isAuto = isTopMode && causeSource !== 'manual' && effectiveCategory !== 'unsure'
+    if (sortMode === 'diversity') {
+      // Diversity mode: show manual tags, otherwise unsure
+      if (causeSource === 'manual') {
+        const manualCategory = causeSelectionStates.get(featureId)
+        tagName = manualCategory ? (CAUSE_TAG_NAMES[manualCategory] || 'Unsure') : 'Unsure'
+      } else {
+        tagName = 'Unsure'
+      }
+    } else {
+      // Other modes: use effective category (includes SVM predictions)
+      const effectiveCategory = getEffectiveCategory(featureId)
+      tagName = effectiveCategory === 'unsure'
+        ? 'Unsure'
+        : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
+
+      // Stripe pattern only in Top mode for non-manual features (above-threshold candidates)
+      // Low mode: no stripe (unsure features, no auto-tagging shown)
+      // Top mode: stripe for candidates (above threshold, showing predicted category)
+      isAuto = isTopMode && causeSource !== 'manual' && effectiveCategory !== 'unsure'
+    }
 
     return (
       <TagBadge
@@ -1028,7 +1092,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         isAuto={isAuto}
       />
     )
-  }, [getEffectiveCategory, causeSelectionSources, isTopMode, handleSelectedListClick])
+  }, [sortMode, getEffectiveCategory, causeSelectionStates, causeSelectionSources, isTopMode, handleSelectedListClick])
 
   // ============================================================================
   // RENDER
@@ -1076,6 +1140,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             sortDirection={selectedSortDirection}
             onSortModeChange={setSortMode}
             onSortDirectionChange={setSelectedSortDirection}
+            hasDiversityIds={diversityFeatureIds.size > 0}
             isTemplateSort={isTemplateSort}
             filterOptions={[
               { value: 'missed-N-gram', label: 'Pattern Miss', color: missedNgramColor },
@@ -1085,7 +1150,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             filterValue={filterByTag}
             onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
             filterDisabled={!isTopMode}
-            mostConfidentDisabled={!canTrainSVM}
+            decisionMarginDisabled={!canTrainSVM}
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />
@@ -1125,12 +1190,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   className="cause-view__top-list"
                   variant="causeBrushed"
                   badges={[{ label: 'Features', count: sortedFilteredFeatureList.length }]}
-                  columnHeader={{
-                    label: sortMode === 'default' ? 'Feature ID' : '|Decision Margin|',
-                    sortDirection: selectedSortDirection,
-                    onClick: toggleSelectedSortDirection,
-                    isSortable: true
-                  }}
+                  columnHeader={columnHeaderProps}
                   items={sortedFilteredFeatureList}
                   renderItem={renderBottomRowFeatureItem}
                   sortConfig={{ getDisplayScore }}
