@@ -83,7 +83,7 @@ The application implements a 4-stage workflow for tagging features:
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
 | 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
-| 4. Summary/Regeneration | `RegenerationView.tsx` | Summary | Overview | Manual vs Auto breakdown |
+| 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis (CauseView)
 - **UMAP Scatter**: Barycentric projection from 6D metric space with density contours
@@ -95,7 +95,7 @@ The application implements a 4-stage workflow for tagging features:
 - **Contour Update**: Contours show predicted category distributions after classification
 - **Status Panel**: Sorting controls (sort by default metric or uncertainty)
 
-### Stage 4: Summary/Regeneration (RegenerationView)
+### Stage 4: Summary (RegenerationView)
 - **OverviewSummary**: Shows manual vs auto tagging breakdown per tag across all stages
 - **SankeyDiagram**: Final flow visualization with all stages
 - **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category
@@ -110,7 +110,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (30 files)
+├── components/                    # React Components (32 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -140,9 +140,9 @@ frontend/src/
 │   ├── ModalityIndicator.tsx     # Modality detection display
 │   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
-│   ├── RegenerationView.tsx      # Stage 4: Regeneration overview
+│   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
-├── lib/                          # Utilities (32 files)
+├── lib/                          # Utilities (31 files)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -166,7 +166,7 @@ frontend/src/
 │   ├── color-utils.tsx           # Color manipulation utilities
 │   ├── triangle-grid.ts          # Triangle grid layout utilities
 │   ├── utils.ts                  # General helpers
-│   └── tagging-hooks/            # Reusable tagging hooks (9 files)
+│   └── tagging-hooks/            # Reusable tagging hooks (10 files)
 │       ├── index.ts              # Hook exports
 │       ├── useThresholdPreview.ts # Threshold preview state
 │       ├── useTaggingStatus.ts   # Tagging status tracking
@@ -185,7 +185,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (28 files)
+├── styles/                       # CSS Files (30 files)
 │   ├── base.css                  # Base styles, CSS variables
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
@@ -286,9 +286,10 @@ frontend/src/
 - Hover interaction with Sankey diagrams
 
 **RegenerationView.tsx** - Stage 4: Summary
-- Layout with SankeyDiagram + OverviewSummary
+- Layout with SankeyDiagram (left) + OverviewSummary (right)
 - Shows final tagging results overview
 - Displays Sankey with all completed stages
+- Manual vs auto tagging statistics per category
 
 **OverviewSummary.tsx** - Tagging Statistics
 - Manual vs auto tagging breakdown per tag

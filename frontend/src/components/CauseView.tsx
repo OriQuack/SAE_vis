@@ -116,6 +116,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
   // Track if user has ever clicked "Most Confident First" - hides placeholder permanently
   const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
+  // Hide tagged items toggle (default: true - hide already tagged features)
+  const [hideTagged, setHideTagged] = useState(true)
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -141,6 +143,16 @@ const CauseView: React.FC<CauseViewProps> = ({
       hasAutoTaggedRef.current = true
     }
   }, [isRevisitingStage3])
+
+  // Reset to first feature when hideTagged changes (to avoid index out of bounds)
+  const prevHideTaggedRef = useRef(hideTagged)
+  useEffect(() => {
+    if (prevHideTaggedRef.current !== hideTagged) {
+      setCurrentFeatureIndex(0)
+      setCurrentSelectedIndex(0)
+      prevHideTaggedRef.current = hideTagged
+    }
+  }, [hideTagged])
 
   // Get selected feature IDs from the selected node/segment
   const selectedFeatureIds = isRevisitingStage3 && stage3FinalCommit?.featureIds
@@ -410,9 +422,12 @@ const CauseView: React.FC<CauseViewProps> = ({
   const needRevisionColor = getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#9ca3af'
 
   // All features filtered by visibility (mode-based) and category filter
+  // When hideTagged=true, excludes manually tagged features (they're already done)
   const filteredFeatureIds = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return []
     return Array.from(selectedFeatureIds).filter(featureId => {
+      // Optionally exclude manually tagged features from the list
+      if (hideTagged && causeSelectionSources.get(featureId) === 'manual') return false
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(featureId)) return false
       // In Top mode, apply tag filter if set
@@ -427,7 +442,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       const effectiveCategory = getEffectiveCategory(featureId)
       return visibleCategories.has(effectiveCategory)
     })
-  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates])
+  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates, causeSelectionSources, hideTagged])
 
   // Create decision margin lookup map from SVM classification results
   // Decision margin = min absolute distance to any category boundary
@@ -1071,6 +1086,8 @@ const CauseView: React.FC<CauseViewProps> = ({
             onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
             filterDisabled={!isTopMode}
             mostConfidentDisabled={!canTrainSVM}
+            hideTagged={hideTagged}
+            onHideTaggedChange={setHideTagged}
           />
 
           {/* Main content: Top row + Bottom action bar */}
@@ -1120,6 +1137,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   currentIndex={activeListSource === 'selected' ? currentSelectedIndex : -1}
                   isActive={activeListSource === 'selected'}
                   emptyMessage="Select a cell with features"
+                  disableAutoScroll={true}
                 />
               </div>
 

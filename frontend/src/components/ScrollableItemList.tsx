@@ -105,6 +105,9 @@ export interface ScrollableItemListProps<T = any> {
   // Custom message when list is empty (default: "None")
   emptyMessage?: string
 
+  // Disable auto-scrolling to center the current item when currentIndex changes
+  disableAutoScroll?: boolean
+
   // Styling (ignored when variant is set)
   width?: number | string
   height?: number | string
@@ -127,6 +130,7 @@ export function ScrollableItemList<T = any>({
   sortConfig,
   variant,
   emptyMessage = 'None',
+  disableAutoScroll = false,
   width = 200,
   height,
   minHeight,
@@ -147,10 +151,10 @@ export function ScrollableItemList<T = any>({
 
   // Scroll to currentIndex when it changes (for virtualized lists)
   useEffect(() => {
-    if (shouldVirtualize && currentIndex >= 0 && currentIndex < items.length) {
+    if (!disableAutoScroll && shouldVirtualize && currentIndex >= 0 && currentIndex < items.length) {
       virtualizer.scrollToIndex(currentIndex, { align: 'center', behavior: 'auto' })
     }
-  }, [currentIndex, shouldVirtualize, items.length, virtualizer])
+  }, [currentIndex, shouldVirtualize, items.length, virtualizer, disableAutoScroll])
 
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {

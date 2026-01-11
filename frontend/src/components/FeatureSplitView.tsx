@@ -59,6 +59,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
 
+  // Hide tagged items toggle (default: true - hide already tagged pairs)
+  const [hideTagged, setHideTagged] = useState(true)
+
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
@@ -429,6 +432,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     initialDirection: 'desc'
   })
 
+  // Filter pairs based on hideTagged toggle
+  const displayPairList = useMemo(() => {
+    if (!hideTagged) return pairList
+    return pairList.filter(pair => !pairSelectionStates.has(pair.pairKey))
+  }, [pairList, hideTagged, pairSelectionStates])
+
+  // Reset to first pair when hideTagged changes (to avoid index out of bounds)
+  const prevHideTaggedRef = useRef(hideTagged)
+  useEffect(() => {
+    if (prevHideTaggedRef.current !== hideTagged) {
+      setCurrentPairIndex(0)
+      setActiveListSource('all')
+      prevHideTaggedRef.current = hideTagged
+    }
+  }, [hideTagged, setActiveListSource])
+
   // Track if we've auto-switched to decision margin mode for this session
   const hasAutoSwitchedToDecisionMarginRef = useRef(false)
 
@@ -454,15 +473,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [sortMode, sortDirection, setActiveListSource])
 
-  // Pagination derived state
+  // Pagination derived state (use displayPairList for filtered view)
   const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
-  const totalPages = Math.ceil(pairList.length / PAIRS_PER_PAGE) || 1
+  const totalPages = Math.ceil(displayPairList.length / PAIRS_PER_PAGE) || 1
 
   // Get pairs for current page (for pre-fetching activation examples)
   const currentPagePairs = useMemo(() => {
     const startIdx = currentPage * PAIRS_PER_PAGE
-    return pairList.slice(startIdx, startIdx + PAIRS_PER_PAGE)
-  }, [pairList, currentPage])
+    return displayPairList.slice(startIdx, startIdx + PAIRS_PER_PAGE)
+  }, [displayPairList, currentPage])
 
   // Pre-fetch activation examples for all pairs on current page (All Pairs list)
   useEffect(() => {
@@ -893,6 +912,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             defaultAscLabel="Least Similar First"
             defaultDescLabel="Most Similar First"
             isTemplateSort={isTemplateSort}
+            hideTagged={hideTagged}
+            onHideTaggedChange={setHideTagged}
           />
 
           {/* Content: 2 rows */}
@@ -916,7 +937,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             previewSelectKeys={previewSelectKeys}
             allPairsListProps={{
               currentPagePairs,
-              totalPairCount: pairList.length,
+              totalPairCount: displayPairList.length,
               isActive: activeListSource === 'all',
               columnHeaderProps,
               getDisplayScore,

@@ -68,6 +68,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
 
+  // Hide tagged items toggle (default: true - hide already tagged features)
+  const [hideTagged, setHideTagged] = useState(true)
+
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
   const { activeListSource, setActiveListSource } = useListNavigation({
@@ -185,6 +188,22 @@ const QualityView: React.FC<QualityViewProps> = ({
     initialDirection: 'asc'
   })
 
+  // Filter features based on hideTagged toggle
+  const displayFeatures = useMemo(() => {
+    if (!hideTagged) return sortedFeatures
+    return sortedFeatures.filter(f => !featureSelectionStates.has(f.featureId))
+  }, [sortedFeatures, hideTagged, featureSelectionStates])
+
+  // Reset to first feature when hideTagged changes (to avoid index out of bounds)
+  const prevHideTaggedRef = useRef(hideTagged)
+  useEffect(() => {
+    if (prevHideTaggedRef.current !== hideTagged) {
+      setCurrentFeatureIndex(0)
+      setActiveListSource('all')
+      prevHideTaggedRef.current = hideTagged
+    }
+  }, [hideTagged, setActiveListSource])
+
   // Track if we've auto-switched to decision margin mode for this session
   const hasAutoSwitchedToDecisionMarginRef = useRef(false)
 
@@ -295,19 +314,19 @@ const QualityView: React.FC<QualityViewProps> = ({
     selectionSources: featureSelectionSources
   })
 
-  // Pagination for the top row list
-  const totalPages = Math.max(1, Math.ceil(sortedFeatures.length / ITEMS_PER_PAGE))
+  // Pagination for the top row list (use displayFeatures for filtered view)
+  const totalPages = Math.max(1, Math.ceil(displayFeatures.length / ITEMS_PER_PAGE))
   const currentPageFeatures = useMemo(() => {
     const start = currentPage * ITEMS_PER_PAGE
-    return sortedFeatures.slice(start, start + ITEMS_PER_PAGE)
-  }, [sortedFeatures, currentPage, ITEMS_PER_PAGE])
+    return displayFeatures.slice(start, start + ITEMS_PER_PAGE)
+  }, [displayFeatures, currentPage, ITEMS_PER_PAGE])
 
   // Reset to valid index when features change
   useEffect(() => {
-    if (currentFeatureIndex >= sortedFeatures.length && sortedFeatures.length > 0) {
-      setCurrentFeatureIndex(sortedFeatures.length - 1)
+    if (currentFeatureIndex >= displayFeatures.length && displayFeatures.length > 0) {
+      setCurrentFeatureIndex(displayFeatures.length - 1)
     }
-  }, [sortedFeatures.length, currentFeatureIndex])
+  }, [displayFeatures.length, currentFeatureIndex])
 
   // Auto-populate similarity scores when feature list is ready or selection states change
   useEffect(() => {
@@ -348,9 +367,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // SELECTED FEATURE DATA (for right panel)
   // ============================================================================
 
-  // Get the currently selected feature's data
+  // Get the currently selected feature's data (use displayFeatures for filtered view)
   const selectedFeatureData = useMemo(() => {
-    const feature = sortedFeatures[currentFeatureIndex]
+    const feature = displayFeatures[currentFeatureIndex]
     if (!feature) return null
 
     return {
@@ -358,7 +377,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       row: feature.row,
       activation: activationExamples[feature.featureId] || null
     }
-  }, [sortedFeatures, currentFeatureIndex, activationExamples])
+  }, [displayFeatures, currentFeatureIndex, activationExamples])
 
   // Compute pairwise similarities for ExplainerComparisonGrid
   const pairwiseSimilarities = useMemo(() => {
@@ -544,9 +563,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [])
 
   const handleNavigateNext = useCallback(() => {
-    setCurrentFeatureIndex(i => Math.min(sortedFeatures.length - 1, i + 1))
+    setCurrentFeatureIndex(i => Math.min(displayFeatures.length - 1, i + 1))
     // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
-  }, [sortedFeatures.length])
+  }, [displayFeatures.length])
 
   // Reset to first feature in 'all' list (used after tagging in decision margin mode)
   const handleResetToFirst = useCallback(() => {
@@ -559,7 +578,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     activeListSource,
     sortMode,
     currentIndex: currentFeatureIndex,
-    listLength: sortedFeatures.length,
+    listLength: displayFeatures.length,
     onNavigateNext: handleNavigateNext,
     onResetToFirst: handleResetToFirst,
     isHistogramReady: !!tagAutomaticState?.histogramData
@@ -838,6 +857,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             defaultAscLabel="Lowest Quality First"
             defaultDescLabel="Highest Quality First"
             isTemplateSort={isTemplateSort}
+            hideTagged={hideTagged}
+            onHideTaggedChange={setHideTagged}
           />
 
           {/* Content: 2 rows */}
@@ -846,7 +867,7 @@ const QualityView: React.FC<QualityViewProps> = ({
           <div className="quality-view__row-top">
             <ScrollableItemList
               variant="features"
-              badges={[{ label: 'Features', count: sortedFeatures.length }]}
+              badges={[{ label: 'Features', count: displayFeatures.length }]}
               columnHeader={columnHeaderProps}
               items={currentPageFeatures}
               renderItem={renderFeatureItem}

@@ -588,8 +588,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                 </defs>
 
                 <g transform={`translate(${histogramChart.margin.left}, ${histogramChart.margin.top})`}>
-                  {/* Colored region backgrounds with 4 zones */}
-                  {/* Zone 1: Left edge to reject threshold (light red stripe, auto-rejected preview) */}
+                  {/* Colored region backgrounds with 3 zones (threshold-based, not 0-based) */}
+                  {/* Zone 1: Left edge to reject threshold (auto-rejected stripe) */}
                   <rect
                     x={0}
                     y={0}
@@ -597,23 +597,15 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     height={histogramChart.height}
                     fill="url(#autoRejectedPreviewStripe)"
                   />
-                  {/* Zone 2: Reject threshold to 0 (white, unsure) */}
+                  {/* Zone 2: Reject threshold to select threshold (white, unsure) */}
                   <rect
                     x={safeThresholdPositions.rejectX}
                     y={0}
-                    width={Math.max(0, histogramChart.xScale(0) - safeThresholdPositions.rejectX)}
+                    width={Math.max(0, safeThresholdPositions.selectX - safeThresholdPositions.rejectX)}
                     height={histogramChart.height}
                     fill="#ffffff"
                   />
-                  {/* Zone 3: 0 to select threshold (white, unsure - same as zone 2) */}
-                  <rect
-                    x={histogramChart.xScale(0)}
-                    y={0}
-                    width={Math.max(0, safeThresholdPositions.selectX - histogramChart.xScale(0))}
-                    height={histogramChart.height}
-                    fill="#ffffff"
-                  />
-                  {/* Zone 4: Select threshold to right edge (blue stripe, auto-selected preview) */}
+                  {/* Zone 3: Select threshold to right edge (auto-selected stripe) */}
                   <rect
                     x={safeThresholdPositions.selectX}
                     y={0}

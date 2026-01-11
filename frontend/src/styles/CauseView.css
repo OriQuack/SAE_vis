@@ -132,7 +132,7 @@
 
 /* Scrollable list in top panel - fixed width */
 .cause-view__top-list.scrollable-list {
-  width: 210px;
+  width: 218px;
   height: 213.5px;
   flex-shrink: 0;
 }
@@ -590,7 +590,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 178px;  /* Match actual batch tagging panel height */
+  min-height: 160px;  /* Match actual batch tagging panel height */
 }
 
 .cause-view__batch-placeholder-content {

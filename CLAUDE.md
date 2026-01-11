@@ -154,10 +154,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (32 files)
+│   │   ├── components/    # UI components (32 files)
+│   │   ├── lib/          # D3 utilities, helpers (31 files)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (28 files)
+│   │   ├── styles/       # CSS files (30 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -215,7 +215,7 @@ npm run dev -- --port 3003
 | 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
 | 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
-| 4. Summary | `RegenerationView` | Summary | Overview | Manual vs Auto breakdown |
+| 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis
 - **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 6D metric space)
@@ -227,7 +227,7 @@ npm run dev -- --port 3003
 - **Contour Visualization**: Shows category distributions on UMAP after classification
 - **HDBSCAN Clustering**: Pre-computed cluster assignments for feature grouping
 
-### Stage 4: Summary/Regeneration
+### Stage 4: Summary
 - **OverviewSummary**: Manual vs auto tagging breakdown per tag across all stages
 - **SankeyDiagram**: Final flow visualization with all completed stages
 - **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category

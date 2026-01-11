@@ -20,6 +20,30 @@
   background-color: #f8fafc;
   border-top: 1px solid #e2e8f0;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.regeneration-view__download-btn {
+  padding: 10px 20px;
+  background-color: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.regeneration-view__download-btn:hover {
+  background-color: #2563eb;
+}
+
+.regeneration-view__download-btn:active {
+  background-color: #1d4ed8;
 }
 
 /* Sankey takes 3/4, Summary takes 1/4 */

@@ -36,6 +36,10 @@ interface StatusPanelProps {
   // Disable "Most Confident First" button (e.g., before SVM is trained in Cause view)
   mostConfidentDisabled?: boolean
 
+  // Hide tagged items checkbox (optional - for all tagging views)
+  hideTagged?: boolean
+  onHideTaggedChange?: (value: boolean) => void
+
   className?: string
 }
 
@@ -51,6 +55,8 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
   onFilterChange,
   filterDisabled = false,
   mostConfidentDisabled = false,
+  hideTagged,
+  onHideTaggedChange,
   className = ''
 }) => {
   // Helper to check if a sort option is active
@@ -129,6 +135,20 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Hide Tagged checkbox (optional - for all tagging views) */}
+      {onHideTaggedChange !== undefined && (
+        <div className="status-panel__hide-tagged">
+          <label className="status-panel__checkbox-label">
+            <input
+              type="checkbox"
+              checked={hideTagged ?? true}
+              onChange={(e) => onHideTaggedChange(e.target.checked)}
+            />
+            Hide Tagged
+          </label>
         </div>
       )}
     </div>

@@ -321,11 +321,11 @@ class ActivationDisplayProcessor:
                 "quantile_examples": []
             }
 
-        # Track features with non-standard boundaries but don't exclude them
+        # Track features with limited activation examples (using boundaries as proxy)
+        # Note: quantile_boundaries from Script 5 indicates if feature had enough examples
         if not quantile_boundaries or len(quantile_boundaries) != 3:
             self.stats["features_with_limited_examples"] += 1
-            logger.debug(f"Feature {feature_id} has limited examples (boundaries: {quantile_boundaries})")
-            # Continue processing - don't return None
+            logger.debug(f"Feature {feature_id} has limited examples")
 
         # Compute pattern type using dual Jaccard (char OR word)
         pattern_type = self._compute_pattern_type(
@@ -354,8 +354,8 @@ class ActivationDisplayProcessor:
             self.stats["features_with_no_data"] += 1
             return None
 
-        # Organize into quantiles
-        quantile_examples = []
+        # Collect all example data first (for rank-based quantile assignment)
+        example_data_list = []
         for row_dict in feature_examples.to_dicts():
             # Process tokens - array with underscores removed
             raw_tokens = row_dict.get("prompt_tokens", [])
@@ -370,26 +370,11 @@ class ActivationDisplayProcessor:
                 max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
                 max_pos = max_pair["token_position"]
 
-            # Determine quantile index based on max_activation
-            # If boundaries are invalid/empty, all examples go to quantile 0
-            quantile_idx = 0
-            if max_activation is not None and quantile_boundaries and len(quantile_boundaries) == 3:
-                if max_activation <= quantile_boundaries[0]:
-                    quantile_idx = 0
-                elif max_activation <= quantile_boundaries[1]:
-                    quantile_idx = 1
-                elif max_activation <= quantile_boundaries[2]:
-                    quantile_idx = 2
-                else:
-                    quantile_idx = 3
-            # else: quantile_idx remains 0 (all examples in Q0)
-
             # Extract n-gram positions for this prompt
             char_ngram_positions = self._extract_char_ngram_positions(top_char_ngram, row_dict["prompt_id"])
             word_ngram_positions = self._extract_word_ngram_positions(top_word_ngram, row_dict["prompt_id"])
 
-            quantile_examples.append({
-                "quantile_index": quantile_idx,
+            example_data_list.append({
                 "prompt_id": row_dict["prompt_id"],
                 "prompt_tokens": prompt_tokens,
                 "activation_pairs": activation_pairs,
@@ -397,6 +382,28 @@ class ActivationDisplayProcessor:
                 "max_activation_position": int(max_pos),
                 "char_ngram_positions": char_ngram_positions,
                 "word_ngram_positions": word_ngram_positions
+            })
+
+        # Sort by max_activation descending for rank-based quantile assignment
+        sorted_examples = sorted(example_data_list, key=lambda x: x['max_activation'], reverse=True)
+
+        # Assign quantile index by rank (position in sorted order)
+        num_quantiles = 4
+        num_examples = len(sorted_examples)
+        quantile_examples = []
+
+        for idx, example in enumerate(sorted_examples):
+            if num_examples <= num_quantiles:
+                # Each example gets its own quantile if fewer examples than quantiles
+                quantile_idx = idx
+            else:
+                # Divide into equal-sized groups by position
+                group_size = num_examples // num_quantiles
+                quantile_idx = min(idx // group_size, num_quantiles - 1)
+
+            quantile_examples.append({
+                "quantile_index": quantile_idx,
+                **example
             })
 
         self.stats["total_examples_processed"] += len(quantile_examples)

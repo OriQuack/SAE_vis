@@ -81,6 +81,10 @@
   pointer-events: none;  /* Labels don't need interaction */
 }
 
+.sankey-diagram__svg--foreground .sankey-threshold-sliders-group {
+  pointer-events: auto;  /* Threshold handles need drag interaction */
+}
+
 /* Empty State */
 .sankey-diagram__empty {
   display: flex;

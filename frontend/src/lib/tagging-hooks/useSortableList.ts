@@ -106,18 +106,18 @@ export function useSortableList<T, K>({
     })
   }, [items, decisionMarginScores, sortMode, sortDirection, getItemKey, getDefaultScore])
 
-  const toggleSortMode = useCallback(() => {
-    const newMode = sortMode === 'default' ? 'decisionMargin' : 'default'
-    setSortMode(newMode)
-  }, [sortMode, setSortMode])
+  const toggleSortDirection = useCallback(() => {
+    const newDirection = sortDirection === 'asc' ? 'desc' : 'asc'
+    setSortDirection(newDirection)
+  }, [sortDirection, setSortDirection])
 
   const columnHeaderProps = useMemo(() => ({
     label: sortMode === 'decisionMargin' ? '|Decision Margin|' : defaultLabel,
     sortDirection: sortDirection,
-    onClick: toggleSortMode,
-    isModeSwitch: true,
+    onClick: toggleSortDirection,
+    isSortable: true,
     isPulsing
-  }), [sortMode, defaultLabel, sortDirection, toggleSortMode, isPulsing])
+  }), [sortMode, defaultLabel, sortDirection, toggleSortDirection, isPulsing])
 
   const getDisplayScore = useCallback((item: T): number | undefined => {
     if (sortMode === 'decisionMargin') {
