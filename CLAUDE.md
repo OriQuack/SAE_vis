@@ -77,6 +77,8 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • activation_display.parquet (frontend-optimized)                        │
 │  • activation_embeddings.parquet (pre-computed embeddings)                │
 │  • explanation_alignment.parquet (cross-explainer phrase matching)        │
+│  • interfeature_activation_similarity.parquet (cross-feature analysis)    │
+│  • explanation_barycentric.parquet (Stage 3 UMAP positions)               │
 │  • thematic_codes.parquet (Thematic-LM analysis output)                   │
 │  • Pre-computed statistics (JSON)                                         │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -154,22 +156,22 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (32 files)
-│   │   ├── lib/          # D3 utilities, helpers (31 files)
+│   │   ├── components/    # UI components (30 files)
+│   │   ├── lib/          # D3 utilities, helpers (21 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (30 files)
+│   │   ├── styles/       # CSS files (28 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (9 files)
+│   │   ├── api/          # Endpoints (10 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (13 files)
+│   │   └── services/     # Business logic (14 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
-│   ├── master/           # Primary parquet files
-│   ├── preprocessing/    # Processing scripts
+│   ├── master/           # Primary parquet files (13 files)
+│   ├── preprocessing/    # Processing scripts + config files
 │   ├── Thematic-LM/      # Thematic analysis (WWW '25 paper impl.)
 │   └── CLAUDE.md         # Data docs
 └── CLAUDE.md          # This file
@@ -214,18 +216,19 @@ npm run dev -- --port 3003
 |-------|------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
+| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Pattern Miss / Context Miss / Noisy Activation |
 | 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis
 - **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 6D metric space)
 - **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
-- **Manual Tagging**: User tags features into cause categories
+- **Manual Tagging**: User tags features into cause categories (Pattern Miss / Context Miss / Noisy Activation)
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
-- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution
+- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution with filtering support
 - **Contour Visualization**: Shows category distributions on UMAP after classification
 - **HDBSCAN Clustering**: Pre-computed cluster assignments for feature grouping
+- **Representative Sampling**: Diversity-based sampling for cold start initialization
 
 ### Stage 4: Summary
 - **OverviewSummary**: Manual vs auto tagging breakdown per tag across all stages
@@ -264,6 +267,7 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 | POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
 | POST /api/umap-projection | Barycentric 2D positions for features (Stage 3) |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
+| POST /api/cold-start/representative | Get representative features for cold start |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 | GET /health | Health check |
@@ -294,6 +298,8 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 - **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
 - **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
 - **Barycentric Positions**: `/data/master/explanation_barycentric.parquet` (Stage 3 UMAP positions)
+- **Interfeature Similarity**: `/data/master/interfeature_activation_similarity.parquet` (cross-feature analysis)
+- **Interfeature Raw**: `/data/master/interfeature_activation_similarity_raw.parquet` (raw similarity data)
 - **Thematic Codes**: `/data/master/thematic_codes.parquet` (Thematic-LM output)
 
 ### Thematic-LM (Separate Tool)

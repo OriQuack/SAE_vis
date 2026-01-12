@@ -1,14 +1,13 @@
 {
-  "created_at": "2026-01-12T01:56:13.873367",
-  "script_version": "1.0",
-  "architecture": "threshold_filtered_pattern_classified",
+  "created_at": "2026-01-12T11:44:44.030816",
+  "script_version": "2.0",
+  "architecture": "no_filtering_pattern_classified",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "total_rows": 16384,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
-    "semantic_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('pattern_type', Utf8), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_char_ngram_jaccard', Float32), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('max_word_ngram_jaccard', Float32), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))",
-    "lexical_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('pattern_type', Utf8), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_char_ngram_jaccard', Float32), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('max_word_ngram_jaccard', Float32), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))"
+    "all_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('pattern_type', Utf8), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_char_ngram_jaccard', Float32), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('max_word_ngram_jaccard', Float32), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))"
   },
   "thresholds_used": {
     "semantic_threshold": 0.5,
@@ -18,18 +17,22 @@
   "processing_stats": {
     "features_processed": 16384,
     "total_pairs_input": 65522,
-    "semantic_pairs_output": 22355,
-    "lexical_pairs_output": 1947,
-    "pairs_with_both_patterns": 587,
-    "pairs_below_threshold": 41807
+    "total_pairs_output": 65522,
+    "semantic_patterns": 21768,
+    "lexical_patterns": 1360,
+    "both_patterns": 587,
+    "no_patterns": 41807
   },
   "result_stats": {
-    "features_with_any_pairs": 9826,
-    "features_with_semantic_pairs": 9364,
-    "features_with_lexical_pairs": 1001,
-    "total_semantic_pairs": 22355,
-    "total_lexical_pairs": 1947,
-    "mean_pairs_per_feature": 1.4832763671875
+    "features_with_pairs": 16383,
+    "total_pairs": 65522,
+    "mean_pairs_per_feature": 3.9991455078125,
+    "pattern_distribution": {
+      "semantic": 21768,
+      "lexical": 1360,
+      "both": 587,
+      "none": 41807
+    }
   },
   "config_used": {
     "input_path": "data/master/interfeature_activation_similarity_raw.parquet",

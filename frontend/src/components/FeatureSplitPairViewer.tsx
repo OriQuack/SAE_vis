@@ -98,6 +98,7 @@ interface FeatureSplitPairViewerProps {
   isLoading?: boolean  // Whether similarity scores are being calculated
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
+  hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
 
   // Preview pair keys (items in threshold regions that will be auto-tagged)
   previewRejectKeys?: Set<string>  // Will be rejected → Monosemantic
@@ -136,6 +137,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   isLoading = false,
   isTemplateSort = true,
   onResetToFirstPair,
+  hideTagged = false,
   previewRejectKeys,
   previewSelectKeys,
   allPairsListProps
@@ -185,7 +187,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     listLength: pairList.length,
     onNavigateNext: onNavigateNext || (() => {}),
     onResetToFirst: onResetToFirstPair || (() => {}),
-    isHistogramReady: !!tagAutomaticState?.histogramData
+    isHistogramReady: !!tagAutomaticState?.histogramData,
+    hideTagged
   })
 
   // Selection handlers
@@ -248,27 +251,18 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     handlePostUnsureNavigation()
   }
 
-  // Show empty state if no pairs available
-  if (!currentPair) {
-    return (
-      <div className={`feature-split-pair-viewer ${className}`}>
-        <div className="pair-viewer__empty">No pairs available</div>
-      </div>
-    )
-  }
-
-  // Get activation data
-  const mainActivation = activationExamples[currentPair.mainFeatureId]
+  // Get activation data (only if currentPair exists)
+  const mainActivation = currentPair ? activationExamples[currentPair.mainFeatureId] : null
 
   // TEMPORARY FIX: We have 16k features but only ~7500 in tableData
   // However, we DO have activation examples for features > 7500
   // So we get activation data directly, even if similarRow doesn't exist
   // TODO: Remove this workaround when full feature data is available
-  const similarActivation = activationExamples[currentPair.similarFeatureId] || null
+  const similarActivation = currentPair ? (activationExamples[currentPair.similarFeatureId] || null) : null
 
   // Extract inter-feature positions for highlighting (if available)
-  const mainFeatureRow = currentPair.row
-  const similarFeatureRow = currentPair.similarRow
+  const mainFeatureRow = currentPair?.row
+  const similarFeatureRow = currentPair?.similarRow
 
   // Get best explanations for each feature
   const mainExplanation = getBestExplanation(mainFeatureRow, tableData?.global_stats)
@@ -277,7 +271,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   let mainInterFeaturePositions = undefined
   let similarInterFeaturePositions = undefined
 
-  if (mainFeatureRow && similarFeatureRow) {
+  if (currentPair && mainFeatureRow && similarFeatureRow) {
     const decoderData = mainFeatureRow.decoder_similarity
     if (decoderData && Array.isArray(decoderData)) {
       const similarData = decoderData.find(d => d.feature_id === currentPair.similarFeatureId)
@@ -369,148 +363,157 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
       {/* Main content area */}
       <div className="pair-viewer__main" ref={mainContainerRef}>
-        {/* Header row */}
-        <div className="pair-viewer__header">
-          {/* Subheader */}
-          <h4 className="subheader">Activation Examples</h4>
+        {currentPair ? (
+          <>
+            {/* Header row */}
+            <div className="pair-viewer__header">
+              {/* Subheader */}
+              <h4 className="subheader">Activation Examples</h4>
 
-          {/* Feature IDs */}
-          <div className="pair-info__ids">
-            <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
-            <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
-          </div>
+              {/* Feature IDs */}
+              <div className="pair-info__ids">
+                <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+                <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+              </div>
 
-          {/* Decoder Similarity */}
-          <div className="pair-info__similarity">
-            <span className="subheader__label">Decoder Similarity:</span>
-            <span className="subheader__value">
-              {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
-            </span>
-          </div>
-        </div>
-        {/* Activation legend */}
-        <div className="pair-viewer__legend">
-          <div className="legend-item">
-            <span className="legend-sample legend-sample--activation">token</span>:
-            <span className="legend-label">Activation Strength</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-sample legend-sample--intra">token</span>:
-            <span className="legend-label">Feature-Specific Pattern</span>
-          </div>
-          <div className="legend-item">
-            <span className="legend-sample legend-sample--inter">token</span>:
-            <span className="legend-label">Shared Pattern</span>
-          </div>
-        </div>
-
-      {/* Activation examples side-by-side */}
-      <div className={`pair-viewer__content ${isLoading ? 'pair-viewer__content--loading' : ''}`}>
-        {/* Main feature activation */}
-        <div className="activation-panel activation-panel--main">
-          <div className="activation-panel__header">
-            <div className="panel-header__content">
-              <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
-              {mainExplanation && (
-                <ExplanationWithPopover
-                  text={mainExplanation}
-                  hasNoActivations={!mainActivation?.quantile_examples?.length}
-                />
-              )}
+              {/* Decoder Similarity */}
+              <div className="pair-info__similarity">
+                <span className="subheader__label">Decoder Similarity:</span>
+                <span className="subheader__value">
+                  {currentPair.decoderSimilarity !== null ? currentPair.decoderSimilarity.toFixed(3) : 'N/A'}
+                </span>
+              </div>
             </div>
-          </div>
-          {mainActivation ? (
-            <div className="activation-panel__examples">
-              <ActivationExample
-                examples={mainActivation}
-                containerWidth={containerWidth - 40}
-                interFeaturePositions={mainInterFeaturePositions}
-                numQuantiles={4}
-                examplesPerQuantile={[2, 2, 2, 2]}
-                disableHover={true}
+            {/* Activation legend */}
+            <div className="pair-viewer__legend">
+              <div className="legend-item">
+                <span className="legend-sample legend-sample--activation">token</span>:
+                <span className="legend-label">Activation Strength</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-sample legend-sample--intra">token</span>:
+                <span className="legend-label">Feature-Specific Pattern</span>
+              </div>
+              <div className="legend-item">
+                <span className="legend-sample legend-sample--inter">token</span>:
+                <span className="legend-label">Shared Pattern</span>
+              </div>
+            </div>
+
+            {/* Activation examples side-by-side */}
+            <div className={`pair-viewer__content ${isLoading ? 'pair-viewer__content--loading' : ''}`}>
+              {/* Main feature activation */}
+              <div className="activation-panel activation-panel--main">
+                <div className="activation-panel__header">
+                  <div className="panel-header__content">
+                    <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+                    {mainExplanation && (
+                      <ExplanationWithPopover
+                        text={mainExplanation}
+                        hasNoActivations={!mainActivation?.quantile_examples?.length}
+                      />
+                    )}
+                  </div>
+                </div>
+                {mainActivation ? (
+                  <div className="activation-panel__examples">
+                    <ActivationExample
+                      examples={mainActivation}
+                      containerWidth={containerWidth - 40}
+                      interFeaturePositions={mainInterFeaturePositions}
+                      numQuantiles={4}
+                      examplesPerQuantile={[2, 2, 2, 2]}
+                      disableHover={true}
+                    />
+                  </div>
+                ) : (
+                  <div className="activation-panel__loading">Loading activation examples...</div>
+                )}
+              </div>
+
+              {/* Similar feature activation */}
+              <div className="activation-panel activation-panel--similar">
+                <div className="activation-panel__header">
+                  <div className="panel-header__content">
+                    <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
+                    {similarExplanation && (
+                      <ExplanationWithPopover
+                        text={similarExplanation}
+                        hasNoActivations={!similarActivation?.quantile_examples?.length}
+                      />
+                    )}
+                  </div>
+                </div>
+                {/* TEMPORARY FIX: Check for activation data instead of feature row */}
+                {/* TODO: Remove when full feature data is available for all 16k features */}
+                {similarActivation ? (
+                  <div className="activation-panel__examples">
+                    <ActivationExample
+                      examples={similarActivation}
+                      containerWidth={containerWidth - 40}
+                      interFeaturePositions={similarInterFeaturePositions}
+                      numQuantiles={4}
+                      examplesPerQuantile={[2, 2, 2, 2]}
+                      disableHover={true}
+                    />
+                  </div>
+                ) : (
+                  <div className="activation-panel__loading">Loading activation examples...</div>
+                )}
+              </div>
+            </div>
+
+            {/* Floating control panel at bottom */}
+            <div className="pair-viewer__floating-controls">
+              {/* Previous button */}
+              <button
+                className="nav__button"
+                onClick={onNavigatePrevious}
+                disabled={currentPairIndex === 0 || !onNavigatePrevious}
+              >
+                ← Prev
+              </button>
+
+              {/* Selection buttons */}
+              <TagButton
+                label="Unsure"
+                variant="unsure"
+                color={unsureColor}
+                isSelected={pairSelectionState === null}
+                onClick={handleUnsureClick}
               />
-            </div>
-          ) : (
-            <div className="activation-panel__loading">Loading activation examples...</div>
-          )}
-        </div>
-
-        {/* Similar feature activation */}
-        <div className="activation-panel activation-panel--similar">
-          <div className="activation-panel__header">
-            <div className="panel-header__content">
-              <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
-              {similarExplanation && (
-                <ExplanationWithPopover
-                  text={similarExplanation}
-                  hasNoActivations={!similarActivation?.quantile_examples?.length}
-                />
-              )}
-            </div>
-          </div>
-          {/* TEMPORARY FIX: Check for activation data instead of feature row */}
-          {/* TODO: Remove when full feature data is available for all 16k features */}
-          {similarActivation ? (
-            <div className="activation-panel__examples">
-              <ActivationExample
-                examples={similarActivation}
-                containerWidth={containerWidth - 40}
-                interFeaturePositions={similarInterFeaturePositions}
-                numQuantiles={4}
-                examplesPerQuantile={[2, 2, 2, 2]}
-                disableHover={true}
+              <TagButton
+                label="Monosemantic"
+                variant="monosemantic"
+                color={monosemanticColor}
+                isSelected={pairSelectionState === 'rejected'}
+                onClick={handleMonosemanticClick}
               />
+              <TagButton
+                label="Fragmented"
+                variant="fragmented"
+                color={fragmentedColor}
+                isSelected={pairSelectionState === 'selected'}
+                onClick={handleFragmentedClick}
+              />
+
+              {/* Next button */}
+              <button
+                className="nav__button"
+                onClick={onNavigateNext}
+                disabled={currentPairIndex >= pairList.length - 1 || !onNavigateNext}
+              >
+                Next →
+              </button>
             </div>
-          ) : (
-            <div className="activation-panel__loading">Loading activation examples...</div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div className="pair-viewer__empty-state">
+            <span>No pairs to display</span>
+            <span className="pair-viewer__empty-hint">All pairs in the current list have been tagged</span>
+          </div>
+        )}
       </div>
-
-      {/* Floating control panel at bottom */}
-      <div className="pair-viewer__floating-controls">
-        {/* Previous button */}
-        <button
-          className="nav__button"
-          onClick={onNavigatePrevious}
-          disabled={currentPairIndex === 0 || !onNavigatePrevious}
-        >
-          ← Prev
-        </button>
-
-        {/* Selection buttons */}
-        <TagButton
-          label="Unsure"
-          variant="unsure"
-          color={unsureColor}
-          isSelected={pairSelectionState === null}
-          onClick={handleUnsureClick}
-        />
-        <TagButton
-          label="Monosemantic"
-          variant="monosemantic"
-          color={monosemanticColor}
-          isSelected={pairSelectionState === 'rejected'}
-          onClick={handleMonosemanticClick}
-        />
-        <TagButton
-          label="Fragmented"
-          variant="fragmented"
-          color={fragmentedColor}
-          isSelected={pairSelectionState === 'selected'}
-          onClick={handleFragmentedClick}
-        />
-
-        {/* Next button */}
-        <button
-          className="nav__button"
-          onClick={onNavigateNext}
-          disabled={currentPairIndex >= pairList.length - 1 || !onNavigateNext}
-        >
-          Next →
-        </button>
-      </div>
-    </div>
   </div>
   )
 }

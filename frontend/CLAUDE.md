@@ -82,18 +82,19 @@ The application implements a 4-stage workflow for tagging features:
 |-------|-----------|------|-------|------|
 | 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
 | 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Pattern Miss / Context Miss / Noisy Activation |
+| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Pattern Miss / Context Miss / Noisy Activation |
 | 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis (CauseView)
 - **UMAP Scatter**: Barycentric projection from 6D metric space with density contours
 - **Metrics**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
-- **Manual Tagging**: Click features to assign cause categories
+- **Manual Tagging**: Click features to assign cause categories (Pattern Miss / Context Miss / Noisy Activation)
 - **SVM Classification**: After tagging 1+ feature per category, SVM predicts remaining
-- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence with threshold-based auto-tagging
+- **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence with filtering support and batch tagging
 - **Contour Update**: Contours show predicted category distributions after classification
 - **Status Panel**: Sorting controls (sort by default metric or uncertainty)
+- **Representative Sampling**: Cold start with diversity-based feature sampling
 
 ### Stage 4: Summary (RegenerationView)
 - **OverviewSummary**: Shows manual vs auto tagging breakdown per tag across all stages
@@ -110,7 +111,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (32 files)
+├── components/                    # React Components (30 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -142,7 +143,7 @@ frontend/src/
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
-├── lib/                          # Utilities (31 files)
+├── lib/                          # Utilities (21 files + 10 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -185,7 +186,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (30 files)
+├── styles/                       # CSS Files (28 files)
 │   ├── base.css                  # Base styles, CSS variables
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
@@ -254,11 +255,12 @@ frontend/src/
 **CauseView.tsx** - Stage 3: Root Cause Analysis
 - Mode: `cause`
 - UMAP scatter plot with barycentric projections from 6D metric space
-- CauseMarginHistogram for SVM decision margin visualization
+- CauseMarginHistogram for SVM decision margin visualization with filtering and batch tagging
 - Features start as "unsure" (no pre-assignment)
 - SVM-based classification after manual tagging
-- Tags: Well-Explained / Pattern Miss / Context Miss / Noisy Activation
+- Tags: Pattern Miss / Context Miss / Noisy Activation
 - StatusPanel for sorting controls
+- Cold start with representative sampling
 
 **UMAPScatter.tsx** - UMAP Visualization (Stage 3)
 - Canvas-based scatter plot for performance
@@ -481,6 +483,7 @@ const debouncedUpdate = useMemo(
 | POST /api/pair-similarity-score-histogram | Pair histogram + modality |
 | POST /api/umap-projection | Barycentric 2D positions (Stage 3) |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
+| POST /api/cold-start/representative | Representative features for cold start |
 | POST /api/activation-examples | On-demand activation data |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 

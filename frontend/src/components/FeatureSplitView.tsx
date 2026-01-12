@@ -669,9 +669,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             decoderSimilarity
           }
         })
-    } else if (pairList.length > 0) {
-      // Fallback: use sampled pairs (already has full metadata)
-      allPairs = pairList
+    } else if (rawPairList.length > 0) {
+      // Fallback: use raw pairs (not filtered by diversity mode)
+      allPairs = rawPairList
     }
 
     if (allPairs.length === 0) {
@@ -705,7 +705,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // Store in ref for use during histogram reload
     prevBoundaryItemsRef.current = result
     return result
-  }, [pairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
+  }, [rawPairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
 
   // Create Sets of preview pair keys (items in threshold regions that will be auto-tagged)
   // Separate sets to know which direction they'll be tagged
@@ -736,9 +736,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       case 'select':
         return boundaryItems.selectAbove
       default:
-        return pairList
+        return displayPairList
     }
-  }, [activeListSource, pairList, boundaryItems])
+  }, [activeListSource, displayPairList, boundaryItems])
 
   // Fetch activation examples for current pair when it changes
   useEffect(() => {
@@ -755,16 +755,16 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // All Pairs list click handler
   const handleAllPairsListClick = useCallback((pageRelativeIndex: number) => {
     const globalIndex = currentPage * PAIRS_PER_PAGE + pageRelativeIndex
-    if (globalIndex >= 0 && globalIndex < pairList.length) {
+    if (globalIndex >= 0 && globalIndex < displayPairList.length) {
       setActiveListSource('all')
       setCurrentPairIndex(globalIndex)
       // Pre-fetch activation examples for clicked pair
-      const pair = pairList[globalIndex]
+      const pair = displayPairList[globalIndex]
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [pairList, currentPage, fetchActivationExamples, setActiveListSource])
+  }, [displayPairList, currentPage, fetchActivationExamples, setActiveListSource])
 
   // Unified boundary list click handler (for ThresholdTaggingPanel)
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
@@ -975,6 +975,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               setCurrentPairIndex(0)
               setActiveListSource('all')
             }}
+            hideTagged={hideTagged}
             previewRejectKeys={previewRejectKeys}
             previewSelectKeys={previewSelectKeys}
             allPairsListProps={{
@@ -1007,7 +1008,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           leftListLabel="Monosemantic"
           rightListLabel="Fragmented"
           histogramProps={{
-            availablePairs: pairList,
+            availablePairs: rawPairList,
             filteredFeatureIds: selectedFeatureIds || undefined,
             threshold: clusteringThreshold
           }}

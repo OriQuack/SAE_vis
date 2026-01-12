@@ -31,6 +31,8 @@ interface UseTaggingNavigationOptions {
   navigationDelay?: number
   /** Whether histogram data is available (decision margin scores exist) */
   isHistogramReady?: boolean
+  /** Whether tagged items are hidden - disables auto-advance since item disappears from list */
+  hideTagged?: boolean
 }
 
 interface UseTaggingNavigationReturn {
@@ -53,15 +55,19 @@ export function useTaggingNavigation(
     onNavigateNext,
     onResetToFirst,
     navigationDelay = 150,
-    isHistogramReady = false
+    isHistogramReady = false,
+    hideTagged = false
   } = options
 
   // Auto-advance when viewing 'all' list AND either:
   // - NOT in decision margin mode, OR
   // - In decision margin mode but histogram not ready yet (list won't re-sort)
+  // IMPORTANT: Disable auto-advance when hideTagged is true, because the tagged item
+  // will disappear from the list and the next item will appear at the same index
   const shouldAutoAdvance = useMemo(() => {
+    if (hideTagged) return false
     return activeListSource === 'all' && (sortMode !== 'decisionMargin' || !isHistogramReady)
-  }, [activeListSource, sortMode, isHistogramReady])
+  }, [activeListSource, sortMode, isHistogramReady, hideTagged])
 
   // Whether we can advance (not at end of list)
   const canAdvance = currentIndex < listLength - 1
@@ -69,7 +75,12 @@ export function useTaggingNavigation(
   // Handle navigation after setting a tag (selected/rejected)
   // In decision margin mode WITH histogram: reset to first (list will re-sort)
   // Otherwise: advance to next if auto-advance enabled
+  // IMPORTANT: Skip all auto-navigation when hideTagged is true (item disappears, next appears at same index)
   const handlePostTagNavigation = useCallback(() => {
+    if (hideTagged) {
+      // Don't navigate - tagged item will disappear and next item appears at same index
+      return
+    }
     if (sortMode === 'decisionMargin' && isHistogramReady) {
       // Decision margin mode WITH histogram: reset to first item (list will re-sort after tagging)
       setTimeout(() => onResetToFirst(), navigationDelay)
@@ -78,7 +89,7 @@ export function useTaggingNavigation(
       setTimeout(() => onNavigateNext(), navigationDelay)
     }
     // Otherwise: stay on current item
-  }, [sortMode, isHistogramReady, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay])
+  }, [hideTagged, sortMode, isHistogramReady, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay])
 
   // Handle navigation after unsure click
   // Always advances (since clearing doesn't change sort order)

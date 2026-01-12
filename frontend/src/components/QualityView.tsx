@@ -620,7 +620,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     listLength: displayFeatures.length,
     onNavigateNext: handleNavigateNext,
     onResetToFirst: handleResetToFirst,
-    isHistogramReady: !!tagAutomaticState?.histogramData
+    isHistogramReady: !!tagAutomaticState?.histogramData,
+    hideTagged
   })
 
   // ============================================================================

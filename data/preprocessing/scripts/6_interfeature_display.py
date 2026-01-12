@@ -1,16 +1,19 @@
 #!/usr/bin/env python3
 """
-7_interfeature_display.py - Apply thresholds and classify inter-feature similarity pairs
+6_interfeature_display.py - Classify inter-feature similarity pairs by pattern type
 
-This script reads the raw inter-feature similarity data from script 6 and applies
-configurable thresholds to classify pairs into semantic_pairs and lexical_pairs.
+This script reads the raw inter-feature similarity data from script 5 and classifies
+pairs into pattern types (Semantic/Lexical/Both/None) based on configurable thresholds.
 
-Input: interfeature_activation_similarity_raw.parquet (from script 6)
-Output: interfeature_activation_similarity.parquet (filtered, classified)
+NO FILTERING: All pairs are included in output with their pattern_type classification,
+matching the approach used in 6_activation_display.py.
+
+Input: interfeature_activation_similarity_raw.parquet (from script 5)
+Output: interfeature_activation_similarity.parquet (classified, no filtering)
 
 Usage:
-    python 7_interfeature_display.py --config ../config/7_interfeature_display.json
-    python 7_interfeature_display.py --config ../config/7_interfeature_display.json --semantic-threshold 0.5
+    python 6_interfeature_display.py --config ../config/6_interfeature_display.json
+    python 6_interfeature_display.py --config ../config/6_interfeature_display.json --semantic-threshold 0.5
 """
 
 import argparse
@@ -70,7 +73,11 @@ def load_config(config_path: Optional[str] = None) -> Dict:
 
 
 class InterFeatureDisplayProcessor:
-    """Apply thresholds to raw inter-feature similarity data and classify pairs."""
+    """Classify inter-feature similarity pairs by pattern type (no filtering).
+
+    All pairs are included in output with pattern_type: "Semantic", "Lexical", "Both", or "None".
+    This matches the approach used in 6_activation_display.py.
+    """
 
     def __init__(self, config: Dict):
         """Initialize processor with configuration."""
@@ -89,10 +96,11 @@ class InterFeatureDisplayProcessor:
         self.stats = {
             "features_processed": 0,
             "total_pairs_input": 0,
-            "semantic_pairs_output": 0,
-            "lexical_pairs_output": 0,
-            "pairs_with_both_patterns": 0,
-            "pairs_below_threshold": 0
+            "total_pairs_output": 0,
+            "semantic_patterns": 0,
+            "lexical_patterns": 0,
+            "both_patterns": 0,
+            "no_patterns": 0
         }
 
     def _resolve_path(self, path_str: str) -> Path:
@@ -102,14 +110,17 @@ class InterFeatureDisplayProcessor:
             return self.project_root / path
         return path
 
-    def classify_pair(self, pair: Dict) -> List[str]:
+    def classify_pair(self, pair: Dict) -> str:
         """Classify a pair based on thresholds.
+
+        Uses the same logic as 6_activation_display.py: returns a single pattern_type
+        that can be "Semantic", "Lexical", "Both", or "None".
 
         Args:
             pair: Dictionary with pair metrics
 
         Returns:
-            List of pattern types: ["Semantic"], ["Lexical"], ["Semantic", "Lexical"], or []
+            Pattern type: "Semantic", "Lexical", "Both", or "None"
         """
         semantic_sim = pair.get("semantic_similarity")
         char_jaccard = pair.get("char_jaccard")
@@ -123,19 +134,22 @@ class InterFeatureDisplayProcessor:
         has_lexical = ((char_jaccard is not None and char_jaccard > char_threshold) or
                       (word_jaccard is not None and word_jaccard > word_threshold))
 
-        pattern_types = []
-        if has_semantic:
-            pattern_types.append("Semantic")
-        if has_lexical:
-            pattern_types.append("Lexical")
-
-        return pattern_types
+        if has_semantic and has_lexical:
+            return "Both"
+        elif has_semantic:
+            return "Semantic"
+        elif has_lexical:
+            return "Lexical"
+        else:
+            return "None"
 
     def process(self) -> pl.DataFrame:
-        """Process raw data and apply thresholds.
+        """Process raw data and classify pairs by pattern type.
+
+        NO FILTERING: All pairs are included with pattern_type classification.
 
         Returns:
-            Filtered DataFrame with semantic_pairs and lexical_pairs columns
+            DataFrame with all_pairs column containing classified pairs
         """
         logger.info(f"Loading raw data from {self.input_path}")
 
@@ -150,53 +164,53 @@ class InterFeatureDisplayProcessor:
         for row in raw_df.iter_rows(named=True):
             feature_id = row["feature_id"]
             sae_id = row["sae_id"]
-            all_pairs = row["all_pairs"] or []
+            input_pairs = row["all_pairs"] or []
 
             self.stats["features_processed"] += 1
-            self.stats["total_pairs_input"] += len(all_pairs)
+            self.stats["total_pairs_input"] += len(input_pairs)
 
-            semantic_pairs = []
-            lexical_pairs = []
+            classified_pairs = []
 
-            for pair in all_pairs:
+            for pair in input_pairs:
                 # Convert struct to dict if needed
                 if hasattr(pair, '_asdict'):
                     pair = pair._asdict()
                 elif not isinstance(pair, dict):
                     pair = dict(pair)
 
-                pattern_types = self.classify_pair(pair)
+                # Classify pair (returns "Semantic", "Lexical", "Both", or "None")
+                pattern_type = self.classify_pair(pair)
 
-                if not pattern_types:
-                    self.stats["pairs_below_threshold"] += 1
-                    continue
+                # Update pattern stats
+                if pattern_type == "Semantic":
+                    self.stats["semantic_patterns"] += 1
+                elif pattern_type == "Lexical":
+                    self.stats["lexical_patterns"] += 1
+                elif pattern_type == "Both":
+                    self.stats["both_patterns"] += 1
+                else:
+                    self.stats["no_patterns"] += 1
 
-                if len(pattern_types) == 2:
-                    self.stats["pairs_with_both_patterns"] += 1
-
-                # Add pattern_type field and append to appropriate lists
-                for ptype in pattern_types:
-                    pair_with_type = dict(pair)
-                    pair_with_type["pattern_type"] = ptype
-
-                    if ptype == "Semantic":
-                        semantic_pairs.append(pair_with_type)
-                        self.stats["semantic_pairs_output"] += 1
-                    elif ptype == "Lexical":
-                        lexical_pairs.append(pair_with_type)
-                        self.stats["lexical_pairs_output"] += 1
+                # Add pattern_type field - NO FILTERING, all pairs included
+                pair_with_type = dict(pair)
+                pair_with_type["pattern_type"] = pattern_type
+                classified_pairs.append(pair_with_type)
+                self.stats["total_pairs_output"] += 1
 
             results.append({
                 "feature_id": feature_id,
                 "sae_id": sae_id,
-                "semantic_pairs": semantic_pairs,
-                "lexical_pairs": lexical_pairs
+                "all_pairs": classified_pairs
             })
 
         logger.info(f"Processed {self.stats['features_processed']} features")
         logger.info(f"Input pairs: {self.stats['total_pairs_input']}")
-        logger.info(f"Output - Semantic: {self.stats['semantic_pairs_output']}, Lexical: {self.stats['lexical_pairs_output']}")
-        logger.info(f"Pairs below threshold: {self.stats['pairs_below_threshold']}")
+        logger.info(f"Output pairs: {self.stats['total_pairs_output']}")
+        logger.info(f"Pattern distribution:")
+        logger.info(f"  - Semantic: {self.stats['semantic_patterns']}")
+        logger.info(f"  - Lexical: {self.stats['lexical_patterns']}")
+        logger.info(f"  - Both: {self.stats['both_patterns']}")
+        logger.info(f"  - None: {self.stats['no_patterns']}")
 
         return self._create_dataframe(results)
 
@@ -212,15 +226,14 @@ class InterFeatureDisplayProcessor:
         df = df.with_columns([
             pl.col("feature_id").cast(pl.UInt32),
             pl.col("sae_id").cast(pl.Categorical),
-            pl.col("semantic_pairs").cast(target_schema["semantic_pairs"]),
-            pl.col("lexical_pairs").cast(target_schema["lexical_pairs"])
+            pl.col("all_pairs").cast(target_schema["all_pairs"])
         ])
 
         return df
 
     def _get_target_schema(self) -> Dict:
         """Get the target schema with proper types."""
-        # Position structures (same as script 6)
+        # Position structures (same as script 5)
         char_position_struct = pl.Struct([
             pl.Field("token_position", pl.UInt16),
             pl.Field("char_offset", pl.UInt8)
@@ -236,11 +249,11 @@ class InterFeatureDisplayProcessor:
             pl.Field("positions", pl.List(pl.UInt16))
         ])
 
-        # Pair struct WITH pattern_type field (for filtered output)
+        # Pair struct WITH pattern_type field (classified output, no filtering)
         pair_struct = pl.Struct([
             pl.Field("similar_feature_id", pl.UInt32),
             pl.Field("decoder_similarity", pl.Float32),
-            pl.Field("pattern_type", pl.Utf8),
+            pl.Field("pattern_type", pl.Utf8),  # "Semantic", "Lexical", "Both", or "None"
             pl.Field("semantic_similarity", pl.Float32),
             pl.Field("char_jaccard", pl.Float32),
             pl.Field("word_jaccard", pl.Float32),
@@ -262,8 +275,7 @@ class InterFeatureDisplayProcessor:
         return {
             "feature_id": pl.UInt32,
             "sae_id": pl.Categorical,
-            "semantic_pairs": pl.List(pair_struct),
-            "lexical_pairs": pl.List(pair_struct)
+            "all_pairs": pl.List(pair_struct)
         }
 
     def _create_empty_dataframe(self) -> pl.DataFrame:
@@ -280,21 +292,19 @@ class InterFeatureDisplayProcessor:
 
         # Calculate statistics
         if len(df) > 0:
-            features_with_semantic = int((df["semantic_pairs"].list.len() > 0).sum())
-            features_with_lexical = int((df["lexical_pairs"].list.len() > 0).sum())
-            features_with_any = int(((df["semantic_pairs"].list.len() > 0) |
-                                     (df["lexical_pairs"].list.len() > 0)).sum())
-
-            total_semantic = int(df["semantic_pairs"].list.len().sum())
-            total_lexical = int(df["lexical_pairs"].list.len().sum())
+            features_with_pairs = int((df["all_pairs"].list.len() > 0).sum())
+            total_pairs = int(df["all_pairs"].list.len().sum())
 
             result_stats = {
-                "features_with_any_pairs": features_with_any,
-                "features_with_semantic_pairs": features_with_semantic,
-                "features_with_lexical_pairs": features_with_lexical,
-                "total_semantic_pairs": total_semantic,
-                "total_lexical_pairs": total_lexical,
-                "mean_pairs_per_feature": float((total_semantic + total_lexical) / len(df)) if len(df) > 0 else 0
+                "features_with_pairs": features_with_pairs,
+                "total_pairs": total_pairs,
+                "mean_pairs_per_feature": float(total_pairs / len(df)) if len(df) > 0 else 0,
+                "pattern_distribution": {
+                    "semantic": self.stats["semantic_patterns"],
+                    "lexical": self.stats["lexical_patterns"],
+                    "both": self.stats["both_patterns"],
+                    "none": self.stats["no_patterns"]
+                }
             }
         else:
             result_stats = {}
@@ -302,8 +312,8 @@ class InterFeatureDisplayProcessor:
         # Save metadata
         metadata = {
             "created_at": datetime.now().isoformat(),
-            "script_version": "1.0",
-            "architecture": "threshold_filtered_pattern_classified",
+            "script_version": "2.0",
+            "architecture": "no_filtering_pattern_classified",
             "sae_id": self.sae_id,
             "total_rows": len(df),
             "schema": {col: str(df[col].dtype) for col in df.columns},
@@ -324,7 +334,7 @@ class InterFeatureDisplayProcessor:
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(
-        description='Apply thresholds to inter-feature similarity data'
+        description='Classify inter-feature similarity pairs by pattern type (no filtering)'
     )
     parser.add_argument(
         '--config', '-c',

@@ -531,26 +531,16 @@ class PairSimilarityService:
                 pl.col("feature_id").is_in(feature_ids)
             ).collect()
 
-            # Use Polars list operations to extract max values from nested structures
+            # Use Polars list operations to extract max values from all_pairs
+            # Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
             result_df = df.select([
                 "feature_id",
-                # Extract max char_jaccard from both semantic_pairs and lexical_pairs
-                pl.max_horizontal([
-                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0),
-                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0)
-                ]).alias("max_char_jaccard"),
-
-                # Extract max word_jaccard from both semantic_pairs and lexical_pairs
-                pl.max_horizontal([
-                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0),
-                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0)
-                ]).alias("max_word_jaccard"),
-
-                # Extract max semantic_similarity from both pairs
-                pl.max_horizontal([
-                    pl.col("semantic_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0),
-                    pl.col("lexical_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0)
-                ]).alias("max_semantic_sim")
+                # Extract max char_jaccard from all_pairs
+                pl.col("all_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0).alias("max_char_jaccard"),
+                # Extract max word_jaccard from all_pairs
+                pl.col("all_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0).alias("max_word_jaccard"),
+                # Extract max semantic_similarity from all_pairs
+                pl.col("all_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0).alias("max_semantic_sim")
             ]).select([
                 "feature_id",
                 # Combine char and word jaccard to get final inter_ngram_jaccard

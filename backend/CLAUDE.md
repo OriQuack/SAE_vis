@@ -177,13 +177,25 @@ async def get_cause_classification(feature_ids, cause_selections):
     # Returns predicted_category and decision_scores per feature
 ```
 
+### 8. Cold Start Service
+Diversity-based representative sampling for initializing tagging:
+
+```python
+# services/cold_start_service.py
+async def get_representative_features(feature_ids, n_samples, method):
+    # Weighted diversity sampling using activation embeddings
+    # Supports multiple methods: weighted_diversity, random, kmeans
+    # Uses interfeature similarity for diversity calculation
+    # Returns representative feature IDs for cold start
+```
+
 ## Project Structure
 
 ```
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (9 files)
+│   ├── api/                       # API endpoints (10 files)
 │   │   ├── __init__.py           # Router aggregation
 │   │   ├── feature_groups.py     # Feature grouping
 │   │   ├── cluster_candidates.py # Clustering endpoint
@@ -192,11 +204,13 @@ backend/
 │   │   ├── histogram.py          # Histogram data
 │   │   ├── table.py              # Table data
 │   │   ├── activation_examples.py # Activation data
-│   │   └── umap.py               # UMAP projections
+│   │   ├── umap.py               # UMAP projections
+│   │   └── cold_start.py         # Cold start representative sampling
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
-│   │   └── responses.py          # Response models
-│   └── services/                  # Business logic (13 files)
+│   │   ├── responses.py          # Response models
+│   │   └── cold_start.py         # Cold start models
+│   └── services/                  # Business logic (14 files)
 │       ├── data_service.py           # Data loading + initialization
 │       ├── data_constants.py         # Metric definitions
 │       ├── feature_group_service.py  # Feature grouping
@@ -209,7 +223,8 @@ backend/
 │       ├── activation_cache_service.py # Cached activation data
 │       ├── umap_service.py           # Barycentric projection + SVM classification
 │       ├── consistency_service.py    # Consistency metrics
-│       └── pair_similarity_service.py # Pair SVM scoring (19-dimensional vectors)
+│       ├── pair_similarity_service.py # Pair SVM scoring (19-dimensional vectors)
+│       └── cold_start_service.py     # Diversity-based representative sampling
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
 └── requirements.txt               # Dependencies
@@ -421,6 +436,27 @@ SVM cause classification for features (Stage 3)
 }
 ```
 
+#### POST /api/cold-start/representative
+Get representative features for cold start initialization using diversity sampling
+
+**Request**:
+```json
+{
+  "feature_ids": [1, 2, 3, 4, 5, ...],
+  "n_samples": 10,
+  "method": "weighted_diversity"
+}
+```
+
+**Response**:
+```json
+{
+  "representative_ids": [42, 156, 789, ...],
+  "total_features": 1000,
+  "method_used": "weighted_diversity"
+}
+```
+
 ### Supporting Endpoints
 
 | Endpoint | Purpose |
@@ -468,6 +504,18 @@ SVM cause classification for features (Stage 3)
   - nearest_anchor (closest cause category anchor)
   - cluster_id (HDBSCAN cluster assignment)
   - Metric scores: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
+
+#### interfeature_activation_similarity.parquet
+- **Location**: `/data/master/interfeature_activation_similarity.parquet`
+- **Purpose**: Cross-feature activation pattern similarity for diversity sampling
+- **Key Columns**:
+  - feature_id, similar_feature_id
+  - similarity_score (Jaccard-based)
+- **Used by**: Cold start service for representative sampling
+
+#### interfeature_activation_similarity_raw.parquet
+- **Location**: `/data/master/interfeature_activation_similarity_raw.parquet`
+- **Purpose**: Raw interfeature similarity data before aggregation
 
 ## Development Workflow
 
@@ -583,6 +631,7 @@ Services are initialized in `main.py` lifespan in this order:
 4. **HierarchicalClusterCandidateService** - Load decoder weights
 5. **SimilaritySortService** - Initialize with cluster service
 6. **ActivationCacheService** - Pre-compute msgpack blob
+7. **ColdStartService** - Load interfeature similarity data
 
 ## Common Issues & Solutions
 

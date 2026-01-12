@@ -396,21 +396,13 @@ class ColdStartService:
                     pl.col("feature_id").is_in(feature_ids)
                 ).collect()
 
-                # Extract max jaccard and semantic similarity from nested structures
+                # Extract max jaccard and semantic similarity from all_pairs
+                # Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
                 inter_df = inter_df.select([
                     "feature_id",
-                    pl.max_horizontal([
-                        pl.col("semantic_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0),
-                        pl.col("lexical_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0)
-                    ]).alias("max_char"),
-                    pl.max_horizontal([
-                        pl.col("semantic_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0),
-                        pl.col("lexical_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0)
-                    ]).alias("max_word"),
-                    pl.max_horizontal([
-                        pl.col("semantic_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0),
-                        pl.col("lexical_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0)
-                    ]).alias("inter_semantic_sim")
+                    pl.col("all_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0).alias("max_char"),
+                    pl.col("all_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0).alias("max_word"),
+                    pl.col("all_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0).alias("inter_semantic_sim")
                 ]).select([
                     "feature_id",
                     pl.max_horizontal("max_char", "max_word").alias("inter_ngram_jaccard"),

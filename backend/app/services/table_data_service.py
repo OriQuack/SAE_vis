@@ -407,9 +407,9 @@ class TableDataService:
 
         Returns DataFrame with:
         - feature_id
-        - semantic_pairs: List(Struct) with similar features based on semantic similarity
-        - lexical_pairs: List(Struct) with similar features based on lexical patterns
-        - both_pairs: List(Struct) with similar features showing both patterns
+        - all_pairs: List(Struct) with all similar features and pattern_type classification
+          - pattern_type: "Semantic" | "Lexical" | "Both" | "None"
+          - No filtering - all pairs included regardless of threshold
 
         Args:
             feature_ids: List of feature IDs to filter
@@ -462,31 +462,28 @@ class TableDataService:
         if len(feature_interf) == 0:
             return lookup
 
-        # Process semantic first, then lexical (lexical overwrites if duplicate - V4.0)
-        for category in ["semantic_pairs", "lexical_pairs"]:
-            # Convert Polars Series to Python list to access nested data properly
-            pairs_list = feature_interf[category].to_list()[0]
+        # Process all_pairs (schema: pattern_type can be "Semantic", "Lexical", "Both", or "None")
+        pairs_list = feature_interf["all_pairs"].to_list()[0]
 
-            if pairs_list is None:
-                continue
+        if pairs_list is None:
+            return lookup
 
-            for pair in pairs_list:
-                similar_feature_id = int(pair["similar_feature_id"])
+        for pair in pairs_list:
+            similar_feature_id = int(pair["similar_feature_id"])
 
-                # Store similarity info with position data (V4.0)
-                lookup[similar_feature_id] = {
-                    "pattern_type": pair["pattern_type"],
-                    "semantic_similarity": float(pair["semantic_similarity"]) if pair["semantic_similarity"] is not None else None,
-                    "char_jaccard": float(pair["char_jaccard"]) if pair["char_jaccard"] is not None else None,
-                    "word_jaccard": float(pair["word_jaccard"]) if pair["word_jaccard"] is not None else None,
-                    "max_char_ngram": pair["max_char_ngram"],
-                    "max_word_ngram": pair["max_word_ngram"],
-                    # NEW: Position fields (V4.0)
-                    "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
-                    "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
-                    "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
-                }
+            # Store similarity info with position data
+            lookup[similar_feature_id] = {
+                "pattern_type": pair["pattern_type"],
+                "semantic_similarity": float(pair["semantic_similarity"]) if pair["semantic_similarity"] is not None else None,
+                "char_jaccard": float(pair["char_jaccard"]) if pair["char_jaccard"] is not None else None,
+                "word_jaccard": float(pair["word_jaccard"]) if pair["word_jaccard"] is not None else None,
+                "max_char_ngram": pair["max_char_ngram"],
+                "max_word_ngram": pair["max_word_ngram"],
+                "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
+                "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
+                "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
+                "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
+            }
 
         return lookup
 
@@ -897,46 +894,45 @@ class TableDataService:
         Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v3.0 - OPTIMIZED).
         This replaces the per-feature _build_interfeature_lookup() which was called 14,316 times.
         Uses vectorized column extraction for better performance.
+
+        Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
         """
         all_lookups = {}
 
         # Extract columns as lists (faster than iter_rows for outer loop)
         feature_ids = interfeature_df["feature_id"].to_list()
-        semantic_pairs_list = interfeature_df["semantic_pairs"].to_list()
-        lexical_pairs_list = interfeature_df["lexical_pairs"].to_list()
+        all_pairs_list = interfeature_df["all_pairs"].to_list()
 
         # ⚡ OPTIMIZED: Iterate using zip with reduced type conversions
-        for feature_id, semantic_pairs, lexical_pairs in zip(feature_ids, semantic_pairs_list, lexical_pairs_list):
+        for feature_id, pairs in zip(feature_ids, all_pairs_list):
             if feature_id not in all_lookups:
                 all_lookups[feature_id] = {}
 
-            # Process semantic first, then lexical (lexical overwrites if duplicate)
-            for category, pairs_list in [("semantic", semantic_pairs), ("lexical", lexical_pairs)]:
-                if pairs_list is None:
-                    continue
+            if pairs is None:
+                continue
 
-                for pair in pairs_list:
-                    # ⚡ OPTIMIZATION: similar_feature_id is already int from Polars
-                    similar_feature_id = pair["similar_feature_id"]
+            for pair in pairs:
+                # ⚡ OPTIMIZATION: similar_feature_id is already int from Polars
+                similar_feature_id = pair["similar_feature_id"]
 
-                    # ⚡ OPTIMIZATION: Reduced conditional checks - only convert if not None
-                    # Most values are already correct types from Polars
-                    sem_sim = pair["semantic_similarity"]
-                    char_jacc = pair["char_jaccard"]
-                    word_jacc = pair["word_jaccard"]
+                # ⚡ OPTIMIZATION: Reduced conditional checks - only convert if not None
+                # Most values are already correct types from Polars
+                sem_sim = pair["semantic_similarity"]
+                char_jacc = pair["char_jaccard"]
+                word_jacc = pair["word_jaccard"]
 
-                    all_lookups[feature_id][similar_feature_id] = {
-                        "pattern_type": pair["pattern_type"],
-                        "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
-                        "char_jaccard": float(char_jacc) if char_jacc is not None else None,
-                        "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                        "max_char_ngram": pair["max_char_ngram"],
-                        "max_word_ngram": pair["max_word_ngram"],
-                        "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
-                        "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
-                        "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                        "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
-                    }
+                all_lookups[feature_id][similar_feature_id] = {
+                    "pattern_type": pair["pattern_type"],
+                    "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
+                    "char_jaccard": float(char_jacc) if char_jacc is not None else None,
+                    "word_jaccard": float(word_jacc) if word_jacc is not None else None,
+                    "max_char_ngram": pair["max_char_ngram"],
+                    "max_word_ngram": pair["max_word_ngram"],
+                    "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
+                    "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
+                    "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
+                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
+                }
 
         return all_lookups
 
