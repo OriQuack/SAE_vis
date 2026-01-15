@@ -48,7 +48,7 @@ const METRICS: MetricConfig[] = [
 ]
 
 // Layout constants
-const MARGIN = { top: 6, right: 30, bottom: 32, left: 30 }
+const MARGIN = { top: 6, right: 14, bottom: 28, left: 24 }
 const MIN_WIDTH = 250
 const MIN_HEIGHT = 80
 
@@ -205,7 +205,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
               />
               <text
                 x={axis.x}
-                y={innerHeight + 15}
+                y={innerHeight + (i % 2 === 0 ? 4 : 16)}
                 className="cause-metric-parallel-coords__axis-label"
               >
                 {axis.label}

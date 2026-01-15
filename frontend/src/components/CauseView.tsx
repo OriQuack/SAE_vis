@@ -13,7 +13,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
-import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
+import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import {
   calculateCauseMetricScores,
@@ -522,11 +522,13 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates, causeSelectionSources, hideTagged])
 
-  // Apply visibility filters AFTER sorting (except diversity mode which bypasses all filters)
+  // Apply visibility filters AFTER sorting
   const sortedFilteredFeatureList = useMemo(() => {
     if (sortMode === 'diversity') {
-      // Diversity mode: hook already filtered to medoids, no additional filtering
-      return sortedFeatureItems.map(item => item.featureId)
+      // Diversity mode: hook already filtered to medoids, but still apply hideTagged filter
+      const featureIds = sortedFeatureItems.map(item => item.featureId)
+      if (!hideTagged) return featureIds
+      return featureIds.filter(featureId => causeSelectionSources.get(featureId) !== 'manual')
     }
 
     // Other modes: apply visibility filters
@@ -813,6 +815,18 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentSelectedIndex(i => Math.min(sortedFilteredFeatureList.length - 1, i + 1))
   }, [sortedFilteredFeatureList.length])
 
+  // Post-tagging navigation hook (same pattern as FeatureSplitView and QualityView)
+  const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
+    activeListSource: 'all',  // CauseView only has one list
+    sortMode,
+    currentIndex: currentSelectedIndex,
+    listLength: sortedFilteredFeatureList.length,
+    onNavigateNext: handleNavigateNext,
+    onResetToFirst: () => setCurrentSelectedIndex(0),
+    isHistogramReady: causeCategoryDecisionMargins.size > 0,
+    hideTagged
+  })
+
   // ============================================================================
   // TAG BUTTON HANDLERS
   // ============================================================================
@@ -841,12 +855,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (isSameCategory && !isAutoTagged) {
       // Already manually selected same category - toggle off to unsure
       setCauseCategory(featureId, null)
+      handlePostUnsureNavigation()
       return
     }
 
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory])
+    handlePostTagNavigation()
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, handlePostTagNavigation, handlePostUnsureNavigation])
 
   // Handle Unsure click - clear cause category
   const handleUnsureClick = useCallback(() => {
@@ -855,7 +871,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     // Clear the cause category to null (unsure)
     setCauseCategory(featureId, null)
-  }, [selectedFeatureData, setCauseCategory])
+    handlePostUnsureNavigation()
+  }, [selectedFeatureData, setCauseCategory, handlePostUnsureNavigation])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -1165,39 +1182,15 @@ const CauseView: React.FC<CauseViewProps> = ({
             onHideTaggedChange={setHideTagged}
           />
 
-          {/* Main content: Top row + Bottom action bar */}
+          {/* Main content: Two rows (50/50 split) */}
           <div className="cause-view__content">
-          {/* Top row: Left column (top panel + UMAP) + Right panel */}
-          <div className="cause-view__row-top">
-            {/* Left column - histogram/list on top, UMAP below */}
-            <div className="cause-view__left-column">
-              {/* Top panel - histogram + scrollable list side by side, NO padding/margin */}
-              <div className="cause-view__top-panel">
-                {/* Histogram section with header */}
-                <div className="cause-view__histogram-section">
-                  <div className="cause-view__header-row">
-                    <h4 className="subheader">Unsure Boundary</h4>
-                    <span className="subheader__value">
-                      {sortMode === 'decisionMargin' && selectedSortDirection === 'desc' ? 'Top' : 'Low'} {_targetPercentage}%
-                    </span>
-                  </div>
-                  <CauseMarginHistogram
-                    featureIds={selectedFeatureIds || new Set()}
-                    causeCategoryDecisionMargins={causeCategoryDecisionMargins}
-                    causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
-                    causeSelectionSources={causeSelectionSources}
-                    threshold={causeMarginThreshold}
-                    onThresholdChange={setCauseMarginThreshold}
-                    height={190}
-                    sortMode={sortMode}
-                    sortDirection={selectedSortDirection}
-                    onPercentageChange={setTargetPercentage}
-                    canTrainSVM={canTrainSVM}
-                    manualTagCountsByCategory={manualTagCountsByCategory}
-                  />
-                </div>
+            {/* ============================================================ */}
+            {/* TOP ROW: List (fixed 220px) + Right Panel (flex: 1)          */}
+            {/* ============================================================ */}
+            <div className="cause-view__row-top">
+              {/* Left: ScrollableItemList (fixed 220px width) */}
+              <div className="cause-view__top-list-wrapper">
                 <ScrollableItemList
-                  className="cause-view__top-list"
                   variant="causeBrushed"
                   badges={[{
                     label: sortMode === 'diversity' && !svmTrainingStarted
@@ -1218,46 +1211,29 @@ const CauseView: React.FC<CauseViewProps> = ({
                 />
               </div>
 
-              {/* UMAP wrapper - fills remaining vertical space */}
-              <div className="cause-view__umap-wrapper">
-                <UMAPScatter
-                  featureIds={stableFeatureIds}
-                  className="cause-view__umap"
-                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
-                  visibleCategories={visibleCategories}
-                  onVisibleCategoriesChange={setVisibleCategories}
-                  onFeatureSelect={handleUMAPFeatureSelect}
-                  sortMode={sortMode}
-                  sortDirection={selectedSortDirection}
-                  filterByTag={isTopMode ? filterByTag : null}
-                />
-              </div>
-            </div>
-
-            {/* Right: Activation examples, explanations, and action buttons */}
-            <div className="cause-view__right-panel" ref={rightPanelRef}>
-              {/* Feature detail section */}
-              <div className="cause-view__detail-section">
+              {/* Right: Feature detail panel */}
+              <div className="cause-view__top-right-panel" ref={rightPanelRef}>
                 {selectedFeatureData ? (
                   <>
-                    {/* Header row */}
+                    {/* ---- Activation Section (top half) ---- */}
+                    {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
                       <h4 className="subheader">Activation Examples</h4>
                       <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
-                    </div>
-                    {/* Activation legend */}
-                    <div className="cause-view__legend">
-                      <div className="legend-item">
-                        <span className="legend-sample legend-sample--activation">token</span>:
-                        <span className="legend-label">Activation Strength</span>
+                      <div style={{ flex: 1 }} />
+                      {/* Activation legend */}
+                      <div className="cause-view__legend">
+                        <div className="legend-item">
+                          <span className="legend-sample legend-sample--activation">token</span>:
+                          <span className="legend-label">Activation Strength</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-sample legend-sample--intra">token</span>:
+                          <span className="legend-label">Feature-Specific Pattern</span>
+                        </div>
                       </div>
-                      <div className="legend-item">
-                        <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Feature-Specific Pattern</span>
-                      </div>
                     </div>
-
-                    {/* Activation Examples Section */}
+                    {/* Activation section - content only (HAS border) */}
                     <div className="cause-view__activation-section">
                       <div className="cause-view__activation-examples">
                         {selectedFeatureData.activation ? (
@@ -1274,96 +1250,98 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Parallel Coordinates - between activation and explanation */}
-                    <div className="cause-view__metrics-header">
-                      <h4 className="subheader">Metrics</h4>
-                      <div className="cause-view__metrics-legend">
-                        <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
-                          </svg>
-                          <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
-                        </div>
-                        <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
-                            <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
-                          </svg>
-                          <span className="legend-label">Current Feature</span>
-                        </div>
-                        <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
-                          </svg>
-                          <span className="legend-label">Random (0.5)</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="cause-view__metrics-container">
-                      <CauseMetricParallelCoords
-                        wellExplainedScores={wellExplainedScores}
-                        currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                      />
-                    </div>
-
-                    {/* Best Explanation Header */}
-                    <div className="cause-view__explanation-header">
-                      <span className="subheader subheader--with-value">
-                        Best Explanation
-                        <span className="subheader__label">Quality Score:</span>
-                        <span className="subheader__value">
-                          {bestExplanation?.qualityScore !== undefined ? bestExplanation.qualityScore.toFixed(3) : 'N/A'}
+                    {/* ---- Bottom section: Best Explanation (metrics + text in one border) ---- */}
+                    <div className="cause-view__detail-bottom-row">
+                      {/* Header - OUTSIDE bordered container */}
+                      <div className="cause-view__explanation-header">
+                        <span className="subheader subheader--with-value">
+                          Best Explanation
+                          <span className="subheader__label">Quality Score:</span>
+                          <span className="subheader__value">
+                            {bestExplanation?.qualityScore !== undefined ? bestExplanation.qualityScore.toFixed(3) : 'N/A'}
+                          </span>
                         </span>
-                      </span>
-                    </div>
-                    {/* Semantic similarity legend */}
-                    <div className="cause-view__explanation-legend">
-                      <span className="legend-group-label">Common Phrase Semantic Similarity:</span>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
-                        <span className="legend-label">≥0.85</span>
                       </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
-                        <span className="legend-label">≥0.70</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                        <span className="legend-label">≥0.60</span>
-                      </div>
-                    </div>
-
-                    {/* Explanation Section */}
-                    <div className="cause-view__explanation-section">
-                      <div className="cause-view__explanation-content">
-                        {bestExplanation ? (
-                          <div className="cause-view__explainer-block">
-                            <span
-                              className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
-                            >
-                              {getExplainerDisplayName(bestExplanation.explainerId)}
-                            </span>
-                            <span className="cause-view__explainer-text">
-                              {bestExplanation.highlightedExplanation?.segments ? (
-                                <HighlightedExplanation
-                                  segments={bestExplanation.highlightedExplanation.segments}
-                                  truncated={false}
-                                  hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
-                                />
-                              ) : (
-                                <span className="cause-view__no-explanation">
-                                  {bestExplanation.explanationText || 'No explanation available'}
-                                </span>
-                              )}
-                            </span>
+                      {/* Combined legend row */}
+                      <div className="cause-view__combined-legend">
+                        {/* Metrics legend */}
+                        <div className="cause-view__metrics-legend">
+                          <div className="legend-item">
+                            <svg width="24" height="12">
+                              <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
+                            </svg>
+                            <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
                           </div>
-                        ) : (
-                          <span className="cause-view__no-explanation">No explanations available</span>
-                        )}
+                          <div className="legend-item">
+                            <svg width="24" height="12">
+                              <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
+                              <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
+                            </svg>
+                            <span className="legend-label">Current</span>
+                          </div>
+                          <div className="legend-item">
+                            <svg width="24" height="12">
+                              <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
+                            </svg>
+                            <span className="legend-label">Random</span>
+                          </div>
+                        </div>
+                        <span className="legend-separator">|</span>
+                        {/* Semantic similarity legend */}
+                        <div className="cause-view__explanation-legend">
+                          <span className="legend-group-label">Phrase Similarity:</span>
+                          <div className="legend-item">
+                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
+                            <span className="legend-label">≥0.85</span>
+                          </div>
+                          <div className="legend-item">
+                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
+                            <span className="legend-label">≥0.70</span>
+                          </div>
+                          <div className="legend-item">
+                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
+                            <span className="legend-label">≥0.60</span>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Content section (HAS border) - metrics + explanation side by side */}
+                      <div className="cause-view__explanation-section">
+                        <div className="cause-view__metrics-container">
+                          <CauseMetricParallelCoords
+                            wellExplainedScores={wellExplainedScores}
+                            currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                          />
+                        </div>
+                        <div className="cause-view__explanation-content">
+                          {bestExplanation ? (
+                            <div className="cause-view__explainer-block">
+                              <span
+                                className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
+                              >
+                                {getExplainerDisplayName(bestExplanation.explainerId)}
+                              </span>
+                              <span className="cause-view__explainer-text">
+                                {bestExplanation.highlightedExplanation?.segments ? (
+                                  <HighlightedExplanation
+                                    segments={bestExplanation.highlightedExplanation.segments}
+                                    truncated={false}
+                                    hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
+                                  />
+                                ) : (
+                                  <span className="cause-view__no-explanation">
+                                    {bestExplanation.explanationText || 'No explanation available'}
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="cause-view__no-explanation">No explanations available</span>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {/* Floating control panel at bottom */}
+                    {/* ---- Floating control panel ---- */}
                     <div className="cause-view__floating-controls">
                       {/* Previous button */}
                       <button
@@ -1429,289 +1407,330 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </div>
                 )}
               </div>
+            </div>
 
-              {/* Action buttons section - always visible below detail */}
-              <div className="cause-view__action-buttons">
+            {/* ============================================================ */}
+            {/* BOTTOM ROW: UMAP (1/3) + Histogram (1/3) + Batch Tagging (1/3) */}
+            {/* ============================================================ */}
+            <div className="cause-view__row-bottom">
+              {/* Left: UMAP Scatter */}
+              <div className="cause-view__bottom-left">
+                <UMAPScatter
+                  featureIds={stableFeatureIds}
+                  className="cause-view__umap"
+                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
+                  visibleCategories={visibleCategories}
+                  onVisibleCategoriesChange={setVisibleCategories}
+                  onFeatureSelect={handleUMAPFeatureSelect}
+                  sortMode={sortMode}
+                  sortDirection={selectedSortDirection}
+                  filterByTag={isTopMode ? filterByTag : null}
+                />
+              </div>
+
+              {/* Center: Histogram */}
+              <div className="cause-view__bottom-center">
+                <div className="cause-view__header-row">
+                  <h4 className="subheader">Unsure Boundary</h4>
+                  <span className="subheader__value">
+                    {sortMode === 'decisionMargin' && selectedSortDirection === 'desc' ? 'Top' : 'Low'} {_targetPercentage}%
+                  </span>
+                </div>
+                <CauseMarginHistogram
+                  featureIds={selectedFeatureIds || new Set()}
+                  causeCategoryDecisionMargins={causeCategoryDecisionMargins}
+                  causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
+                  causeSelectionSources={causeSelectionSources}
+                  threshold={causeMarginThreshold}
+                  onThresholdChange={setCauseMarginThreshold}
+                  height={undefined}
+                  sortMode={sortMode}
+                  sortDirection={selectedSortDirection}
+                  onPercentageChange={setTargetPercentage}
+                  canTrainSVM={canTrainSVM}
+                  manualTagCountsByCategory={manualTagCountsByCategory}
+                />
+              </div>
+
+              {/* Right: Batch Tagging */}
+              <div className="cause-view__bottom-right">
                 <h4 className="subheader">Batch Tagging</h4>
                 {/* Show placeholder only if user has never clicked "Most Confident First" */}
                 {!isTopMode && !hasEverBeenTopMode ? (
                   // Substage 2: Need to switch to "Most Confident First" mode
                   <div className="cause-view__batch-placeholder">
-                    <div className="cause-view__batch-placeholder-content">
-                      <div className="cause-view__batch-placeholder-instruction">
-                        <span className="cause-view__batch-placeholder-number">2</span>
-                        Click "Most Confident First" to enable batch tagging
-                      </div>
+                    <div className="cause-view__batch-placeholder-instruction">
+                      <span className="cause-view__batch-placeholder-number">2</span>
+                      Click "Most Confident First" to enable batch tagging
                     </div>
                   </div>
                 ) : (
                   // Batch tagging available - show buttons
                   <>
-                {/* Legend for swatch patterns */}
-                <div className="cause-view__swatch-legend">
-                  <div className="cause-view__swatch-legend-item">
-                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': '#000000' } as React.CSSProperties} />
-                    <span className="cause-view__swatch-legend-label">Preview</span>
-                  </div>
-                  <div className="cause-view__swatch-legend-item">
-                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                    <span className="cause-view__swatch-legend-label">Pattern Miss</span>
-                  </div>
-                  <div className="cause-view__swatch-legend-item">
-                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                    <span className="cause-view__swatch-legend-label">Context Miss</span>
-                  </div>
-                  <div className="cause-view__swatch-legend-item">
-                    <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                    <span className="cause-view__swatch-legend-label">Noisy Activation</span>
-                  </div>
-                  <div className="cause-view__swatch-legend-item">
-                    <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                    <span className="cause-view__swatch-legend-label">Unsure</span>
-                  </div>
-                </div>
-                {/* Row 1: Tag Confident Features as specific categories */}
-                <div className="cause-view__action-section">
-                  <div className="cause-view__action-row">
-                    <div className="action-button-item">
-                      <button
-                        className="action-button action-button--with-icon"
-                        onClick={() => handleTagSelectedAs('missed-N-gram')}
-                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
-                        title="Confirm all Pattern Miss predictions"
-                      >
-                        <ThresholdHandleIcon
-                          className="batch-button-icon"
-                          orientation="horizontal"
-                        />
-                        <span className="batch-button-text">Confirm Confident<br />Pattern Miss</span>
-                      </button>
-                      <div className="action-button__legend">
-                        {isTopMode ? (
-                          filteredBatchComposition.patternMiss > 0 ? (
-                            <>
+                    {/* Legend for swatch patterns */}
+                    <div className="cause-view__swatch-legend">
+                      <div className="cause-view__swatch-legend-item">
+                        <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': '#000000' } as React.CSSProperties} />
+                        <span className="cause-view__swatch-legend-label">Preview</span>
+                      </div>
+                      <div className="cause-view__swatch-legend-item">
+                        <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                        <span className="cause-view__swatch-legend-label">Pattern Miss</span>
+                      </div>
+                      <div className="cause-view__swatch-legend-item">
+                        <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                        <span className="cause-view__swatch-legend-label">Context Miss</span>
+                      </div>
+                      <div className="cause-view__swatch-legend-item">
+                        <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                        <span className="cause-view__swatch-legend-label">Noisy Activation</span>
+                      </div>
+                      <div className="cause-view__swatch-legend-item">
+                        <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                        <span className="cause-view__swatch-legend-label">Unsure</span>
+                      </div>
+                    </div>
+                    {/* Row 1: Tag Confident Features as specific categories */}
+                    <div className="cause-view__action-section">
+                      <div className="cause-view__action-row">
+                        <div className="action-button-item">
+                          <button
+                            className="action-button action-button--with-icon"
+                            onClick={() => handleTagSelectedAs('missed-N-gram')}
+                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
+                            title="Confirm all Pattern Miss predictions"
+                          >
+                            <ThresholdHandleIcon
+                              className="batch-button-icon"
+                              orientation="horizontal"
+                            />
+                            <span className="batch-button-text">Confirm Confident<br />Pattern Miss</span>
+                          </button>
+                          <div className="action-button__legend">
+                            {isTopMode ? (
+                              filteredBatchComposition.patternMiss > 0 ? (
+                                <>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                  </span>
+                                  <span className="action-button__legend-arrow">→</span>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                  </span>
+                                </>
+                              ) : <span>&nbsp;</span>
+                            ) : (
+                              <span>&nbsp;</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="action-button-item">
+                          <button
+                            className="action-button action-button--with-icon"
+                            onClick={() => handleTagSelectedAs('missed-context')}
+                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
+                            title="Confirm all Context Miss predictions"
+                          >
+                            <ThresholdHandleIcon
+                              className="batch-button-icon"
+                              orientation="horizontal"
+                            />
+                            <span className="batch-button-text">Confirm Confident<br />Context Miss</span>
+                          </button>
+                          <div className="action-button__legend">
+                            {isTopMode ? (
+                              filteredBatchComposition.contextMiss > 0 ? (
+                                <>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                  </span>
+                                  <span className="action-button__legend-arrow">→</span>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                  </span>
+                                </>
+                              ) : <span>&nbsp;</span>
+                            ) : (
+                              <span>&nbsp;</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="action-button-item">
+                          <button
+                            className="action-button action-button--with-icon"
+                            onClick={() => handleTagSelectedAs('noisy-activation')}
+                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
+                            title="Confirm all Noisy Activation predictions"
+                          >
+                            <ThresholdHandleIcon
+                              className="batch-button-icon"
+                              orientation="horizontal"
+                            />
+                            <span className="batch-button-text">Confirm Confident<br />Noisy Activation</span>
+                          </button>
+                          <div className="action-button__legend">
+                            {isTopMode ? (
+                              filteredBatchComposition.noisyActivation > 0 ? (
+                                <>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                  </span>
+                                  <span className="action-button__legend-arrow">→</span>
+                                  <span className="action-button__legend-item">
+                                    <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                                    <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                  </span>
+                                </>
+                              ) : <span>&nbsp;</span>
+                            ) : (
+                              <span>&nbsp;</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 2: Decision Boundary buttons */}
+                    <div className="cause-view__action-section">
+                      <div className="cause-view__action-row">
+                        <div className="action-button-item">
+                          <button
+                            className="action-button action-button--with-icon"
+                            onClick={handleTagAllConfident}
+                            disabled={!canTrainSVM || !isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
+                            title="Confirm all confident predictions"
+                          >
+                            <ThresholdHandleIcon
+                              className="batch-button-icon"
+                              orientation="horizontal"
+                            />
+                            <span className="batch-button-text">Confirm Confident by<br />Decision Boundary</span>
+                          </button>
+                          <div className="action-button__legend">
+                            {isTopMode && filterByTag === null ? (
+                              filteredBatchComposition.taggableCount > 0 ? (
+                                <>
+                                  {filteredBatchComposition.patternMiss > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                    </span>
+                                  )}
+                                  {filteredBatchComposition.contextMiss > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                    </span>
+                                  )}
+                                  {filteredBatchComposition.noisyActivation > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                    </span>
+                                  )}
+                                  <span className="action-button__legend-arrow">→</span>
+                                  {filteredBatchComposition.patternMiss > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                    </span>
+                                  )}
+                                  {filteredBatchComposition.contextMiss > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                    </span>
+                                  )}
+                                  {filteredBatchComposition.noisyActivation > 0 && (
+                                    <span className="action-button__legend-item">
+                                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
+                                      <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                    </span>
+                                  )}
+                                </>
+                              ) : <span>&nbsp;</span>
+                            ) : (
+                              <span>&nbsp;</span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="action-button-item">
+                          <button
+                            className="action-button action-button--with-icon"
+                            onClick={handleTagRemainingByBoundary}
+                            disabled={!canTrainSVM || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                            title="Auto-tag remaining features using SVM decision boundary"
+                          >
+                            <svg className="batch-button-icon" width="24" height="20" viewBox="0 0 20 16">
+                              {/* Three separate rectangles for the three cause categories */}
+                              <rect x="0" y="0" width="5.5" height="16" rx="2" fill={missedNgramColor} stroke="#fff" strokeWidth="1"/>
+                              <rect x="7.25" y="0" width="5.5" height="16" rx="2" fill={missedContextColor} stroke="#fff" strokeWidth="1"/>
+                              <rect x="14.5" y="0" width="5.5" height="16" rx="2" fill={noisyActivationColor} stroke="#fff" strokeWidth="1"/>
+                            </svg>
+                            <span className="batch-button-text">Tag All Unsure by<br />Decision Boundary</span>
+                          </button>
+                          <div className="action-button__legend">
+                            {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
+                            {/* Note: Well-Explained handled by individual tagging, not SVM auto-tagging */}
+                            {remainingComposition.patternMiss > 0 && (
                               <span className="action-button__legend-item">
                                 <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
+                                <span className="action-button__legend-count">{remainingComposition.patternMiss}</span>
                               </span>
-                              <span className="action-button__legend-arrow">→</span>
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                              </span>
-                            </>
-                          ) : <span>&nbsp;</span>
-                        ) : (
-                          <span>&nbsp;</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="action-button-item">
-                      <button
-                        className="action-button action-button--with-icon"
-                        onClick={() => handleTagSelectedAs('missed-context')}
-                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
-                        title="Confirm all Context Miss predictions"
-                      >
-                        <ThresholdHandleIcon
-                          className="batch-button-icon"
-                          orientation="horizontal"
-                        />
-                        <span className="batch-button-text">Confirm Confident<br />Context Miss</span>
-                      </button>
-                      <div className="action-button__legend">
-                        {isTopMode ? (
-                          filteredBatchComposition.contextMiss > 0 ? (
-                            <>
+                            )}
+                            {remainingComposition.contextMiss > 0 && (
                               <span className="action-button__legend-item">
                                 <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
+                                <span className="action-button__legend-count">{remainingComposition.contextMiss}</span>
                               </span>
-                              <span className="action-button__legend-arrow">→</span>
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                              </span>
-                            </>
-                          ) : <span>&nbsp;</span>
-                        ) : (
-                          <span>&nbsp;</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="action-button-item">
-                      <button
-                        className="action-button action-button--with-icon"
-                        onClick={() => handleTagSelectedAs('noisy-activation')}
-                        disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
-                        title="Confirm all Noisy Activation predictions"
-                      >
-                        <ThresholdHandleIcon
-                          className="batch-button-icon"
-                          orientation="horizontal"
-                        />
-                        <span className="batch-button-text">Confirm Confident<br />Noisy Activation</span>
-                      </button>
-                      <div className="action-button__legend">
-                        {isTopMode ? (
-                          filteredBatchComposition.noisyActivation > 0 ? (
-                            <>
+                            )}
+                            {remainingComposition.noisyActivation > 0 && (
                               <span className="action-button__legend-item">
                                 <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                <span className="action-button__legend-count">{remainingComposition.noisyActivation}</span>
                               </span>
-                              <span className="action-button__legend-arrow">→</span>
+                            )}
+                            {remainingComposition.unsure > 0 && (
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
+                                <span className="action-button__legend-count">{remainingComposition.unsure}</span>
+                              </span>
+                            )}
+                            {/* Arrow */}
+                            <span className="action-button__legend-arrow">→</span>
+                            {/* Output composition (by SVM prediction) - Order: Pattern Miss, Context Miss, Noisy Activation */}
+                            {/* Note: Well-Explained is tagged individually, not by SVM batch prediction */}
+                            {boundaryTagCounts['missed-N-gram'] > 0 && (
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
+                                <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
+                              </span>
+                            )}
+                            {boundaryTagCounts['missed-context'] > 0 && (
+                              <span className="action-button__legend-item">
+                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
+                                <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
+                              </span>
+                            )}
+                            {boundaryTagCounts['noisy-activation'] > 0 && (
                               <span className="action-button__legend-item">
                                 <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                                <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
+                                <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
                               </span>
-                            </>
-                          ) : <span>&nbsp;</span>
-                        ) : (
-                          <span>&nbsp;</span>
-                        )}
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-
-                {/* Row 2: Decision Boundary buttons */}
-                <div className="cause-view__action-section">
-                  <div className="cause-view__action-row">
-                    <div className="action-button-item">
-                      <button
-                        className="action-button action-button--with-icon"
-                        onClick={handleTagAllConfident}
-                        disabled={!canTrainSVM || !isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
-                        title="Confirm all confident predictions"
-                      >
-                        <ThresholdHandleIcon
-                          className="batch-button-icon"
-                          orientation="horizontal"
-                        />
-                        <span className="batch-button-text">Confirm Confident by<br />Decision Boundary</span>
-                      </button>
-                      <div className="action-button__legend">
-                        {isTopMode && filterByTag === null ? (
-                          filteredBatchComposition.taggableCount > 0 ? (
-                            <>
-                              {filteredBatchComposition.patternMiss > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                </span>
-                              )}
-                              {filteredBatchComposition.contextMiss > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                </span>
-                              )}
-                              {filteredBatchComposition.noisyActivation > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                </span>
-                              )}
-                              <span className="action-button__legend-arrow">→</span>
-                              {filteredBatchComposition.patternMiss > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                </span>
-                              )}
-                              {filteredBatchComposition.contextMiss > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                </span>
-                              )}
-                              {filteredBatchComposition.noisyActivation > 0 && (
-                                <span className="action-button__legend-item">
-                                  <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                                  <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                </span>
-                              )}
-                            </>
-                          ) : <span>&nbsp;</span>
-                        ) : (
-                          <span>&nbsp;</span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="action-button-item">
-                      <button
-                        className="action-button action-button--with-icon"
-                        onClick={handleTagRemainingByBoundary}
-                        disabled={!canTrainSVM || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                        title="Auto-tag remaining features using SVM decision boundary"
-                      >
-                        <svg className="batch-button-icon" width="24" height="20" viewBox="0 0 20 16">
-                          {/* Three separate rectangles for the three cause categories */}
-                          <rect x="0" y="0" width="5.5" height="16" rx="2" fill={missedNgramColor} stroke="#fff" strokeWidth="1"/>
-                          <rect x="7.25" y="0" width="5.5" height="16" rx="2" fill={missedContextColor} stroke="#fff" strokeWidth="1"/>
-                          <rect x="14.5" y="0" width="5.5" height="16" rx="2" fill={noisyActivationColor} stroke="#fff" strokeWidth="1"/>
-                        </svg>
-                        <span className="batch-button-text">Tag All Unsure by<br />Decision Boundary</span>
-                      </button>
-                      <div className="action-button__legend">
-                        {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
-                        {/* Note: Well-Explained handled by individual tagging, not SVM auto-tagging */}
-                        {remainingComposition.patternMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{remainingComposition.patternMiss}</span>
-                          </span>
-                        )}
-                        {remainingComposition.contextMiss > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{remainingComposition.contextMiss}</span>
-                          </span>
-                        )}
-                        {remainingComposition.noisyActivation > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                            <span className="action-button__legend-count">{remainingComposition.noisyActivation}</span>
-                          </span>
-                        )}
-                        {remainingComposition.unsure > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                            <span className="action-button__legend-count">{remainingComposition.unsure}</span>
-                          </span>
-                        )}
-                        {/* Arrow */}
-                        <span className="action-button__legend-arrow">→</span>
-                        {/* Output composition (by SVM prediction) - Order: Pattern Miss, Context Miss, Noisy Activation */}
-                        {/* Note: Well-Explained is tagged individually, not by SVM batch prediction */}
-                        {boundaryTagCounts['missed-N-gram'] > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                            <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                          </span>
-                        )}
-                        {boundaryTagCounts['missed-context'] > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                            <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
-                          </span>
-                        )}
-                        {boundaryTagCounts['noisy-activation'] > 0 && (
-                          <span className="action-button__legend-item">
-                            <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                            <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
                   </>
                 )}
               </div>
             </div>
-          </div>
           </div>
         </div>
 

@@ -275,9 +275,9 @@ export function getRowCategoryClass(
  * Design: Teal tones (blue-shifted green) - softer than cyan, distinct from tag green
  */
 export const SEMANTIC_SIMILARITY_COLORS = {
-  HIGH: '#1a8a8a',      // ≥ 0.85 - Deep blue-teal (high match)
-  MEDIUM: '#5ab5a8',    // ≥ 0.70 - Medium teal-green
-  LOW: '#c2e4dc',       // ≥ 0.60 - Pale seafoam
+  HIGH: '#2eb3b3',      // ≥ 0.85 - Bright teal (high match)
+  MEDIUM: '#72c9be',    // ≥ 0.70 - Medium teal-green
+  LOW: '#d0eee8',       // ≥ 0.60 - Pale seafoam
   NONE: '#f3f4f6'       // < 0.60 - Default gray
 }
 

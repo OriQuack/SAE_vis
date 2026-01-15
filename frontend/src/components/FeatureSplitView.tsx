@@ -488,19 +488,23 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [hideTagged, setActiveListSource])
 
-  // Track if we've auto-switched to decision margin mode for this session
-  const hasAutoSwitchedToDecisionMarginRef = useRef(false)
+  // Track if we've checked for auto-switch to decision margin mode for this session
+  const hasCheckedAutoSwitchRef = useRef(false)
 
   // Auto-switch to Decision Margin sort when histogram first becomes available
+  // Skip if user is in diversity mode (Representatives Only) - respect their choice
   useEffect(() => {
-    if (tagAutomaticState?.histogramData && !hasAutoSwitchedToDecisionMarginRef.current) {
-      hasAutoSwitchedToDecisionMarginRef.current = true
-      setSortMode('decisionMargin')
-      setSortDirection('asc')
-      setCurrentPairIndex(0)
-      setActiveListSource('all')
+    if (tagAutomaticState?.histogramData && !hasCheckedAutoSwitchRef.current) {
+      hasCheckedAutoSwitchRef.current = true
+      // Only actually switch if not in diversity mode
+      if (sortMode !== 'diversity') {
+        setSortMode('decisionMargin')
+        setSortDirection('asc')
+        setCurrentPairIndex(0)
+        setActiveListSource('all')
+      }
     }
-  }, [tagAutomaticState?.histogramData, setSortMode, setSortDirection, setActiveListSource])
+  }, [tagAutomaticState?.histogramData, sortMode, setSortMode, setSortDirection, setActiveListSource])
 
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting

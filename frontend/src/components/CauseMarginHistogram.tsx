@@ -178,7 +178,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   causeSelectionSources,
   threshold,
   onThresholdChange,
-  height = 80,
+  height,
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
   onPercentageChange,
@@ -187,6 +187,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(200)
+  const [containerHeight, setContainerHeight] = useState(200)
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [liveThreshold, setLiveThreshold] = useState<number | null>(null)
@@ -197,7 +198,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   // Use live threshold during drag for interactive bar updates, otherwise use prop
   const effectiveThreshold = liveThreshold ?? threshold
 
-  // Observe container width for responsiveness
+  // Observe container size for responsiveness
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -205,6 +206,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     const observer = new ResizeObserver(entries => {
       for (const entry of entries) {
         setContainerWidth(entry.contentRect.width)
+        setContainerHeight(entry.contentRect.height)
       }
     })
     observer.observe(container)
@@ -305,9 +307,9 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return { bins: histBins, maxMargin: displayMax, maxCount: maxC }
   }, [marginData])
 
-  // Calculate all dimensions from container width and height prop
+  // Calculate all dimensions from container size (use observed height when no height prop)
   const dimensions = useMemo(() => {
-    const svgHeight = height
+    const svgHeight = height ?? containerHeight
     const chartWidth = containerWidth - LAYOUT.margin.left - LAYOUT.margin.right
     const chartHeight = svgHeight - LAYOUT.margin.top - LAYOUT.margin.bottom
 
@@ -318,11 +320,11 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       },
       chart: {
         width: chartWidth,
-        height: chartHeight,
+        height: Math.max(0, chartHeight),
       },
       transform: `translate(${LAYOUT.margin.left}, ${LAYOUT.margin.top})`,
     }
-  }, [height, containerWidth])
+  }, [height, containerHeight, containerWidth])
 
   // Create scales
   const xScale = useMemo(() =>
@@ -487,7 +489,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   // Show placeholder when not enough tags for SVM training
   if (!canTrainSVM) {
     return (
-      <div className="cause-margin-histogram cause-margin-histogram--placeholder" ref={containerRef} style={{ height }}>
+      <div className="cause-margin-histogram cause-margin-histogram--placeholder" ref={containerRef} style={height ? { height } : undefined}>
         <div className="cause-margin-histogram__placeholder-content">
           <div className="cause-margin-histogram__main-instruction">
             <span className="cause-margin-histogram__stage-number">1</span>
@@ -520,7 +522,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   }
 
   return (
-    <div className="cause-margin-histogram" ref={containerRef} style={{ height }}>
+    <div className="cause-margin-histogram" ref={containerRef} style={height ? { height } : undefined}>
       <svg
         width={dimensions.svg.width}
         height={dimensions.svg.height}
