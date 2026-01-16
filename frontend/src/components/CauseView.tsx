@@ -15,6 +15,7 @@ import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
+import BatchTaggingPanel from './BatchTaggingPanel'
 import {
   calculateCauseMetricScores,
   getEffectiveCategory as getEffectiveCategoryUtil,
@@ -22,7 +23,6 @@ import {
 } from '../lib/cause-tagging-utils'
 import StatusPanel from './StatusPanel'
 import CauseMarginHistogram from './CauseMarginHistogram'
-import { ThresholdHandleIcon } from './ThresholdHandles'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/CauseView.css'
 
@@ -1455,280 +1455,41 @@ const CauseView: React.FC<CauseViewProps> = ({
               {/* Right: Batch Tagging */}
               <div className="cause-view__bottom-right">
                 <h4 className="subheader">Batch Tagging</h4>
-                {/* Show placeholder only if user has never clicked "Most Confident First" */}
-                {!isTopMode && !hasEverBeenTopMode ? (
-                  // Substage 2: Need to switch to "Most Confident First" mode
-                  <div className="cause-view__batch-placeholder">
-                    <div className="cause-view__batch-placeholder-instruction">
-                      <span className="cause-view__batch-placeholder-number">2</span>
-                      Click "Most Confident First" to enable batch tagging
-                    </div>
-                  </div>
-                ) : (
-                  // Batch tagging available - show buttons
-                  <>
-                    {/* Legend for swatch patterns */}
-                    <div className="cause-view__swatch-legend">
-                      <div className="cause-view__swatch-legend-item">
-                        <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': '#000000' } as React.CSSProperties} />
-                        <span className="cause-view__swatch-legend-label">Preview</span>
-                      </div>
-                      <div className="cause-view__swatch-legend-item">
-                        <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                        <span className="cause-view__swatch-legend-label">Pattern Miss</span>
-                      </div>
-                      <div className="cause-view__swatch-legend-item">
-                        <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                        <span className="cause-view__swatch-legend-label">Context Miss</span>
-                      </div>
-                      <div className="cause-view__swatch-legend-item">
-                        <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                        <span className="cause-view__swatch-legend-label">Noisy Activation</span>
-                      </div>
-                      <div className="cause-view__swatch-legend-item">
-                        <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                        <span className="cause-view__swatch-legend-label">Unsure</span>
-                      </div>
-                    </div>
-                    {/* Row 1: Tag Confident Features as specific categories */}
-                    <div className="cause-view__action-section">
-                      <div className="cause-view__action-row">
-                        <div className="action-button-item">
-                          <button
-                            className="action-button action-button--with-icon"
-                            onClick={() => handleTagSelectedAs('missed-N-gram')}
-                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-N-gram') || filteredBatchComposition.patternMiss === 0}
-                            title="Confirm all Pattern Miss predictions"
-                          >
-                            <ThresholdHandleIcon
-                              className="batch-button-icon"
-                              orientation="horizontal"
-                            />
-                            <span className="batch-button-text">Confirm Confident<br />Pattern Miss</span>
-                          </button>
-                          <div className="action-button__legend">
-                            {isTopMode ? (
-                              filteredBatchComposition.patternMiss > 0 ? (
-                                <>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                  </span>
-                                  <span className="action-button__legend-arrow">→</span>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                  </span>
-                                </>
-                              ) : <span>&nbsp;</span>
-                            ) : (
-                              <span>&nbsp;</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="action-button-item">
-                          <button
-                            className="action-button action-button--with-icon"
-                            onClick={() => handleTagSelectedAs('missed-context')}
-                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'missed-context') || filteredBatchComposition.contextMiss === 0}
-                            title="Confirm all Context Miss predictions"
-                          >
-                            <ThresholdHandleIcon
-                              className="batch-button-icon"
-                              orientation="horizontal"
-                            />
-                            <span className="batch-button-text">Confirm Confident<br />Context Miss</span>
-                          </button>
-                          <div className="action-button__legend">
-                            {isTopMode ? (
-                              filteredBatchComposition.contextMiss > 0 ? (
-                                <>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                  </span>
-                                  <span className="action-button__legend-arrow">→</span>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                  </span>
-                                </>
-                              ) : <span>&nbsp;</span>
-                            ) : (
-                              <span>&nbsp;</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="action-button-item">
-                          <button
-                            className="action-button action-button--with-icon"
-                            onClick={() => handleTagSelectedAs('noisy-activation')}
-                            disabled={!canTrainSVM || !isTopMode || (filterByTag !== null && filterByTag !== 'noisy-activation') || filteredBatchComposition.noisyActivation === 0}
-                            title="Confirm all Noisy Activation predictions"
-                          >
-                            <ThresholdHandleIcon
-                              className="batch-button-icon"
-                              orientation="horizontal"
-                            />
-                            <span className="batch-button-text">Confirm Confident<br />Noisy Activation</span>
-                          </button>
-                          <div className="action-button__legend">
-                            {isTopMode ? (
-                              filteredBatchComposition.noisyActivation > 0 ? (
-                                <>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                  </span>
-                                  <span className="action-button__legend-arrow">→</span>
-                                  <span className="action-button__legend-item">
-                                    <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                                    <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                  </span>
-                                </>
-                              ) : <span>&nbsp;</span>
-                            ) : (
-                              <span>&nbsp;</span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Row 2: Decision Boundary buttons */}
-                    <div className="cause-view__action-section">
-                      <div className="cause-view__action-row">
-                        <div className="action-button-item">
-                          <button
-                            className="action-button action-button--with-icon"
-                            onClick={handleTagAllConfident}
-                            disabled={!canTrainSVM || !isTopMode || filterByTag !== null || filteredBatchComposition.taggableCount === 0}
-                            title="Confirm all confident predictions"
-                          >
-                            <ThresholdHandleIcon
-                              className="batch-button-icon"
-                              orientation="horizontal"
-                            />
-                            <span className="batch-button-text">Confirm Confident by<br />Decision Boundary</span>
-                          </button>
-                          <div className="action-button__legend">
-                            {isTopMode && filterByTag === null ? (
-                              filteredBatchComposition.taggableCount > 0 ? (
-                                <>
-                                  {filteredBatchComposition.patternMiss > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                    </span>
-                                  )}
-                                  {filteredBatchComposition.contextMiss > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                    </span>
-                                  )}
-                                  {filteredBatchComposition.noisyActivation > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                    </span>
-                                  )}
-                                  <span className="action-button__legend-arrow">→</span>
-                                  {filteredBatchComposition.patternMiss > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.patternMiss}</span>
-                                    </span>
-                                  )}
-                                  {filteredBatchComposition.contextMiss > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.contextMiss}</span>
-                                    </span>
-                                  )}
-                                  {filteredBatchComposition.noisyActivation > 0 && (
-                                    <span className="action-button__legend-item">
-                                      <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                                      <span className="action-button__legend-count">{filteredBatchComposition.noisyActivation}</span>
-                                    </span>
-                                  )}
-                                </>
-                              ) : <span>&nbsp;</span>
-                            ) : (
-                              <span>&nbsp;</span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="action-button-item">
-                          <button
-                            className="action-button action-button--with-icon"
-                            onClick={handleTagRemainingByBoundary}
-                            disabled={!canTrainSVM || remainingComposition.total === 0 || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                            title="Auto-tag remaining features using SVM decision boundary"
-                          >
-                            <svg className="batch-button-icon" width="24" height="20" viewBox="0 0 20 16">
-                              {/* Three separate rectangles for the three cause categories */}
-                              <rect x="0" y="0" width="5.5" height="16" rx="2" fill={missedNgramColor} stroke="#fff" strokeWidth="1"/>
-                              <rect x="7.25" y="0" width="5.5" height="16" rx="2" fill={missedContextColor} stroke="#fff" strokeWidth="1"/>
-                              <rect x="14.5" y="0" width="5.5" height="16" rx="2" fill={noisyActivationColor} stroke="#fff" strokeWidth="1"/>
-                            </svg>
-                            <span className="batch-button-text">Tag All Unsure by<br />Decision Boundary</span>
-                          </button>
-                          <div className="action-button__legend">
-                            {/* Current composition (input) - Order: Pattern Miss, Context Miss, Noisy Activation, Unsure */}
-                            {/* Note: Well-Explained handled by individual tagging, not SVM auto-tagging */}
-                            {remainingComposition.patternMiss > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedNgramColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{remainingComposition.patternMiss}</span>
-                              </span>
-                            )}
-                            {remainingComposition.contextMiss > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': missedContextColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{remainingComposition.contextMiss}</span>
-                              </span>
-                            )}
-                            {remainingComposition.noisyActivation > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch action-button__legend-swatch--striped" style={{ '--swatch-color': noisyActivationColor } as React.CSSProperties} />
-                                <span className="action-button__legend-count">{remainingComposition.noisyActivation}</span>
-                              </span>
-                            )}
-                            {remainingComposition.unsure > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: '#e0e0e0' }} />
-                                <span className="action-button__legend-count">{remainingComposition.unsure}</span>
-                              </span>
-                            )}
-                            {/* Arrow */}
-                            <span className="action-button__legend-arrow">→</span>
-                            {/* Output composition (by SVM prediction) - Order: Pattern Miss, Context Miss, Noisy Activation */}
-                            {/* Note: Well-Explained is tagged individually, not by SVM batch prediction */}
-                            {boundaryTagCounts['missed-N-gram'] > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedNgramColor }} />
-                                <span className="action-button__legend-count">{boundaryTagCounts['missed-N-gram']}</span>
-                              </span>
-                            )}
-                            {boundaryTagCounts['missed-context'] > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: missedContextColor }} />
-                                <span className="action-button__legend-count">{boundaryTagCounts['missed-context']}</span>
-                              </span>
-                            )}
-                            {boundaryTagCounts['noisy-activation'] > 0 && (
-                              <span className="action-button__legend-item">
-                                <span className="action-button__legend-swatch" style={{ backgroundColor: noisyActivationColor }} />
-                                <span className="action-button__legend-count">{boundaryTagCounts['noisy-activation']}</span>
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                )}
+                <BatchTaggingPanel
+                  categories={[
+                    {
+                      id: 'missed-N-gram',
+                      label: 'Pattern Miss',
+                      color: missedNgramColor,
+                      count: filteredBatchComposition.patternMiss,
+                      inputCount: remainingComposition.patternMiss,
+                      outputCount: boundaryTagCounts['missed-N-gram']
+                    },
+                    {
+                      id: 'missed-context',
+                      label: 'Context Miss',
+                      color: missedContextColor,
+                      count: filteredBatchComposition.contextMiss,
+                      inputCount: remainingComposition.contextMiss,
+                      outputCount: boundaryTagCounts['missed-context']
+                    },
+                    {
+                      id: 'noisy-activation',
+                      label: 'Noisy Activation',
+                      color: noisyActivationColor,
+                      count: filteredBatchComposition.noisyActivation,
+                      inputCount: remainingComposition.noisyActivation,
+                      outputCount: boundaryTagCounts['noisy-activation']
+                    }
+                  ]}
+                  unsureCount={remainingComposition.unsure}
+                  disabled={!canTrainSVM || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
+                  showPlaceholder={!isTopMode && !hasEverBeenTopMode}
+                  placeholderMessage="Click 'Most Confident First' to enable batch tagging"
+                  onConfirmCategory={isTopMode ? (categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram') : undefined}
+                  onConfirmAll={isTopMode && filterByTag === null ? handleTagAllConfident : undefined}
+                  onTagAllUnsure={handleTagRemainingByBoundary}
+                />
               </div>
             </div>
           </div>

@@ -272,12 +272,15 @@ export function getRowCategoryClass(
  * Color scale for semantic similarity scores (0-1)
  * Used in ExplainerComparisonGrid and TableExplanation for highlighting
  *
- * Design: Teal tones (blue-shifted green) - softer than cyan, distinct from tag green
+ * Design: Same teal hue (180°) with different saturation levels
+ * - HIGH: High saturation (60%)
+ * - MEDIUM: Medium saturation (35%)
+ * - LOW: Low saturation (20%)
  */
 export const SEMANTIC_SIMILARITY_COLORS = {
-  HIGH: '#2eb3b3',      // ≥ 0.85 - Bright teal (high match)
-  MEDIUM: '#72c9be',    // ≥ 0.70 - Medium teal-green
-  LOW: '#d0eee8',       // ≥ 0.60 - Pale seafoam
+  HIGH: '#2eb3b3',      // ≥ 0.85 - hsl(180, 60%, 44%) - high saturation
+  MEDIUM: '#7fb8b8',    // ≥ 0.70 - hsl(180, 35%, 61%) - medium saturation
+  LOW: '#c5dede',       // ≥ 0.60 - hsl(180, 20%, 82%) - low saturation
   NONE: '#f3f4f6'       // < 0.60 - Default gray
 }
 
