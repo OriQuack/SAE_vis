@@ -31,15 +31,20 @@ logger = logging.getLogger(__name__)
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 6 metrics used for SINGLE FEATURE SVM similarity calculation
+    # 9 metrics used for SINGLE FEATURE SVM similarity calculation
     # Same as Stage 3 (Cause) for uniformity - uses composite intra_feature_sim
     METRICS = [
+        # Mean metrics (6)
         'intra_feature_sim',         # Activation-level: max(char_ngram, word_ngram, semantic) - composite consistency
         'score_embedding',           # Score: embedding-based scoring
         'score_fuzz',                # Score: fuzzy matching score
         'score_detection',           # Score: detection score
         'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations (semsim_mean)
         'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
+        # Std metrics - scores only (3) - captures cross-explainer disagreement
+        'score_embedding_std',
+        'score_fuzz_std',
+        'score_detection_std',
     ]
 
     def __init__(self, data_service: "DataService"):
@@ -526,15 +531,20 @@ class SimilaritySortService:
         try:
             logger.info(f"[_extract_metrics_from_barycentric] Extracting metrics for {len(feature_ids)} features")
 
-            # Compute mean across 3 explainers for each feature
+            # Compute mean and std across 3 explainers for each feature
             df = self.data_service._barycentric_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
             ).group_by("feature_id").agg([
+                # Mean metrics
                 pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
                 pl.col("score_embedding").mean().alias("score_embedding"),
                 pl.col("score_fuzz").mean().alias("score_fuzz"),
                 pl.col("score_detection").mean().alias("score_detection"),
-                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
+                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
+                # Std metrics (scores only) - captures cross-explainer disagreement
+                pl.col("score_embedding").std().alias("score_embedding_std"),
+                pl.col("score_fuzz").std().alias("score_fuzz_std"),
+                pl.col("score_detection").std().alias("score_detection_std"),
             ]).collect()
 
             # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
@@ -767,19 +777,22 @@ class SimilaritySortService:
             self._svm_cache[cache_key] = (model, scaler)
             logger.info(f"SVM model cached (key: {cache_key[:8]}..., cache size: {len(self._svm_cache)})")
 
-        # Score all features (excluding selected and rejected)
+        # Batch score all features (excluding selected and rejected)
+        selected_set = set(selected_ids)
+        rejected_set = set(rejected_ids)
+        score_mask = np.array([
+            fid not in selected_set and fid not in rejected_set
+            for fid in feature_ids
+        ])
+
         feature_scores = []
-
-        for i, feature_id in enumerate(feature_ids):
-            # Skip if this feature is selected or rejected (frontend handles three-tier sorting)
-            if feature_id in selected_ids or feature_id in rejected_ids:
-                continue
-
-            # Score with SVM
-            feature_vector = metrics_matrix[i:i+1]  # Shape (1, d)
-            score = self._score_with_svm(model, scaler, feature_vector)[0]
-
-            feature_scores.append(FeatureScore(feature_id=int(feature_id), score=float(score)))
+        if np.any(score_mask):
+            scores = self._score_with_svm(model, scaler, metrics_matrix[score_mask])
+            scored_ids = feature_ids[score_mask]
+            feature_scores = [
+                FeatureScore(feature_id=int(fid), score=float(s))
+                for fid, s in zip(scored_ids, scores)
+            ]
 
         return feature_scores
 

@@ -650,6 +650,11 @@ class PairSimilarityService:
 
         11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
 
+        Optimized with:
+        - O(1) index lookups via dict instead of O(n) np.where per pair
+        - Vectorized pair vector construction
+        - Batch SVM scoring
+
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
@@ -660,42 +665,62 @@ class PairSimilarityService:
         Returns:
             List of PairScore objects
         """
-        # Convert to numpy for SVM - use PAIR_METRICS (4 metrics) for pairs
+        # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (11-dimensional: 5*2 + 1)
-        pair_vectors = {}
+        # Build index lookup once - O(n) total instead of O(n) per pair
+        fid_to_idx = {int(fid): i for i, fid in enumerate(feature_ids)}
+
+        # Prepare arrays for vectorized construction
+        n_pairs = len(pair_ids)
+        main_indices = np.empty(n_pairs, dtype=np.int32)
+        similar_indices = np.empty(n_pairs, dtype=np.int32)
+        valid_mask = np.ones(n_pairs, dtype=bool)
         pair_key_list = []
 
-        for main_id, similar_id in pair_ids:
+        for i, (main_id, similar_id) in enumerate(pair_ids):
             # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
             pair_key_list.append(pair_key)
 
-            # Get main and similar feature metrics
-            main_idx = np.where(feature_ids == main_id)[0]
-            similar_idx = np.where(feature_ids == similar_id)[0]
+            main_idx = fid_to_idx.get(main_id)
+            similar_idx = fid_to_idx.get(similar_id)
 
-            if len(main_idx) == 0 or len(similar_idx) == 0:
-                logger.warning(f"Missing metrics for pair {pair_key}")
-                pair_vectors[pair_key] = None
-                continue
+            if main_idx is None or similar_idx is None:
+                valid_mask[i] = False
+                main_indices[i] = 0  # placeholder
+                similar_indices[i] = 0
+            else:
+                main_indices[i] = main_idx
+                similar_indices[i] = similar_idx
 
-            # Build symmetric 11-dim vector: concat(A+B, |A-B|, decoder_sim)
-            # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 5 dims (PAIR_METRICS)
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 5 dims (PAIR_METRICS)
-            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
+        # Log missing pairs
+        n_invalid = np.sum(~valid_mask)
+        if n_invalid > 0:
+            logger.warning(f"Missing metrics for {n_invalid} pairs")
 
-            # Symmetric operations (removed product term to reduce overfitting with few samples)
-            pair_sum = main_metrics + similar_metrics  # Combined properties (5 dims)
-            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (5 dims)
+        # Vectorized metric extraction for all pairs
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 5)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 5)
 
-            pair_vector = np.concatenate([pair_sum, pair_diff, [pair_metric]])
-            pair_vectors[pair_key] = pair_vector
+        # Vectorized pair vector construction
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 5)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 5)
+
+        # Get decoder similarities
+        decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
+
+        # Concatenate: (n_pairs, 11)
+        all_pair_vectors = np.hstack([pair_sum, pair_diff, decoder_sims.reshape(-1, 1)])
+
+        # Build pair_vectors dict for training vector extraction
+        pair_vectors = {
+            pk: all_pair_vectors[i] if valid_mask[i] else None
+            for i, pk in enumerate(pair_key_list)
+        }
 
         # Check cache
         cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
@@ -746,23 +771,28 @@ class PairSimilarityService:
             self._svm_cache[cache_key] = (model, scaler)
             logger.info(f"Pair SVM model cached (key: {cache_key[:8]}...)")
 
-        # Score all pairs (excluding selected and rejected)
+        # Batch score all pairs (excluding selected and rejected)
+        selected_set = set(selected_pair_keys)
+        rejected_set = set(rejected_pair_keys)
+
+        valid_pairs = []
+        valid_vector_indices = []
+        for i, pair_key in enumerate(pair_key_list):
+            if not valid_mask[i]:
+                continue
+            if pair_key in selected_set or pair_key in rejected_set:
+                continue
+            valid_pairs.append(pair_key)
+            valid_vector_indices.append(i)
+
         pair_scores = []
-
-        for pair_key in pair_key_list:
-            pair_vector = pair_vectors.get(pair_key)
-
-            if pair_vector is None:
-                continue
-
-            # Skip if this pair is selected or rejected
-            if pair_key in selected_pair_keys or pair_key in rejected_pair_keys:
-                continue
-
-            # Score with SVM
-            score = self._score_with_svm(model, scaler, pair_vector.reshape(1, -1))[0]
-
-            pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
+        if valid_pairs:
+            valid_vectors = all_pair_vectors[valid_vector_indices]
+            scores = self._score_with_svm(model, scaler, valid_vectors)
+            pair_scores = [
+                PairScore(pair_key=pk, score=float(s))
+                for pk, s in zip(valid_pairs, scores)
+            ]
 
         return pair_scores
 
@@ -782,6 +812,11 @@ class PairSimilarityService:
 
         11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
 
+        Optimized with:
+        - O(1) index lookups via dict instead of O(n) np.where per pair
+        - Vectorized pair vector construction
+        - Batch SVM scoring
+
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
@@ -792,42 +827,62 @@ class PairSimilarityService:
         Returns:
             List of PairScore objects for ALL pairs
         """
-        # Convert to numpy for SVM - use PAIR_METRICS (4 metrics) for pairs
+        # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
         ])
 
-        # Build pair vectors (11-dimensional: 5*2 + 1)
-        pair_vectors = {}
+        # Build index lookup once - O(n) total instead of O(n) per pair
+        fid_to_idx = {int(fid): i for i, fid in enumerate(feature_ids)}
+
+        # Prepare arrays for vectorized construction
+        n_pairs = len(pair_ids)
+        main_indices = np.empty(n_pairs, dtype=np.int32)
+        similar_indices = np.empty(n_pairs, dtype=np.int32)
+        valid_mask = np.ones(n_pairs, dtype=bool)
         pair_key_list = []
 
-        for main_id, similar_id in pair_ids:
+        for i, (main_id, similar_id) in enumerate(pair_ids):
             # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
             pair_key_list.append(pair_key)
 
-            # Get main and similar feature metrics
-            main_idx = np.where(feature_ids == main_id)[0]
-            similar_idx = np.where(feature_ids == similar_id)[0]
+            main_idx = fid_to_idx.get(main_id)
+            similar_idx = fid_to_idx.get(similar_id)
 
-            if len(main_idx) == 0 or len(similar_idx) == 0:
-                logger.warning(f"Missing metrics for pair {pair_key}")
-                pair_vectors[pair_key] = None
-                continue
+            if main_idx is None or similar_idx is None:
+                valid_mask[i] = False
+                main_indices[i] = 0  # placeholder
+                similar_indices[i] = 0
+            else:
+                main_indices[i] = main_idx
+                similar_indices[i] = similar_idx
 
-            # Build symmetric 11-dim vector: concat(A+B, |A-B|, decoder_sim)
-            # This ensures pair(A,B) = pair(B,A) regardless of feature order
-            main_metrics = metrics_matrix[main_idx[0]]  # 5 dims (PAIR_METRICS)
-            similar_metrics = metrics_matrix[similar_idx[0]]  # 5 dims (PAIR_METRICS)
-            pair_metric = pair_metrics.get(pair_key, 0.0)  # 1 dim (specific similarity between these two features)
+        # Log missing pairs
+        n_invalid = np.sum(~valid_mask)
+        if n_invalid > 0:
+            logger.warning(f"Missing metrics for {n_invalid} pairs (histogram)")
 
-            # Symmetric operations (removed product term to reduce overfitting with few samples)
-            pair_sum = main_metrics + similar_metrics  # Combined properties (5 dims)
-            pair_diff = np.abs(main_metrics - similar_metrics)  # Dissimilarity (5 dims)
+        # Vectorized metric extraction for all pairs
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 5)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 5)
 
-            pair_vector = np.concatenate([pair_sum, pair_diff, [pair_metric]])
-            pair_vectors[pair_key] = pair_vector
+        # Vectorized pair vector construction
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 5)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 5)
+
+        # Get decoder similarities
+        decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
+
+        # Concatenate: (n_pairs, 11)
+        all_pair_vectors = np.hstack([pair_sum, pair_diff, decoder_sims.reshape(-1, 1)])
+
+        # Build pair_vectors dict for training vector extraction
+        pair_vectors = {
+            pk: all_pair_vectors[i] if valid_mask[i] else None
+            for i, pk in enumerate(pair_key_list)
+        }
 
         # Check cache (reuse model from main pair scoring)
         cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
@@ -866,19 +921,22 @@ class PairSimilarityService:
 
             self._svm_cache[cache_key] = (model, scaler)
 
-        # Score ALL pairs (including selected and rejected for histogram)
+        # Batch score ALL pairs (including selected and rejected for histogram)
+        valid_pairs = []
+        valid_vector_indices = []
+        for i, pair_key in enumerate(pair_key_list):
+            if valid_mask[i]:
+                valid_pairs.append(pair_key)
+                valid_vector_indices.append(i)
+
         pair_scores = []
-
-        for pair_key in pair_key_list:
-            pair_vector = pair_vectors.get(pair_key)
-
-            if pair_vector is None:
-                continue
-
-            # Score with SVM
-            score = self._score_with_svm(model, scaler, pair_vector.reshape(1, -1))[0]
-
-            pair_scores.append(PairScore(pair_key=pair_key, score=float(score)))
+        if valid_pairs:
+            valid_vectors = all_pair_vectors[valid_vector_indices]
+            scores = self._score_with_svm(model, scaler, valid_vectors)
+            pair_scores = [
+                PairScore(pair_key=pk, score=float(s))
+                for pk, s in zip(valid_pairs, scores)
+            ]
 
         return pair_scores
 

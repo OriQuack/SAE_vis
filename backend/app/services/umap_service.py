@@ -43,12 +43,17 @@ ANCHOR_TO_CATEGORY = {
 
 # Metrics used for SVM decision function UMAP (kept for decision function endpoint)
 METRICS_FOR_SVM = [
+    # Mean metrics (6)
     'intra_feature_sim',
     'score_embedding',
     'score_fuzz',
     'score_detection',
     'explanation_semantic_sim',
     'frac_nonzero',
+    # Std metrics - scores only (3) - captures cross-explainer disagreement
+    'score_embedding_std',
+    'score_fuzz_std',
+    'score_detection_std',
 ]
 
 if TYPE_CHECKING:
@@ -99,9 +104,18 @@ class UMAPService:
         anchor_matrix = np.array([
             anchors[name]["raw"] for name in anchor_names
         ])
+
+        # Pad with zeros for std dimensions (idealized anchors have no variance)
+        # Anchors are 6-dim but feature vectors are now 9-dim (3 std metrics added)
+        n_std_dims = 3  # score_embedding_std, score_fuzz_std, score_detection_std
+        anchor_matrix = np.hstack([
+            anchor_matrix,
+            np.zeros((len(anchor_names), n_std_dims))
+        ])
+
         anchor_categories = [ANCHOR_TO_CATEGORY[name] for name in anchor_names]
 
-        logger.info(f"Loaded anchor metrics: {anchor_categories}")
+        logger.info(f"Loaded anchor metrics: {anchor_categories} (padded to {anchor_matrix.shape[1]} dims)")
         self._anchor_metrics = (anchor_matrix, anchor_categories)
         return self._anchor_metrics
 
@@ -421,15 +435,20 @@ class UMAPService:
                 logger.error("Barycentric data not loaded")
                 return None
 
-            # Compute mean across 3 explainers for each feature
+            # Compute mean and std across 3 explainers for each feature
             df = self.data_service._barycentric_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
             ).group_by("feature_id").agg([
+                # Mean metrics
                 pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
                 pl.col("score_embedding").mean().alias("score_embedding"),
                 pl.col("score_fuzz").mean().alias("score_fuzz"),
                 pl.col("score_detection").mean().alias("score_detection"),
-                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
+                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
+                # Std metrics (scores only) - captures cross-explainer disagreement
+                pl.col("score_embedding").std().alias("score_embedding_std"),
+                pl.col("score_fuzz").std().alias("score_fuzz_std"),
+                pl.col("score_detection").std().alias("score_detection_std"),
             ]).collect()
 
             # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
