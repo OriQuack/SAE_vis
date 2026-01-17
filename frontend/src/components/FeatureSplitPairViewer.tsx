@@ -2,8 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
-import ScrollableItemList from './ScrollableItemList'
-import { TagBadge, TagButton } from './Indicators'
+import { TagButton } from './Indicators'
 import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
@@ -100,29 +99,6 @@ interface FeatureSplitPairViewerProps {
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
   hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
 
-  // Preview pair keys (items in threshold regions that will be auto-tagged)
-  previewRejectKeys?: Set<string>  // Will be rejected → Monosemantic
-  previewSelectKeys?: Set<string>  // Will be selected → Fragmented
-
-  // ScrollableItemList props for "All Pairs" list
-  allPairsListProps?: {
-    listLabel: string  // Dynamic label: "Representative Pairs", "Untagged Pairs", or "Pairs"
-    currentPagePairs: Array<PairData>
-    totalPairCount: number
-    isActive: boolean
-    columnHeaderProps: {
-      label: string
-      sortDirection?: 'asc' | 'desc'
-      onClick: () => void
-    }
-    getDisplayScore: (item: PairData) => number | undefined
-    currentPage: number
-    totalPages: number
-    onItemClick: (index: number) => void
-    onPreviousPage: () => void
-    onNextPage: () => void
-    isTemplateSort?: boolean
-  }
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -135,18 +111,12 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   activeListSource = 'all',
   sortMode = 'default',
   isLoading = false,
-  isTemplateSort = true,
+  isTemplateSort: _isTemplateSort = true,
   onResetToFirstPair,
-  hideTagged = false,
-  previewRejectKeys,
-  previewSelectKeys,
-  allPairsListProps
+  hideTagged = false
 }) => {
-  // Constants - must match FeatureSplitView.tsx
-  const PAIRS_PER_PAGE = 10
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
-  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const togglePairSelection = useVisualizationStore(state => state.togglePairSelection)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const tableData = useVisualizationStore(state => state.tableData)
@@ -265,8 +235,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const similarFeatureRow = currentPair?.similarRow
 
   // Get best explanations for each feature
-  const mainExplanation = getBestExplanation(mainFeatureRow, tableData?.global_stats)
-  const similarExplanation = getBestExplanation(similarFeatureRow, tableData?.global_stats)
+  const mainExplanation = getBestExplanation(mainFeatureRow ?? null, tableData?.global_stats)
+  const similarExplanation = getBestExplanation(similarFeatureRow ?? null, tableData?.global_stats)
 
   let mainInterFeaturePositions = undefined
   let similarInterFeaturePositions = undefined
@@ -297,70 +267,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const unsureColor = UNSURE_GRAY  // Gray for unsure state
 
   return (
-    <div className={`feature-split-pair-viewer ${className} ${allPairsListProps ? 'feature-split-pair-viewer--with-list' : ''}`}>
-      {/* All Pairs list (optional) */}
-      {allPairsListProps && (
-        <ScrollableItemList
-          variant="allPairs"
-          badges={[
-            { label: allPairsListProps.listLabel, count: allPairsListProps.totalPairCount }
-          ]}
-          columnHeader={allPairsListProps.columnHeaderProps}
-          items={allPairsListProps.currentPagePairs}
-          currentIndex={allPairsListProps.isActive ? currentPairIndex % PAIRS_PER_PAGE : -1}
-          isActive={allPairsListProps.isActive}
-          isTemplateSort={allPairsListProps.isTemplateSort ?? isTemplateSort}
-          highlightPredicate={(pair: PairData, currentPairItem: PairData | null) =>
-            !!currentPairItem && pair.clusterId === currentPairItem.clusterId
-          }
-          sortConfig={{ getDisplayScore: allPairsListProps.getDisplayScore }}
-          renderItem={(pair: PairData, index: number) => {
-            const selectionState = pairSelectionStates.get(pair.pairKey) || null
-            const isAutoSource = pairSelectionSources.get(pair.pairKey) === 'auto'
-            const inPreviewReject = previewRejectKeys?.has(pair.pairKey)
-            const inPreviewSelect = previewSelectKeys?.has(pair.pairKey)
-
-            // Determine tag name based on selection state OR preview state
-            let tagName = 'Unsure'
-            if (selectionState === 'selected') {
-              tagName = 'Fragmented'
-            } else if (selectionState === 'rejected') {
-              tagName = 'Monosemantic'
-            } else if (inPreviewSelect) {
-              // Preview: will be selected → Fragmented
-              tagName = 'Fragmented'
-            } else if (inPreviewReject) {
-              // Preview: will be rejected → Monosemantic
-              tagName = 'Monosemantic'
-            }
-
-            // Format pair ID as string for TagBadge
-            const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
-
-            // Show stripe for: already auto-tagged OR in preview threshold regions
-            const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
-
-            return (
-              <TagBadge
-                featureId={pairIdString}
-                tagName={tagName}
-                tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-                onClick={() => allPairsListProps.onItemClick(index)}
-                fullWidth={true}
-                isPair={true}
-                isAuto={isAutoOrPreview}
-              />
-            )
-          }}
-          pageNavigation={{
-            currentPage: allPairsListProps.currentPage,
-            totalPages: allPairsListProps.totalPages,
-            onPreviousPage: allPairsListProps.onPreviousPage,
-            onNextPage: allPairsListProps.onNextPage
-          }}
-        />
-      )}
-
+    <div className={`feature-split-pair-viewer ${className}`}>
       {/* Main content area */}
       <div className="pair-viewer__main" ref={mainContainerRef}>
         {currentPair ? (
@@ -464,7 +371,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             </div>
 
             {/* Floating control panel at bottom */}
-            <div className="pair-viewer__floating-controls">
+            <div className="floating-controls">
               {/* Previous button */}
               <button
                 className="nav__button"

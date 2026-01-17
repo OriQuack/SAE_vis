@@ -15,19 +15,6 @@
   border-radius: 4px;
 }
 
-/* When list is included, use row layout */
-.feature-split-pair-viewer--with-list {
-  flex-direction: row;
-  gap: 4px;
-  border: none;
-  border-radius: 0;
-}
-
-.feature-split-pair-viewer--with-list .pair-viewer__main {
-  flex: 1;
-  min-width: 0;
-}
-
 /* ============================================================================
  * HEADER TITLE - Top title bar
  * ============================================================================ */
@@ -185,43 +172,6 @@
 }
 
 /* ============================================================================
- * NAVIGATION BUTTONS
- * ============================================================================ */
-
-.nav__button {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #374151;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  min-width: 50px;
-}
-
-.nav__button:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.nav__button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-.nav__counter {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
-  white-space: nowrap;
-  min-width: 50px;
-  text-align: center;
-}
-
-/* ============================================================================
  * PAIR INFO ELEMENTS
  * ============================================================================ */
 
@@ -270,111 +220,6 @@
   color: #d1d5db;
   font-weight: 300;
   margin: 0 2px;
-}
-
-/* ============================================================================
- * SELECTION BUTTONS
- * ============================================================================ */
-
-.selection__button {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-width 0.15s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  white-space: nowrap;
-  position: relative;
-  isolation: isolate;
-  outline: none;  /* Remove default focus outline */
-}
-
-.selection__button:focus {
-  outline: none;  /* Remove focus outline when clicked */
-}
-
-.selection__button:focus-visible {
-  outline: none;  /* Remove focus outline for keyboard navigation too */
-}
-
-.selection__button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  background-color: var(--tag-color, var(--unsure-gray));
-  opacity: 1.0;
-  z-index: -1;
-}
-
-.selection__button--fragmented {
-  color: #000;
-  border-color: var(--tag-color, #F0E442);
-  background-color: transparent;
-}
-
-.selection__button--fragmented.selected {
-  border-color: var(--tag-color, #F0E442);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--fragmented:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-.selection__button--monosemantic {
-  color: #000;
-  border-color: var(--tag-color, var(--unsure-gray));
-  background-color: transparent;
-}
-
-.selection__button--monosemantic.selected {
-  border-color: var(--tag-color, var(--unsure-gray));
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--monosemantic:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-.selection__button--unsure {
-  color: #000;
-  border-color: var(--tag-color, var(--unsure-gray));
-  background-color: transparent;
-}
-
-.selection__button--unsure.selected {
-  border-color: var(--tag-color, var(--unsure-gray));
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--unsure:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-.button__icon {
-  font-size: 12px;
-  font-weight: bold;
 }
 
 /* ============================================================================
@@ -526,20 +371,7 @@
   height: 72px;  /* Match 4-quantile activation example height */
 }
 
-/* ============================================================================
- * BOTTOM CONTROLS - Floating pill control panel below activation examples
- * ============================================================================ */
-
-.pair-viewer__floating-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 12px;
-  flex-shrink: 0;
-  width: fit-content;
-  align-self: center;
-}
+/* Floating controls layout uses .floating-controls from base.css */
 
 /* ============================================================================
  * EMPTY STATE

@@ -76,12 +76,12 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
 
   return (
     <div className={`status-panel ${className}`}>
-      <span className="status-panel__label">View:</span>
-
-      <div className="status-panel__group">
-        {/* Diversity option (only shown if medoid IDs are available) */}
-        {hasDiversityIds && (
-          <>
+      {/* Group 1: Bootstrapping - diversity + default metric buttons */}
+      <div className="status-panel__labeled-group">
+        <span className="status-panel__group-label">Bootstrap:</span>
+        <div className="status-panel__group">
+          {/* Diversity option (only shown if medoid IDs are available) */}
+          {hasDiversityIds && (
             <button
               className={`status-panel__button ${isActive('diversity') ? 'status-panel__button--active' : ''}`}
               onClick={() => handleSortChange('diversity')}
@@ -89,46 +89,60 @@ const StatusPanel: React.FC<StatusPanelProps> = ({
             >
               Representatives Only
             </button>
-            <div className="status-panel__divider" />
-          </>
-        )}
+          )}
 
-        {/* Default metric options (only shown if labels provided) */}
-        {defaultAscLabel && defaultDescLabel && (
-          <>
-            <button
-              className={`status-panel__button ${isActive('default', 'asc') ? 'status-panel__button--active' : ''}`}
-              onClick={() => handleSortChange('default', 'asc')}
-            >
-              {defaultAscLabel}
-            </button>
-            <button
-              className={`status-panel__button ${isActive('default', 'desc') ? 'status-panel__button--active' : ''}`}
-              onClick={() => handleSortChange('default', 'desc')}
-            >
-              {defaultDescLabel}
-            </button>
-            <div className="status-panel__divider" />
-          </>
-        )}
+          {/* Default metric options (only shown if labels provided) */}
+          {defaultAscLabel && defaultDescLabel && (
+            <>
+              <button
+                className={`status-panel__button ${isActive('default', 'asc') ? 'status-panel__button--active' : ''}`}
+                onClick={() => handleSortChange('default', 'asc')}
+              >
+                {defaultAscLabel}
+              </button>
+              <button
+                className={`status-panel__button ${isActive('default', 'desc') ? 'status-panel__button--active' : ''}`}
+                onClick={() => handleSortChange('default', 'desc')}
+              >
+                {defaultDescLabel}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
 
-        {/* Decision margin options: low margin = uncertain, high margin = confident */}
-        <button
-          className={`status-panel__button ${isActive('decisionMargin', 'asc') ? 'status-panel__button--active' : ''}`}
-          onClick={() => handleSortChange('decisionMargin', 'asc')}
-          disabled={decisionMarginDisabled}
-          title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
-        >
-          Most Uncertain First
-        </button>
-        <button
-          className={`status-panel__button ${isActive('decisionMargin', 'desc') ? 'status-panel__button--active' : ''}`}
-          onClick={() => handleSortChange('decisionMargin', 'desc')}
-          disabled={decisionMarginDisabled}
-          title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
-        >
-          Most Confident First
-        </button>
+      <div className="status-panel__divider" />
+
+      {/* Group 2: Model Learning - uncertainty-based sorting */}
+      <div className="status-panel__labeled-group">
+        <span className="status-panel__group-label">Learn:</span>
+        <div className="status-panel__group">
+          <button
+            className={`status-panel__button ${isActive('decisionMargin', 'asc') ? 'status-panel__button--active' : ''}`}
+            onClick={() => handleSortChange('decisionMargin', 'asc')}
+            disabled={decisionMarginDisabled}
+            title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
+          >
+            Most Uncertain First
+          </button>
+        </div>
+      </div>
+
+      <div className="status-panel__divider" />
+
+      {/* Group 3: Batch Tagging - confidence-based sorting */}
+      <div className="status-panel__labeled-group">
+        <span className="status-panel__group-label">Apply:</span>
+        <div className="status-panel__group">
+          <button
+            className={`status-panel__button ${isActive('decisionMargin', 'desc') ? 'status-panel__button--active' : ''}`}
+            onClick={() => handleSortChange('decisionMargin', 'desc')}
+            disabled={decisionMarginDisabled}
+            title={decisionMarginDisabled ? 'Tag 3+ items per category to enable' : undefined}
+          >
+            Most Confident First
+          </button>
+        </div>
       </div>
 
       {/* Filter options (optional - shown on the right) */}

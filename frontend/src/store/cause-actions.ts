@@ -354,8 +354,9 @@ export const createCauseActions = (set: any, get: any) => ({
    * Fetch SVM cause classification for features.
    * Uses mean metric vectors per feature for OvR SVM classification.
    *
-   * Backend uses anchor points as baseline training data, so manual tags
-   * are optional. When provided, manual tags improve predictions.
+   * Requires manual tags before training SVM - will early-return if
+   * causeSelections is empty. This ensures no auto-classification
+   * happens on initial CauseView entry.
    */
   fetchCauseClassification: async (
     featureIds: number[],
@@ -366,6 +367,13 @@ export const createCauseActions = (set: any, get: any) => ({
     // Early return if already loading to prevent duplicate concurrent requests
     if (state.causeClassificationLoading) {
       console.log('[Store.fetchCauseClassification] ⚠️ Already loading, skipping duplicate request')
+      return
+    }
+
+    // Require at least some manual tags before training SVM
+    // This prevents auto-triggering with anchor points on entry
+    if (Object.keys(causeSelections).length === 0) {
+      console.log('[Store.fetchCauseClassification] ⚠️ No manual tags provided, skipping SVM training')
       return
     }
 
@@ -380,9 +388,6 @@ export const createCauseActions = (set: any, get: any) => ({
       featureCount: featureIds.length,
       manualTagCount: Object.keys(causeSelections).length
     })
-
-    // No validation required - backend uses anchor points as baseline training data
-    // Manual tags are optional and improve predictions when provided
 
     try {
       set({ causeClassificationLoading: true, causeClassificationError: null })

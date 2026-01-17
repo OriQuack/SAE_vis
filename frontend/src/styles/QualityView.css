@@ -51,7 +51,6 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  gap: 4px;
 }
 
 /* ============================================================================
@@ -83,7 +82,30 @@
   flex: 1;
 }
 
-/* Right panel - matches FeatureSplitPairViewer styling */
+/* StatusPanel border - top, left, right (no bottom) */
+.quality-view__main > .status-panel {
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+/* List border - connects to StatusPanel above (override default border) */
+.quality-view__row-top > .scrollable-list {
+  width: 240px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Right panel - top border only (connects to StatusPanel above) */
+.quality-view__right-panel {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
+}
+
+/* Right panel - layout (matches FeatureSplitPairViewer styling) */
 .quality-view__right-panel {
   display: flex;
   flex-direction: column;
@@ -352,59 +374,4 @@
   font-style: italic;
 }
 
-/* ============================================================================
- * FLOATING CONTROLS - Navigation and tag buttons at bottom
- * ============================================================================ */
-
-.quality-view__floating-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 12px;
-  flex-shrink: 0;
-  width: fit-content;
-  align-self: center;
-}
-
-/* Selection button variant for Need Revision */
-.selection__button--need-revision {
-  color: #000;
-  border-color: var(--tag-color, var(--unsure-gray));
-  background-color: transparent;
-}
-
-.selection__button--need-revision.selected {
-  border-color: var(--tag-color, var(--unsure-gray));
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--need-revision:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-/* Selection button variant for Well-Explained */
-.selection__button--well-explained {
-  color: #000;
-  border-color: var(--tag-color, #4CAF50);
-  background-color: transparent;
-}
-
-.selection__button--well-explained.selected {
-  border-color: var(--tag-color, #4CAF50);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--well-explained:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
+/* Floating controls layout uses .floating-controls from base.css */

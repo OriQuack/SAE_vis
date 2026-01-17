@@ -69,21 +69,14 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Local state
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
 
-  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
+
+  // Track if SVM has been trained (for conditional UI labels)
+  const svmTrainingStarted = similarityScores.size > 0
 
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
-
-  // Auto-enable hideTagged once when SVM training starts
-  const hasAutoEnabledHideTagged = useRef(false)
-  const svmTrainingStarted = similarityScores.size > 0
-  useEffect(() => {
-    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
-      hasAutoEnabledHideTagged.current = true
-      setHideTagged(true)
-    }
-  }, [svmTrainingStarted])
 
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
@@ -902,7 +895,6 @@ const QualityView: React.FC<QualityViewProps> = ({
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />
-
           {/* Content: 2 rows */}
           <div className="quality-view__content">
           {/* Top row: Feature list + right panel */}
@@ -1081,7 +1073,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                   </div>
 
                   {/* Floating control panel at bottom */}
-                  <div className="quality-view__floating-controls">
+                  <div className="floating-controls">
                     {/* Previous button */}
                     <button
                       className="nav__button"

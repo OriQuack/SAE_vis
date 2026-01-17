@@ -372,9 +372,25 @@ export const createQualityActions = (set: any, get: any) => ({
       const flipRate = total > 0 ? flips / total : 0
       const newIteration = existingFlipTracking.totalIterations + 1
 
+      // Count predictions by category
+      const predictionCounts: Record<string, number> = { selected: 0, rejected: 0 }
+      currentPredictions.forEach((prediction) => {
+        predictionCounts[prediction] = (predictionCounts[prediction] || 0) + 1
+      })
+
+      // Count flip transitions (previous → current)
+      const flipTransitions: Record<string, number> = {}
+      currentPredictions.forEach((curr, featureId) => {
+        const prev = existingFlipTracking.previousPredictions.get(featureId)
+        if (prev && prev !== curr) {
+          const transitionKey = `${prev}→${curr}`
+          flipTransitions[transitionKey] = (flipTransitions[transitionKey] || 0) + 1
+        }
+      })
+
       // Use pendingBatchOperation flag to determine isBatch
       updatedFlipTracking = {
-        flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration }].slice(-FLIP_HISTORY_WINDOW_SIZE),
+        flipHistory: [...existingFlipTracking.flipHistory, { flipRate, isBatch: pendingBatchOperation, iteration: newIteration, predictionCounts, flipTransitions }].slice(-FLIP_HISTORY_WINDOW_SIZE),
         totalIterations: newIteration,
         flippedBins: new Set<number>(),
         previousPredictions: currentPredictions

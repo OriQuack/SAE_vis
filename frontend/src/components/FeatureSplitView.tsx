@@ -5,6 +5,8 @@ import * as api from '../api'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StatusPanel from './StatusPanel'
+import ScrollableItemList from './ScrollableItemList'
+import { TagBadge } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
@@ -60,21 +62,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Local state for navigation
   const [currentPairIndex, setCurrentPairIndex] = useState(0)
 
-  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
+
+  // Track if SVM has been trained (for conditional UI labels)
+  const svmTrainingStarted = pairSimilarityScores.size > 0
 
   // Diversity sort: IDs of diverse pairs (Kennard-Stone samples) to show first
   const [diversityPairIds, setDiversityPairIds] = useState<Set<string>>(new Set())
-
-  // Auto-enable hideTagged once when SVM training starts
-  const hasAutoEnabledHideTagged = useRef(false)
-  const svmTrainingStarted = pairSimilarityScores.size > 0
-  useEffect(() => {
-    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
-      hasAutoEnabledHideTagged.current = true
-      setHideTagged(true)
-    }
-  }, [svmTrainingStarted])
 
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -571,7 +566,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const needsScores = scoresAreStale && pairList.length > 0
 
     if (hasRequiredSelections && needsScores) {
-      const allPairKeys = pairList.map(p => p.pairKey)
+      const allPairKeys = rawPairList.map(p => p.pairKey)
 
       // Skip if all pairs are already tagged - no point in re-computing similarity
       if (pairSelectionStates.size >= allPairKeys.length) {
@@ -582,7 +577,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
       sortPairsBySimilarity(allPairKeys)
     }
-  }, [pairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
+  }, [pairList, rawPairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
 
   // ============================================================================
   // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)
@@ -922,6 +917,44 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [handleTagAllMonosemantic, handleTagAllByBoundary])
 
+  // Render function for pair items in ScrollableItemList
+  const renderPairItem = useCallback((pair: typeof rawPairList[0], index: number) => {
+    const selectionState = pairSelectionStates.get(pair.pairKey) || null
+    const isAutoSource = pairSelectionSources.get(pair.pairKey) === 'auto'
+    const inPreviewReject = previewRejectKeys?.has(pair.pairKey)
+    const inPreviewSelect = previewSelectKeys?.has(pair.pairKey)
+
+    // Determine tag name based on selection state OR preview state
+    let tagName = 'Unsure'
+    if (selectionState === 'selected') {
+      tagName = 'Fragmented'
+    } else if (selectionState === 'rejected') {
+      tagName = 'Monosemantic'
+    } else if (inPreviewSelect) {
+      tagName = 'Fragmented'
+    } else if (inPreviewReject) {
+      tagName = 'Monosemantic'
+    }
+
+    // Format pair ID as string for TagBadge
+    const pairIdString = `${pair.mainFeatureId}-${pair.similarFeatureId}`
+
+    // Show stripe for: already auto-tagged OR in preview threshold regions
+    const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
+
+    return (
+      <TagBadge
+        featureId={pairIdString}
+        tagName={tagName}
+        tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+        onClick={() => handleAllPairsListClick(index)}
+        fullWidth={true}
+        isPair={true}
+        isAuto={isAutoOrPreview}
+      />
+    )
+  }, [pairSelectionStates, pairSelectionSources, previewRejectKeys, previewSelectKeys, handleAllPairsListClick])
+
   // ============================================================================
   // RENDER
   // ============================================================================
@@ -945,7 +978,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
       {/* Body: Main column + Next Stage column */}
       <div className="feature-split-view__body">
-        {/* Main column: StatusPanel + Content rows */}
+        {/* Main column: Content rows */}
         <div className="feature-split-view__main">
           {/* Status panel - sorting controls */}
           <StatusPanel
@@ -961,11 +994,34 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />
-
           {/* Content: 2 rows */}
           <div className="feature-split-view__content">
           {/* Top row: Pair list + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
+            <ScrollableItemList
+              variant="allPairs"
+              badges={[{
+                label: diversityPairIds.size > 0 && !svmTrainingStarted
+                  ? 'Representative Pairs'
+                  : hideTagged
+                    ? 'Untagged Pairs'
+                    : 'All Pairs',
+                count: displayPairList.length
+              }]}
+              columnHeader={columnHeaderProps}
+              items={currentPagePairs}
+              renderItem={renderPairItem}
+              sortConfig={{ getDisplayScore }}
+              currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
+              isActive={activeListSource === 'all'}
+              isTemplateSort={isTemplateSort}
+              pageNavigation={{
+                currentPage,
+                totalPages,
+                onPreviousPage: handlePreviousPage,
+                onNextPage: handleNextPage
+              }}
+            />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
             pairList={activePairList}
@@ -980,26 +1036,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               setActiveListSource('all')
             }}
             hideTagged={hideTagged}
-            previewRejectKeys={previewRejectKeys}
-            previewSelectKeys={previewSelectKeys}
-            allPairsListProps={{
-              listLabel: diversityPairIds.size > 0 && !svmTrainingStarted
-                ? 'Representative Pairs'
-                : hideTagged
-                  ? 'Untagged Pairs'
-                  : 'All Pairs',
-              currentPagePairs,
-              totalPairCount: displayPairList.length,
-              isActive: activeListSource === 'all',
-              columnHeaderProps,
-              getDisplayScore,
-              currentPage,
-              totalPages,
-              onItemClick: handleAllPairsListClick,
-              onPreviousPage: handlePreviousPage,
-              onNextPage: handleNextPage,
-              isTemplateSort
-            }}
           />
         </div>
 

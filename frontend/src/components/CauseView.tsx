@@ -96,7 +96,6 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // SVM decision margins for auto-tagging by decision boundary
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
-  const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const umapLoading = useVisualizationStore(state => state.umapLoading)
 
@@ -116,20 +115,12 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
   // Track if user has ever clicked "Most Confident First" - hides placeholder permanently
   const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
-  // Hide tagged items toggle (start false in representative mode, enable after SVM training)
+  // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
+  // Track if SVM has been trained (for conditional UI labels)
+  const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
-
-  // Auto-enable hideTagged once when SVM classification results are available
-  const hasAutoEnabledHideTagged = useRef(false)
-  const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
-  useEffect(() => {
-    if (svmTrainingStarted && !hasAutoEnabledHideTagged.current) {
-      hasAutoEnabledHideTagged.current = true
-      setHideTagged(true)
-    }
-  }, [svmTrainingStarted])
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -241,40 +232,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     hasAutoTaggedRef.current = true
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
   }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples])
-
-  // ============================================================================
-  // AUTO-TRIGGER SVM CLASSIFICATION - Train with anchor points on entry
-  // ============================================================================
-  // Ref to track if classification has been triggered (prevents duplicate calls)
-  const hasTriggeredClassificationRef = useRef(false)
-
-  useEffect(() => {
-    // Skip if revisiting (will restore from commit) or already triggered
-    if (isRevisitingStage3 || hasTriggeredClassificationRef.current) {
-      return
-    }
-
-    // Wait for metric scores to be initialized first
-    if (!hasAutoTaggedRef.current) {
-      return
-    }
-
-    // Wait for required data
-    if (!selectedFeatureIds || selectedFeatureIds.size === 0) {
-      return
-    }
-
-    // Don't trigger if already loading
-    if (causeClassificationLoading) {
-      return
-    }
-
-    hasTriggeredClassificationRef.current = true
-
-    // Trigger classification with empty selections (backend uses anchors as baseline)
-    fetchCauseClassification(Array.from(selectedFeatureIds), {})
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references, causeClassificationLoading removed to prevent infinite loop
-  }, [isRevisitingStage3, selectedFeatureIds])
 
   // ============================================================================
   // AUTO-ADJUST UNSURE BOUNDARY - Set threshold to show Low INITIAL_UNSURE_PERCENTAGE%
@@ -1125,9 +1082,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   // RENDER
   // ============================================================================
 
-  // Block UI ONLY for initial load (first time classification + UMAP)
-  // After initial load, show loading overlay instead of unmounting everything
-  const isInitialLoad = (causeCategoryDecisionMargins.size === 0 && !isRevisitingStage3) || umapLoading
+  // Block UI ONLY for initial UMAP data load
+  // SVM classification only runs after user provides manual tags, so don't wait for it
+  const isInitialLoad = umapLoading
 
   if (isInitialLoad) {
     return (
@@ -1159,7 +1116,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       {/* Body: Content area */}
       <div className="cause-view__body">
-        {/* Main column: StatusPanel (with filter in Top mode) + Content */}
+        {/* Main column: Content */}
         <div className="cause-view__main">
           {/* Status panel - sorting controls + filter (in Top mode) */}
           <StatusPanel
@@ -1181,16 +1138,13 @@ const CauseView: React.FC<CauseViewProps> = ({
             hideTagged={hideTagged}
             onHideTaggedChange={setHideTagged}
           />
-
           {/* Main content: Two rows (50/50 split) */}
           <div className="cause-view__content">
             {/* ============================================================ */}
             {/* TOP ROW: List (fixed 220px) + Right Panel (flex: 1)          */}
             {/* ============================================================ */}
             <div className="cause-view__row-top">
-              {/* Left: ScrollableItemList (fixed 220px width) */}
-              <div className="cause-view__top-list-wrapper">
-                <ScrollableItemList
+              <ScrollableItemList
                   variant="causeBrushed"
                   badges={[{
                     label: sortMode === 'diversity' && !svmTrainingStarted
@@ -1209,7 +1163,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   emptyMessage="Select a cell with features"
                   disableAutoScroll={true}
                 />
-              </div>
 
               {/* Right: Feature detail panel */}
               <div className="cause-view__top-right-panel" ref={rightPanelRef}>
@@ -1342,7 +1295,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
 
                     {/* ---- Floating control panel ---- */}
-                    <div className="cause-view__floating-controls">
+                    <div className="floating-controls">
                       {/* Previous button */}
                       <button
                         className="nav__button"

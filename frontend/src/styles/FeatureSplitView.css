@@ -51,7 +51,6 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  gap: 4px;
 }
 
 /* ============================================================================
@@ -81,6 +80,29 @@
   overflow: hidden;
   flex-shrink: 0;
   flex: 1;
+}
+
+/* StatusPanel border - top, left, right (no bottom) */
+.feature-split-view__main > .status-panel {
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+/* List border - connects to StatusPanel above */
+.feature-split-view__row-top > .scrollable-list {
+  width: 240px;
+  flex-shrink: 0;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Right panel - top border only (connects to StatusPanel above) */
+.feature-split-view__row-top > .feature-split-pair-viewer {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
 }
 
 /* Note: Bottom row styles are now in ThresholdTaggingPanel.css */

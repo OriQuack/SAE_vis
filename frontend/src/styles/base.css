@@ -391,6 +391,106 @@ Matches .nav__button style: white background, 11px font
 }
 
 /* ============================================================================
+   NAVIGATION BUTTONS - Prev/Next buttons in floating controls
+   ============================================================================ */
+
+.nav__button {
+  padding: 2px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+  min-width: 55px;
+}
+
+.nav__button:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.nav__button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   FLOATING CONTROLS - Common layout for navigation and tag button containers
+   ============================================================================ */
+
+.floating-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 12px;
+  flex-shrink: 0;
+  width: fit-content;
+  align-self: center;
+}
+
+/* ============================================================================
+   SELECTION/TAG BUTTONS - Tag buttons in floating controls
+   All variants use --tag-color CSS variable set inline by TagButton component
+   ============================================================================ */
+
+.selection__button {
+  padding: 2px 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #000;
+  border: 2px solid rgba(0, 0, 0, 0.15);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  position: relative;
+  isolation: isolate;
+  outline: none;
+  background-color: transparent;
+}
+
+.selection__button:focus {
+  outline: none;
+}
+
+.selection__button:focus-visible {
+  outline: none;
+}
+
+.selection__button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background-color: var(--tag-color, var(--unsure-gray));
+  opacity: 1.0;
+  z-index: -1;
+}
+
+.selection__button.selected {
+  border-color: rgba(0, 0, 0, 0.4);
+  color: #000;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
+  transform: scale(1.12);
+}
+
+.selection__button:hover:not(.selected) {
+  color: #000;
+  border-color: rgba(0, 0, 0, 0.3);
+  transform: scale(1.08);
+}
+
+/* ============================================================================
    NEXT STAGE COLUMN - Right-side column for stage navigation
    ============================================================================ */
 

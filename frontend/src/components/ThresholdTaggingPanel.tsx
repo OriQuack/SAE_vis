@@ -293,7 +293,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               </span>
             ) : null}
           </h4>
-          <ConvergenceIndicator flipTracking={tagAutomaticState?.flipTracking ?? null} />
+          <ConvergenceIndicator
+            flipTracking={tagAutomaticState?.flipTracking ?? null}
+            stage={mode === 'pair' ? 'stage1' : 'stage2'}
+          />
         </div>
 
         {/* Boundary lists wrapper with subtitle */}

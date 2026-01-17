@@ -67,7 +67,6 @@
 .cause-view__main {
   display: flex;
   flex-direction: column;
-  gap: 4px;
   flex: 1;
   min-width: 0;
 }
@@ -113,13 +112,27 @@
   flex: 1;
 }
 
-/* Top-left: ScrollableItemList wrapper - fixed 220px width */
-.cause-view__top-list-wrapper {
+/* StatusPanel border - top, left, right (no bottom) */
+.cause-view__main > .status-panel {
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+}
+
+/* List border - connects to StatusPanel above */
+.cause-view__row-top > .scrollable-list {
   width: 240px;
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+}
+
+/* Right panel - top border only (connects to StatusPanel above) */
+.cause-view__top-right-panel {
+  border: none;
+  border-top: 1px solid #e5e7eb;
+  border-radius: 0;
 }
 
 /* Top-right: Detail panel - fills remaining space */
@@ -443,160 +456,5 @@
 }
 
 
-/* ============================================================================
- * FLOATING CONTROLS - Navigation and tag buttons at bottom
- * ============================================================================ */
-
-/* Base nav button styles - uses unified action-button styling from base.css */
-.cause-view__floating-controls .nav__button {
-  padding: 3px 8px;
-  font-size: 13px;
-  font-weight: 500;
-  color: #000000;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  white-space: nowrap;
-  min-width: 50px;
-}
-
-.cause-view__floating-controls .nav__button:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.cause-view__floating-controls .nav__button:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* Base selection button styles */
-.cause-view__floating-controls .selection__button {
-  padding: 3px 8px;
-  font-size: 11px;
-  font-weight: 600;
-  border: 1px solid;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-width 0.15s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  white-space: nowrap;
-  position: relative;
-  isolation: isolate;
-  outline: none;
-}
-
-.cause-view__floating-controls .selection__button:focus {
-  outline: none;
-}
-
-.cause-view__floating-controls .selection__button::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 2px;
-  background-color: var(--tag-color, #9ca3af);
-  opacity: 1.0;
-  z-index: -1;
-}
-
-.cause-view__floating-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 12px;
-  flex-shrink: 0;
-  width: fit-content;
-  align-self: center;
-}
-
-/* Selection button variant for Noisy Activation */
-.selection__button--noisy-activation {
-  color: #000;
-  border-color: var(--tag-color, #9ca3af);
-  background-color: transparent;
-}
-
-.selection__button--noisy-activation.selected {
-  border-color: var(--tag-color, #9ca3af);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--noisy-activation:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-/* Selection button variant for Pattern Miss */
-.selection__button--missed-N-gram {
-  color: #000;
-  border-color: var(--tag-color, #9ca3af);
-  background-color: transparent;
-}
-
-.selection__button--missed-N-gram.selected {
-  border-color: var(--tag-color, #9ca3af);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--missed-N-gram:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-/* Selection button variant for Context Miss */
-.selection__button--missed-context {
-  color: #000;
-  border-color: var(--tag-color, #9ca3af);
-  background-color: transparent;
-}
-
-.selection__button--missed-context.selected {
-  border-color: var(--tag-color, #9ca3af);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.selection__button--missed-context:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
-
-/* Selection button variant for Well-Explained (in CauseView) */
-.cause-view .selection__button--well-explained {
-  color: #000;
-  border-color: var(--tag-color, #9ca3af);
-  background-color: transparent;
-}
-
-.cause-view .selection__button--well-explained.selected {
-  border-color: var(--tag-color, #9ca3af);
-  color: #000;
-  font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px) scale(1.12);
-  border-width: 2px;
-}
-
-.cause-view .selection__button--well-explained:hover:not(.selected) {
-  color: #000;
-  transform: scale(1.08);
-}
+/* Floating controls layout uses .floating-controls from base.css */
 
