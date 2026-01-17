@@ -29,10 +29,12 @@ export const ThresholdHandleIcon: React.FC<ThresholdHandleIconProps> = ({
   fillColor = OKABE_ITO_PALETTE.BLUE,
   className
 }) => {
+  const padding = 2
+  const innerHeight = height - padding * 2
   const centerX = width / 2
   const centerY = height / 2
   const gripSpacing = 5
-  const gripPadding = 4
+  const gripPadding = padding + 4
 
   return (
     <svg
@@ -43,11 +45,11 @@ export const ThresholdHandleIcon: React.FC<ThresholdHandleIconProps> = ({
     >
       {/* Handle background */}
       <rect
-        x={0}
-        y={0}
-        width={width}
-        height={height}
-        rx={4}
+        x={1}
+        y={padding}
+        width={width - 2}
+        height={innerHeight}
+        rx={3}
         fill={fillColor}
         stroke="#fff"
         strokeWidth={1.5}

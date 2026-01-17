@@ -138,6 +138,8 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                 <ThresholdHandleIcon
                   className="batch-tagging__button-icon"
                   orientation="horizontal"
+                  width={24}
+                  height={20}
                 />
                 <span className="batch-tagging__button-text">Confirm Confident {cat.label}</span>
               </div>
@@ -179,6 +181,8 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                 <ThresholdHandleIcon
                   className="batch-tagging__button-icon"
                   orientation="horizontal"
+                  width={24}
+                  height={20}
                 />
                 <span className="batch-tagging__button-text">Confirm Confident by Decision Boundary</span>
               </div>
@@ -224,6 +228,8 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                 <ThresholdHandleIcon
                   className="batch-tagging__button-icon"
                   orientation="horizontal"
+                  width={24}
+                  height={20}
                 />
                 <span className="batch-tagging__button-text">Confirm Threshold</span>
               </div>
@@ -275,15 +281,15 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               title={`Tag all remaining as ${categories[0].label}`}
             >
               <div className="batch-tagging__button-content">
-                <svg className="batch-tagging__button-icon" width="28" height="22" viewBox="0 0 24 18">
+                <svg className="batch-tagging__button-icon" viewBox="0 0 24 20">
                   <rect
-                    x="1" y="1" width="22" height="16" rx="3"
+                    x="1" y="2" width="22" height="16" rx="3"
                     fill={categories[0].color}
                     stroke="#fff"
                     strokeWidth="1.5"
                   />
                   <path
-                    d="M6 9 L16 9 M12 5 L17 9 L12 13"
+                    d="M6 10 L16 10 M12 6 L17 10 L12 14"
                     stroke="#fff"
                     strokeWidth="2"
                     strokeLinecap="round"
@@ -323,19 +329,19 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
             >
               <div className="batch-tagging__button-content">
                 {categories.length === 2 ? (
-                  <svg className="batch-tagging__button-icon" width="28" height="20" viewBox="0 0 24 16">
-                    <rect x="1" y="1" width="10" height="14" rx="2" fill={categories[0].color} stroke="#fff" strokeWidth="1.5"/>
-                    <rect x="13" y="1" width="10" height="14" rx="2" fill={categories[1].color} stroke="#fff" strokeWidth="1.5"/>
-                    <text x="6" y="11" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&lt;</text>
-                    <text x="18" y="11" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&gt;</text>
+                  <svg className="batch-tagging__button-icon" viewBox="0 0 24 20">
+                    <rect x="1" y="2" width="10" height="16" rx="2" fill={categories[0].color} stroke="#fff" strokeWidth="1.5"/>
+                    <rect x="13" y="2" width="10" height="16" rx="2" fill={categories[1].color} stroke="#fff" strokeWidth="1.5"/>
+                    <text x="6" y="14" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&lt;</text>
+                    <text x="18" y="14" fill="#fff" fontSize="10" fontWeight="bold" textAnchor="middle">&gt;</text>
                   </svg>
                 ) : (
-                  <svg className="batch-tagging__button-icon" width="24" height="20" viewBox="0 0 20 16">
+                  <svg className="batch-tagging__button-icon" viewBox="0 0 24 20">
                     {categories.map((cat, i) => (
                       <rect
                         key={cat.id}
-                        x={i * 7.25}
-                        y="0"
+                        x={2 + i * 7.25}
+                        y="2"
                         width="5.5"
                         height="16"
                         rx="2"

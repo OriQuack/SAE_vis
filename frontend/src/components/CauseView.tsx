@@ -2,9 +2,9 @@ import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import * as api from '../api'
-import { useSortableList } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import UMAPScatter from './UMAPScatter'
-import { ScrollableItemList } from './ScrollableItemList'
+import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
@@ -21,7 +21,6 @@ import {
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
-import StatusPanel from './StatusPanel'
 import CauseMarginHistogram from './CauseMarginHistogram'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/CauseView.css'
@@ -383,8 +382,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     sortDirection: selectedSortDirection,
     setSortDirection: setSelectedSortDirection,
     sortedItems: sortedFeatureItems,
-    columnHeaderProps,
-    isTemplateSort
+    columnHeaderProps
   } = useSortableList({
     items: causeFeatureItems,
     getItemKey: (item) => item.featureId,
@@ -396,6 +394,36 @@ const CauseView: React.FC<CauseViewProps> = ({
     templateMode: 'decisionMargin',
     templateDirection: 'asc'
   })
+
+  // Derive stage state from sort mode/direction (for StageAccordionList)
+  const { activeStage, bootstrapMode, bootstrapDirection } = useMemo(() => {
+    return sortConfigToStage(sortMode, selectedSortDirection)
+  }, [sortMode, selectedSortDirection])
+
+  // Handlers for stage changes (StageAccordionList callbacks)
+  const handleStageChange = useCallback((stage: ActiveStage) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig(stage, bootstrapMode, bootstrapDirection)
+    setSortMode(newMode)
+    setSelectedSortDirection(newDir)
+    setCurrentSelectedIndex(0)
+    setActiveListSource('selected')
+  }, [bootstrapMode, bootstrapDirection, setSortMode, setSelectedSortDirection])
+
+  const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
+    setSortMode(newMode)
+    setSelectedSortDirection(newDir)
+    setCurrentSelectedIndex(0)
+    setActiveListSource('selected')
+  }, [bootstrapDirection, setSortMode, setSelectedSortDirection])
+
+  const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
+    if (bootstrapMode === 'byScore') {
+      setSelectedSortDirection(direction)
+      setCurrentSelectedIndex(0)
+      setActiveListSource('selected')
+    }
+  }, [bootstrapMode, setSelectedSortDirection])
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
@@ -1118,34 +1146,35 @@ const CauseView: React.FC<CauseViewProps> = ({
       <div className="cause-view__body">
         {/* Main column: Content */}
         <div className="cause-view__main">
-          {/* Status panel - sorting controls + filter (in Top mode) */}
-          <StatusPanel
-            sortMode={sortMode}
-            sortDirection={selectedSortDirection}
-            onSortModeChange={setSortMode}
-            onSortDirectionChange={setSelectedSortDirection}
-            hasDiversityIds={diversityFeatureIds.size > 0}
-            isTemplateSort={isTemplateSort}
-            filterOptions={[
-              { value: 'missed-N-gram', label: 'Pattern Miss', color: missedNgramColor },
-              { value: 'missed-context', label: 'Context Miss', color: missedContextColor },
-              { value: 'noisy-activation', label: 'Noisy Activation', color: noisyActivationColor }
-            ]}
-            filterValue={filterByTag}
-            onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
-            filterDisabled={!isTopMode}
-            decisionMarginDisabled={!canTrainSVM}
-            hideTagged={hideTagged}
-            onHideTaggedChange={setHideTagged}
-          />
           {/* Main content: Two rows (50/50 split) */}
           <div className="cause-view__content">
             {/* ============================================================ */}
-            {/* TOP ROW: List (fixed 220px) + Right Panel (flex: 1)          */}
+            {/* TOP ROW: StageAccordionList (fixed) + Right Panel (flex: 1)  */}
             {/* ============================================================ */}
             <div className="cause-view__row-top">
-              <ScrollableItemList
+              <StageAccordionList
                   variant="causeBrushed"
+                  activeStage={activeStage}
+                  onStageChange={handleStageChange}
+                  bootstrapMode={bootstrapMode}
+                  bootstrapDirection={bootstrapDirection}
+                  onBootstrapModeChange={handleBootstrapModeChange}
+                  onBootstrapDirectionChange={handleBootstrapDirectionChange}
+                  hasDiversityIds={diversityFeatureIds.size > 0}
+                  learnDisabled={!canTrainSVM}
+                  applyDisabled={!canTrainSVM}
+                  byScoreAscLabel="Low ID First"
+                  byScoreDescLabel="High ID First"
+                  hideTagged={hideTagged}
+                  onHideTaggedChange={setHideTagged}
+                  filterOptions={[
+                    { value: 'missed-N-gram', label: 'Pattern Miss', color: missedNgramColor },
+                    { value: 'missed-context', label: 'Context Miss', color: missedContextColor },
+                    { value: 'noisy-activation', label: 'Noisy Activation', color: noisyActivationColor }
+                  ]}
+                  filterValue={filterByTag}
+                  onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
+                  filterDisabled={!isTopMode}
                   badges={[{
                     label: sortMode === 'diversity' && !svmTrainingStarted
                       ? 'Representative Features'

@@ -67,9 +67,9 @@ interface CauseMarginHistogramProps {
   onThresholdChange: (value: number) => void
   /** Height of the histogram */
   height?: number
-  /** Sort mode from StatusPanel */
+  /** Sort mode from StageAccordionList */
   sortMode?: SortMode
-  /** Sort direction from StatusPanel - affects boundary display (Low vs Top) when sortMode is decisionMargin */
+  /** Sort direction from StageAccordionList - affects boundary display (Low vs Top) when sortMode is decisionMargin */
   sortDirection?: 'asc' | 'desc'
   /** Callback when percentage changes (due to threshold drag) */
   onPercentageChange?: (percentage: number) => void

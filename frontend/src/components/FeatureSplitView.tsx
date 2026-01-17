@@ -4,11 +4,10 @@ import type { FeatureTableRow } from '../types'
 import * as api from '../api'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
-import StatusPanel from './StatusPanel'
-import ScrollableItemList from './ScrollableItemList'
+import StageAccordionList from './StageAccordionList'
 import { TagBadge } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
-import { useSortableList } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
 import { useListNavigation } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
@@ -466,6 +465,36 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     initialMode: 'diversity',
     initialDirection: 'asc'
   })
+
+  // Derive stage state from sort mode/direction (for StageAccordionList)
+  const { activeStage, bootstrapMode, bootstrapDirection } = useMemo(() => {
+    return sortConfigToStage(sortMode, sortDirection)
+  }, [sortMode, sortDirection])
+
+  // Handlers for stage changes (StageAccordionList callbacks)
+  const handleStageChange = useCallback((stage: ActiveStage) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig(stage, bootstrapMode, bootstrapDirection)
+    setSortMode(newMode)
+    setSortDirection(newDir)
+    setCurrentPairIndex(0)
+    setActiveListSource('all')
+  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+
+  const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
+    setSortMode(newMode)
+    setSortDirection(newDir)
+    setCurrentPairIndex(0)
+    setActiveListSource('all')
+  }, [bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+
+  const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
+    if (bootstrapMode === 'byScore') {
+      setSortDirection(direction)
+      setCurrentPairIndex(0)
+      setActiveListSource('all')
+    }
+  }, [bootstrapMode, setSortDirection, setActiveListSource])
 
   // Filter pairs based on hideTagged toggle
   const displayPairList = useMemo(() => {
@@ -980,26 +1009,25 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="feature-split-view__body">
         {/* Main column: Content rows */}
         <div className="feature-split-view__main">
-          {/* Status panel - sorting controls */}
-          <StatusPanel
-            sortMode={sortMode}
-            sortDirection={sortDirection}
-            onSortModeChange={setSortMode}
-            onSortDirectionChange={setSortDirection}
-            hasDiversityIds={diversityPairIds.size > 0}
-            defaultAscLabel="Least Similar First"
-            defaultDescLabel="Most Similar First"
-            isTemplateSort={isTemplateSort}
-            decisionMarginDisabled={!tagAutomaticState?.histogramData}
-            hideTagged={hideTagged}
-            onHideTaggedChange={setHideTagged}
-          />
           {/* Content: 2 rows */}
           <div className="feature-split-view__content">
-          {/* Top row: Pair list + FeatureSplitPairViewer */}
+          {/* Top row: StageAccordionList + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
-            <ScrollableItemList
+            <StageAccordionList
               variant="allPairs"
+              activeStage={activeStage}
+              onStageChange={handleStageChange}
+              bootstrapMode={bootstrapMode}
+              bootstrapDirection={bootstrapDirection}
+              onBootstrapModeChange={handleBootstrapModeChange}
+              onBootstrapDirectionChange={handleBootstrapDirectionChange}
+              hasDiversityIds={diversityPairIds.size > 0}
+              learnDisabled={!tagAutomaticState?.histogramData}
+              applyDisabled={!tagAutomaticState?.histogramData}
+              byScoreAscLabel="Least Similar First"
+              byScoreDescLabel="Most Similar First"
+              hideTagged={hideTagged}
+              onHideTaggedChange={setHideTagged}
               badges={[{
                 label: diversityPairIds.size > 0 && !svmTrainingStarted
                   ? 'Representative Pairs'
@@ -1014,7 +1042,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               sortConfig={{ getDisplayScore }}
               currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
               isActive={activeListSource === 'all'}
-              isTemplateSort={isTemplateSort}
               pageNavigation={{
                 currentPage,
                 totalPages,

@@ -10,6 +10,10 @@ import { useState, useMemo, useCallback } from 'react'
 
 export type SortMode = 'default' | 'decisionMargin' | 'diversity'
 
+// Stage-based workflow types (for StageAccordionList)
+export type ActiveStage = 'bootstrap' | 'learn' | 'apply'
+export type BootstrapMode = 'diversity' | 'byScore'
+
 export interface SortableListConfig<T, K> {
   items: T[]
   getItemKey: (item: T) => K
@@ -156,4 +160,52 @@ export function useSortableList<T, K>({
     getDisplayScore,
     isTemplateSort
   }
+}
+
+// ============================================================================
+// STAGE-AWARE HELPERS - Convert between stage/sort representations
+// ============================================================================
+
+/**
+ * Convert stage + bootstrap config to sortMode + sortDirection
+ */
+export function stageToSortConfig(
+  activeStage: ActiveStage,
+  bootstrapMode: BootstrapMode,
+  bootstrapDirection: 'asc' | 'desc'
+): { sortMode: SortMode; sortDirection: 'asc' | 'desc' } {
+  switch (activeStage) {
+    case 'bootstrap':
+      if (bootstrapMode === 'diversity') {
+        return { sortMode: 'diversity', sortDirection: 'asc' }
+      }
+      return { sortMode: 'default', sortDirection: bootstrapDirection }
+    case 'learn':
+      return { sortMode: 'decisionMargin', sortDirection: 'asc' }
+    case 'apply':
+      return { sortMode: 'decisionMargin', sortDirection: 'desc' }
+  }
+}
+
+/**
+ * Convert sortMode + sortDirection to stage + bootstrap config
+ */
+export function sortConfigToStage(
+  sortMode: SortMode,
+  sortDirection: 'asc' | 'desc'
+): { activeStage: ActiveStage; bootstrapMode: BootstrapMode; bootstrapDirection: 'asc' | 'desc' } {
+  if (sortMode === 'diversity') {
+    return { activeStage: 'bootstrap', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
+  }
+  if (sortMode === 'default') {
+    return { activeStage: 'bootstrap', bootstrapMode: 'byScore', bootstrapDirection: sortDirection }
+  }
+  if (sortMode === 'decisionMargin') {
+    if (sortDirection === 'asc') {
+      return { activeStage: 'learn', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
+    }
+    return { activeStage: 'apply', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
+  }
+  // Default fallback
+  return { activeStage: 'bootstrap', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
 }

@@ -315,29 +315,6 @@ Matches .nav__button style: white background, 11px font
   gap: 2px;
 }
 
-/* Filled swatch - solid color (result state) */
-.action-button__legend-swatch {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 1px;
-  flex-shrink: 0;
-}
-
-/* Striped swatch - diagonal stripes (preview/current state)
-   Uses STRIPE_PATTERN.small variant (2px stripes on 4px pattern)
-   Rotation: -45° (unified with other stripe patterns, \ direction) */
-.action-button__legend-swatch--striped {
-  background: repeating-linear-gradient(
-    -45deg,
-    var(--unsure-gray),
-    var(--unsure-gray) 2px,
-    var(--swatch-color) 2px,
-    var(--swatch-color) 4px
-  );
-  border: 1px solid var(--swatch-color);
-}
-
 .action-button__legend-arrow {
   color: #9ca3af;
   font-size: 11px;
@@ -426,7 +403,7 @@ Matches .nav__button style: white background, 11px font
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 10px;
   padding: 6px 12px;
   flex-shrink: 0;
   width: fit-content;

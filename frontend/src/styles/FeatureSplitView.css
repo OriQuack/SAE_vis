@@ -5,11 +5,10 @@
  *   Header (full width at top)
  *   Body: [Main column | Next Stage column]
  *     Main column:
- *       StatusPanel (full width)
  *       Content area (2 rows):
- *         Row 1 (top 50%): [pair list][FeatureSplitPairViewer]
+ *         Row 1 (top 50%): [StageAccordionList][FeatureSplitPairViewer]
  *         Row 2 (bottom 50%): [Monosemantic list][Histogram][Fragmented list]
- *     Next Stage column: spans full height (including StatusPanel row)
+ *     Next Stage column: spans full height
  *   Note: SelectionPanel is rendered at App level (left column alongside Sankey)
  * ============================================================================ */
 
@@ -42,7 +41,7 @@
 }
 
 /* ============================================================================
- * MAIN COLUMN - StatusPanel + Content (left of next-stage-column)
+ * MAIN COLUMN - Content (left of next-stage-column)
  * ============================================================================ */
 
 .feature-split-view__main {
@@ -54,7 +53,7 @@
 }
 
 /* ============================================================================
- * CONTENT AREA - 2 rows below StatusPanel
+ * CONTENT AREA - 2 rows
  * ============================================================================ */
 
 .feature-split-view__content {
@@ -82,27 +81,17 @@
   flex: 1;
 }
 
-/* StatusPanel border - top, left, right (no bottom) */
-.feature-split-view__main > .status-panel {
-  border: 1px solid #e5e7eb;
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
-}
-
-/* List border - connects to StatusPanel above */
-.feature-split-view__row-top > .scrollable-list {
+/* StageAccordionList - fixed width */
+.feature-split-view__row-top > .stage-accordion {
   width: 240px;
   flex-shrink: 0;
-  border: 1px solid #e5e7eb;
-  border-top: none;
-  border-radius: 0 0 4px 4px;
 }
 
-/* Right panel - top border only (connects to StatusPanel above) */
+/* Right panel border */
 .feature-split-view__row-top > .feature-split-pair-viewer {
-  border: none;
-  border-top: 1px solid #e5e7eb;
-  border-radius: 0;
+  border: 1px solid #e5e7eb;
+  border-left: none;
+  border-radius: 0 4px 4px 0;
 }
 
 /* Note: Bottom row styles are now in ThresholdTaggingPanel.css */

@@ -78,6 +78,10 @@
   min-height: 0;
 }
 
+.threshold-tagging-panel__indicator-section .subheader__value {
+  margin-left: 6px;
+}
+
 /* ============================================================================
  * BUTTONS SECTION - Action buttons on the right
  * ============================================================================ */

@@ -1,0 +1,286 @@
+/* ============================================================================
+ * STAGE SELECTOR LIST - Horizontal stage tabs + scrollable list
+ * ============================================================================
+ * Flat stage selector with consistent options row.
+ * Implements Bootstrap → Learn → Apply workflow stages.
+ * ============================================================================ */
+
+.stage-selector {
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Allow shrinking in flex container */
+}
+
+/* ============================================================================
+ * ROW 1: HORIZONTAL STAGE TABS
+ * ============================================================================ */
+
+.stage-selector__tabs {
+  display: flex;
+  flex-direction: row;
+  background-color: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  padding: 4px 8px;
+  gap: 16px;
+}
+
+.stage-selector__tab {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  transition: color 0.15s ease;
+}
+
+.stage-selector__tab:hover:not(:disabled) {
+  color: #374151;
+}
+
+.stage-selector__tab--active {
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.stage-selector__tab--disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Radio-style indicator */
+.stage-selector__indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  flex-shrink: 0;
+  box-sizing: border-box;
+}
+
+.stage-selector__tab--active .stage-selector__indicator {
+  background-color: currentColor;
+}
+
+/* Stage Number */
+.stage-selector__number {
+  font-size: 11px;
+  font-weight: inherit;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+/* Stage Label */
+.stage-selector__label {
+  font-size: 11px;
+  font-weight: inherit;
+  color: inherit;
+  flex-shrink: 0;
+}
+
+/* ============================================================================
+ * ROW 2: OPTIONS (context-sensitive content)
+ * ============================================================================ */
+
+.stage-selector__options {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  gap: 6px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-bottom: none;
+  min-height: 32px; /* Consistent height even when no options */
+}
+
+/* Spacer to push Hide Tagged to the right */
+.stage-selector__spacer {
+  flex: 1;
+}
+
+/* Option Buttons (Bootstrap stage) */
+.stage-selector__option-btn {
+  padding: 3px 8px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #374151;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.stage-selector__option-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.stage-selector__option-btn--active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.stage-selector__option-btn--active:hover {
+  background: rgba(59, 130, 246, 0.25);
+}
+
+/* ============================================================================
+ * FILTER SECTION - Optional category filter (for CauseView)
+ * ============================================================================ */
+
+.stage-selector__filter {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  gap: 6px;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+  border-bottom: none;
+  background-color: white;
+}
+
+.stage-selector__filter--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.stage-selector__filter-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+.stage-selector__filter-btn {
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #374151;
+  background-color: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.stage-selector__filter-btn:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  border-color: #9ca3af;
+}
+
+.stage-selector__filter-btn--active {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 500;
+}
+
+/* Filter button with tag color - uses CSS variable */
+.stage-selector__filter-btn[style*="--tag-color"].stage-selector__filter-btn--active {
+  background: var(--tag-color, #374151);
+  border-color: var(--tag-color, #374151);
+  color: #000;
+}
+
+.stage-selector__filter-btn[style*="--tag-color"]:hover:not(.stage-selector__filter-btn--active):not(:disabled) {
+  border-color: var(--tag-color, #9ca3af);
+}
+
+.stage-selector__filter-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+ * HIDE TAGGED CHECKBOX
+ * ============================================================================ */
+
+.stage-selector__checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+}
+
+.stage-selector__checkbox-label:hover {
+  color: #374151;
+}
+
+.stage-selector__checkbox-label:hover input[type="checkbox"] {
+  border-color: #9ca3af;
+}
+
+.stage-selector__checkbox-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.stage-selector__checkbox-label input[type="checkbox"]:hover {
+  border-color: #9ca3af;
+}
+
+.stage-selector__checkbox-label input[type="checkbox"]:checked {
+  background: white;
+  border-color: #3b82f6;
+}
+
+.stage-selector__checkbox-label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid #3b82f6;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
+/* ============================================================================
+ * LIST SECTION - Connected to header
+ * ============================================================================ */
+
+.stage-selector__list {
+  flex: 1;
+  min-height: 0; /* Allow shrinking */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Override ScrollableItemList border to connect with header */
+.stage-selector__list .scrollable-list {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  flex: 1;
+}

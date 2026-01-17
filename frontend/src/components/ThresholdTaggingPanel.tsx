@@ -71,7 +71,7 @@ export interface ThresholdTaggingPanelProps {
   // When false, selection highlight is disabled in boundary lists
   isTemplateSort?: boolean
 
-  // Sort direction from parent (synced with StatusPanel)
+  // Sort direction from parent (synced with StageAccordionList)
   sortDirection?: 'asc' | 'desc'
 }
 

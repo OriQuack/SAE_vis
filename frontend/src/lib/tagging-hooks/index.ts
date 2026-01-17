@@ -11,8 +11,8 @@ export type { ListSource } from './useListNavigation'
 
 export { useBoundaryItems } from './useBoundaryItems'
 
-export { useSortableList } from './useSortableList'
-export type { SortMode } from './useSortableList'
+export { useSortableList, stageToSortConfig, sortConfigToStage } from './useSortableList'
+export type { SortMode, ActiveStage, BootstrapMode } from './useSortableList'
 
 export {
   useCommitHistory,

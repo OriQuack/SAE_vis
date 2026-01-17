@@ -44,8 +44,8 @@ interface UMAPScatterProps {
   visibleCategories?: Set<FilterCategory>  // Which categories to show (controlled by parent)
   onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void  // Callback when filter changes
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
-  sortMode?: SortMode  // Sort mode from StatusPanel (for visibility filtering)
-  sortDirection?: 'asc' | 'desc'  // Sort direction from StatusPanel (for visibility filtering)
+  sortMode?: SortMode  // Sort mode from StageAccordionList (for visibility filtering)
+  sortDirection?: 'asc' | 'desc'  // Sort direction from StageAccordionList (for visibility filtering)
   filterByTag?: CauseCategory | null  // Filter to show only features with this predicted category
 }
 

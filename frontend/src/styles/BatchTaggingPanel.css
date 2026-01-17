@@ -49,7 +49,7 @@
   flex-direction: row;
   flex-wrap: wrap;
   gap: 8px;
-  align-items: center;
+  align-items: flex-start;
 }
 
 .batch-tagging__swatch-legend-item {
@@ -63,6 +63,31 @@
   font-size: 11px;
   font-weight: 500;
   color: #374151;
+}
+
+/* ============================================================================
+ * SWATCH STYLES - Unified 10x10 swatches for legends and buttons
+ * ============================================================================ */
+
+/* Filled swatch - solid color (result state) */
+.action-button__legend-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* Striped swatch - diagonal stripes (preview/current state) */
+.action-button__legend-swatch--striped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--unsure-gray),
+    var(--unsure-gray) 2px,
+    var(--swatch-color) 2px,
+    var(--swatch-color) 4px
+  );
+  border: 1px solid var(--swatch-color);
 }
 
 /* ============================================================================
@@ -93,6 +118,7 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
+  flex: 1;
   width: 100%;
   padding: 4px 8px;
   background-color: #fff;
@@ -117,12 +143,18 @@
 .batch-tagging__button-content {
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap;
   align-items: center;
+  align-content: center;
+  justify-content: flex-start;
+  flex: 1;
   gap: 8px;
 }
 
 .batch-tagging__button-icon {
   flex-shrink: 0;
+  width: 24px;
+  height: 20px;
 }
 
 .batch-tagging__button-text {
@@ -141,16 +173,11 @@
   align-items: center;
   justify-content: center;
   gap: 3px;
-  margin-top: 2px;
+  margin-top: auto;
+  padding-top: 2px;
   font-size: 10px;
   color: #6b7280;
   min-height: 14px;
-}
-
-/* Compact swatches inside buttons */
-.batch-tagging__button .action-button__legend-swatch {
-  width: 10px;
-  height: 10px;
 }
 
 /* Two-line variant for threshold button */

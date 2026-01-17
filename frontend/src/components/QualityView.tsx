@@ -3,10 +3,10 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import * as api from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
-import { ScrollableItemList } from './ScrollableItemList'
+import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
-import { useSortableList } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
@@ -15,7 +15,6 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
-import StatusPanel from './StatusPanel'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
@@ -219,6 +218,36 @@ const QualityView: React.FC<QualityViewProps> = ({
     initialMode: 'diversity',
     initialDirection: 'asc'
   })
+
+  // Derive stage state from sort mode/direction (for StageAccordionList)
+  const { activeStage, bootstrapMode, bootstrapDirection } = useMemo(() => {
+    return sortConfigToStage(sortMode, sortDirection)
+  }, [sortMode, sortDirection])
+
+  // Handlers for stage changes (StageAccordionList callbacks)
+  const handleStageChange = useCallback((stage: ActiveStage) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig(stage, bootstrapMode, bootstrapDirection)
+    setSortMode(newMode)
+    setSortDirection(newDir)
+    setCurrentFeatureIndex(0)
+    setActiveListSource('all')
+  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+
+  const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
+    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
+    setSortMode(newMode)
+    setSortDirection(newDir)
+    setCurrentFeatureIndex(0)
+    setActiveListSource('all')
+  }, [bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+
+  const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
+    if (bootstrapMode === 'byScore') {
+      setSortDirection(direction)
+      setCurrentFeatureIndex(0)
+      setActiveListSource('all')
+    }
+  }, [bootstrapMode, setSortDirection, setActiveListSource])
 
   // Filter features based on hideTagged toggle
   const displayFeatures = useMemo(() => {
@@ -879,28 +908,27 @@ const QualityView: React.FC<QualityViewProps> = ({
 
       {/* Body: Main column + Next Stage column */}
       <div className="quality-view__body">
-        {/* Main column: StatusPanel + Content rows */}
+        {/* Main column: Content rows */}
         <div className="quality-view__main">
-          {/* Status panel - sorting controls */}
-          <StatusPanel
-            sortMode={sortMode}
-            sortDirection={sortDirection}
-            onSortModeChange={setSortMode}
-            onSortDirectionChange={setSortDirection}
-            hasDiversityIds={diversityFeatureIds.size > 0}
-            defaultAscLabel="Lowest Quality First"
-            defaultDescLabel="Highest Quality First"
-            isTemplateSort={isTemplateSort}
-            decisionMarginDisabled={!tagAutomaticState?.histogramData}
-            hideTagged={hideTagged}
-            onHideTaggedChange={setHideTagged}
-          />
           {/* Content: 2 rows */}
           <div className="quality-view__content">
-          {/* Top row: Feature list + right panel */}
+          {/* Top row: StageAccordionList + right panel */}
           <div className="quality-view__row-top">
-            <ScrollableItemList
+            <StageAccordionList
               variant="features"
+              activeStage={activeStage}
+              onStageChange={handleStageChange}
+              bootstrapMode={bootstrapMode}
+              bootstrapDirection={bootstrapDirection}
+              onBootstrapModeChange={handleBootstrapModeChange}
+              onBootstrapDirectionChange={handleBootstrapDirectionChange}
+              hasDiversityIds={diversityFeatureIds.size > 0}
+              learnDisabled={!tagAutomaticState?.histogramData}
+              applyDisabled={!tagAutomaticState?.histogramData}
+              byScoreAscLabel="Lowest Quality First"
+              byScoreDescLabel="Highest Quality First"
+              hideTagged={hideTagged}
+              onHideTaggedChange={setHideTagged}
               badges={[{
                 label: diversityFeatureIds.size > 0 && !svmTrainingStarted
                   ? 'Representative Features'
@@ -915,7 +943,6 @@ const QualityView: React.FC<QualityViewProps> = ({
               sortConfig={{ getDisplayScore }}
               currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
               isActive={activeListSource === 'all'}
-              isTemplateSort={isTemplateSort}
               pageNavigation={{
                 currentPage,
                 totalPages,
