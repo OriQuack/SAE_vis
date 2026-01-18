@@ -2,6 +2,15 @@
    CAUSE RADVIZ STYLES
    ============================================================================ */
 
+/* CSS variables for contour configuration */
+:root {
+  --contour-fill-opacity: 0.12;
+  --contour-stroke-opacity: 0.5;
+  --contour-stroke-width: 1;
+  --contour-bandwidth: 20;
+  --contour-levels: 4;
+}
+
 .cause-radviz {
   position: relative;
   width: 100%;
@@ -117,11 +126,32 @@
   left: 0;
 }
 
-/* Canvas for points */
-.cause-radviz__canvas {
+/* SVG for contours (interactive layer) */
+.cause-radviz__svg--contours {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 2;
+}
+
+/* Contour fills and strokes */
+.cause-radviz__contour-fills path,
+.cause-radviz__contour-strokes path {
+  pointer-events: none;
+}
+
+/* Points layer */
+.cause-radviz__points {
+  pointer-events: none;
+}
+
+.cause-radviz__point {
+  pointer-events: none;
+}
+
+/* Selected point highlight */
+.cause-radviz__selected-point {
+  pointer-events: none;
 }
 
 /* Classification loading indicator (subtle overlay) */

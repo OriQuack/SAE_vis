@@ -13,7 +13,8 @@ import type {
   UmapPoint,
   MultiModalityInfo,
   SimilarityScoreHistogramResponse,
-  FlipTrackingInfo
+  FlipTrackingInfo,
+  CommitteeVoteInfo
 } from '../types'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -275,6 +276,7 @@ interface AppState {
     tagLabel: string  // Tag name (e.g., "well-explained", "fragmented")
     isLoading: boolean
     flipTracking: FlipTrackingInfo | null  // Decision flip rate tracking
+    committeeVotes: Map<string, CommitteeVoteInfo> | null  // QBC vote info per item
   } | null
 
   // Whether threshold handle is currently being dragged (to prevent rapid updates)

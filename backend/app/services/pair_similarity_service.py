@@ -22,9 +22,10 @@ from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     PairSimilarityHistogramRequest, SimilarityHistogramResponse,
     HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
-    WeightedPairKey
+    WeightedPairKey, CommitteeVoteInfo
 )
 from .bimodality_service import BimodalityService
+from .committee_service import CommitteeService
 
 if TYPE_CHECKING:
     from .data_service import DataService
@@ -70,6 +71,7 @@ class PairSimilarityService:
         self.data_service = data_service
         self.cluster_service = cluster_service
         self.bimodality_service = BimodalityService()
+        self.committee_service = CommitteeService()
 
         # SVM model cache: (selected_pair_keys, rejected_pair_keys) hash -> (model, scaler)
         self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
@@ -296,13 +298,15 @@ class PairSimilarityService:
         pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
 
         # Calculate similarity scores for ALL pairs (including selected/rejected)
-        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram with SVM")
-        pair_scores = self._calculate_pair_similarity_scores_for_histogram(
+        # Also train committee (RF + MLP) for QBC approach
+        logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram with SVM + committee")
+        pair_scores, committee_votes = self._calculate_pair_similarity_scores_for_histogram(
             metrics_df,
             pair_metrics_dict,
             request.selected_items,
             request.rejected_items,
-            pair_ids
+            pair_ids,
+            train_committee=True  # Enable QBC committee training
         )
 
         # Create scores dictionary
@@ -336,6 +340,19 @@ class PairSimilarityService:
 
         logger.info(f"Successfully generated histogram for {len(pair_scores)} pairs")
 
+        # Convert committee votes to Pydantic models if available
+        committee_votes_response = None
+        if committee_votes:
+            committee_votes_response = {
+                pk: CommitteeVoteInfo(
+                    svm_prediction=info["svm_prediction"],
+                    rf_prediction=info["rf_prediction"],
+                    mlp_prediction=info["mlp_prediction"],
+                    vote_entropy=info["vote_entropy"]
+                )
+                for pk, info in committee_votes.items()
+            }
+
         return SimilarityHistogramResponse(
             scores=scores_dict,
             histogram=HistogramData(
@@ -358,7 +375,8 @@ class PairSimilarityService:
                     for comp in bimodality_result.gmm_components
                 ],
                 sample_size=bimodality_result.sample_size
-            )
+            ),
+            committee_votes=committee_votes_response
         )
 
     # =========================================================================
@@ -827,8 +845,9 @@ class PairSimilarityService:
         pair_metrics: Dict[str, float],
         selected_items: List[WeightedPairKey],
         rejected_items: List[WeightedPairKey],
-        pair_ids: List[Tuple[int, int]]
-    ) -> List[PairScore]:
+        pair_ids: List[Tuple[int, int]],
+        train_committee: bool = False
+    ) -> Tuple[List[PairScore], Optional[Dict[str, Dict]]]:
         """
         Calculate similarity scores for ALL pairs using SVM (including selected/rejected).
 
@@ -848,9 +867,12 @@ class PairSimilarityService:
             selected_items: Weighted pair items marked as selected (✓)
             rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
+            train_committee: If True, also train RF/MLP and return vote info
 
         Returns:
-            List of PairScore objects for ALL pairs
+            Tuple of (pair_scores, committee_votes)
+            - pair_scores: List of PairScore objects for ALL pairs
+            - committee_votes: Dict of pair_key -> vote info (only if train_committee=True)
         """
         # Extract keys from weighted items
         selected_pair_keys = [item.key for item in selected_items]
@@ -945,12 +967,17 @@ class PairSimilarityService:
 
             if not selected_vectors or not rejected_vectors:
                 logger.warning("Insufficient training data for pair SVM histogram")
-                return []
+                return [], None
 
             selected_vectors = np.array(selected_vectors)
             rejected_vectors = np.array(rejected_vectors)
             selected_weights_arr = np.array(selected_weights)
             rejected_weights_arr = np.array(rejected_weights)
+
+            # Prepare training data for committee (before SVM training modifies arrays)
+            X_train = np.vstack([selected_vectors, rejected_vectors])
+            y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+            sample_weights_arr = np.concatenate([selected_weights_arr, rejected_weights_arr])
 
             # Train SVM with weights
             model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
@@ -971,6 +998,7 @@ class PairSimilarityService:
                 valid_vector_indices.append(i)
 
         pair_scores = []
+        scores = np.array([])
         if valid_pairs:
             valid_vectors = all_pair_vectors[valid_vector_indices]
             scores = self._score_with_svm(model, scaler, valid_vectors)
@@ -979,7 +1007,60 @@ class PairSimilarityService:
                 for pk, s in zip(valid_pairs, scores)
             ]
 
-        return pair_scores
+        # Train committee and get vote info if requested
+        committee_votes = None
+
+        if train_committee and len(pair_scores) > 0:
+            # Need training data - check if we have it from above or need to rebuild
+            if 'X_train' not in locals() or X_train is None:
+                # Rebuild training data from cache scenario
+                selected_vectors_list = []
+                selected_weights_list = []
+                for key in selected_pair_keys:
+                    vec = pair_vectors.get(key)
+                    if vec is not None:
+                        selected_vectors_list.append(vec)
+                        selected_weights_list.append(key_to_weight.get(key, CLICK_WEIGHT))
+
+                rejected_vectors_list = []
+                rejected_weights_list = []
+                for key in rejected_pair_keys:
+                    vec = pair_vectors.get(key)
+                    if vec is not None:
+                        rejected_vectors_list.append(vec)
+                        rejected_weights_list.append(key_to_weight.get(key, CLICK_WEIGHT))
+
+                if selected_vectors_list and rejected_vectors_list:
+                    X_train = np.vstack([np.array(selected_vectors_list), np.array(rejected_vectors_list)])
+                    y_train = np.array([1] * len(selected_vectors_list) + [0] * len(rejected_vectors_list))
+                    sample_weights_arr = np.concatenate([
+                        np.array(selected_weights_list),
+                        np.array(rejected_weights_list)
+                    ])
+                else:
+                    X_train = None
+
+            if X_train is not None:
+                logger.info("[PairSimilarityService] Training committee (RF + MLP) for QBC...")
+                rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
+                    X_train, y_train, sample_weights_arr
+                )
+
+                if rf_model is not None or mlp_model is not None:
+                    # Scale vectors and get committee predictions
+                    valid_vectors = all_pair_vectors[valid_vector_indices]
+
+                    # Get committee predictions
+                    committee_preds = self.committee_service.predict_with_committee(
+                        valid_vectors, scores, rf_model, mlp_model, committee_scaler
+                    )
+
+                    # Convert to API response format
+                    committee_votes = self.committee_service.get_vote_info_dict(valid_pairs, committee_preds)
+
+                    logger.info(f"[PairSimilarityService] Committee votes generated for {len(valid_pairs)} pairs")
+
+        return pair_scores, committee_votes
 
     # =========================================================================
     # SVM HELPERS (duplicated from SimilaritySortService for independence)

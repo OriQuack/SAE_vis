@@ -9,14 +9,14 @@ import {
   RADVIZ_ANCHORS,
   type RadVizPoint
 } from '../lib/radviz-utils'
-import { getCauseColor, type CauseCategory } from '../lib/umap-utils'
+import { getCauseColor, computeCategoryContours, type CauseCategory, type CategoryContour } from '../lib/umap-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import {
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
-import { isUserConfirmed } from '../lib/tagging-hooks'
+import { isUserConfirmed, type SelectionSource } from '../lib/tagging-hooks'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/CauseRadViz.css'
 
@@ -67,8 +67,29 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   sortDirection = 'asc',
   filterByTag = null
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const svgRef = useRef<SVGSVGElement>(null)
   const containerElRef = useRef<HTMLDivElement | null>(null)
+
+  // Contour style configuration (read from CSS variables)
+  const [contourStyle, setContourStyle] = useState({
+    fillOpacity: 0.1,
+    strokeOpacity: 0.5,
+    strokeWidth: 1,
+    bandwidth: 5,
+    levels: 6
+  })
+
+  // Read CSS variables for contour styling
+  useEffect(() => {
+    const computedStyle = getComputedStyle(document.documentElement)
+    const fillOpacity = parseFloat(computedStyle.getPropertyValue('--contour-fill-opacity')) || 0.12
+    const strokeOpacity = parseFloat(computedStyle.getPropertyValue('--contour-stroke-opacity')) || 0.5
+    const strokeWidth = parseFloat(computedStyle.getPropertyValue('--contour-stroke-width')) || 1
+    const bandwidth = parseFloat(computedStyle.getPropertyValue('--contour-bandwidth')) || 20
+    const levels = parseInt(computedStyle.getPropertyValue('--contour-levels'), 10) || 4
+
+    setContourStyle({ fillOpacity, strokeOpacity, strokeWidth, bandwidth, levels })
+  }, [])
 
   // Use standardized resize observer hook for consistent behavior
   const { ref: resizeRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
@@ -250,6 +271,57 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return ids
   }, [causeSelectionSources])
 
+  // ============================================================================
+  // CONTOUR COMPUTATION
+  // ============================================================================
+  // Convert RadViz points to UmapPoint format for contour computation
+  const contourPoints = useMemo(() => {
+    if (!filteredRadVizPoints || filteredRadVizPoints.length < 3) return []
+    return filteredRadVizPoints.map(point => ({
+      feature_id: point.feature_id,
+      x: point.x,
+      y: point.y,
+      cluster_id: 0  // Not used in RadViz but required by UmapPoint type
+    }))
+  }, [filteredRadVizPoints])
+
+  // Compute density contours
+  // Train stage (not isTopMode): Single gray contour for all unsure features
+  // Apply stage (isTopMode): Separate colored contours per predicted category
+  const categoryContours = useMemo((): CategoryContour[] => {
+    if (!scales || !contourPoints || contourPoints.length < 3) return []
+    if (chartWidth <= 0 || chartHeight <= 0) return []
+
+    if (isTopMode) {
+      // Apply stage: Separate contours per category (show predicted categories)
+      return computeCategoryContours(
+        contourPoints,
+        causeSelectionStates as Map<number, CauseCategory>,
+        causeSelectionSources as Map<number, SelectionSource>,
+        chartWidth,
+        chartHeight,
+        scales,
+        contourStyle.bandwidth,
+        contourStyle.levels,
+        true  // excludeManual: show predictions only in contours
+      )
+    } else {
+      // Train stage: Single contour for all unsure features
+      // Pass empty causeStates so all points are treated as "unsure"
+      return computeCategoryContours(
+        contourPoints,
+        new Map<number, CauseCategory>(),  // Empty = all points are unsure
+        new Map<number, SelectionSource>(),
+        chartWidth,
+        chartHeight,
+        scales,
+        contourStyle.bandwidth,
+        contourStyle.levels,
+        false  // Don't exclude anything - show all points
+      )
+    }
+  }, [contourPoints, causeSelectionStates, causeSelectionSources, chartWidth, chartHeight, scales, contourStyle.bandwidth, contourStyle.levels, isTopMode])
+
   // Track if cursor is over a clickable point
   const [isOverPoint, setIsOverPoint] = useState(false)
 
@@ -272,164 +344,59 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return closestPoint
   }, [filteredRadVizPoints, scales])
 
-  // Click handler for point selection
-  const handleCanvasClick = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  // Click handler for point selection (works with SVG)
+  const handleSvgClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     if (!onFeatureSelect) return
 
     const rect = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    const closestPoint = findClosestPoint(x, y)
+    const closestPoint = findClosestPoint(x, y, 20)  // Larger radius for contour-based selection
     if (closestPoint) {
       onFeatureSelect(closestPoint.feature_id)
     }
   }, [findClosestPoint, onFeatureSelect])
 
   // Mouse move handler to update cursor
-  const handleCanvasMouseMove = useCallback((e: React.MouseEvent<HTMLCanvasElement>) => {
+  const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
     const rect = e.currentTarget.getBoundingClientRect()
     const x = e.clientX - rect.left
     const y = e.clientY - rect.top
 
-    const closestPoint = findClosestPoint(x, y)
+    const closestPoint = findClosestPoint(x, y, 20)
     setIsOverPoint(closestPoint !== null)
   }, [findClosestPoint])
 
-  // Reset cursor when leaving canvas
-  const handleCanvasMouseLeave = useCallback(() => {
+  // Reset cursor when leaving SVG
+  const handleSvgMouseLeave = useCallback(() => {
     setIsOverPoint(false)
   }, [])
 
-  // Draw points on canvas
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || !scales || chartWidth <= 0 || chartHeight <= 0) return
+  // Compute selected point data for SVG rendering
+  const selectedPointData = useMemo(() => {
+    if (selectedFeatureId == null || !filteredRadVizPoints || !scales) return null
 
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
+    const selectedPoint = filteredRadVizPoints.find(p => p.feature_id === selectedFeatureId)
+    if (!selectedPoint) return null
 
-    // Handle high-DPI displays
-    const dpr = window.devicePixelRatio || 1
-    ctx.setTransform(1, 0, 0, 1, 0, 0)
-    ctx.clearRect(0, 0, chartWidth * dpr, chartHeight * dpr)
-    ctx.scale(dpr, dpr)
-
-    // No points to render if no RadViz positions
-    if (!filteredRadVizPoints || filteredRadVizPoints.length === 0) {
-      ctx.globalAlpha = 1
-      return
+    const effectiveCategory = getEffectiveCategory(selectedFeatureId)
+    let categoryColor: string
+    if (effectiveCategory === 'unsure') {
+      categoryColor = DARK_UNSURE_GRAY
+    } else if (effectiveCategory === 'well-explained') {
+      categoryColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
+    } else {
+      categoryColor = getCauseColor(selectedFeatureId, causeSelectionStates as Map<number, CauseCategory>)
     }
 
-    // Point styling
-    const pointRadius = 2
-    const manualPointAlpha = 1
-    const autoPointAlpha = 0.4
-    const unsurePointAlpha = 0.4
-
-    // Draw all points except selected
-    for (const point of filteredRadVizPoints) {
-      const isManual = manuallyTaggedIds.has(point.feature_id)
-      const isSelected = point.feature_id === selectedFeatureId
-
-      // Skip selected - draw it last
-      if (isSelected) continue
-
-      // Apply visibility filter
-      const effectiveCategory = getEffectiveCategory(point.feature_id)
-      if (!isTopMode && !visibleCategories.has(effectiveCategory)) continue
-
-      const cx = scales.xScale(point.x)
-      const cy = scales.yScale(point.y)
-
-      // Determine color based on effective category
-      let color: string
-      if (effectiveCategory === 'unsure') {
-        color = DARK_UNSURE_GRAY
-      } else if (effectiveCategory === 'well-explained') {
-        color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-      } else {
-        color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
-      }
-
-      if (isManual) {
-        // Manual points: solid filled circles
-        ctx.beginPath()
-        ctx.arc(cx, cy, pointRadius, 0, Math.PI * 2)
-        ctx.fillStyle = color
-        ctx.globalAlpha = manualPointAlpha
-        ctx.fill()
-      } else if (effectiveCategory !== 'unsure') {
-        // Auto-tagged: colored ring
-        ctx.beginPath()
-        ctx.arc(cx, cy, pointRadius, 0, Math.PI * 2)
-        ctx.strokeStyle = color
-        ctx.lineWidth = 1
-        ctx.globalAlpha = autoPointAlpha
-        ctx.stroke()
-      } else {
-        // Unsure: gray ring
-        ctx.beginPath()
-        ctx.arc(cx, cy, pointRadius, 0, Math.PI * 2)
-        ctx.strokeStyle = DARK_UNSURE_GRAY
-        ctx.lineWidth = 1
-        ctx.globalAlpha = unsurePointAlpha
-        ctx.stroke()
-      }
+    return {
+      cx: scales.xScale(selectedPoint.x),
+      cy: scales.yScale(selectedPoint.y),
+      color: categoryColor,
+      isManual: manuallyTaggedIds.has(selectedFeatureId)
     }
-
-    // Draw selected point LAST (on top)
-    if (selectedFeatureId != null) {
-      const selectedPoint = filteredRadVizPoints.find(p => p.feature_id === selectedFeatureId)
-      if (selectedPoint) {
-        const selectedEffectiveCategory = getEffectiveCategory(selectedFeatureId)
-        let categoryColor: string
-        if (selectedEffectiveCategory === 'unsure') {
-          categoryColor = DARK_UNSURE_GRAY
-        } else if (selectedEffectiveCategory === 'well-explained') {
-          categoryColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-        } else {
-          categoryColor = getCauseColor(selectedFeatureId, causeSelectionStates as Map<number, CauseCategory>)
-        }
-
-        const selectionBlue = '#3b82f6'
-        const cx = scales.xScale(selectedPoint.x)
-        const cy = scales.yScale(selectedPoint.y)
-        const isManual = manuallyTaggedIds.has(selectedFeatureId)
-        const selectedPointRadius = pointRadius + 2
-
-        // White background
-        ctx.beginPath()
-        ctx.arc(cx, cy, selectedPointRadius + 2, 0, Math.PI * 2)
-        ctx.fillStyle = '#fff'
-        ctx.globalAlpha = 1
-        ctx.fill()
-
-        // Blue selection ring
-        ctx.beginPath()
-        ctx.arc(cx, cy, selectedPointRadius + 2.5, 0, Math.PI * 2)
-        ctx.strokeStyle = selectionBlue
-        ctx.lineWidth = 1
-        ctx.stroke()
-
-        // Point itself
-        ctx.beginPath()
-        ctx.arc(cx, cy, selectedPointRadius, 0, Math.PI * 2)
-        ctx.globalAlpha = 1
-
-        if (isManual) {
-          ctx.fillStyle = categoryColor
-          ctx.fill()
-        } else {
-          ctx.strokeStyle = categoryColor
-          ctx.lineWidth = 3
-          ctx.stroke()
-        }
-      }
-    }
-
-    ctx.globalAlpha = 1
-  }, [filteredRadVizPoints, scales, causeSelectionStates, manuallyTaggedIds, selectedFeatureId, chartWidth, chartHeight, getEffectiveCategory, isTopMode, visibleCategories])
+  }, [selectedFeatureId, filteredRadVizPoints, scales, getEffectiveCategory, causeSelectionStates, manuallyTaggedIds])
 
   // ============================================================================
   // RENDER
@@ -519,17 +486,161 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
             })}
           </svg>
 
-          {/* Canvas for points (clickable) */}
-          <canvas
-            ref={canvasRef}
-            width={chartWidth * (window.devicePixelRatio || 1)}
-            height={chartHeight * (window.devicePixelRatio || 1)}
-            className="cause-radviz__canvas"
-            style={{ width: chartWidth, height: chartHeight, cursor: isOverPoint ? 'pointer' : 'default' }}
-            onClick={handleCanvasClick}
-            onMouseMove={handleCanvasMouseMove}
-            onMouseLeave={handleCanvasMouseLeave}
-          />
+          {/* SVG for contours and interaction (replaces canvas) */}
+          <svg
+            ref={svgRef}
+            className="cause-radviz__svg cause-radviz__svg--contours"
+            width={chartWidth}
+            height={chartHeight}
+            style={{ cursor: isOverPoint ? 'pointer' : 'default' }}
+            onClick={handleSvgClick}
+            onMouseMove={handleSvgMouseMove}
+            onMouseLeave={handleSvgMouseLeave}
+          >
+            {/* Clip path to constrain contours within circle */}
+            <defs>
+              {circleParams && (
+                <clipPath id="radviz-circle-clip">
+                  <circle
+                    cx={circleParams.cx}
+                    cy={circleParams.cy}
+                    r={circleParams.r}
+                  />
+                </clipPath>
+              )}
+            </defs>
+
+            {/* Contour fill layers (background) - clipped to circle */}
+            <g className="cause-radviz__contour-fills" clipPath="url(#radviz-circle-clip)">
+              {categoryContours.map((categoryContour) => (
+                <g key={`fill-${categoryContour.category}`} className={`cause-radviz__contour-category cause-radviz__contour-category--${categoryContour.category}`}>
+                  {categoryContour.paths.map((pathString, i) => {
+                    // Progressive opacity: outer contours lighter, inner contours more opaque
+                    const levelOpacity = (i + 1) / categoryContour.paths.length
+                    return (
+                      <path
+                        key={`fill-${i}`}
+                        d={pathString}
+                        fill={categoryContour.color}
+                        fillOpacity={contourStyle.fillOpacity * levelOpacity}
+                        stroke="none"
+                      />
+                    )
+                  })}
+                </g>
+              ))}
+            </g>
+
+            {/* Contour stroke layers - clipped to circle */}
+            <g className="cause-radviz__contour-strokes" clipPath="url(#radviz-circle-clip)">
+              {categoryContours.map((categoryContour) => (
+                <g key={`stroke-${categoryContour.category}`} className={`cause-radviz__contour-category cause-radviz__contour-category--${categoryContour.category}`}>
+                  {categoryContour.paths.map((pathString, i) => (
+                    <path
+                      key={`stroke-${i}`}
+                      d={pathString}
+                      fill="none"
+                      stroke={categoryContour.color}
+                      strokeWidth={contourStyle.strokeWidth}
+                      strokeOpacity={contourStyle.strokeOpacity}
+                    />
+                  ))}
+                </g>
+              ))}
+            </g>
+
+            {/* Points layer - show individual features */}
+            <g className="cause-radviz__points">
+              {filteredRadVizPoints && scales && filteredRadVizPoints.map(point => {
+                // Skip selected point - render it last on top
+                if (point.feature_id === selectedFeatureId) return null
+
+                const cx = scales.xScale(point.x)
+                const cy = scales.yScale(point.y)
+                const isManual = manuallyTaggedIds.has(point.feature_id)
+                const effectiveCategory = getEffectiveCategory(point.feature_id)
+
+                // Determine color
+                let color: string
+                if (effectiveCategory === 'unsure') {
+                  color = DARK_UNSURE_GRAY
+                } else if (effectiveCategory === 'well-explained') {
+                  color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
+                } else {
+                  color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
+                }
+
+                if (isManual) {
+                  // Manual: filled circle
+                  return (
+                    <circle
+                      key={point.feature_id}
+                      cx={cx}
+                      cy={cy}
+                      r={2.5}
+                      fill={color}
+                      className="cause-radviz__point cause-radviz__point--manual"
+                    />
+                  )
+                } else {
+                  // Auto/unsure: ring
+                  return (
+                    <circle
+                      key={point.feature_id}
+                      cx={cx}
+                      cy={cy}
+                      r={2}
+                      fill="none"
+                      stroke={color}
+                      strokeWidth={1}
+                      opacity={effectiveCategory === 'unsure' ? 0.4 : 0.6}
+                      className="cause-radviz__point cause-radviz__point--auto"
+                    />
+                  )
+                }
+              })}
+            </g>
+
+            {/* Selected point highlight (on top) */}
+            {selectedPointData && (
+              <g className="cause-radviz__selected-point">
+                {/* White background */}
+                <circle
+                  cx={selectedPointData.cx}
+                  cy={selectedPointData.cy}
+                  r={6}
+                  fill="#fff"
+                />
+                {/* Blue selection ring */}
+                <circle
+                  cx={selectedPointData.cx}
+                  cy={selectedPointData.cy}
+                  r={6.5}
+                  fill="none"
+                  stroke="#3b82f6"
+                  strokeWidth={1}
+                />
+                {/* Point itself */}
+                {selectedPointData.isManual ? (
+                  <circle
+                    cx={selectedPointData.cx}
+                    cy={selectedPointData.cy}
+                    r={4}
+                    fill={selectedPointData.color}
+                  />
+                ) : (
+                  <circle
+                    cx={selectedPointData.cx}
+                    cy={selectedPointData.cy}
+                    r={4}
+                    fill="none"
+                    stroke={selectedPointData.color}
+                    strokeWidth={3}
+                  />
+                )}
+              </g>
+            )}
+          </svg>
 
           {/* Anchor labels positioned outside the circle */}
           {scales && (
@@ -587,19 +698,26 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       <div className="cause-radviz__unified-legend">
         <span className="instruction-subheader">Legend</span>
         <div className="cause-radviz__legend-section">
-          {/* Filled circle = tagged */}
+          {/* Filled circle = manually tagged */}
           <div className="cause-radviz__legend-item">
             <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="4" fill="#686868" />
+              <circle cx="7" cy="7" r="3" fill="#686868" />
             </svg>
             <span>Tagged</span>
           </div>
-          {/* Ring = untagged */}
+          {/* Ring = auto/unsure */}
           <div className="cause-radviz__legend-item">
             <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="3.5" fill="none" stroke="#686868" strokeWidth="1.5" />
+              <circle cx="7" cy="7" r="2.5" fill="none" stroke="#686868" strokeWidth="1" />
             </svg>
             <span>Untagged</span>
+          </div>
+          {/* Contour = density */}
+          <div className="cause-radviz__legend-item">
+            <svg width="18" height="14" viewBox="0 0 18 14">
+              <ellipse cx="9" cy="7" rx="7" ry="5" fill="#686868" fillOpacity={0.15} stroke="#686868" strokeWidth={1} strokeOpacity={0.5} />
+            </svg>
+            <span>Density</span>
           </div>
         </div>
       </div>

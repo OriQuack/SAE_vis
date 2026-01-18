@@ -19,9 +19,10 @@ from ..models.similarity_sort import (
     HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
     MultiModalityRequest, MultiModalityResponse, MultiModalityInfo, CategoryBimodalityInfo,
     Stage3QualityScoresRequest,
-    WeightedFeatureId, CauseSelectionItem
+    WeightedFeatureId, CauseSelectionItem, CommitteeVoteInfo
 )
 from .bimodality_service import BimodalityService
+from .committee_service import CommitteeService
 
 if TYPE_CHECKING:
     from .data_service import DataService
@@ -65,6 +66,7 @@ class SimilaritySortService:
         """
         self.data_service = data_service
         self.bimodality_service = BimodalityService()
+        self.committee_service = CommitteeService()
 
         # SVM model cache: (selected_ids, rejected_ids) hash -> (model, scaler)
         self._svm_cache: Dict[str, Tuple[SVC, StandardScaler]] = {}
@@ -155,11 +157,13 @@ class SimilaritySortService:
             )
 
         # Calculate similarity scores for ALL features (including selected/rejected)
-        logger.info(f"Calculating similarity scores for histogram with SVM")
-        feature_scores = self._calculate_similarity_scores_for_histogram(
+        # Also train committee (RF + MLP) for QBC approach
+        logger.info(f"Calculating similarity scores for histogram with SVM + committee")
+        feature_scores, committee_votes = self._calculate_similarity_scores_for_histogram(
             metrics_df,
             request.selected_items,
-            request.rejected_items
+            request.rejected_items,
+            train_committee=True  # Enable QBC committee training
         )
 
         # Create scores dictionary
@@ -193,6 +197,19 @@ class SimilaritySortService:
 
         logger.info(f"Successfully generated histogram for {len(feature_scores)} features")
 
+        # Convert committee votes to Pydantic models if available
+        committee_votes_response = None
+        if committee_votes:
+            committee_votes_response = {
+                fid: CommitteeVoteInfo(
+                    svm_prediction=info["svm_prediction"],
+                    rf_prediction=info["rf_prediction"],
+                    mlp_prediction=info["mlp_prediction"],
+                    vote_entropy=info["vote_entropy"]
+                )
+                for fid, info in committee_votes.items()
+            }
+
         return SimilarityHistogramResponse(
             scores=scores_dict,
             histogram=HistogramData(
@@ -215,7 +232,8 @@ class SimilaritySortService:
                     for comp in bimodality_result.gmm_components
                 ],
                 sample_size=bimodality_result.sample_size
-            )
+            ),
+            committee_votes=committee_votes_response
         )
 
     async def get_stage3_quality_scores(
@@ -840,8 +858,9 @@ class SimilaritySortService:
         self,
         metrics_df: pl.DataFrame,
         selected_items: List[WeightedFeatureId],
-        rejected_items: List[WeightedFeatureId]
-    ) -> List[FeatureScore]:
+        rejected_items: List[WeightedFeatureId],
+        train_committee: bool = False
+    ) -> Tuple[List[FeatureScore], Optional[Dict[str, Dict]]]:
         """
         Calculate similarity scores for ALL features using SVM (including selected/rejected).
 
@@ -852,9 +871,12 @@ class SimilaritySortService:
             metrics_df: DataFrame with metrics for all features
             selected_items: Weighted feature items marked as selected (✓)
             rejected_items: Weighted feature items marked as rejected (✗)
+            train_committee: If True, also train RF/MLP and return vote info
 
         Returns:
-            List of FeatureScore objects for ALL features
+            Tuple of (feature_scores, committee_votes)
+            - feature_scores: List of FeatureScore objects for ALL features
+            - committee_votes: Dict of feature_id -> vote info (only if train_committee=True)
         """
         # Extract IDs from weighted items
         selected_ids = [item.id for item in selected_items]
@@ -876,9 +898,27 @@ class SimilaritySortService:
         # Check cache (reuse model from main scoring)
         cache_key = self._get_cache_key_weighted(selected_items, rejected_items)
 
+        # Variables for committee training
+        X_train = None
+        y_train = None
+        sample_weights = None
+
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model for histogram (key: {cache_key[:8]}...)")
+
+            # Still need training data for committee if requested
+            if train_committee:
+                selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
+                rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
+                if selected_indices and rejected_indices:
+                    selected_vectors = metrics_matrix[selected_indices]
+                    rejected_vectors = metrics_matrix[rejected_indices]
+                    X_train = np.vstack([selected_vectors, rejected_vectors])
+                    y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+                    selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
+                    rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
+                    sample_weights = np.concatenate([selected_weights, rejected_weights])
         else:
             # Extract training vectors and weights
             selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
@@ -886,7 +926,7 @@ class SimilaritySortService:
 
             if not selected_indices or not rejected_indices:
                 logger.warning("Insufficient training data for SVM histogram")
-                return []
+                return [], None
 
             selected_vectors = metrics_matrix[selected_indices]
             rejected_vectors = metrics_matrix[rejected_indices]
@@ -894,6 +934,11 @@ class SimilaritySortService:
             # Build weight arrays
             selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
             rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
+
+            # Prepare training data for committee
+            X_train = np.vstack([selected_vectors, rejected_vectors])
+            y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+            sample_weights = np.concatenate([selected_weights, rejected_weights])
 
             # Train SVM with weights
             model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights)
@@ -914,7 +959,31 @@ class SimilaritySortService:
             for fid, score in zip(feature_ids, scores)
         ]
 
-        return feature_scores
+        # Train committee and get vote info if requested
+        committee_votes = None
+
+        if train_committee and X_train is not None and y_train is not None:
+            logger.info("[SimilaritySortService] Training committee (RF + MLP) for QBC...")
+            rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
+                X_train, y_train, sample_weights
+            )
+
+            if rf_model is not None or mlp_model is not None:
+                # Scale all features using the SVM scaler (consistent with SVM scoring)
+                X_scaled = scaler.transform(metrics_matrix)
+
+                # Get committee predictions
+                committee_preds = self.committee_service.predict_with_committee(
+                    X_scaled, scores, rf_model, mlp_model, committee_scaler
+                )
+
+                # Convert to API response format
+                item_ids = [str(int(fid)) for fid in feature_ids]
+                committee_votes = self.committee_service.get_vote_info_dict(item_ids, committee_preds)
+
+                logger.info(f"[SimilaritySortService] Committee votes generated for {len(item_ids)} items")
+
+        return feature_scores, committee_votes
 
     # =========================================================================
     # SVM HELPERS

@@ -119,4 +119,32 @@
   min-height: 0;  /* Allow flex children to shrink below content size */
 }
 
+/* ============================================================================
+ * DISAGREEMENT HIGHLIGHTING (QBC - Query by Committee)
+ * ============================================================================
+ * Highlights items where SVM is confident but RF/MLP disagree
+ */
 
+.pair-item--disagreement {
+  background-color: rgba(245, 158, 11, 0.1);
+  border-left: 3px solid #f59e0b;
+  padding-left: 4px;
+  border-radius: 4px;
+}
+
+.pair-item--disagreement:hover {
+  background-color: rgba(245, 158, 11, 0.15);
+}
+
+/* Disagreement indicator styling */
+.disagreement-indicator {
+  flex-shrink: 0;
+}
+
+.disagreement-indicator svg {
+  transition: opacity 0.15s ease;
+}
+
+.disagreement-indicator:hover svg {
+  opacity: 0.8;
+}

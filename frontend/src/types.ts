@@ -661,6 +661,16 @@ export interface MultiModalityResponse {
 }
 
 /**
+ * Committee Vote Info - Vote information from Query by Committee (QBC) approach
+ */
+export interface CommitteeVoteInfo {
+  svm_prediction: 0 | 1         // SVM prediction (0 or 1)
+  rf_prediction: 0 | 1          // Random Forest prediction (0 or 1)
+  mlp_prediction: 0 | 1         // MLP prediction (0 or 1)
+  vote_entropy: number          // Vote entropy (0 to ~1.58 for 3 models)
+}
+
+/**
  * Similarity Score Histogram Response - Distribution of similarity scores
  */
 export interface SimilarityScoreHistogramResponse {
@@ -669,6 +679,7 @@ export interface SimilarityScoreHistogramResponse {
   statistics: SimilarityHistogramStatistics
   total_items: number
   bimodality?: BimodalityInfo  // Bimodality detection results
+  committee_votes?: Record<string, CommitteeVoteInfo> | null  // Vote info from RF/MLP committee (QBC)
 }
 
 /**

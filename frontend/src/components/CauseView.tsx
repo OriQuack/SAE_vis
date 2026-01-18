@@ -1400,26 +1400,11 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
 
             {/* ============================================================ */}
-            {/* BOTTOM ROW: UMAP (1/3) + Histogram (1/3) + Batch Tagging (1/3) */}
+            {/* BOTTOM ROW: Histogram (1/3) + RadViz (1/3) + Batch Tagging (1/3) */}
             {/* ============================================================ */}
             <div className="cause-view__row-bottom">
-              {/* Left: RadViz Scatter */}
+              {/* Left: Histogram (was center) */}
               <div className="cause-view__bottom-left">
-                <CauseRadViz
-                  featureIds={stableFeatureIds}
-                  className="cause-view__radviz"
-                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
-                  visibleCategories={visibleCategories}
-                  onVisibleCategoriesChange={setVisibleCategories}
-                  onFeatureSelect={handleUMAPFeatureSelect}
-                  sortMode={sortMode}
-                  sortDirection={selectedSortDirection}
-                  filterByTag={isTopMode ? filterByTag : null}
-                />
-              </div>
-
-              {/* Center: Histogram */}
-              <div className="cause-view__bottom-center">
                 <div className="cause-view__header-row">
                   <h4 className="subheader">Unsure Boundary</h4>
                   <span className="subheader__value">
@@ -1439,6 +1424,21 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onPercentageChange={setTargetPercentage}
                   canTrainSVM={canTrainSVM}
                   manualTagCountsByCategory={manualTagCountsByCategory}
+                />
+              </div>
+
+              {/* Center: RadViz (was left) */}
+              <div className="cause-view__bottom-center">
+                <CauseRadViz
+                  featureIds={stableFeatureIds}
+                  className="cause-view__radviz"
+                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
+                  visibleCategories={visibleCategories}
+                  onVisibleCategoriesChange={setVisibleCategories}
+                  onFeatureSelect={handleUMAPFeatureSelect}
+                  sortMode={sortMode}
+                  sortDirection={selectedSortDirection}
+                  filterByTag={isTopMode ? filterByTag : null}
                 />
               </div>
 

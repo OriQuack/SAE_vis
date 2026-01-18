@@ -3,6 +3,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getStripeGradient } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
+import type { CommitteeVoteInfo } from '../types'
 
 // ============================================================================
 // TAG BADGE COMPONENT
@@ -275,5 +276,68 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
         )
       })}
     </div>
+  )
+}
+
+// ============================================================================
+// DISAGREEMENT INDICATOR COMPONENT
+// ============================================================================
+// Displays a warning icon when RF/MLP disagree with the SVM-based list prediction
+// Used in boundary lists to highlight potential outliers (QBC approach)
+
+interface DisagreementIndicatorProps {
+  voteInfo: CommitteeVoteInfo | null | undefined
+  isDisagreement: boolean  // Computed by parent based on list type
+  className?: string
+}
+
+export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
+  voteInfo,
+  isDisagreement,
+  className = ''
+}) => {
+  // Only render when there's actual disagreement (computed by parent)
+  if (!voteInfo || !isDisagreement) {
+    return null
+  }
+
+  // Determine which models disagree with SVM
+  const disagreeing: string[] = []
+  if (voteInfo.rf_prediction !== voteInfo.svm_prediction) {
+    disagreeing.push('RF')
+  }
+  if (voteInfo.mlp_prediction !== voteInfo.svm_prediction) {
+    disagreeing.push('MLP')
+  }
+
+  const tooltipText = `Models disagree: ${disagreeing.join(', ')} votes opposite to SVM\nVote entropy: ${voteInfo.vote_entropy.toFixed(3)}`
+
+  return (
+    <span
+      className={`disagreement-indicator ${className}`.trim()}
+      title={tooltipText}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginLeft: '4px',
+        cursor: 'help'
+      }}
+    >
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="#f59e0b"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    </span>
   )
 }

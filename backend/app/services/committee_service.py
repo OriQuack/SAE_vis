@@ -24,7 +24,6 @@ class CommitteePrediction:
     rf_prediction: int       # 0 or 1
     mlp_prediction: int      # 0 or 1
     vote_entropy: float      # 0 to ~1.58 (log2(3) for 3 models)
-    is_disagreement: bool    # SVM confident but RF/MLP disagree
 
 
 class CommitteeService:
@@ -159,6 +158,8 @@ class CommitteeService:
             mlp = MLPClassifier(
                 hidden_layer_sizes=hidden_layer_sizes,
                 alpha=0.01,  # L2 regularization
+                solver='adam',
+                learning_rate='adaptive',
                 max_iter=500,
                 early_stopping=True,
                 validation_fraction=0.2,
@@ -187,8 +188,7 @@ class CommitteeService:
         svm_scores: np.ndarray,
         rf_model: Optional[RandomForestClassifier],
         mlp_model: Optional[MLPClassifier],
-        scaler: Optional[StandardScaler],
-        confidence_threshold: float = 0.5
+        scaler: Optional[StandardScaler]
     ) -> Dict[int, CommitteePrediction]:
         """
         Get predictions from committee and compute vote entropy.
@@ -199,7 +199,6 @@ class CommitteeService:
             rf_model: Trained Random Forest model
             mlp_model: Trained MLP model
             scaler: Fitted StandardScaler
-            confidence_threshold: Threshold for SVM confidence (|score| > threshold)
 
         Returns:
             Dict mapping sample index to CommitteePrediction
@@ -217,8 +216,7 @@ class CommitteeService:
                     svm_prediction=int(svm_preds[i]),
                     rf_prediction=int(svm_preds[i]),  # Fallback to SVM
                     mlp_prediction=int(svm_preds[i]),  # Fallback to SVM
-                    vote_entropy=0.0,
-                    is_disagreement=False
+                    vote_entropy=0.0
                 )
             return results
 
@@ -227,17 +225,17 @@ class CommitteeService:
 
         # Get RF predictions
         if rf_model is not None:
-            rf_preds = rf_model.predict(X_scaled)
+            rf_preds = rf_model.predict(X_scaled).astype(int)
         else:
             rf_preds = svm_preds  # Fallback to SVM
 
         # Get MLP predictions
         if mlp_model is not None:
-            mlp_preds = mlp_model.predict(X_scaled)
+            mlp_preds = mlp_model.predict(X_scaled).astype(int)
         else:
             mlp_preds = svm_preds  # Fallback to SVM
 
-        # Compute vote entropy and disagreement for each sample
+        # Compute vote entropy for each sample
         for i in range(n_samples):
             svm_pred = int(svm_preds[i])
             rf_pred = int(rf_preds[i])
@@ -254,27 +252,18 @@ class CommitteeService:
                     p = count / 3
                     vote_entropy -= p * np.log2(p)
 
-            # Check for disagreement:
-            # SVM is confident (|score| > threshold) AND (RF OR MLP disagrees)
-            svm_confident = abs(svm_scores[i]) > confidence_threshold
-            models_disagree = (rf_pred != svm_pred) or (mlp_pred != svm_pred)
-            is_disagreement = svm_confident and models_disagree
-
             results[i] = CommitteePrediction(
                 svm_prediction=svm_pred,
                 rf_prediction=rf_pred,
                 mlp_prediction=mlp_pred,
-                vote_entropy=float(vote_entropy),
-                is_disagreement=is_disagreement
+                vote_entropy=float(vote_entropy)
             )
 
         # Log summary
-        n_disagreements = sum(1 for r in results.values() if r.is_disagreement)
         avg_entropy = np.mean([r.vote_entropy for r in results.values()])
         logger.info(
             f"[CommitteeService] Committee predictions: "
-            f"{n_disagreements}/{n_samples} disagreements, "
-            f"avg entropy={avg_entropy:.3f}"
+            f"{n_samples} samples, avg entropy={avg_entropy:.3f}"
         )
 
         return results
@@ -302,28 +291,6 @@ class CommitteeService:
                     "svm_prediction": pred.svm_prediction,
                     "rf_prediction": pred.rf_prediction,
                     "mlp_prediction": pred.mlp_prediction,
-                    "vote_entropy": pred.vote_entropy,
-                    "is_disagreement": pred.is_disagreement
+                    "vote_entropy": pred.vote_entropy
                 }
         return result
-
-    def get_disagreement_items(
-        self,
-        item_ids: List[str],
-        committee_predictions: Dict[int, CommitteePrediction]
-    ) -> List[str]:
-        """
-        Get list of item IDs where models disagree.
-
-        Args:
-            item_ids: List of item identifiers
-            committee_predictions: Dict mapping indices to CommitteePrediction
-
-        Returns:
-            List of item IDs with disagreement
-        """
-        disagreement_items = []
-        for idx, item_id in enumerate(item_ids):
-            if idx in committee_predictions and committee_predictions[idx].is_disagreement:
-                disagreement_items.append(item_id)
-        return disagreement_items

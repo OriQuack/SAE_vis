@@ -5,7 +5,7 @@ import DecisionMarginHistogram from './DecisionMarginHistogram'
 import ScrollableItemList from './ScrollableItemList'
 import ConvergenceIndicator from './ConvergenceIndicator'
 import BatchTaggingPanel from './BatchTaggingPanel'
-import { TagBadge } from './Indicators'
+import { TagBadge, DisagreementIndicator } from './Indicators'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -196,6 +196,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     return { left: leftByBoundary, right: rightByBoundary }
   }, [mode, histogramProps.availablePairs, histogramProps.filteredFeatureIds, pairSelectionStates, featureSelectionStates, pairSimilarityScores, similarityScores])
 
+  // Get committee data for disagreement highlighting
+  const committeeVotes = tagAutomaticState?.committeeVotes ?? null
+
   // Render item for pair boundary lists
   // Shows PREVIEW tag (what it will be after apply) with stripe pattern
   const renderBoundaryItem = (item: PairItemWithMetadata, index: number, listType: 'left' | 'right') => {
@@ -216,8 +219,16 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
     const pairIdString = `${item.mainFeatureId}-${item.similarFeatureId}`
 
+    // Check for disagreement: item is in boundary list AND RF/MLP predicts opposite class
+    const voteInfo = committeeVotes?.get(item.pairKey) ?? null
+    const isDisagreement = voteInfo
+      ? (listType === 'right'
+          ? (voteInfo.rf_prediction === 0 || voteInfo.mlp_prediction === 0)  // SVM says selected, RF/MLP says rejected
+          : (voteInfo.rf_prediction === 1 || voteInfo.mlp_prediction === 1)) // SVM says rejected, RF/MLP says selected
+      : false
+
     return (
-      <div className="pair-item-with-score">
+      <div className={`pair-item-with-score ${isDisagreement ? 'pair-item--disagreement' : ''}`}>
         <TagBadge
           featureId={pairIdString}
           tagName={tagName}
@@ -227,6 +238,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           isPair={true}
           isAuto={true}
         />
+        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>
         )}
@@ -252,8 +264,17 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
       tagName = listType === 'left' ? leftListLabel : rightListLabel
     }
 
+    // Check for disagreement: item is in boundary list AND RF/MLP predicts opposite class
+    const featureIdStr = String(item.featureId)
+    const voteInfo = committeeVotes?.get(featureIdStr) ?? null
+    const isDisagreement = voteInfo
+      ? (listType === 'right'
+          ? (voteInfo.rf_prediction === 0 || voteInfo.mlp_prediction === 0)  // SVM says selected, RF/MLP says rejected
+          : (voteInfo.rf_prediction === 1 || voteInfo.mlp_prediction === 1)) // SVM says rejected, RF/MLP says selected
+      : false
+
     return (
-      <div className="pair-item-with-score">
+      <div className={`pair-item-with-score ${isDisagreement ? 'pair-item--disagreement' : ''}`}>
         <TagBadge
           featureId={item.featureId}
           tagName={tagName}
@@ -262,6 +283,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           fullWidth={true}
           isAuto={true}
         />
+        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>
         )}

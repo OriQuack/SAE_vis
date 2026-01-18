@@ -341,7 +341,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               rejectThreshold,
               tagLabel: 'Fragmented',
               isLoading: false,
-              flipTracking: flipTracking ?? null
+              flipTracking: flipTracking ?? null,
+              committeeVotes: null
             }
           })
         }

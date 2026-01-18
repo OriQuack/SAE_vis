@@ -214,6 +214,15 @@ class BimodalityInfo(BaseModel):
     sample_size: int = Field(..., description="Number of data points used in analysis")
 
 
+class CommitteeVoteInfo(BaseModel):
+    """Vote information from Query by Committee (QBC) approach."""
+
+    svm_prediction: int = Field(..., description="SVM prediction (0 or 1)")
+    rf_prediction: int = Field(..., description="Random Forest prediction (0 or 1)")
+    mlp_prediction: int = Field(..., description="MLP prediction (0 or 1)")
+    vote_entropy: float = Field(..., description="Vote entropy (0 to ~1.58 for 3 models)")
+
+
 class SimilarityHistogramResponse(BaseModel):
     """Response model for similarity score histogram (shared by features and pairs)."""
 
@@ -233,6 +242,10 @@ class SimilarityHistogramResponse(BaseModel):
     bimodality: Optional[BimodalityInfo] = Field(
         default=None,
         description="Bimodality detection results (Dip Test + GMM BIC)"
+    )
+    committee_votes: Optional[Dict[str, CommitteeVoteInfo]] = Field(
+        default=None,
+        description="Vote information from RF/MLP committee (QBC approach)"
     )
 
 
