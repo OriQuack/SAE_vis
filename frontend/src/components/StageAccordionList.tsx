@@ -125,26 +125,69 @@ export function StageAccordionList<T>({
     onStageChange(stage)
   }, [onStageChange, learnDisabled, applyDisabled])
 
+  // Define bootstrap options order (for cycling)
+  const bootstrapOptions = useMemo(() => {
+    const options: Array<{ mode: BootstrapMode; direction?: 'asc' | 'desc'; label: string }> = []
+    if (hasDiversityIds) {
+      options.push({ mode: 'diversity', label: 'Representatives' })
+    }
+    options.push({ mode: 'byScore', direction: 'asc', label: byScoreAscLabel })
+    options.push({ mode: 'byScore', direction: 'desc', label: byScoreDescLabel })
+    return options
+  }, [hasDiversityIds, byScoreAscLabel, byScoreDescLabel])
+
+  // Get current option index
+  const currentOptionIndex = useMemo(() => {
+    return bootstrapOptions.findIndex(opt =>
+      opt.mode === bootstrapMode &&
+      (opt.mode === 'diversity' || opt.direction === bootstrapDirection)
+    )
+  }, [bootstrapOptions, bootstrapMode, bootstrapDirection])
+
+  // Cycle handlers
+  const handlePrevOption = useCallback(() => {
+    const newIndex = (currentOptionIndex - 1 + bootstrapOptions.length) % bootstrapOptions.length
+    const opt = bootstrapOptions[newIndex]
+    onBootstrapModeChange(opt.mode)
+    if (opt.direction) onBootstrapDirectionChange(opt.direction)
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange])
+
+  const handleNextOption = useCallback(() => {
+    const newIndex = (currentOptionIndex + 1) % bootstrapOptions.length
+    const opt = bootstrapOptions[newIndex]
+    onBootstrapModeChange(opt.mode)
+    if (opt.direction) onBootstrapDirectionChange(opt.direction)
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange])
+
   // isTemplateSort - true when in decisionMargin asc mode (standard template)
   const isTemplateSort = useMemo(() => {
     return activeStage === 'learn'
   }, [activeStage])
 
-  // Build list props to pass through
-  const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => ({
-    badges,
-    columnHeader,
-    items,
-    renderItem,
-    currentIndex,
-    highlightPredicate,
-    isActive,
-    isTemplateSort,
-    sortConfig,
-    pageNavigation,
-    emptyMessage,
-    disableAutoScroll
-  }), [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, pageNavigation, emptyMessage, disableAutoScroll])
+  // Build list props to pass through (strip onClick from columnHeader to disable sort toggle)
+  const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => {
+    // Remove onClick from columnHeader - sorting is controlled by stage tabs
+    const columnHeaderWithoutClick = columnHeader ? {
+      label: columnHeader.label,
+      sortDirection: columnHeader.sortDirection,
+      isPulsing: columnHeader.isPulsing
+    } : undefined
+
+    return {
+      badges,
+      columnHeader: columnHeaderWithoutClick,
+      items,
+      renderItem,
+      currentIndex,
+      highlightPredicate,
+      isActive,
+      isTemplateSort,
+      sortConfig,
+      pageNavigation,
+      emptyMessage,
+      disableAutoScroll
+    }
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, pageNavigation, emptyMessage, disableAutoScroll])
 
   return (
     <div className={`stage-selector ${className}`}>
@@ -154,8 +197,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'bootstrap' ? 'stage-selector__tab--active' : ''}`}
           onClick={() => handleStageClick('bootstrap')}
         >
-          <span className="stage-selector__indicator" />
-          <span className="stage-selector__number">1.</span>
+          <span className="stage-selector__number">1</span>
           <span className="stage-selector__label">Bootstrap</span>
         </button>
         <button
@@ -164,8 +206,7 @@ export function StageAccordionList<T>({
           disabled={learnDisabled}
           title={learnDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
-          <span className="stage-selector__indicator" />
-          <span className="stage-selector__number">2.</span>
+          <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Learn</span>
         </button>
         <button
@@ -174,8 +215,7 @@ export function StageAccordionList<T>({
           disabled={applyDisabled}
           title={applyDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
-          <span className="stage-selector__indicator" />
-          <span className="stage-selector__number">3.</span>
+          <span className="stage-selector__number">3</span>
           <span className="stage-selector__label">Apply</span>
         </button>
       </div>
@@ -183,45 +223,69 @@ export function StageAccordionList<T>({
       {/* Row 2: Options (context-sensitive) */}
       <div className="stage-selector__options">
         {activeStage === 'bootstrap' && (
-          <>
-            {hasDiversityIds && (
-              <button
-                className={`stage-selector__option-btn ${bootstrapMode === 'diversity' ? 'stage-selector__option-btn--active' : ''}`}
-                onClick={() => onBootstrapModeChange('diversity')}
-                title="Show diverse representative samples (cluster medoids)"
-              >
-                Representatives
-              </button>
-            )}
+          <div className="stage-selector__cycle-group">
             <button
-              className={`stage-selector__option-btn ${bootstrapMode === 'byScore' && bootstrapDirection === 'asc' ? 'stage-selector__option-btn--active' : ''}`}
-              onClick={() => {
-                onBootstrapModeChange('byScore')
-                onBootstrapDirectionChange('asc')
-              }}
+              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''}`}
+              onClick={handlePrevOption}
+              disabled={bootstrapOptions.length <= 1}
+              aria-label="Previous option"
             >
-              {byScoreAscLabel}
+              ◀
             </button>
+            <span className="stage-selector__cycle-label">
+              {bootstrapOptions[currentOptionIndex]?.label}
+            </span>
             <button
-              className={`stage-selector__option-btn ${bootstrapMode === 'byScore' && bootstrapDirection === 'desc' ? 'stage-selector__option-btn--active' : ''}`}
-              onClick={() => {
-                onBootstrapModeChange('byScore')
-                onBootstrapDirectionChange('desc')
-              }}
+              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''}`}
+              onClick={handleNextOption}
+              disabled={bootstrapOptions.length <= 1}
+              aria-label="Next option"
             >
-              {byScoreDescLabel}
+              ▶
             </button>
-          </>
+          </div>
         )}
         {activeStage === 'learn' && (
-          <button className="stage-selector__option-btn stage-selector__option-btn--active">
-            Most Uncertain First
-          </button>
+          <div className="stage-selector__cycle-group">
+            <button
+              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
+              disabled
+              aria-label="Previous option"
+            >
+              ◀
+            </button>
+            <span className="stage-selector__cycle-label">
+              Most Uncertain First
+            </span>
+            <button
+              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
+              disabled
+              aria-label="Next option"
+            >
+              ▶
+            </button>
+          </div>
         )}
         {activeStage === 'apply' && (
-          <button className="stage-selector__option-btn stage-selector__option-btn--active">
-            Most Confident First
-          </button>
+          <div className="stage-selector__cycle-group">
+            <button
+              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
+              disabled
+              aria-label="Previous option"
+            >
+              ◀
+            </button>
+            <span className="stage-selector__cycle-label">
+              Most Confident First
+            </span>
+            <button
+              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
+              disabled
+              aria-label="Next option"
+            >
+              ▶
+            </button>
+          </div>
         )}
 
         {/* Spacer + Hide Tagged (always on right) */}

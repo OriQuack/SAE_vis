@@ -9,6 +9,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0; /* Allow shrinking in flex container */
+  width: 280px;
 }
 
 /* ============================================================================
@@ -18,62 +19,81 @@
 .stage-selector__tabs {
   display: flex;
   flex-direction: row;
+  gap: 3px;
+  padding: 4px;
   background-color: #f9fafb;
   border: 1px solid #e5e7eb;
   border-bottom: none;
   border-radius: 4px 4px 0 0;
-  padding: 4px 8px;
-  gap: 16px;
 }
 
 .stage-selector__tab {
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 0;
-  background: none;
-  border: none;
+  justify-content: center;
+  gap: 3px;
+  padding: 3px 2px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
   cursor: pointer;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 500;
   color: #6b7280;
-  transition: color 0.15s ease;
+  transition: all 0.15s ease;
 }
 
 .stage-selector__tab:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #9ca3af;
   color: #374151;
 }
 
 .stage-selector__tab--active {
+  background: #eff6ff;
+  border-color: #3b82f6;
   color: #1d4ed8;
   font-weight: 600;
 }
 
+.stage-selector__tab--active:hover:not(:disabled) {
+  background: #dbeafe;
+  border-color: #2563eb;
+}
+
 .stage-selector__tab--disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
+  background: #f9fafb;
 }
 
-/* Radio-style indicator */
-.stage-selector__indicator {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  border: 1.5px solid currentColor;
-  flex-shrink: 0;
-  box-sizing: border-box;
-}
-
-.stage-selector__tab--active .stage-selector__indicator {
-  background-color: currentColor;
-}
-
-/* Stage Number */
+/* Stage Number - Circled number like TagStagePanel */
 .stage-selector__number {
-  font-size: 11px;
-  font-weight: inherit;
-  color: inherit;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: white;
+  border: 1px solid #d1d5db;
+  color: #6b7280;
+  font-size: 9px;
+  font-weight: 600;
   flex-shrink: 0;
+}
+
+.stage-selector__tab--active .stage-selector__number {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+.stage-selector__tab--disabled .stage-selector__number {
+  background: #f3f4f6;
+  border-color: #e5e7eb;
+  color: #9ca3af;
 }
 
 /* Stage Label */
@@ -133,6 +153,53 @@
 
 .stage-selector__option-btn--active:hover {
   background: rgba(59, 130, 246, 0.25);
+}
+
+/* Cycle group for stage options */
+.stage-selector__cycle-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 3px;
+  background-color: white;
+  overflow: hidden;
+  width: 160px;
+}
+
+.stage-selector__cycle-arrow {
+  padding: 3px 6px;
+  font-size: 8px;
+  color: #6b7280;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.stage-selector__cycle-arrow:hover:not(:disabled) {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.stage-selector__cycle-arrow--disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.stage-selector__cycle-label {
+  flex: 1;
+  padding: 3px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 1px solid #d1d5db;
+  border-right: 1px solid #d1d5db;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ============================================================================
@@ -276,6 +343,7 @@
   min-height: 0; /* Allow shrinking */
   display: flex;
   flex-direction: column;
+  width: 280px;
 }
 
 /* Override ScrollableItemList border to connect with header */
@@ -283,4 +351,5 @@
   border-top-left-radius: 0;
   border-top-right-radius: 0;
   flex: 1;
+  width: 280px;
 }

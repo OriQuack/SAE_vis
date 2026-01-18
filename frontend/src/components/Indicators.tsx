@@ -95,7 +95,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
     position: 'relative',
     zIndex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.85)',
-    padding: '0 1px',
+    padding: '0 4px',
     borderRadius: '2px'
   } : {}
 
