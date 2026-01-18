@@ -3,9 +3,6 @@
 // ============================================================================
 // These hooks extract common logic from FeatureSplitView and QualityView
 
-export { usePaginatedList } from './usePaginatedList'
-export type { default as UsePaginatedListReturn } from './usePaginatedList'
-
 export { useListNavigation } from './useListNavigation'
 export type { ListSource } from './useListNavigation'
 

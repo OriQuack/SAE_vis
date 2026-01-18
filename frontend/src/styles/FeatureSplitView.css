@@ -75,7 +75,7 @@
   flex-direction: row;
   max-height: 50%;
   min-height: 0;
-  gap: 0;
+  gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
   flex: 1;
@@ -85,13 +85,6 @@
 .feature-split-view__row-top > .stage-accordion {
   width: 240px;
   flex-shrink: 0;
-}
-
-/* Right panel border */
-.feature-split-view__row-top > .feature-split-pair-viewer {
-  border: 1px solid #e5e7eb;
-  border-left: none;
-  border-radius: 0 4px 4px 0;
 }
 
 /* Note: Bottom row styles are now in ThresholdTaggingPanel.css */

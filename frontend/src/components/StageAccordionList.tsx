@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, type ReactNode } from 'react'
+import React, { useMemo, useCallback, useState, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/StageAccordionList.css'
@@ -48,7 +48,8 @@ interface StageAccordionListProps<T> {
   shouldPulseLearn?: boolean   // Pulse Train tab when user has viewed most representatives
   shouldPulseApply?: boolean   // Pulse Apply tab when flip rate is stable (<3% for 5 iterations)
 
-  // Labels for bootstrap "By Score" buttons
+  // Labels for bootstrap options
+  diversityLabel?: string    // e.g., "Most Critical 20" (defaults to "Representatives")
   byScoreAscLabel?: string   // e.g., "Least Similar First"
   byScoreDescLabel?: string  // e.g., "Most Similar First"
 
@@ -78,12 +79,6 @@ interface StageAccordionListProps<T> {
   highlightPredicate?: (item: T, currentItem: T | null) => boolean
   isActive?: boolean
   sortConfig?: { getDisplayScore: (item: T) => number | undefined }
-  pageNavigation?: {
-    currentPage: number
-    totalPages: number
-    onPreviousPage: () => void
-    onNextPage: () => void
-  }
   emptyMessage?: string
   disableAutoScroll?: boolean
 
@@ -104,6 +99,7 @@ export function StageAccordionList<T>({
   applyDisabled = false,
   shouldPulseLearn,
   shouldPulseApply,
+  diversityLabel = 'Representatives',
   byScoreAscLabel = 'Low → High',
   byScoreDescLabel = 'High → Low',
   hideTagged,
@@ -122,11 +118,13 @@ export function StageAccordionList<T>({
   highlightPredicate,
   isActive = false,
   sortConfig,
-  pageNavigation,
   emptyMessage = 'None',
   disableAutoScroll = false,
   className = ''
 }: StageAccordionListProps<T>) {
+  // Track if arrow pulsing has been dismissed (user clicked once)
+  const [arrowPulsingDismissed, setArrowPulsingDismissed] = useState(false)
+
   // Handle stage tab click
   const handleStageClick = useCallback((stage: ActiveStage) => {
     if (stage === 'learn' && learnDisabled) return
@@ -135,16 +133,16 @@ export function StageAccordionList<T>({
   }, [onStageChange, learnDisabled, applyDisabled])
 
   // Define bootstrap options order (for cycling)
-  // Order: Representatives → desc (e.g. Most Similar) → asc (e.g. Least Similar)
+  // Order: Most Critical → desc (e.g. Most Similar) → asc (e.g. Least Similar)
   const bootstrapOptions = useMemo(() => {
     const options: Array<{ mode: BootstrapMode; direction?: 'asc' | 'desc'; label: string }> = []
     if (hasDiversityIds) {
-      options.push({ mode: 'diversity', label: 'Representatives' })
+      options.push({ mode: 'diversity', label: diversityLabel })
     }
     options.push({ mode: 'byScore', direction: 'desc', label: byScoreDescLabel })
     options.push({ mode: 'byScore', direction: 'asc', label: byScoreAscLabel })
     return options
-  }, [hasDiversityIds, byScoreAscLabel, byScoreDescLabel])
+  }, [hasDiversityIds, diversityLabel, byScoreAscLabel, byScoreDescLabel])
 
   // Get current option index
   const currentOptionIndex = useMemo(() => {
@@ -168,6 +166,10 @@ export function StageAccordionList<T>({
   }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange])
 
   const handleNextOption = useCallback(() => {
+    // Dismiss arrow pulsing when clicked
+    if (!arrowPulsingDismissed) {
+      setArrowPulsingDismissed(true)
+    }
     const newIndex = (currentOptionIndex + 1) % bootstrapOptions.length
     const opt = bootstrapOptions[newIndex]
     if (onBootstrapOptionChange) {
@@ -176,7 +178,7 @@ export function StageAccordionList<T>({
       if (opt.direction) onBootstrapDirectionChange(opt.direction)
       onBootstrapModeChange(opt.mode)
     }
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange])
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange, arrowPulsingDismissed])
 
   // isTemplateSort - true when in decisionMargin asc mode (standard template)
   const isTemplateSort = useMemo(() => {
@@ -201,11 +203,10 @@ export function StageAccordionList<T>({
       isActive,
       isTemplateSort,
       sortConfig,
-      pageNavigation,
       emptyMessage,
       disableAutoScroll
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, pageNavigation, emptyMessage, disableAutoScroll])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll])
 
   return (
     <div className={`stage-selector ${className}`}>
@@ -254,7 +255,7 @@ export function StageAccordionList<T>({
               {bootstrapOptions[currentOptionIndex]?.label}
             </span>
             <button
-              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''} ${shouldPulseLearn && learnDisabled ? 'stage-selector__cycle-arrow--pulsing' : ''}`}
+              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''} ${shouldPulseLearn && learnDisabled && !arrowPulsingDismissed ? 'stage-selector__cycle-arrow--pulsing' : ''}`}
               onClick={handleNextOption}
               disabled={bootstrapOptions.length <= 1}
               aria-label="Next option"

@@ -3,8 +3,6 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
 
-// Virtualization threshold - only virtualize lists larger than this
-const VIRTUALIZATION_THRESHOLD = 100
 const ESTIMATED_ITEM_HEIGHT = 32
 
 // ============================================================================
@@ -32,13 +30,6 @@ interface FooterButton {
   disabled?: boolean
   title?: string
   className?: string
-}
-
-interface PageNavigation {
-  currentPage: number
-  totalPages: number
-  onPreviousPage: () => void
-  onNextPage: () => void
 }
 
 interface ColumnHeader {
@@ -92,9 +83,6 @@ export interface ScrollableItemListProps<T = any> {
   // Optional footer button
   footerButton?: FooterButton
 
-  // Optional page navigation (replaces footerButton if provided)
-  pageNavigation?: PageNavigation
-
   // Optional sort config for automatic inline score display
   // When provided, wraps renderItem output with score display
   sortConfig?: SortConfig<T>
@@ -126,7 +114,6 @@ export function ScrollableItemList<T = any>({
   isActive = false,
   isTemplateSort: _isTemplateSort = true,
   footerButton,
-  pageNavigation,
   sortConfig,
   variant,
   emptyMessage = 'None',
@@ -139,9 +126,6 @@ export function ScrollableItemList<T = any>({
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // Virtualization for large lists
-  const shouldVirtualize = items.length > VIRTUALIZATION_THRESHOLD
-
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => containerRef.current,
@@ -149,12 +133,12 @@ export function ScrollableItemList<T = any>({
     overscan: 5 // Render 5 extra items above/below viewport
   })
 
-  // Scroll to currentIndex when it changes (for virtualized lists)
+  // Scroll to currentIndex when it changes
   useEffect(() => {
-    if (!disableAutoScroll && shouldVirtualize && currentIndex >= 0 && currentIndex < items.length) {
+    if (!disableAutoScroll && currentIndex >= 0 && currentIndex < items.length) {
       virtualizer.scrollToIndex(currentIndex, { align: 'center', behavior: 'auto' })
     }
-  }, [currentIndex, shouldVirtualize, items.length, virtualizer, disableAutoScroll])
+  }, [currentIndex, items.length, virtualizer, disableAutoScroll])
 
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {
@@ -220,8 +204,7 @@ export function ScrollableItemList<T = any>({
       <div className="scrollable-list__container" ref={containerRef}>
         {items.length === 0 ? (
           <div className="scrollable-list__empty">{emptyMessage}</div>
-        ) : shouldVirtualize ? (
-          // Virtualized rendering for large lists
+        ) : (
           <div
             style={{
               height: virtualizer.getTotalSize(),
@@ -269,65 +252,11 @@ export function ScrollableItemList<T = any>({
               )
             })}
           </div>
-        ) : (
-          // Non-virtualized rendering for small lists
-          items.map((item, index) => {
-            const isCurrent = index === currentIndex
-            const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
-
-            const itemClasses = [
-              'scrollable-list-item',
-              isCurrent && 'scrollable-list-item--current',
-              isHighlighted && 'scrollable-list-item--highlighted'
-            ].filter(Boolean).join(' ')
-
-            const itemContent = renderItem(item, index)
-
-            return (
-              <div key={index} className={itemClasses}>
-                {sortConfig ? (
-                  <div className="pair-item-with-score">
-                    {itemContent}
-                    <span className="pair-similarity-score">
-                      {sortConfig.getDisplayScore(item)?.toFixed(2) ?? '—'}
-                    </span>
-                  </div>
-                ) : (
-                  itemContent
-                )}
-              </div>
-            )
-          })
         )}
       </div>
 
-      {/* Page navigation (takes priority over footerButton) */}
-      {pageNavigation && (
-        <div className="scrollable-list__page-nav">
-          <button
-            className="scrollable-list__page-nav-button"
-            onClick={pageNavigation.onPreviousPage}
-            disabled={pageNavigation.currentPage <= 0}
-            title="Previous page"
-          >
-            ←
-          </button>
-          <span className="scrollable-list__page-nav-info">
-            {pageNavigation.currentPage + 1} / {pageNavigation.totalPages}
-          </span>
-          <button
-            className="scrollable-list__page-nav-button"
-            onClick={pageNavigation.onNextPage}
-            disabled={pageNavigation.currentPage >= pageNavigation.totalPages - 1}
-            title="Next page"
-          >
-            →
-          </button>
-        </div>
-      )}
-
-      {/* Optional footer button (only if no pageNavigation) */}
-      {!pageNavigation && footerButton && (
+      {/* Optional footer button */}
+      {footerButton && (
         <button
           className={`scrollable-list__footer-button ${footerButton.className || ''}`}
           onClick={footerButton.onClick}

@@ -87,10 +87,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     onReset: resetFeatureIndex
   })
 
-  // Top row feature list state - currentPage derived from currentFeatureIndex
-  const ITEMS_PER_PAGE = 10
-  const currentPage = Math.floor(currentFeatureIndex / ITEMS_PER_PAGE)
-
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: 600,
@@ -371,13 +367,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     selectionStates: featureSelectionStates,
     selectionSources: featureSelectionSources
   })
-
-  // Pagination for the top row list (use displayFeatures for filtered view)
-  const totalPages = Math.max(1, Math.ceil(displayFeatures.length / ITEMS_PER_PAGE))
-  const currentPageFeatures = useMemo(() => {
-    const start = currentPage * ITEMS_PER_PAGE
-    return displayFeatures.slice(start, start + ITEMS_PER_PAGE)
-  }, [displayFeatures, currentPage, ITEMS_PER_PAGE])
 
   // Reset to valid index when features change
   useEffect(() => {
@@ -747,10 +736,9 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Handle click on feature in top row list
   const handleFeatureListClick = useCallback((index: number) => {
-    const globalIndex = currentPage * ITEMS_PER_PAGE + index
-    setCurrentFeatureIndex(globalIndex)
+    setCurrentFeatureIndex(index)
     setActiveListSource('all')
-  }, [currentPage, ITEMS_PER_PAGE, setActiveListSource])
+  }, [setActiveListSource])
 
   // Render feature item for the ScrollableItemList
   // Score display is handled by ScrollableItemList's sortConfig
@@ -951,38 +939,25 @@ const QualityView: React.FC<QualityViewProps> = ({
               applyDisabled={!tagAutomaticState?.histogramData}
               shouldPulseLearn={hasVisitedMostReps}
               shouldPulseApply={isFlipRateStable}
+              diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
               byScoreAscLabel="Lowest Quality First"
               byScoreDescLabel="Highest Quality First"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{
                 label: diversityFeatureIds.size > 0 && !svmTrainingStarted
-                  ? 'Representative Features'
+                  ? 'Most Critical Features'
                   : hideTagged
                     ? 'Untagged Features'
                     : 'All Features',
                 count: displayFeatures.length
               }]}
               columnHeader={columnHeaderProps}
-              items={currentPageFeatures}
+              items={displayFeatures}
               renderItem={renderFeatureItem}
               sortConfig={{ getDisplayScore }}
-              currentIndex={activeListSource === 'all' ? currentFeatureIndex % ITEMS_PER_PAGE : -1}
+              currentIndex={activeListSource === 'all' ? currentFeatureIndex : -1}
               isActive={activeListSource === 'all'}
-              pageNavigation={{
-                currentPage,
-                totalPages,
-                onPreviousPage: () => {
-                  if (currentPage > 0) {
-                    setCurrentFeatureIndex((currentPage - 1) * ITEMS_PER_PAGE)
-                  }
-                },
-                onNextPage: () => {
-                  if (currentPage < totalPages - 1) {
-                    setCurrentFeatureIndex((currentPage + 1) * ITEMS_PER_PAGE)
-                  }
-                }
-              }}
             />
             {/* Right panel - activation examples and explanations */}
             <div className="quality-view__right-panel" ref={rightPanelRef}>

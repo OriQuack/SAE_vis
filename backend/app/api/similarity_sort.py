@@ -92,8 +92,8 @@ async def similarity_sort(
     """
     try:
         logger.info(
-            f"Similarity sort request: {len(request.selected_ids)} selected, "
-            f"{len(request.rejected_ids)} rejected, "
+            f"Similarity sort request: {len(request.selected_items)} selected, "
+            f"{len(request.rejected_items)} rejected, "
             f"{len(request.feature_ids)} total features"
         )
 
@@ -104,10 +104,10 @@ async def similarity_sort(
                 detail="feature_ids cannot be empty"
             )
 
-        if not request.selected_ids and not request.rejected_ids:
+        if not request.selected_items and not request.rejected_items:
             raise HTTPException(
                 status_code=400,
-                detail="At least one of selected_ids or rejected_ids must be provided"
+                detail="At least one of selected_items or rejected_items must be provided"
             )
 
         # Call service to calculate scores
@@ -156,8 +156,8 @@ async def pair_similarity_sort(
     """
     try:
         logger.info(
-            f"Pair similarity sort request: {len(request.selected_pair_keys)} selected, "
-            f"{len(request.rejected_pair_keys)} rejected, "
+            f"Pair similarity sort request: {len(request.selected_items)} selected, "
+            f"{len(request.rejected_items)} rejected, "
             f"{len(request.pair_keys)} total pairs"
         )
 
@@ -168,10 +168,10 @@ async def pair_similarity_sort(
                 detail="pair_keys cannot be empty"
             )
 
-        if not request.selected_pair_keys and not request.rejected_pair_keys:
+        if not request.selected_items and not request.rejected_items:
             raise HTTPException(
                 status_code=400,
-                detail="At least one of selected_pair_keys or rejected_pair_keys must be provided"
+                detail="At least one of selected_items or rejected_items must be provided"
             )
 
         # Call service to calculate scores
@@ -216,8 +216,8 @@ async def similarity_score_histogram(
     """
     try:
         logger.info(
-            f"Similarity histogram request: {len(request.selected_ids)} selected, "
-            f"{len(request.rejected_ids)} rejected, "
+            f"Similarity histogram request: {len(request.selected_items)} selected, "
+            f"{len(request.rejected_items)} rejected, "
             f"{len(request.feature_ids)} total features"
         )
 
@@ -228,16 +228,16 @@ async def similarity_score_histogram(
                 detail="feature_ids cannot be empty"
             )
 
-        if not request.selected_ids:
+        if not request.selected_items:
             raise HTTPException(
                 status_code=400,
-                detail="selected_ids cannot be empty (need at least 1 selected)"
+                detail="selected_items cannot be empty (need at least 1 selected)"
             )
 
-        if not request.rejected_ids:
+        if not request.rejected_items:
             raise HTTPException(
                 status_code=400,
-                detail="rejected_ids cannot be empty (need at least 1 rejected)"
+                detail="rejected_items cannot be empty (need at least 1 rejected)"
             )
 
         # Call service to calculate histogram
@@ -284,14 +284,14 @@ async def pair_similarity_score_histogram(
         # Support both simplified (feature_ids + threshold) and legacy (pair_keys) flows
         if request.feature_ids is not None and request.threshold is not None:
             logger.info(
-                f"Pair similarity histogram request (SIMPLIFIED): {len(request.selected_pair_keys)} selected, "
-                f"{len(request.rejected_pair_keys)} rejected, "
+                f"Pair similarity histogram request (SIMPLIFIED): {len(request.selected_items)} selected, "
+                f"{len(request.rejected_items)} rejected, "
                 f"{len(request.feature_ids)} features at threshold {request.threshold}"
             )
         elif request.pair_keys is not None:
             logger.info(
-                f"Pair similarity histogram request (LEGACY): {len(request.selected_pair_keys)} selected, "
-                f"{len(request.rejected_pair_keys)} rejected, "
+                f"Pair similarity histogram request (LEGACY): {len(request.selected_items)} selected, "
+                f"{len(request.rejected_items)} rejected, "
                 f"{len(request.pair_keys)} total pairs"
             )
         else:
@@ -301,16 +301,16 @@ async def pair_similarity_score_histogram(
             )
 
         # Validate: need at least 1 selected and 1 rejected for SVM training
-        if not request.selected_pair_keys:
+        if not request.selected_items:
             raise HTTPException(
                 status_code=400,
-                detail="selected_pair_keys cannot be empty (need at least 1 selected)"
+                detail="selected_items cannot be empty (need at least 1 selected)"
             )
 
-        if not request.rejected_pair_keys:
+        if not request.rejected_items:
             raise HTTPException(
                 status_code=400,
-                detail="rejected_pair_keys cannot be empty (need at least 1 rejected)"
+                detail="rejected_items cannot be empty (need at least 1 rejected)"
             )
 
         # Call service to calculate histogram
@@ -580,8 +580,8 @@ async def stage3_quality_scores(
     """
     try:
         logger.info(
-            f"Stage 3 quality scores request: well_explained={len(request.well_explained_ids)}, "
-            f"need_revision={len(request.need_revision_ids)}, "
+            f"Stage 3 quality scores request: well_explained={len(request.well_explained_items)}, "
+            f"need_revision={len(request.need_revision_items)}, "
             f"to_score={len(request.feature_ids)}"
         )
 
@@ -592,16 +592,16 @@ async def stage3_quality_scores(
                 detail="feature_ids cannot be empty"
             )
 
-        if not request.well_explained_ids:
+        if not request.well_explained_items:
             raise HTTPException(
                 status_code=400,
-                detail="well_explained_ids cannot be empty (need at least 1 for SVM training)"
+                detail="well_explained_items cannot be empty (need at least 1 for SVM training)"
             )
 
-        if not request.need_revision_ids:
+        if not request.need_revision_items:
             raise HTTPException(
                 status_code=400,
-                detail="need_revision_ids cannot be empty (need at least 1 for SVM training)"
+                detail="need_revision_items cannot be empty (need at least 1 for SVM training)"
             )
 
         # Call service to calculate scores and histogram

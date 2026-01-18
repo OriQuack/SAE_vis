@@ -260,49 +260,6 @@
 }
 
 /* ============================================================================
- * PAGE NAVIGATION
- * ============================================================================ */
-
-.scrollable-list__page-nav {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 2px;
-  background-color: #f9fafb;
-  border-top: 1px solid #e5e7eb;
-}
-
-.scrollable-list__page-nav-button {
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.scrollable-list__page-nav-button:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
-}
-
-.scrollable-list__page-nav-button:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.scrollable-list__page-nav-info {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-  font-family: 'Consolas', 'Monaco', monospace;
-}
-
-/* ============================================================================
  * ITEM WITH INLINE SCORE - For sortConfig feature
  * ============================================================================ */
 

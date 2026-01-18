@@ -87,13 +87,7 @@
   flex-shrink: 0;
 }
 
-/* Right panel - layout (matches FeatureSplitPairViewer styling) */
-.quality-view__right-panel {
-  border: 1px solid #e5e7eb;
-  border-left: none;
-  border-radius: 0 4px 4px 0;
-}
-
+/* Right panel - layout */
 .quality-view__right-panel {
   display: flex;
   flex-direction: column;

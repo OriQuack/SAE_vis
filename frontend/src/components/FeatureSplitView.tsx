@@ -375,9 +375,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [clearDistributedPairs])
 
-  // Pagination constant
-  const PAIRS_PER_PAGE = 10
-
   // Build raw pair list from ALL cluster pairs (no sorting - sorting handled by hook)
   const rawPairList = useMemo(() => {
     if (!filteredTableData || !selectedFeatureIds || !allClusterPairs || allClusterPairs.length === 0) {
@@ -538,30 +535,23 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [sortMode, sortDirection, setActiveListSource])
 
-  // Pagination derived state (use displayPairList for filtered view)
-  const currentPage = Math.floor(currentPairIndex / PAIRS_PER_PAGE)
-  const totalPages = Math.ceil(displayPairList.length / PAIRS_PER_PAGE) || 1
-
-  // Get pairs for current page (for pre-fetching activation examples)
-  const currentPagePairs = useMemo(() => {
-    const startIdx = currentPage * PAIRS_PER_PAGE
-    return displayPairList.slice(startIdx, startIdx + PAIRS_PER_PAGE)
-  }, [displayPairList, currentPage])
-
-  // Pre-fetch activation examples for all pairs on current page (All Pairs list)
+  // Pre-fetch activation examples for visible pairs
   useEffect(() => {
-    if (currentPagePairs.length === 0) return
+    if (displayPairList.length === 0) return
 
-    // Collect all unique feature IDs from current page pairs
+    // Fetch for current pair and a few nearby pairs for smoother navigation
+    const startIdx = Math.max(0, currentPairIndex - 2)
+    const endIdx = Math.min(displayPairList.length, currentPairIndex + 5)
+    const nearbyPairs = displayPairList.slice(startIdx, endIdx)
+
     const featureIds = new Set<number>()
-    currentPagePairs.forEach(pair => {
+    nearbyPairs.forEach(pair => {
       featureIds.add(pair.mainFeatureId)
       featureIds.add(pair.similarFeatureId)
     })
 
-    // Fetch all at once (the store handles caching, won't re-fetch already cached)
     fetchActivationExamples(Array.from(featureIds))
-  }, [currentPagePairs, fetchActivationExamples])
+  }, [displayPairList, currentPairIndex, fetchActivationExamples])
 
   // Auto-populate similarity scores when pair list is ready or selection states change
   useEffect(() => {
@@ -604,25 +594,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       sortPairsBySimilarity(allPairKeys)
     }
   }, [pairList, rawPairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
-
-  // ============================================================================
-  // PAGE NAVIGATION HANDLERS (for All Pairs list pagination)
-  // ============================================================================
-
-  // Page navigation handlers
-  const handlePreviousPage = useCallback(() => {
-    if (currentPage > 0) {
-      // Go to first item of previous page
-      setCurrentPairIndex((currentPage - 1) * PAIRS_PER_PAGE)
-    }
-  }, [currentPage])
-
-  const handleNextPage = useCallback(() => {
-    if (currentPage < totalPages - 1) {
-      // Go to first item of next page
-      setCurrentPairIndex((currentPage + 1) * PAIRS_PER_PAGE)
-    }
-  }, [currentPage, totalPages])
 
   // ============================================================================
   // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
@@ -804,18 +775,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
 
   // All Pairs list click handler
-  const handleAllPairsListClick = useCallback((pageRelativeIndex: number) => {
-    const globalIndex = currentPage * PAIRS_PER_PAGE + pageRelativeIndex
-    if (globalIndex >= 0 && globalIndex < displayPairList.length) {
+  const handleAllPairsListClick = useCallback((index: number) => {
+    if (index >= 0 && index < displayPairList.length) {
       setActiveListSource('all')
-      setCurrentPairIndex(globalIndex)
+      setCurrentPairIndex(index)
       // Pre-fetch activation examples for clicked pair
-      const pair = displayPairList[globalIndex]
+      const pair = displayPairList[index]
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [displayPairList, currentPage, fetchActivationExamples, setActiveListSource])
+  }, [displayPairList, fetchActivationExamples, setActiveListSource])
 
   // Unified boundary list click handler (for ThresholdTaggingPanel)
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
@@ -1050,30 +1020,25 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               applyDisabled={!tagAutomaticState?.histogramData}
               shouldPulseLearn={hasVisitedMostReps}
               shouldPulseApply={isFlipRateStable}
+              diversityLabel={`Most Critical ${diversityPairIds.size}`}
               byScoreAscLabel="Least Similar First"
               byScoreDescLabel="Most Similar First"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{
                 label: diversityPairIds.size > 0 && !svmTrainingStarted
-                  ? 'Representative Pairs'
+                  ? 'Most Critical Pairs'
                   : hideTagged
                     ? 'Untagged Pairs'
                     : 'All Pairs',
                 count: displayPairList.length
               }]}
               columnHeader={columnHeaderProps}
-              items={currentPagePairs}
+              items={displayPairList}
               renderItem={renderPairItem}
               sortConfig={{ getDisplayScore }}
-              currentIndex={activeListSource === 'all' ? currentPairIndex % PAIRS_PER_PAGE : -1}
+              currentIndex={activeListSource === 'all' ? currentPairIndex : -1}
               isActive={activeListSource === 'all'}
-              pageNavigation={{
-                currentPage,
-                totalPages,
-                onPreviousPage: handlePreviousPage,
-                onNextPage: handleNextPage
-              }}
             />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
