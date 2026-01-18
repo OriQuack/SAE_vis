@@ -32,13 +32,14 @@ const LAYOUT = {
       xLabel: 28,     // Distance from axis to axis label
       yTick: 8,       // Distance from axis to tick labels (horizontal)
       yTextAdjust: 4, // Vertical centering for y-axis text
+      yLabel: -38,    // Distance left of chart for y-axis label
     },
   },
 
   // Threshold label positioning
   thresholdLabel: {
-    charWidth: 7,    // Approximate width per character at 12px font
-    arrowWidth: 13,  // Arrow symbol width
+    charWidth: 8,    // Approximate width per character at 14px font
+    arrowWidth: 16,  // Arrow symbol width
     padding: 4,      // Buffer from chart edge
     yOffset: -8,     // Vertical position above chart
   },
@@ -528,6 +529,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
         width={dimensions.svg.width}
         height={dimensions.svg.height}
         className="cause-margin-histogram__svg"
+        style={{ overflow: 'visible' }}
       >
         {/* SVG Patterns */}
         <defs>
@@ -609,8 +611,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             y1={0}
             x2={0}
             y2={dimensions.chart.height}
-            stroke="#000"
-            strokeWidth={1}
+            stroke="#333"
+            strokeWidth={2}
           />
 
           {/* Y-axis ticks */}
@@ -619,8 +621,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             const y = dimensions.chart.height - (dimensions.chart.height / LAYOUT.axis.yTickCount) * i
             return (
               <g key={`y-tick-${i}`}>
-                <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#000" strokeWidth={1} />
-                <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={10} fill="#000" textAnchor="end">
+                <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#333" strokeWidth={1} />
+                <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={12} fill="#666" textAnchor="end">
                   {value}
                 </text>
               </g>
@@ -633,8 +635,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             y1={dimensions.chart.height}
             x2={dimensions.chart.width}
             y2={dimensions.chart.height}
-            stroke="#000"
-            strokeWidth={1}
+            stroke="#333"
+            strokeWidth={2}
           />
 
           {/* X-axis ticks */}
@@ -645,12 +647,12 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             const isLast = i === LAYOUT.axis.xTickCount
             return (
               <g key={`x-tick-${i}`}>
-                <line x1={x} y1={dimensions.chart.height} x2={x} y2={dimensions.chart.height + LAYOUT.axis.tickLength} stroke="#000" strokeWidth={1} />
+                <line x1={x} y1={dimensions.chart.height} x2={x} y2={dimensions.chart.height + LAYOUT.axis.tickLength} stroke="#333" strokeWidth={1} />
                 <text
                   x={x}
                   y={dimensions.chart.height + LAYOUT.axis.labelOffset.xTick}
-                  fontSize={10}
-                  fill="#000"
+                  fontSize={12}
+                  fill="#666"
                   textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
                 >
                   {value.toFixed(2)}
@@ -663,11 +665,21 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
           <text
             x={dimensions.chart.width / 2}
             y={dimensions.chart.height + LAYOUT.axis.labelOffset.xLabel}
-            fontSize={12}
-            fill="#000"
+            fontSize={14}
+            fill="#666"
             textAnchor="middle"
           >
             |Decision Margin|
+          </text>
+
+          {/* Y-axis label */}
+          <text
+            textAnchor="middle"
+            fontSize={14}
+            fill="#666"
+            transform={`translate(${LAYOUT.axis.labelOffset.yLabel}, ${dimensions.chart.height / 2}) rotate(-90)`}
+          >
+            Count
           </text>
 
           {/* Threshold handle */}
@@ -690,23 +702,23 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               x={labelPosition}
               y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="start"
-              fontSize={12}
+              fontSize={14}
               fontWeight={600}
               fill="#272121ff"
             >
               <tspan>Confident </tspan>
-              <tspan fontSize={13}>→</tspan>
+              <tspan fontSize={16}>→</tspan>
             </text>
           ) : (
             <text
               x={labelPosition}
               y={LAYOUT.thresholdLabel.yOffset}
               textAnchor="end"
-              fontSize={12}
+              fontSize={14}
               fontWeight={600}
               fill="#272121ff"
             >
-              <tspan fontSize={13}>← </tspan>
+              <tspan fontSize={16}>← </tspan>
               <tspan>Unsure</tspan>
             </text>
           )}

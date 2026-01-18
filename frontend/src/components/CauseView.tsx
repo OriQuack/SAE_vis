@@ -517,13 +517,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       .map(item => item.featureId)
       .filter(featureId => {
         if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
-        if (!isVisibleInCurrentMode(featureId)) return false
-        if (isTopMode) {
+        // In decision margin mode (Top or Low), show all features regardless of threshold
+        if (sortMode === 'decisionMargin') {
           return true
         }
+        if (!isVisibleInCurrentMode(featureId)) return false
         return visibleCategories.has(getEffectiveCategory(featureId))
       })
-  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, visibleCategories, getEffectiveCategory])
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, visibleCategories, getEffectiveCategory])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
