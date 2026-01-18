@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import * as api from '../api'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import UMAPScatter from './UMAPScatter'
+import CauseRadViz from './CauseRadViz'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
@@ -112,14 +112,15 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Sort by specific tag (only used in Top mode / Most Confident First)
   const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
-  // Track if user has ever clicked "Most Confident First" - hides placeholder permanently
-  const [hasEverBeenTopMode, setHasEverBeenTopMode] = useState(false)
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
-  const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
+  // Cached in store to prevent refetch on view navigation
+  const diversityFeatureIds = useVisualizationStore(state => state.stage3DiversityFeatureIds)
+  const stage3DiversitySignature = useVisualizationStore(state => state.stage3DiversitySignature)
+  const setStage3DiversityCache = useVisualizationStore(state => state.setStage3DiversityCache)
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -162,26 +163,41 @@ const CauseView: React.FC<CauseViewProps> = ({
     : getSelectedNodeFeatures()
 
   // Fetch diversity IDs (cluster medoids) for diversity sort mode
+  // Uses store cache to prevent refetch when navigating between views
   useEffect(() => {
     const fetchDiversityIds = async () => {
       if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
-        setDiversityFeatureIds(new Set())
+        if (diversityFeatureIds.size > 0) {
+          setStage3DiversityCache(new Set(), '')
+        }
         return
       }
+
+      // Compute cache signature: "featureCount" (no threshold for Stage 3)
+      const signature = `${selectedFeatureIds.size}`
+
+      // Check if cache is valid
+      if (stage3DiversitySignature === signature && diversityFeatureIds.size > 0) {
+        console.log('[CauseView] Using cached diversity IDs:', diversityFeatureIds.size)
+        return
+      }
+
       try {
+        console.log('[CauseView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
           20  // Get 20 diverse features via Kennard-Stone
         )
-        setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
+        const newIds = new Set(response.suggestions.map(s => parseInt(s.id, 10)))
+        setStage3DiversityCache(newIds, signature)
       } catch (error) {
         console.error('[CauseView] Failed to fetch diversity IDs:', error)
-        setDiversityFeatureIds(new Set())
+        setStage3DiversityCache(new Set(), '')
       }
     }
     fetchDiversityIds()
-  }, [selectedFeatureIds])
+  }, [selectedFeatureIds, stage3DiversitySignature, diversityFeatureIds.size, setStage3DiversityCache])
 
   // Helper type for effective category
   type EffectiveCategory = CauseCategory | 'unsure'
@@ -427,13 +443,6 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
-
-  // Track when user first enters Top mode (to hide batch tagging placeholder permanently)
-  useEffect(() => {
-    if (isTopMode && !hasEverBeenTopMode) {
-      setHasEverBeenTopMode(true)
-    }
-  }, [isTopMode, hasEverBeenTopMode])
 
   // Reset filterByTag when leaving Top mode
   useEffect(() => {
@@ -1394,11 +1403,11 @@ const CauseView: React.FC<CauseViewProps> = ({
             {/* BOTTOM ROW: UMAP (1/3) + Histogram (1/3) + Batch Tagging (1/3) */}
             {/* ============================================================ */}
             <div className="cause-view__row-bottom">
-              {/* Left: UMAP Scatter */}
+              {/* Left: RadViz Scatter */}
               <div className="cause-view__bottom-left">
-                <UMAPScatter
+                <CauseRadViz
                   featureIds={stableFeatureIds}
-                  className="cause-view__umap"
+                  className="cause-view__radviz"
                   selectedFeatureId={selectedFeatureData?.featureId ?? null}
                   visibleCategories={visibleCategories}
                   onVisibleCategoriesChange={setVisibleCategories}
@@ -1465,10 +1474,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                   ]}
                   unsureCount={remainingComposition.unsure}
                   disabled={!canTrainSVM || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                  showPlaceholder={!isTopMode && !hasEverBeenTopMode}
-                  placeholderMessage="Click 'Most Confident First' to enable batch tagging"
-                  onConfirmCategory={isTopMode ? (categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram') : undefined}
-                  onConfirmAll={isTopMode && filterByTag === null ? handleTagAllConfident : undefined}
+                  onConfirmCategory={(categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram')}
+                  onConfirmAll={filterByTag === null ? handleTagAllConfident : undefined}
                   onTagAllUnsure={handleTagRemainingByBoundary}
                 />
               </div>

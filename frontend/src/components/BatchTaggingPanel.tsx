@@ -27,8 +27,8 @@ export interface BatchTaggingPanelProps {
   unsureCount: number
   /** Whether all buttons are disabled */
   disabled: boolean
-  /** Show instruction placeholder instead of buttons */
-  showPlaceholder: boolean
+  /** Show instruction placeholder instead of buttons (default: false) */
+  showPlaceholder?: boolean
   /** Custom placeholder message */
   placeholderMessage?: string
 
@@ -59,7 +59,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
   categories,
   unsureCount,
   disabled,
-  showPlaceholder,
+  showPlaceholder = false,
   placeholderMessage = 'Batch tagging not available',
   onConfirmCategory,
   onConfirmAll,

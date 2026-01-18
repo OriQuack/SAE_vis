@@ -366,6 +366,20 @@ interface AppState {
   causeMultiModalityLoading: boolean
   fetchMultiModality: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
 
+  // Cached diversity/representative IDs (prevents refetch when navigating between views)
+  // Stage 1: Pair diversity IDs
+  stage1DiversityPairIds: Set<string>
+  stage1DiversitySignature: string | null  // "featureCount:threshold" for cache invalidation
+  setStage1DiversityCache: (pairIds: Set<string>, signature: string) => void
+  // Stage 2: Feature diversity IDs
+  stage2DiversityFeatureIds: Set<number>
+  stage2DiversitySignature: string | null  // "featureCount:featureIdsHash" for cache invalidation
+  setStage2DiversityCache: (featureIds: Set<number>, signature: string) => void
+  // Stage 3: Feature diversity IDs
+  stage3DiversityFeatureIds: Set<number>
+  stage3DiversitySignature: string | null  // "featureCount:featureIdsHash" for cache invalidation
+  setStage3DiversityCache: (featureIds: Set<number>, signature: string) => void
+
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void
   clearActiveStageNode: () => void
@@ -516,6 +530,14 @@ const initialState = {
   causeMultiModality: null,
   causeMultiModalityLoading: false,
 
+  // Cached diversity/representative IDs
+  stage1DiversityPairIds: new Set<string>(),
+  stage1DiversitySignature: null,
+  stage2DiversityFeatureIds: new Set<number>(),
+  stage2DiversitySignature: null,
+  stage3DiversityFeatureIds: new Set<number>(),
+  stage3DiversitySignature: null,
+
   // Hover state
   hoveredAlluvialNodeId: null,
   hoveredAlluvialPanel: null,
@@ -664,6 +686,20 @@ export const useStore = create<AppState>((set, get) => {
 
   // Cause margin threshold action
   setCauseMarginThreshold: (threshold: number) => set({ causeMarginThreshold: threshold }),
+
+  // Diversity cache actions
+  setStage1DiversityCache: (pairIds: Set<string>, signature: string) => {
+    set({ stage1DiversityPairIds: pairIds, stage1DiversitySignature: signature })
+    console.log('[Store.setStage1DiversityCache] Cached', pairIds.size, 'pair IDs, signature:', signature)
+  },
+  setStage2DiversityCache: (featureIds: Set<number>, signature: string) => {
+    set({ stage2DiversityFeatureIds: featureIds, stage2DiversitySignature: signature })
+    console.log('[Store.setStage2DiversityCache] Cached', featureIds.size, 'feature IDs, signature:', signature)
+  },
+  setStage3DiversityCache: (featureIds: Set<number>, signature: string) => {
+    set({ stage3DiversityFeatureIds: featureIds, stage3DiversitySignature: signature })
+    console.log('[Store.setStage3DiversityCache] Cached', featureIds.size, 'feature IDs, signature:', signature)
+  },
 
   // Stage 1 revisiting state actions
   setStage1FinalCommit: (commit: Stage1FinalCommit | null) => {

@@ -75,7 +75,10 @@ const QualityView: React.FC<QualityViewProps> = ({
   const svmTrainingStarted = similarityScores.size > 0
 
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
-  const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
+  // Cached in store to prevent refetch on view navigation
+  const diversityFeatureIds = useVisualizationStore(state => state.stage2DiversityFeatureIds)
+  const stage2DiversitySignature = useVisualizationStore(state => state.stage2DiversitySignature)
+  const setStage2DiversityCache = useVisualizationStore(state => state.setStage2DiversityCache)
 
   // Track visited representative features for smart pulsing
   const [visitedRepIds, setVisitedRepIds] = useState<Set<number>>(new Set())
@@ -169,28 +172,42 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [filteredTableData, tableData?.explainer_ids])
 
   // Fetch diversity feature IDs (cluster medoids) for diversity sort
+  // Uses store cache to prevent refetch when navigating between views
   useEffect(() => {
     const fetchDiversityIds = async () => {
       if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
-        setDiversityFeatureIds(new Set())
+        if (diversityFeatureIds.size > 0) {
+          setStage2DiversityCache(new Set(), '')
+        }
+        return
+      }
+
+      // Compute cache signature: "featureCount" (no threshold for Stage 2)
+      const signature = `${selectedFeatureIds.size}`
+
+      // Check if cache is valid
+      if (stage2DiversitySignature === signature && diversityFeatureIds.size > 0) {
+        console.log('[QualityView] Using cached diversity IDs:', diversityFeatureIds.size)
         return
       }
 
       try {
+        console.log('[QualityView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
           20  // Get 20 diverse features via Kennard-Stone
         )
-        setDiversityFeatureIds(new Set(response.suggestions.map(s => parseInt(s.id, 10))))
+        const newIds = new Set(response.suggestions.map(s => parseInt(s.id, 10)))
+        setStage2DiversityCache(newIds, signature)
       } catch (error) {
         console.error('[QualityView] Failed to fetch diversity IDs:', error)
-        setDiversityFeatureIds(new Set())
+        setStage2DiversityCache(new Set(), '')
       }
     }
 
     fetchDiversityIds()
-  }, [selectedFeatureIds])
+  }, [selectedFeatureIds, stage2DiversitySignature, diversityFeatureIds.size, setStage2DiversityCache])
 
   // Use sortable list hook for sorting logic
   // Initial: diversity mode (show medoids first) - helps users tag diverse samples

@@ -68,7 +68,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const svmTrainingStarted = pairSimilarityScores.size > 0
 
   // Diversity sort: IDs of diverse pairs (Kennard-Stone samples) to show first
-  const [diversityPairIds, setDiversityPairIds] = useState<Set<string>>(new Set())
+  // Cached in store to prevent refetch on view navigation
+  const diversityPairIds = useVisualizationStore(state => state.stage1DiversityPairIds)
+  const stage1DiversitySignature = useVisualizationStore(state => state.stage1DiversitySignature)
+  const setStage1DiversityCache = useVisualizationStore(state => state.setStage1DiversityCache)
 
   // Track visited representative pairs for smart pulsing
   const [visitedRepIds, setVisitedRepIds] = useState<Set<string>>(new Set())
@@ -416,29 +419,43 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [filteredTableData, allClusterPairs, selectedFeatureIds])
 
   // Fetch diversity pair IDs (cluster medoids) for diversity sort
+  // Uses store cache to prevent refetch when navigating between views
   useEffect(() => {
     const fetchDiversityIds = async () => {
       if (!selectedFeatureIds || selectedFeatureIds.size < 6) {
-        setDiversityPairIds(new Set())
+        if (diversityPairIds.size > 0) {
+          setStage1DiversityCache(new Set(), '')
+        }
+        return
+      }
+
+      // Compute cache signature: "featureCount:threshold"
+      const signature = `${selectedFeatureIds.size}:${clusteringThreshold.toFixed(3)}`
+
+      // Check if cache is valid
+      if (stage1DiversitySignature === signature && diversityPairIds.size > 0) {
+        console.log('[FeatureSplitView] Using cached diversity IDs:', diversityPairIds.size)
         return
       }
 
       try {
+        console.log('[FeatureSplitView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
           20,  // Get 20 diverse pairs via Kennard-Stone
           clusteringThreshold
         )
-        setDiversityPairIds(new Set(response.suggestions.map(s => s.id)))
+        const newIds = new Set(response.suggestions.map(s => s.id))
+        setStage1DiversityCache(newIds, signature)
       } catch (error) {
         console.error('[FeatureSplitView] Failed to fetch diversity IDs:', error)
-        setDiversityPairIds(new Set())
+        setStage1DiversityCache(new Set(), '')
       }
     }
 
     fetchDiversityIds()
-  }, [selectedFeatureIds, clusteringThreshold])
+  }, [selectedFeatureIds, clusteringThreshold, stage1DiversitySignature, diversityPairIds.size, setStage1DiversityCache])
 
   // Use sortable list hook for sorting logic
   // Initial: diversity mode (show medoids first) - helps users tag diverse samples

@@ -68,7 +68,7 @@ except ImportError:
 # =============================================================================
 # HYPERPARAMETERS - Edit these for quick experimentation
 # =============================================================================
-UMAP_N_NEIGHBORS = 40      # Higher = more global structure, lower = more local detail
+UMAP_N_NEIGHBORS = 5      # Higher = more global structure, lower = more local detail
 UMAP_MIN_DIST = 0.3        # Higher = more spread out, lower = tighter clusters
 UMAP_METRIC = "euclidean"  # Options: "euclidean", "cosine", "manhattan"
 RANDOM_SEED = 42           # For reproducibility

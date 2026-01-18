@@ -206,9 +206,11 @@
   gap: 4px;
 }
 
-/* UMAP fills its container in bottom row */
+/* RadViz/UMAP fills its container in bottom row */
 .cause-view__bottom-left .umap-scatter,
-.cause-view__bottom-left .cause-view__umap {
+.cause-view__bottom-left .cause-view__umap,
+.cause-view__bottom-left .cause-radviz,
+.cause-view__bottom-left .cause-view__radviz {
   flex: 1;
   min-height: 0;
   width: 100%;

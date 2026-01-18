@@ -399,3 +399,56 @@ class UMAPService:
     def clear_cache(self):
         """Clear any cached data (no-op since we use pre-computed data)."""
         logger.info("Cache clear requested (no-op for pre-computed data)")
+
+
+# ============================================================================
+# RADVIZ UTILITY FUNCTIONS
+# ============================================================================
+
+def compute_radviz_position(decision_scores: Dict[str, float]) -> Dict[str, float]:
+    """Compute RadViz position from decision scores using softmax weighting.
+
+    RadViz positions features based on softmax-normalized decision scores,
+    where each cause category is an anchor at 120° intervals on a CIRCLE.
+    Reference: https://www.mdpi.com/2227-9709/6/2/16
+
+    Args:
+        decision_scores: Dict mapping category to SVM decision function value
+
+    Returns:
+        Dict with 'x', 'y', 'confidence' keys
+    """
+    # Circle parameters
+    CENTER = (0.5, 0.5)
+    RADIUS = 0.45
+
+    # Anchor positions at 120° intervals on circle (matches frontend RADVIZ_ANCHORS)
+    # Formula: (cx + r*cos(θ), cy + r*sin(θ))
+    ANCHORS = {
+        'noisy-activation': (CENTER[0] + RADIUS * np.cos(np.pi / 2),      # 90°
+                            CENTER[1] + RADIUS * np.sin(np.pi / 2)),
+        'missed-N-gram':    (CENTER[0] + RADIUS * np.cos(7 * np.pi / 6),  # 210°
+                            CENTER[1] + RADIUS * np.sin(7 * np.pi / 6)),
+        'missed-context':   (CENTER[0] + RADIUS * np.cos(11 * np.pi / 6), # 330°
+                            CENTER[1] + RADIUS * np.sin(11 * np.pi / 6))
+    }
+
+    # Get scores for our categories
+    scores = np.array([decision_scores.get(cat, 0) for cat in ANCHORS.keys()])
+
+    # Softmax with numeric stability
+    scores_shifted = scores - scores.max()
+    exp_scores = np.exp(scores_shifted)
+    weights = exp_scores / exp_scores.sum()
+
+    # Weighted sum of anchor positions (spring-force equilibrium)
+    x, y = 0.0, 0.0
+    for (_, anchor), weight in zip(ANCHORS.items(), weights):
+        x += weight * anchor[0]
+        y += weight * anchor[1]
+
+    # Confidence = normalized distance from center (0 at center, 1 at edge)
+    dist = np.sqrt((x - CENTER[0])**2 + (y - CENTER[1])**2)
+    confidence = min(1.0, dist / RADIUS)
+
+    return {'x': float(x), 'y': float(y), 'confidence': float(confidence)}
