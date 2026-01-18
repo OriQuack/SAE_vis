@@ -509,12 +509,44 @@ export interface FeatureTableDataResponse {
 // ============================================================================
 
 /**
+ * Tag Source - How a tag was created
+ * 'click' = Direct user click (full weight in SVM)
+ * 'threshold' = Applied via threshold batch (reduced weight in SVM)
+ * 'predicted' = SVM prediction (not sent to backend)
+ */
+export type TagSource = 'click' | 'threshold' | 'predicted'
+
+/**
+ * Weighted Feature ID - Feature ID with source for SVM sample weighting
+ */
+export interface WeightedFeatureId {
+  id: number
+  source: 'click' | 'threshold'  // Only 'click' and 'threshold' sent to backend
+}
+
+/**
+ * Weighted Pair Key - Pair key with source for SVM sample weighting
+ */
+export interface WeightedPairKey {
+  key: string
+  source: 'click' | 'threshold'  // Only 'click' and 'threshold' sent to backend
+}
+
+/**
+ * Cause Selection Item - Cause category with source for SVM sample weighting
+ */
+export interface CauseSelectionItem {
+  category: string
+  source: 'click' | 'threshold'  // Only 'click' and 'threshold' sent to backend
+}
+
+/**
  * Similarity Sort Request - Request for similarity-based feature sorting
  */
 export interface SimilaritySortRequest {
-  selected_ids: number[]    // Feature IDs marked as selected (✓)
-  rejected_ids: number[]    // Feature IDs marked as rejected (✗)
-  feature_ids: number[]     // All feature IDs in current table view
+  selected_items: WeightedFeatureId[]    // Feature items marked as selected (✓)
+  rejected_items: WeightedFeatureId[]    // Feature items marked as rejected (✗)
+  feature_ids: number[]                  // All feature IDs in current table view
 }
 
 /**
@@ -539,9 +571,9 @@ export interface SimilaritySortResponse {
  * Uses 19-dimensional vectors: 9 metrics (main) + 9 metrics (similar) + 1 pair metric
  */
 export interface PairSimilaritySortRequest {
-  selected_pair_keys: string[]  // Pair keys marked as selected (✓), format: "main_id-similar_id"
-  rejected_pair_keys: string[]  // Pair keys marked as rejected (✗), format: "main_id-similar_id"
-  pair_keys: string[]           // All pair keys in current table view
+  selected_items: WeightedPairKey[]  // Pair items marked as selected (✓)
+  rejected_items: WeightedPairKey[]  // Pair items marked as rejected (✗)
+  pair_keys: string[]                // All pair keys in current table view
 }
 
 /**
@@ -659,17 +691,17 @@ export interface FlipTrackingInfo {
  * Similarity Histogram Request - Request for feature similarity histogram
  */
 export interface SimilarityHistogramRequest {
-  selected_ids: number[]     // Feature IDs marked as selected (✓)
-  rejected_ids: number[]     // Feature IDs marked as rejected (✗)
-  feature_ids: number[]      // All feature IDs to compute scores for
+  selected_items: WeightedFeatureId[]  // Feature items marked as selected (✓)
+  rejected_items: WeightedFeatureId[]  // Feature items marked as rejected (✗)
+  feature_ids: number[]                // All feature IDs to compute scores for
 }
 
 /**
  * Pair Similarity Histogram Request - Request for pair similarity histogram
  */
 export interface PairSimilarityHistogramRequest {
-  selected_pair_keys: string[]  // Pair keys marked as selected (✓)
-  rejected_pair_keys: string[]  // Pair keys marked as rejected (✗)
+  selected_items: WeightedPairKey[]  // Pair items marked as selected (✓)
+  rejected_items: WeightedPairKey[]  // Pair items marked as rejected (✗)
   // Legacy flow: explicit pair keys
   pair_keys?: string[]          // All pair keys to compute scores for
   // Simplified flow: feature IDs + threshold to generate pairs server-side
@@ -685,8 +717,8 @@ export interface PairSimilarityHistogramRequest {
  * Cause Similarity Sort Request - Multi-class classification request
  */
 export interface CauseSimilaritySortRequest {
-  cause_selections: Record<number, string>  // Map of feature_id to cause category
-  feature_ids: number[]                     // All feature IDs in current table view
+  cause_selections: Record<number, CauseSelectionItem>  // Map of feature_id to cause selection with source
+  feature_ids: number[]                                 // All feature IDs in current table view
 }
 
 /**
@@ -709,8 +741,8 @@ export interface CauseSimilaritySortResponse {
  * Cause Similarity Histogram Request - Multi-class histogram request
  */
 export interface CauseSimilarityHistogramRequest {
-  cause_selections: Record<number, string>  // Map of feature_id to cause category
-  feature_ids: number[]                     // All feature IDs to compute scores for
+  cause_selections: Record<number, CauseSelectionItem>  // Map of feature_id to cause selection with source
+  feature_ids: number[]                                 // All feature IDs to compute scores for
 }
 
 /**
@@ -852,9 +884,9 @@ export interface CauseClassificationResponse {
  * Well-Explained decision boundary.
  */
 export interface Stage3QualityScoresRequest {
-  well_explained_ids: number[]  // Stage 2 selected (SVM positive class)
-  need_revision_ids: number[]   // Stage 2 rejected (SVM negative class)
-  feature_ids: number[]         // Features to score (typically = need_revision_ids)
+  well_explained_items: WeightedFeatureId[]  // Stage 2 selected with sources (SVM positive class)
+  need_revision_items: WeightedFeatureId[]   // Stage 2 rejected with sources (SVM negative class)
+  feature_ids: number[]                      // Features to score (typically = need_revision_ids)
 }
 
 // Stage3QualityScoresResponse reuses SimilarityScoreHistogramResponse

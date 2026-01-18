@@ -77,6 +77,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   const [diversityFeatureIds, setDiversityFeatureIds] = useState<Set<number>>(new Set())
 
+  // Track visited representative features for smart pulsing
+  const [visitedRepIds, setVisitedRepIds] = useState<Set<number>>(new Set())
+
   // List navigation hook - handles switching between all/reject/select lists
   const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
   const { activeListSource, setActiveListSource } = useListNavigation({
@@ -248,6 +251,18 @@ const QualityView: React.FC<QualityViewProps> = ({
       setActiveListSource('all')
     }
   }, [bootstrapMode, setSortDirection, setActiveListSource])
+
+  // Combined handler for bootstrap option cycling - receives both mode and direction together
+  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode, direction?: 'asc' | 'desc') => {
+    if (mode === 'diversity') {
+      setSortMode('diversity')
+    } else {
+      setSortMode('default')
+      if (direction) setSortDirection(direction)
+    }
+    setCurrentFeatureIndex(0)
+    setActiveListSource('all')
+  }, [setSortMode, setSortDirection, setActiveListSource])
 
   // Filter features based on hideTagged toggle
   const displayFeatures = useMemo(() => {
@@ -421,6 +436,32 @@ const QualityView: React.FC<QualityViewProps> = ({
       activation: activationExamples[feature.featureId] || null
     }
   }, [displayFeatures, currentFeatureIndex, activationExamples])
+
+  // Track visited representative features for smart pulsing
+  useEffect(() => {
+    if (bootstrapMode === 'diversity' && displayFeatures.length > 0) {
+      const feature = displayFeatures[currentFeatureIndex]
+      if (feature && diversityFeatureIds.has(feature.featureId)) {
+        setVisitedRepIds(prev => {
+          if (prev.has(feature.featureId)) return prev
+          return new Set([...prev, feature.featureId])
+        })
+      }
+    }
+  }, [currentFeatureIndex, displayFeatures, diversityFeatureIds, bootstrapMode])
+
+  // Calculate if most reps visited (>80%)
+  const hasVisitedMostReps = useMemo(() => {
+    return diversityFeatureIds.size > 0 && visitedRepIds.size >= diversityFeatureIds.size * 0.8
+  }, [diversityFeatureIds, visitedRepIds])
+
+  // Check if flip rate stable (last 5 iterations all < 3%)
+  const isFlipRateStable = useMemo(() => {
+    const history = tagAutomaticState?.flipTracking?.flipHistory
+    if (!history || history.length < 5) return false
+    const last5 = history.slice(-5)
+    return last5.every(h => h.flipRate < 0.03)
+  }, [tagAutomaticState?.flipTracking?.flipHistory])
 
   // Compute pairwise similarities for ExplainerComparisonGrid
   const pairwiseSimilarities = useMemo(() => {
@@ -904,9 +945,12 @@ const QualityView: React.FC<QualityViewProps> = ({
               bootstrapDirection={bootstrapDirection}
               onBootstrapModeChange={handleBootstrapModeChange}
               onBootstrapDirectionChange={handleBootstrapDirectionChange}
+              onBootstrapOptionChange={handleBootstrapOptionChange}
               hasDiversityIds={diversityFeatureIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
+              shouldPulseLearn={hasVisitedMostReps}
+              shouldPulseApply={isFlipRateStable}
               byScoreAscLabel="Lowest Quality First"
               byScoreDescLabel="Highest Quality First"
               hideTagged={hideTagged}

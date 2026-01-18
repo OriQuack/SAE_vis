@@ -70,6 +70,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Diversity sort: IDs of diverse pairs (Kennard-Stone samples) to show first
   const [diversityPairIds, setDiversityPairIds] = useState<Set<string>>(new Set())
 
+  // Track visited representative pairs for smart pulsing
+  const [visitedRepIds, setVisitedRepIds] = useState<Set<string>>(new Set())
+
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
@@ -496,6 +499,18 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [bootstrapMode, setSortDirection, setActiveListSource])
 
+  // Combined handler for bootstrap option cycling - receives both mode and direction together
+  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode, direction?: 'asc' | 'desc') => {
+    if (mode === 'diversity') {
+      setSortMode('diversity')
+    } else {
+      setSortMode('default')
+      if (direction) setSortDirection(direction)
+    }
+    setCurrentPairIndex(0)
+    setActiveListSource('all')
+  }, [setSortMode, setSortDirection, setActiveListSource])
+
   // Filter pairs based on hideTagged toggle
   const displayPairList = useMemo(() => {
     if (!hideTagged) return pairList
@@ -758,6 +773,32 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [activePairList, currentPairIndex, fetchActivationExamples])
 
+  // Track visited representative pairs for smart pulsing
+  useEffect(() => {
+    if (bootstrapMode === 'diversity' && activePairList.length > 0) {
+      const pair = activePairList[currentPairIndex]
+      if (pair && diversityPairIds.has(pair.pairKey)) {
+        setVisitedRepIds(prev => {
+          if (prev.has(pair.pairKey)) return prev
+          return new Set([...prev, pair.pairKey])
+        })
+      }
+    }
+  }, [currentPairIndex, activePairList, diversityPairIds, bootstrapMode])
+
+  // Calculate if most reps visited (>80%)
+  const hasVisitedMostReps = useMemo(() => {
+    return diversityPairIds.size > 0 && visitedRepIds.size >= diversityPairIds.size
+  }, [diversityPairIds, visitedRepIds])
+
+  // Check if flip rate stable (last 5 iterations all < 3%)
+  const isFlipRateStable = useMemo(() => {
+    const history = tagAutomaticState?.flipTracking?.flipHistory
+    if (!history || history.length < 5) return false
+    const last5 = history.slice(-5)
+    return last5.every(h => h.flipRate < 0.03)
+  }, [tagAutomaticState?.flipTracking?.flipHistory])
+
   // ============================================================================
   // CLICK HANDLERS FOR ALL THREE LISTS
   // ============================================================================
@@ -1003,9 +1044,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               bootstrapDirection={bootstrapDirection}
               onBootstrapModeChange={handleBootstrapModeChange}
               onBootstrapDirectionChange={handleBootstrapDirectionChange}
+              onBootstrapOptionChange={handleBootstrapOptionChange}
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
+              shouldPulseLearn={hasVisitedMostReps}
+              shouldPulseApply={isFlipRateStable}
               byScoreAscLabel="Least Similar First"
               byScoreDescLabel="Most Similar First"
               hideTagged={hideTagged}

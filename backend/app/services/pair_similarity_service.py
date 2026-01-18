@@ -21,7 +21,8 @@ from sklearn.preprocessing import StandardScaler
 from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     PairSimilarityHistogramRequest, SimilarityHistogramResponse,
-    HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo
+    HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
+    WeightedPairKey
 )
 from .bimodality_service import BimodalityService
 
@@ -30,6 +31,14 @@ if TYPE_CHECKING:
     from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# SAMPLE WEIGHTS FOR SVM TRAINING
+# ============================================================================
+# 'click' (direct user clicks) get full weight
+# 'threshold' (batch Apply Tags) get reduced weight due to potential errors
+CLICK_WEIGHT = 1.0
+THRESHOLD_WEIGHT = 0.2
 
 
 class PairSimilarityService:
@@ -161,8 +170,8 @@ class PairSimilarityService:
         pair_scores = self._calculate_pair_similarity_scores(
             metrics_df,
             pair_metrics_dict,
-            request.selected_pair_keys,
-            request.rejected_pair_keys,
+            request.selected_items,
+            request.rejected_items,
             pair_ids
         )
 
@@ -291,8 +300,8 @@ class PairSimilarityService:
         pair_scores = self._calculate_pair_similarity_scores_for_histogram(
             metrics_df,
             pair_metrics_dict,
-            request.selected_pair_keys,
-            request.rejected_pair_keys,
+            request.selected_items,
+            request.rejected_items,
             pair_ids
         )
 
@@ -641,8 +650,8 @@ class PairSimilarityService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
-        selected_pair_keys: List[str],
-        rejected_pair_keys: List[str],
+        selected_items: List[WeightedPairKey],
+        rejected_items: List[WeightedPairKey],
         pair_ids: List[Tuple[int, int]]
     ) -> List[PairScore]:
         """
@@ -658,13 +667,23 @@ class PairSimilarityService:
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
-            selected_pair_keys: Pair keys marked as selected (✓)
-            rejected_pair_keys: Pair keys marked as rejected (✗)
+            selected_items: Weighted pair items marked as selected (✓)
+            rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
 
         Returns:
             List of PairScore objects
         """
+        # Extract keys from weighted items
+        selected_pair_keys = [item.key for item in selected_items]
+        rejected_pair_keys = [item.key for item in rejected_items]
+
+        # Build key to weight mapping
+        key_to_weight = {}
+        for item in selected_items:
+            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+        for item in rejected_items:
+            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
         # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
@@ -722,32 +741,36 @@ class PairSimilarityService:
             for i, pk in enumerate(pair_key_list)
         }
 
-        # Check cache
-        cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
+        # Check cache (include weights in cache key for weighted training)
+        cache_key = self._get_pair_cache_key_weighted(selected_items, rejected_items)
 
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model for pairs (key: {cache_key[:8]}...)")
         else:
-            # Extract training vectors
+            # Extract training vectors and weights
             logger.info(f"Building training vectors for {len(selected_pair_keys)} selected and {len(rejected_pair_keys)} rejected pairs")
             logger.info(f"Selected keys: {selected_pair_keys}")
             logger.info(f"Rejected keys: {rejected_pair_keys}")
             logger.info(f"Available pair_vectors keys (first 10): {list(pair_vectors.keys())[:10]}")
 
             selected_vectors = []
+            selected_weights = []
             for key in selected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     selected_vectors.append(vec)
+                    selected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
                 else:
                     logger.warning(f"Selected pair key '{key}' not found in pair_vectors!")
 
             rejected_vectors = []
+            rejected_weights = []
             for key in rejected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     rejected_vectors.append(vec)
+                    rejected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
                 else:
                     logger.warning(f"Rejected pair key '{key}' not found in pair_vectors!")
 
@@ -759,9 +782,11 @@ class PairSimilarityService:
 
             selected_vectors = np.array(selected_vectors)
             rejected_vectors = np.array(rejected_vectors)
+            selected_weights_arr = np.array(selected_weights)
+            rejected_weights_arr = np.array(rejected_weights)
 
-            # Train SVM
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+            # Train SVM with weights
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -800,8 +825,8 @@ class PairSimilarityService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
-        selected_pair_keys: List[str],
-        rejected_pair_keys: List[str],
+        selected_items: List[WeightedPairKey],
+        rejected_items: List[WeightedPairKey],
         pair_ids: List[Tuple[int, int]]
     ) -> List[PairScore]:
         """
@@ -820,13 +845,23 @@ class PairSimilarityService:
         Args:
             metrics_df: DataFrame with metrics for all features
             pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
-            selected_pair_keys: Pair keys marked as selected (✓)
-            rejected_pair_keys: Pair keys marked as rejected (✗)
+            selected_items: Weighted pair items marked as selected (✓)
+            rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
 
         Returns:
             List of PairScore objects for ALL pairs
         """
+        # Extract keys from weighted items
+        selected_pair_keys = [item.key for item in selected_items]
+        rejected_pair_keys = [item.key for item in rejected_items]
+
+        # Build key to weight mapping
+        key_to_weight = {}
+        for item in selected_items:
+            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+        for item in rejected_items:
+            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
         # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
@@ -884,25 +919,29 @@ class PairSimilarityService:
             for i, pk in enumerate(pair_key_list)
         }
 
-        # Check cache (reuse model from main pair scoring)
-        cache_key = self._get_pair_cache_key(selected_pair_keys, rejected_pair_keys)
+        # Check cache (include weights in cache key for weighted training)
+        cache_key = self._get_pair_cache_key_weighted(selected_items, rejected_items)
 
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model for pair histogram (key: {cache_key[:8]}...)")
         else:
-            # Extract training vectors
+            # Extract training vectors and weights
             selected_vectors = []
+            selected_weights = []
             for key in selected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     selected_vectors.append(vec)
+                    selected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
 
             rejected_vectors = []
+            rejected_weights = []
             for key in rejected_pair_keys:
                 vec = pair_vectors.get(key)
                 if vec is not None:
                     rejected_vectors.append(vec)
+                    rejected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
 
             if not selected_vectors or not rejected_vectors:
                 logger.warning("Insufficient training data for pair SVM histogram")
@@ -910,9 +949,11 @@ class PairSimilarityService:
 
             selected_vectors = np.array(selected_vectors)
             rejected_vectors = np.array(rejected_vectors)
+            selected_weights_arr = np.array(selected_weights)
+            rejected_weights_arr = np.array(rejected_weights)
 
-            # Train SVM
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+            # Train SVM with weights
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -946,7 +987,7 @@ class PairSimilarityService:
 
     def _get_pair_cache_key(self, selected_pair_keys: List[str], rejected_pair_keys: List[str]) -> str:
         """
-        Generate unique cache key from pair selections.
+        Generate unique cache key from pair selections (legacy, unweighted).
 
         Args:
             selected_pair_keys: Pair keys marked as selected (✓) e.g., ["1-2", "3-4"]
@@ -958,17 +999,43 @@ class PairSimilarityService:
         key_str = f"{sorted(selected_pair_keys)}_{sorted(rejected_pair_keys)}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
+    def _get_pair_cache_key_weighted(
+        self,
+        selected_items: List[WeightedPairKey],
+        rejected_items: List[WeightedPairKey]
+    ) -> str:
+        """
+        Generate unique cache key from weighted pair selections.
+
+        Includes both keys and sources in the cache key since weights affect the model.
+
+        Args:
+            selected_items: Weighted pair items marked as selected (✓)
+            rejected_items: Weighted pair items marked as rejected (✗)
+
+        Returns:
+            MD5 hash of sorted (key, source) tuples
+        """
+        selected_tuples = sorted([(item.key, item.source) for item in selected_items])
+        rejected_tuples = sorted([(item.key, item.source) for item in rejected_items])
+        key_str = f"{selected_tuples}_{rejected_tuples}"
+        return hashlib.md5(key_str.encode()).hexdigest()
+
     def _train_svm_model(
         self,
         selected_vectors: np.ndarray,
-        rejected_vectors: np.ndarray
+        rejected_vectors: np.ndarray,
+        selected_weights: Optional[np.ndarray] = None,
+        rejected_weights: Optional[np.ndarray] = None
     ) -> Tuple[SVC, StandardScaler]:
         """
-        Train binary SVM classifier with RBF kernel.
+        Train binary SVM classifier with RBF kernel and optional sample weights.
 
         Args:
             selected_vectors: (N_pos, d) positive examples (✓)
             rejected_vectors: (N_neg, d) negative examples (✗)
+            selected_weights: (N_pos,) sample weights for positive examples (default: all 1.0)
+            rejected_weights: (N_neg,) sample weights for negative examples (default: all 1.0)
 
         Returns:
             Tuple of (trained_model, fitted_scaler)
@@ -976,6 +1043,13 @@ class PairSimilarityService:
         # Combine data
         X = np.vstack([selected_vectors, rejected_vectors])
         y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+
+        # Build sample weights array
+        if selected_weights is None:
+            selected_weights = np.ones(len(selected_vectors))
+        if rejected_weights is None:
+            rejected_weights = np.ones(len(rejected_vectors))
+        sample_weights = np.concatenate([selected_weights, rejected_weights])
 
         # Standardize features (critical for SVM)
         scaler = StandardScaler()
@@ -989,10 +1063,10 @@ class PairSimilarityService:
             class_weight='balanced',  # Handle class imbalance
             probability=False  # Faster without probability calibration
         )
-        model.fit(X_scaled, y)
+        model.fit(X_scaled, y, sample_weight=sample_weights)
 
         logger.info(f"SVM trained: {len(selected_vectors)} positive, {len(rejected_vectors)} negative, "
-                   f"{model.n_support_.sum()} support vectors")
+                   f"{model.n_support_.sum()} support vectors, weighted training")
 
         return model, scaler
 

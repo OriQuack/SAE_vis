@@ -355,7 +355,7 @@ interface AppState {
   umapError: string | null
   umapBrushedFeatureIds: Set<number>
   fetchUmapProjection: (featureIds: number[], options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
-  fetchCauseClassification: (featureIds: number[], causeSelections: Record<number, string>) => Promise<void>
+  fetchCauseClassification: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
   causeClassificationLoading: boolean
   causeClassificationError: string | null
   setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
@@ -364,7 +364,7 @@ interface AppState {
   // Multi-modality state (for Stage 3 CauseView modality indicator)
   causeMultiModality: MultiModalityInfo | null
   causeMultiModalityLoading: boolean
-  fetchMultiModality: (featureIds: number[], causeSelections: Record<number, string>) => Promise<void>
+  fetchMultiModality: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
 
   // Stage table actions
   setActiveStageNode: (nodeId: string | null, category?: string | null) => void

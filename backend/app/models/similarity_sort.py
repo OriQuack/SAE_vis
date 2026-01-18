@@ -3,26 +3,48 @@ Pydantic models for similarity-based sorting feature.
 """
 
 from pydantic import BaseModel, Field
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Literal
+
+
+# ============================================================================
+# WEIGHTED ITEM TYPES (for SVM sample weighting)
+# ============================================================================
+
+class WeightedFeatureId(BaseModel):
+    """Feature ID with source for SVM sample weighting."""
+    id: int
+    source: Literal['click', 'threshold']
+
+
+class WeightedPairKey(BaseModel):
+    """Pair key with source for SVM sample weighting."""
+    key: str
+    source: Literal['click', 'threshold']
+
+
+class CauseSelectionItem(BaseModel):
+    """Cause selection with source for SVM sample weighting."""
+    category: str
+    source: Literal['click', 'threshold']
 
 
 class SimilaritySortRequest(BaseModel):
     """Request model for similarity-based sorting."""
 
-    selected_ids: List[int] = Field(
+    selected_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs marked as selected/positive (✓)",
-        min_items=0
+        description="Feature IDs with sources marked as selected/positive (✓)",
+        min_length=0
     )
-    rejected_ids: List[int] = Field(
+    rejected_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs marked as rejected/negative (✗)",
-        min_items=0
+        description="Feature IDs with sources marked as rejected/negative (✗)",
+        min_length=0
     )
     feature_ids: List[int] = Field(
         ...,
         description="All feature IDs in the current table view",
-        min_items=1
+        min_length=1
     )
 
 
@@ -50,20 +72,20 @@ class SimilaritySortResponse(BaseModel):
 class PairSimilaritySortRequest(BaseModel):
     """Request model for pair similarity-based sorting."""
 
-    selected_pair_keys: List[str] = Field(
+    selected_items: List[WeightedPairKey] = Field(
         ...,
-        description="Pair keys marked as selected/positive (✓), format: 'main_id-similar_id'",
-        min_items=0
+        description="Pair keys with sources marked as selected/positive (✓), format: 'main_id-similar_id'",
+        min_length=0
     )
-    rejected_pair_keys: List[str] = Field(
+    rejected_items: List[WeightedPairKey] = Field(
         ...,
-        description="Pair keys marked as rejected/negative (✗), format: 'main_id-similar_id'",
-        min_items=0
+        description="Pair keys with sources marked as rejected/negative (✗), format: 'main_id-similar_id'",
+        min_length=0
     )
     pair_keys: List[str] = Field(
         ...,
         description="All pair keys in the current table view",
-        min_items=1
+        min_length=1
     )
 
 
@@ -95,20 +117,20 @@ class PairSimilaritySortResponse(BaseModel):
 class SimilarityHistogramRequest(BaseModel):
     """Request model for similarity score histogram (features)."""
 
-    selected_ids: List[int] = Field(
+    selected_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs marked as selected/positive (✓)",
-        min_items=1
+        description="Feature IDs with sources marked as selected/positive (✓)",
+        min_length=1
     )
-    rejected_ids: List[int] = Field(
+    rejected_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs marked as rejected/negative (✗)",
-        min_items=1
+        description="Feature IDs with sources marked as rejected/negative (✗)",
+        min_length=1
     )
     feature_ids: List[int] = Field(
         ...,
         description="All feature IDs to compute scores for",
-        min_items=1
+        min_length=1
     )
 
 
@@ -123,15 +145,15 @@ class PairSimilarityHistogramRequest(BaseModel):
         - Provide pair_keys directly (explicit list of pairs to score)
     """
 
-    selected_pair_keys: List[str] = Field(
+    selected_items: List[WeightedPairKey] = Field(
         ...,
-        description="Pair keys marked as selected/positive (✓), format: 'main_id-similar_id'",
-        min_items=1
+        description="Pair keys with sources marked as selected/positive (✓), format: 'main_id-similar_id'",
+        min_length=1
     )
-    rejected_pair_keys: List[str] = Field(
+    rejected_items: List[WeightedPairKey] = Field(
         ...,
-        description="Pair keys marked as rejected/negative (✗), format: 'main_id-similar_id'",
-        min_items=1
+        description="Pair keys with sources marked as rejected/negative (✗), format: 'main_id-similar_id'",
+        min_length=1
     )
 
     # Simplified flow: feature_ids + threshold (generate pairs via clustering)
@@ -150,7 +172,7 @@ class PairSimilarityHistogramRequest(BaseModel):
     pair_keys: Optional[List[str]] = Field(
         default=None,
         description="All pair keys to compute scores for (legacy flow, optional if feature_ids+threshold provided)",
-        min_items=1
+        min_length=1
     )
 
 
@@ -221,9 +243,9 @@ class SimilarityHistogramResponse(BaseModel):
 class CauseSimilaritySortRequest(BaseModel):
     """Request model for cause similarity sorting (multi-class OvR)."""
 
-    cause_selections: Dict[int, str] = Field(
+    cause_selections: Dict[int, CauseSelectionItem] = Field(
         ...,
-        description="Map of feature_id to cause category ('noisy-activation', 'missed-lexicon', 'missed-context')",
+        description="Map of feature_id to cause category with source ('noisy-activation', 'missed-lexicon', 'missed-context')",
         min_length=1
     )
     feature_ids: List[int] = Field(
@@ -257,9 +279,9 @@ class CauseSimilaritySortResponse(BaseModel):
 class CauseSimilarityHistogramRequest(BaseModel):
     """Request model for cause similarity histogram (multi-class OvR)."""
 
-    cause_selections: Dict[int, str] = Field(
+    cause_selections: Dict[int, CauseSelectionItem] = Field(
         ...,
-        description="Map of feature_id to cause category ('noisy-activation', 'missed-lexicon', 'missed-context')",
+        description="Map of feature_id to cause category with source ('noisy-activation', 'missed-lexicon', 'missed-context')",
         min_length=1
     )
     feature_ids: List[int] = Field(
@@ -299,9 +321,9 @@ class DecisionFunctionUmapRequest(BaseModel):
         description="Feature IDs to project",
         min_length=3
     )
-    cause_selections: Dict[int, str] = Field(
+    cause_selections: Dict[int, CauseSelectionItem] = Field(
         ...,
-        description="Map of feature_id to cause category (manual tags only)"
+        description="Map of feature_id to cause category with source (manual tags only)"
     )
     n_neighbors: int = Field(
         default=15,
@@ -333,9 +355,9 @@ class CauseClassificationRequest(BaseModel):
         description="Feature IDs to classify",
         min_length=1
     )
-    cause_selections: Dict[int, str] = Field(
+    cause_selections: Dict[int, CauseSelectionItem] = Field(
         ...,
-        description="Map of feature_id to cause category (manual tags for training)"
+        description="Map of feature_id to cause category with source (manual tags for training)"
     )
 
 
@@ -407,9 +429,9 @@ class MultiModalityRequest(BaseModel):
         description="All feature IDs to analyze",
         min_length=3
     )
-    cause_selections: Dict[int, str] = Field(
+    cause_selections: Dict[int, CauseSelectionItem] = Field(
         ...,
-        description="Map of feature_id to cause category (manual tags)",
+        description="Map of feature_id to cause category with source (manual tags)",
         min_length=1
     )
 
@@ -435,14 +457,14 @@ class Stage3QualityScoresRequest(BaseModel):
     Well-Explained decision boundary.
     """
 
-    well_explained_ids: List[int] = Field(
+    well_explained_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs tagged as Well-Explained in Stage 2 (SVM positive class)",
+        description="Feature IDs with sources tagged as Well-Explained in Stage 2 (SVM positive class)",
         min_length=1
     )
-    need_revision_ids: List[int] = Field(
+    need_revision_items: List[WeightedFeatureId] = Field(
         ...,
-        description="Feature IDs tagged as Need Revision in Stage 2 (SVM negative class)",
+        description="Feature IDs with sources tagged as Need Revision in Stage 2 (SVM negative class)",
         min_length=1
     )
     feature_ids: List[int] = Field(

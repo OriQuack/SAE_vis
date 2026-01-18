@@ -21,7 +21,8 @@ from ..models.umap import (
 from ..models.similarity_sort import (
     CauseClassificationRequest,
     CauseClassificationResponse,
-    CauseClassificationResult
+    CauseClassificationResult,
+    CauseSelectionItem
 )
 from .data_constants import COL_FEATURE_ID
 
@@ -31,6 +32,14 @@ CAUSE_CATEGORIES = [
     'missed-N-gram',
     'missed-context'
 ]
+
+# ============================================================================
+# SAMPLE WEIGHTS FOR SVM TRAINING
+# ============================================================================
+# 'click' (direct user clicks) get full weight
+# 'threshold' (batch Apply Tags) get reduced weight due to potential errors
+CLICK_WEIGHT = 1.0
+THRESHOLD_WEIGHT = 0.2
 
 # Metrics used for SVM decision function UMAP (kept for decision function endpoint)
 METRICS_FOR_SVM = [
@@ -176,9 +185,9 @@ class UMAPService:
 
         # Count manual tags per category (for logging)
         category_counts = {cat: 0 for cat in CAUSE_CATEGORIES}
-        for fid, cat in cause_selections.items():
-            if cat in category_counts:
-                category_counts[cat] += 1
+        for fid, item in cause_selections.items():
+            if item.category in category_counts:
+                category_counts[item.category] += 1
 
         logger.info(f"Classifying {len(feature_ids)} features into cause categories")
         logger.info(f"Manual tag counts: {category_counts}")
@@ -249,17 +258,18 @@ class UMAPService:
         self,
         metrics_matrix: np.ndarray,
         feature_ids: np.ndarray,
-        cause_selections: Dict[int, str],
+        cause_selections: Dict[int, CauseSelectionItem],
         feature_id_to_idx: Dict[int, int]
     ) -> np.ndarray:
-        """Train One-vs-Rest SVMs and compute decision function vectors.
+        """Train One-vs-Rest SVMs with sample weights and compute decision function vectors.
 
         Uses only user's manual tags for training (no anchor points).
+        Applies sample weights based on source: 'click' = 1.0, 'threshold' = 0.2.
 
         Args:
             metrics_matrix: (N, 9) feature metric matrix (raw values)
             feature_ids: Array of feature IDs
-            cause_selections: Dict mapping feature_id to category (manual tags)
+            cause_selections: Dict mapping feature_id to CauseSelectionItem (category + source)
             feature_id_to_idx: Dict mapping feature_id to matrix index
 
         Returns:
@@ -269,43 +279,54 @@ class UMAPService:
         n_categories = len(CAUSE_CATEGORIES)
         decision_vectors = np.zeros((n_features, n_categories))
 
+        # Build ID to weight mapping
+        id_to_weight = {}
+        for fid, item in cause_selections.items():
+            id_to_weight[fid] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+
         # Scale feature metrics
         scaler = StandardScaler()
         metrics_scaled = scaler.fit_transform(metrics_matrix)
 
         # Train OvR SVM for each category
         for cat_idx, category in enumerate(CAUSE_CATEGORIES):
-            # Collect manual tags from user
+            # Collect manual tags from user with weights
             manual_positive = []
             manual_negative = []
-            for fid, cat in cause_selections.items():
+            positive_weights = []
+            negative_weights = []
+            for fid, item in cause_selections.items():
                 if fid in feature_id_to_idx:
                     idx = feature_id_to_idx[fid]
-                    if cat == category:
+                    weight = id_to_weight.get(fid, CLICK_WEIGHT)
+                    if item.category == category:
                         manual_positive.append(idx)
+                        positive_weights.append(weight)
                     else:
                         manual_negative.append(idx)
+                        negative_weights.append(weight)
 
             # Check we have both classes from manual tags
             if len(manual_positive) == 0 or len(manual_negative) == 0:
                 logger.warning(f"Skipping SVM for {category}: missing positive or negative manual samples")
                 continue
 
-            # Build training data from manual tags only
+            # Build training data and weights from manual tags only
             X_train = np.vstack([
                 metrics_scaled[manual_positive],
                 metrics_scaled[manual_negative]
             ])
             y_train = np.array([1] * len(manual_positive) + [0] * len(manual_negative))
+            sample_weights = np.array(positive_weights + negative_weights)
 
-            # Train SVM
+            # Train SVM with sample weights
             svm = SVC(
                 kernel='rbf',
                 C=1.0,
                 gamma='scale',
                 class_weight='balanced'
             )
-            svm.fit(X_train, y_train)
+            svm.fit(X_train, y_train, sample_weight=sample_weights)
 
             # Compute decision function for ALL features
             decision_values = svm.decision_function(metrics_scaled)

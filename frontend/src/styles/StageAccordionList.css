@@ -83,10 +83,12 @@
   0%, 100% {
     border-color: #d1d5db;
     box-shadow: none;
+    background: #ffffff;
   }
   50% {
     border-color: #3b82f6;
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    background: #dbeafe;
   }
 }
 
@@ -220,6 +222,21 @@
 .stage-selector__cycle-arrow--disabled {
   opacity: 0.3;
   cursor: default;
+}
+
+.stage-selector__cycle-arrow--pulsing {
+  animation: arrow-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes arrow-pulse {
+  0%, 100% {
+    background-color: #f3f4f6;
+    color: #6b7280;
+  }
+  50% {
+    background-color: #3b82f6;
+    color: white;
+  }
 }
 
 .stage-selector__cycle-label {

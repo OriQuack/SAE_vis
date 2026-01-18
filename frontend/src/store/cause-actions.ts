@@ -126,12 +126,16 @@ export const createCauseActions = (set: any, get: any) => ({
       set({ isCauseSimilaritySortLoading: true })
 
       // Convert Map to plain object for API (ONLY user-confirmed)
-      const causeSelections: Record<number, string> = {}
+      // Include source for weighted SVM training
+      const causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }> = {}
       causeSelectionStates.forEach((category: string, featureId: number) => {
         const source = causeSelectionSources.get(featureId)
         // Only use user-confirmed features (click or threshold) for similarity sorting
         if (isUserConfirmed(source)) {
-          causeSelections[featureId] = category
+          causeSelections[featureId] = {
+            category,
+            source: source === 'click' ? 'click' : 'threshold'
+          }
         }
       })
 
@@ -141,7 +145,7 @@ export const createCauseActions = (set: any, get: any) => ({
       console.log('[Store.sortCauseBySimilarity] Calling API:', {
         taggedFeatures: Object.keys(causeSelections).length,
         totalFeatures: allFeatureIds.length,
-        categories: Array.from(new Set(Object.values(causeSelections)))
+        categories: Array.from(new Set(Object.values(causeSelections).map(s => s.category)))
       })
 
       // Call new multi-class OvR endpoint
@@ -358,10 +362,13 @@ export const createCauseActions = (set: any, get: any) => ({
    * Requires manual tags before training SVM - will early-return if
    * causeSelections is empty. This ensures no auto-classification
    * happens on initial CauseView entry.
+   *
+   * @param featureIds - All feature IDs to classify
+   * @param causeSelections - Manual selections with source for weighted SVM training
    */
   fetchCauseClassification: async (
     featureIds: number[],
-    causeSelections: Record<number, string>
+    causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>
   ) => {
     const state = get()
 
@@ -503,10 +510,13 @@ export const createCauseActions = (set: any, get: any) => ({
    * Fetch multi-modality test results for the current cause selections.
    * Tests bimodality of SVM decision margins for each category and aggregates scores.
    * Requires at least 2 different categories with manual tags.
+   *
+   * @param featureIds - All feature IDs to analyze
+   * @param causeSelections - Manual selections with source for weighted analysis
    */
   fetchMultiModality: async (
     featureIds: number[],
-    causeSelections: Record<number, string>
+    causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>
   ) => {
     console.log('[Store.fetchMultiModality] Starting multi-modality test:', {
       featureCount: featureIds.length,
@@ -521,7 +531,7 @@ export const createCauseActions = (set: any, get: any) => ({
     }
 
     // Validate that we have at least 2 different categories tagged
-    const taggedCategories = new Set(Object.values(causeSelections))
+    const taggedCategories = new Set(Object.values(causeSelections).map(s => s.category))
     if (taggedCategories.size < 2) {
       console.warn('[Store.fetchMultiModality] ⚠️ Need at least 2 different categories tagged')
       set({ causeMultiModalityLoading: false })

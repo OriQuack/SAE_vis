@@ -102,7 +102,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     label: "Check Quality",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
-    defaultThresholds: [0.55],
+    defaultThresholds: [0.5],
     showHistogram: true,
     tags: [
       "Need Revision",       // Group 0 (< threshold, LOW quality score)

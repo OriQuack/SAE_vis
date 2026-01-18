@@ -133,16 +133,18 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // } | null>(null)
 
   // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
-  // Only 'click' source counts for SVM training (direct user clicks, not batch 'threshold' or SVM 'predicted')
+  // Both 'click' and 'threshold' sources count for SVM training (with different weights)
+  // 'click' = 1.0 weight, 'threshold' = 0.2 weight (batch apply has more potential errors)
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
-    const selections: Record<number, string> = {}
+    const selections: Record<number, { category: string; source: 'click' | 'threshold' }> = {}
 
     causeSelectionStates.forEach((category: string, featureId: number) => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'click') {
+      // Include both 'click' and 'threshold' for weighted SVM training
+      if (source === 'click' || source === 'threshold') {
         manualTags.set(category, (manualTags.get(category) || 0) + 1)
-        selections[featureId] = category
+        selections[featureId] = { category, source }
       }
     })
 

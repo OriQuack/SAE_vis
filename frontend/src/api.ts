@@ -23,7 +23,10 @@ import type {
   UmapProjectionResponse,
   MultiModalityResponse,
   CauseClassificationResponse,
-  Stage3QualityScoresRequest
+  Stage3QualityScoresRequest,
+  WeightedFeatureId,
+  WeightedPairKey,
+  CauseSelectionItem
 } from './types'
 
 // ============================================================================
@@ -259,19 +262,19 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
 }
 
 export async function getSimilaritySort(
-  selectedIds: number[],
-  rejectedIds: number[],
+  selectedItems: WeightedFeatureId[],
+  rejectedItems: WeightedFeatureId[],
   featureIds: number[]
 ): Promise<SimilaritySortResponse> {
   console.log('[API] getSimilaritySort called with:', {
-    selectedCount: selectedIds.length,
-    rejectedCount: rejectedIds.length,
+    selectedCount: selectedItems.length,
+    rejectedCount: rejectedItems.length,
     totalFeatures: featureIds.length
   })
 
   const requestBody: SimilaritySortRequest = {
-    selected_ids: selectedIds,
-    rejected_ids: rejectedIds,
+    selected_items: selectedItems,
+    rejected_items: rejectedItems,
     feature_ids: featureIds
   }
 
@@ -300,19 +303,19 @@ export async function getSimilaritySort(
 }
 
 export async function getPairSimilaritySort(
-  selectedPairKeys: string[],
-  rejectedPairKeys: string[],
+  selectedItems: WeightedPairKey[],
+  rejectedItems: WeightedPairKey[],
   pairKeys: string[]
 ): Promise<PairSimilaritySortResponse> {
   console.log('[API] getPairSimilaritySort called with:', {
-    selectedCount: selectedPairKeys.length,
-    rejectedCount: rejectedPairKeys.length,
+    selectedCount: selectedItems.length,
+    rejectedCount: rejectedItems.length,
     totalPairs: pairKeys.length
   })
 
   const requestBody: PairSimilaritySortRequest = {
-    selected_pair_keys: selectedPairKeys,
-    rejected_pair_keys: rejectedPairKeys,
+    selected_items: selectedItems,
+    rejected_items: rejectedItems,
     pair_keys: pairKeys
   }
 
@@ -345,19 +348,19 @@ export async function getPairSimilaritySort(
 // ============================================================================
 
 export async function getSimilarityScoreHistogram(
-  selectedIds: number[],
-  rejectedIds: number[],
+  selectedItems: WeightedFeatureId[],
+  rejectedItems: WeightedFeatureId[],
   featureIds: number[]
 ): Promise<SimilarityScoreHistogramResponse> {
   console.log('[API] getSimilarityScoreHistogram called with:', {
-    selectedCount: selectedIds.length,
-    rejectedCount: rejectedIds.length,
+    selectedCount: selectedItems.length,
+    rejectedCount: rejectedItems.length,
     totalFeatures: featureIds.length
   })
 
   const requestBody: SimilarityHistogramRequest = {
-    selected_ids: selectedIds,
-    rejected_ids: rejectedIds,
+    selected_items: selectedItems,
+    rejected_items: rejectedItems,
     feature_ids: featureIds
   }
 
@@ -397,20 +400,20 @@ export async function getSimilarityScoreHistogram(
  *   - Pass explicit pairKeys
  *   - Backend scores provided pairs
  *
- * @param selectedPairKeys - Manually selected pairs (training data)
- * @param rejectedPairKeys - Manually rejected pairs (training data)
+ * @param selectedItems - Manually selected pairs with sources (training data)
+ * @param rejectedItems - Manually rejected pairs with sources (training data)
  * @param options - Either { featureIds, threshold } or { pairKeys }
  */
 export async function getPairSimilarityScoreHistogram(
-  selectedPairKeys: string[],
-  rejectedPairKeys: string[],
+  selectedItems: WeightedPairKey[],
+  rejectedItems: WeightedPairKey[],
   options: { featureIds: number[], threshold: number } | { pairKeys: string[] }
 ): Promise<SimilarityScoreHistogramResponse> {
   const isSimplifiedFlow = 'featureIds' in options
 
   console.log('[API] getPairSimilarityScoreHistogram called with:', {
-    selectedCount: selectedPairKeys.length,
-    rejectedCount: rejectedPairKeys.length,
+    selectedCount: selectedItems.length,
+    rejectedCount: rejectedItems.length,
     flow: isSimplifiedFlow ? 'simplified (feature_ids + threshold)' : 'legacy (explicit pair_keys)',
     ...(isSimplifiedFlow
       ? { featureCount: options.featureIds.length, threshold: options.threshold }
@@ -418,8 +421,8 @@ export async function getPairSimilarityScoreHistogram(
   })
 
   const requestBody: PairSimilarityHistogramRequest = {
-    selected_pair_keys: selectedPairKeys,
-    rejected_pair_keys: rejectedPairKeys,
+    selected_items: selectedItems,
+    rejected_items: rejectedItems,
     ...(isSimplifiedFlow
       ? { feature_ids: options.featureIds, threshold: options.threshold }
       : { pair_keys: options.pairKeys })
@@ -455,7 +458,7 @@ export async function getPairSimilarityScoreHistogram(
 // ============================================================================
 
 export async function getCauseSimilaritySort(
-  causeSelections: Record<number, string>,
+  causeSelections: Record<number, CauseSelectionItem>,
   featureIds: number[]
 ): Promise<CauseSimilaritySortResponse> {
   console.log('[API] getCauseSimilaritySort called with:', {
@@ -492,7 +495,7 @@ export async function getCauseSimilaritySort(
 }
 
 export async function getCauseSimilarityScoreHistogram(
-  causeSelections: Record<number, string>,
+  causeSelections: Record<number, CauseSelectionItem>,
   featureIds: number[]
 ): Promise<CauseSimilarityHistogramResponse> {
   console.log('[API] getCauseSimilarityScoreHistogram called with:', {
@@ -535,7 +538,7 @@ export async function getCauseSimilarityScoreHistogram(
 
 export async function getMultiModalityTest(
   featureIds: number[],
-  causeSelections: Record<number, string>
+  causeSelections: Record<number, CauseSelectionItem>
 ): Promise<MultiModalityResponse> {
   console.log('[API] getMultiModalityTest called with:', {
     totalFeatures: featureIds.length,
@@ -706,12 +709,12 @@ export async function getUmapProjection(
  * Requires at least one manually tagged feature per category.
  *
  * @param featureIds - Feature IDs to classify
- * @param causeSelections - Map of feature_id to cause category (manual tags only)
+ * @param causeSelections - Map of feature_id to cause selection with source (manual tags only)
  * @returns Classification results with predicted category and decision scores
  */
 export async function getCauseClassification(
   featureIds: number[],
-  causeSelections: Record<number, string>
+  causeSelections: Record<number, CauseSelectionItem>
 ): Promise<CauseClassificationResponse> {
   console.log('[API] getCauseClassification called with:', {
     featureCount: featureIds.length,
@@ -761,25 +764,25 @@ export async function getCauseClassification(
  * Features with higher scores are closer to the Well-Explained class,
  * indicating they may have been borderline cases suitable for reconsideration.
  *
- * @param wellExplainedIds - Feature IDs tagged as Well-Explained in Stage 2
- * @param needRevisionIds - Feature IDs tagged as Need Revision in Stage 2
+ * @param wellExplainedItems - Feature items with sources tagged as Well-Explained in Stage 2
+ * @param needRevisionItems - Feature items with sources tagged as Need Revision in Stage 2
  * @param featureIds - Feature IDs to score (typically = needRevisionIds)
  * @returns Histogram response with scores and bimodality detection
  */
 export async function getStage3QualityScores(
-  wellExplainedIds: number[],
-  needRevisionIds: number[],
+  wellExplainedItems: WeightedFeatureId[],
+  needRevisionItems: WeightedFeatureId[],
   featureIds: number[]
 ): Promise<SimilarityScoreHistogramResponse> {
   console.log('[API] getStage3QualityScores called with:', {
-    wellExplainedCount: wellExplainedIds.length,
-    needRevisionCount: needRevisionIds.length,
+    wellExplainedCount: wellExplainedItems.length,
+    needRevisionCount: needRevisionItems.length,
     featuresToScore: featureIds.length
   })
 
   const requestBody: Stage3QualityScoresRequest = {
-    well_explained_ids: wellExplainedIds,
-    need_revision_ids: needRevisionIds,
+    well_explained_items: wellExplainedItems,
+    need_revision_items: needRevisionItems,
     feature_ids: featureIds
   }
 

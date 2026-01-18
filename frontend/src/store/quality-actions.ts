@@ -84,29 +84,30 @@ export const createQualityActions = (set: any, get: any) => ({
       return
     }
 
-    // Extract selected and rejected IDs (ONLY manually labeled features)
-    const selectedIds: number[] = []
-    const rejectedIds: number[] = []
+    // Extract selected and rejected items with sources (ONLY manually labeled features)
+    const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
+    const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
 
     featureSelectionStates.forEach((selectionState: string, featureId: number) => {
       const source = featureSelectionSources.get(featureId)
       // Only use user-confirmed features (click or threshold) for similarity sorting
       if (isUserConfirmed(source)) {
+        const weightedSource = source === 'click' ? 'click' : 'threshold' as const
         if (selectionState === 'selected') {
-          selectedIds.push(featureId)
+          selectedItems.push({ id: featureId, source: weightedSource })
         } else if (selectionState === 'rejected') {
-          rejectedIds.push(featureId)
+          rejectedItems.push({ id: featureId, source: weightedSource })
         }
       }
     })
 
     console.log('[Store.sortBySimilarity] Selection counts (manual only):', {
-      selected: selectedIds.length,
-      rejected: rejectedIds.length
+      selected: selectedItems.length,
+      rejected: rejectedItems.length
     })
 
     // Need at least one of each for meaningful sort
-    if (selectedIds.length === 0 && rejectedIds.length === 0) {
+    if (selectedItems.length === 0 && rejectedItems.length === 0) {
       console.warn('[Store.sortBySimilarity] ⚠️  Need at least one selected or rejected feature')
       return
     }
@@ -122,15 +123,15 @@ export const createQualityActions = (set: any, get: any) => ({
       set({ isSimilaritySortLoading: true })
 
       console.log('[Store.sortBySimilarity] Calling API:', {
-        selectedIds: selectedIds.length,
-        rejectedIds: rejectedIds.length,
+        selectedItems: selectedItems.length,
+        rejectedItems: rejectedItems.length,
         totalFeatures: allFeatureIds.length
       })
 
       // Call API
       const response = await api.getSimilaritySort(
-        selectedIds,
-        rejectedIds,
+        selectedItems,
+        rejectedItems,
         allFeatureIds
       )
 
@@ -148,8 +149,8 @@ export const createQualityActions = (set: any, get: any) => ({
 
       // Generate selection signature to track this sort state
       // Format: "selected:[ids]|rejected:[ids]"
-      const selectedSig = selectedIds.sort((a, b) => a - b).join(',')
-      const rejectedSig = rejectedIds.sort((a, b) => a - b).join(',')
+      const selectedSig = selectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
+      const rejectedSig = rejectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
       const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
 
       // Freeze the current selection states for grouping
@@ -207,14 +208,21 @@ export const createQualityActions = (set: any, get: any) => ({
         }
       })
 
-      // Extract selected and rejected feature IDs
-      const selectedIds: number[] = []
-      const rejectedIds: number[] = []
+      // Extract selected and rejected feature items with sources
+      const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
+      const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
       const allFeatureIds: number[] = []
 
+      const { featureSelectionSources } = get()
+
       featureSelectionStates.forEach((state: string | null, featureId: number) => {
-        if (state === 'selected') selectedIds.push(featureId)
-        else if (state === 'rejected') rejectedIds.push(featureId)
+        const source = featureSelectionSources.get(featureId)
+        // Only use user-confirmed features for SVM training
+        if (isUserConfirmed(source)) {
+          const weightedSource = source === 'click' ? 'click' : 'threshold' as const
+          if (state === 'selected') selectedItems.push({ id: featureId, source: weightedSource })
+          else if (state === 'rejected') rejectedItems.push({ id: featureId, source: weightedSource })
+        }
       })
 
       // Get all feature IDs from table data
@@ -225,15 +233,15 @@ export const createQualityActions = (set: any, get: any) => ({
       }
 
       console.log('[Store.showTagAutomaticPopover] Fetching feature histogram:', {
-        selected: selectedIds.length,
-        rejected: rejectedIds.length,
+        selected: selectedItems.length,
+        rejected: rejectedItems.length,
         total: allFeatureIds.length
       })
 
       // Fetch histogram data
       const histogramData = await api.getSimilarityScoreHistogram(
-        selectedIds,
-        rejectedIds,
+        selectedItems,
+        rejectedItems,
         allFeatureIds
       )
 

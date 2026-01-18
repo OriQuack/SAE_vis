@@ -18,7 +18,8 @@ from ..models.similarity_sort import (
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
     MultiModalityRequest, MultiModalityResponse, MultiModalityInfo, CategoryBimodalityInfo,
-    Stage3QualityScoresRequest
+    Stage3QualityScoresRequest,
+    WeightedFeatureId, CauseSelectionItem
 )
 from .bimodality_service import BimodalityService
 
@@ -26,6 +27,14 @@ if TYPE_CHECKING:
     from .data_service import DataService
 
 logger = logging.getLogger(__name__)
+
+# ============================================================================
+# SAMPLE WEIGHTS FOR SVM TRAINING
+# ============================================================================
+# 'click' (direct user clicks) get full weight
+# 'threshold' (batch Apply Tags) get reduced weight due to potential errors
+CLICK_WEIGHT = 1.0
+THRESHOLD_WEIGHT = 0.2
 
 
 class SimilaritySortService:
@@ -101,8 +110,8 @@ class SimilaritySortService:
         logger.info(f"Calculating similarity scores with SVM")
         feature_scores = self._calculate_similarity_scores(
             metrics_df,
-            request.selected_ids,
-            request.rejected_ids
+            request.selected_items,
+            request.rejected_items
         )
 
         # Sort by score (descending - higher is better)
@@ -149,8 +158,8 @@ class SimilaritySortService:
         logger.info(f"Calculating similarity scores for histogram with SVM")
         feature_scores = self._calculate_similarity_scores_for_histogram(
             metrics_df,
-            request.selected_ids,
-            request.rejected_ids
+            request.selected_items,
+            request.rejected_items
         )
 
         # Create scores dictionary
@@ -233,17 +242,19 @@ class SimilaritySortService:
             raise RuntimeError("DataService not ready")
 
         # We need metrics for all features involved:
-        # - Training: well_explained_ids + need_revision_ids
+        # - Training: well_explained_items + need_revision_items
         # - Scoring: feature_ids
+        well_explained_ids = [item.id for item in request.well_explained_items]
+        need_revision_ids = [item.id for item in request.need_revision_items]
         all_feature_ids = list(set(
-            request.well_explained_ids +
-            request.need_revision_ids +
+            well_explained_ids +
+            need_revision_ids +
             request.feature_ids
         ))
 
         logger.info(f"[Stage3QualityScores] Extracting metrics for {len(all_feature_ids)} features "
-                   f"(well_explained={len(request.well_explained_ids)}, "
-                   f"need_revision={len(request.need_revision_ids)}, "
+                   f"(well_explained={len(request.well_explained_items)}, "
+                   f"need_revision={len(request.need_revision_items)}, "
                    f"to_score={len(request.feature_ids)})")
 
         metrics_df = await self._extract_metrics(all_feature_ids)
@@ -265,8 +276,8 @@ class SimilaritySortService:
         logger.info("[Stage3QualityScores] Training SVM on Stage 2 selections")
         all_feature_scores = self._calculate_similarity_scores_for_histogram(
             metrics_df,  # Full dataframe with training + classification features
-            request.well_explained_ids,
-            request.need_revision_ids
+            request.well_explained_items,
+            request.need_revision_items
         )
 
         # Filter to only return scores for classification features (request.feature_ids)
@@ -360,6 +371,9 @@ class SimilaritySortService:
         feature_ids = request.feature_ids
         cause_selections = request.cause_selections
 
+        # Extract categories from CauseSelectionItem values
+        categories_set = set(item.category for item in cause_selections.values())
+
         # Extract metrics for all features
         logger.info(f"[multi_modality_test] Extracting metrics for {len(feature_ids)} features")
         metrics_df = await self._extract_metrics(feature_ids)
@@ -376,42 +390,53 @@ class SimilaritySortService:
         metrics_scaled = scaler.fit_transform(metrics_matrix)
 
         # Get unique categories from cause_selections
-        categories = sorted(set(cause_selections.values()))
+        categories = sorted(categories_set)
         logger.info(f"[multi_modality_test] Categories: {categories}")
+
+        # Build ID to weight mapping
+        id_to_weight = {}
+        for fid, item in cause_selections.items():
+            id_to_weight[fid] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
 
         # Train One-vs-Rest SVM for each category and compute bimodality
         category_results = []
 
         for category in categories:
-            # Build labels: 1 for this category, 0 for all others
+            # Build labels and weights: 1 for this category, 0 for all others
             positive_indices = []
             negative_indices = []
+            positive_weights = []
+            negative_weights = []
 
-            for fid, cat in cause_selections.items():
+            for fid, item in cause_selections.items():
                 if fid in feature_id_to_idx:
                     idx = feature_id_to_idx[fid]
-                    if cat == category:
+                    weight = id_to_weight.get(fid, CLICK_WEIGHT)
+                    if item.category == category:
                         positive_indices.append(idx)
+                        positive_weights.append(weight)
                     else:
                         negative_indices.append(idx)
+                        negative_weights.append(weight)
 
             if len(positive_indices) == 0 or len(negative_indices) == 0:
                 logger.warning(f"[multi_modality_test] Skipping {category}: missing positive or negative samples")
                 continue
 
-            # Build training data
+            # Build training data and weights
             train_indices = positive_indices + negative_indices
             X_train = metrics_scaled[train_indices]
             y_train = np.array([1] * len(positive_indices) + [0] * len(negative_indices))
+            sample_weights = np.array(positive_weights + negative_weights)
 
-            # Train SVM
+            # Train SVM with sample weights
             svm = SVC(
                 kernel='rbf',
                 C=1.0,
                 gamma='scale',
                 class_weight='balanced'
             )
-            svm.fit(X_train, y_train)
+            svm.fit(X_train, y_train, sample_weight=sample_weights)
 
             # Compute decision function for ALL features
             decision_values = svm.decision_function(metrics_scaled)
@@ -723,8 +748,8 @@ class SimilaritySortService:
     def _calculate_similarity_scores(
         self,
         metrics_df: pl.DataFrame,
-        selected_ids: List[int],
-        rejected_ids: List[int]
+        selected_items: List[WeightedFeatureId],
+        rejected_items: List[WeightedFeatureId]
     ) -> List[FeatureScore]:
         """
         Calculate similarity scores for all features using SVM.
@@ -734,26 +759,37 @@ class SimilaritySortService:
 
         Args:
             metrics_df: DataFrame with metrics for all features
-            selected_ids: Feature IDs marked as selected (✓)
-            rejected_ids: Feature IDs marked as rejected (✗)
+            selected_items: Weighted feature items marked as selected (✓)
+            rejected_items: Weighted feature items marked as rejected (✗)
 
         Returns:
             List of FeatureScore objects (excluding selected and rejected)
         """
+        # Extract IDs from weighted items
+        selected_ids = [item.id for item in selected_items]
+        rejected_ids = [item.id for item in rejected_items]
+
         # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
         ])
 
-        # Check cache
-        cache_key = self._get_cache_key(selected_ids, rejected_ids)
+        # Build ID to weight mapping
+        id_to_weight = {}
+        for item in selected_items:
+            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+        for item in rejected_items:
+            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+
+        # Check cache (include weights in cache key for weighted training)
+        cache_key = self._get_cache_key_weighted(selected_items, rejected_items)
 
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model (key: {cache_key[:8]}...)")
         else:
-            # Extract training vectors
+            # Extract training vectors and weights
             selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
             rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
 
@@ -764,8 +800,12 @@ class SimilaritySortService:
             selected_vectors = metrics_matrix[selected_indices]
             rejected_vectors = metrics_matrix[rejected_indices]
 
-            # Train SVM
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+            # Build weight arrays
+            selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
+            rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
+
+            # Train SVM with weights
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -799,8 +839,8 @@ class SimilaritySortService:
     def _calculate_similarity_scores_for_histogram(
         self,
         metrics_df: pl.DataFrame,
-        selected_ids: List[int],
-        rejected_ids: List[int]
+        selected_items: List[WeightedFeatureId],
+        rejected_items: List[WeightedFeatureId]
     ) -> List[FeatureScore]:
         """
         Calculate similarity scores for ALL features using SVM (including selected/rejected).
@@ -810,26 +850,37 @@ class SimilaritySortService:
 
         Args:
             metrics_df: DataFrame with metrics for all features
-            selected_ids: Feature IDs marked as selected (✓)
-            rejected_ids: Feature IDs marked as rejected (✗)
+            selected_items: Weighted feature items marked as selected (✓)
+            rejected_items: Weighted feature items marked as rejected (✗)
 
         Returns:
             List of FeatureScore objects for ALL features
         """
+        # Extract IDs from weighted items
+        selected_ids = [item.id for item in selected_items]
+        rejected_ids = [item.id for item in rejected_items]
+
         # Convert to numpy for SVM
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.METRICS
         ])
 
+        # Build ID to weight mapping
+        id_to_weight = {}
+        for item in selected_items:
+            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+        for item in rejected_items:
+            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+
         # Check cache (reuse model from main scoring)
-        cache_key = self._get_cache_key(selected_ids, rejected_ids)
+        cache_key = self._get_cache_key_weighted(selected_items, rejected_items)
 
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model for histogram (key: {cache_key[:8]}...)")
         else:
-            # Extract training vectors
+            # Extract training vectors and weights
             selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
             rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
 
@@ -840,8 +891,12 @@ class SimilaritySortService:
             selected_vectors = metrics_matrix[selected_indices]
             rejected_vectors = metrics_matrix[rejected_indices]
 
-            # Train SVM
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors)
+            # Build weight arrays
+            selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
+            rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
+
+            # Train SVM with weights
+            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -867,7 +922,7 @@ class SimilaritySortService:
 
     def _get_cache_key(self, selected_ids: List[int], rejected_ids: List[int]) -> str:
         """
-        Generate unique cache key from user selections.
+        Generate unique cache key from user selections (legacy, unweighted).
 
         Args:
             selected_ids: Feature IDs marked as selected (✓)
@@ -879,17 +934,43 @@ class SimilaritySortService:
         key_str = f"{sorted(selected_ids)}_{sorted(rejected_ids)}"
         return hashlib.md5(key_str.encode()).hexdigest()
 
+    def _get_cache_key_weighted(
+        self,
+        selected_items: List[WeightedFeatureId],
+        rejected_items: List[WeightedFeatureId]
+    ) -> str:
+        """
+        Generate unique cache key from weighted user selections.
+
+        Includes both IDs and sources in the cache key since weights affect the model.
+
+        Args:
+            selected_items: Weighted feature items marked as selected (✓)
+            rejected_items: Weighted feature items marked as rejected (✗)
+
+        Returns:
+            MD5 hash of sorted (ID, source) tuples
+        """
+        selected_tuples = sorted([(item.id, item.source) for item in selected_items])
+        rejected_tuples = sorted([(item.id, item.source) for item in rejected_items])
+        key_str = f"{selected_tuples}_{rejected_tuples}"
+        return hashlib.md5(key_str.encode()).hexdigest()
+
     def _train_svm_model(
         self,
         selected_vectors: np.ndarray,
-        rejected_vectors: np.ndarray
+        rejected_vectors: np.ndarray,
+        selected_weights: Optional[np.ndarray] = None,
+        rejected_weights: Optional[np.ndarray] = None
     ) -> Tuple[SVC, StandardScaler]:
         """
-        Train binary SVM classifier with RBF kernel.
+        Train binary SVM classifier with RBF kernel and optional sample weights.
 
         Args:
             selected_vectors: (N_pos, d) positive examples (✓)
             rejected_vectors: (N_neg, d) negative examples (✗)
+            selected_weights: (N_pos,) sample weights for positive examples (default: all 1.0)
+            rejected_weights: (N_neg,) sample weights for negative examples (default: all 1.0)
 
         Returns:
             Tuple of (trained_model, fitted_scaler)
@@ -897,6 +978,13 @@ class SimilaritySortService:
         # Combine data
         X = np.vstack([selected_vectors, rejected_vectors])
         y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+
+        # Build sample weights array
+        if selected_weights is None:
+            selected_weights = np.ones(len(selected_vectors))
+        if rejected_weights is None:
+            rejected_weights = np.ones(len(rejected_vectors))
+        sample_weights = np.concatenate([selected_weights, rejected_weights])
 
         # Standardize features (critical for SVM)
         scaler = StandardScaler()
@@ -910,10 +998,10 @@ class SimilaritySortService:
             class_weight='balanced',  # Handle class imbalance
             probability=False  # Faster without probability calibration
         )
-        model.fit(X_scaled, y)
+        model.fit(X_scaled, y, sample_weight=sample_weights)
 
         logger.info(f"SVM trained: {len(selected_vectors)} positive, {len(rejected_vectors)} negative, "
-                   f"{model.n_support_.sum()} support vectors")
+                   f"{model.n_support_.sum()} support vectors, weighted training")
 
         return model, scaler
 

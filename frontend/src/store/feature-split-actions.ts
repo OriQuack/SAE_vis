@@ -111,29 +111,30 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       return
     }
 
-    // Extract selected and rejected pair keys (ONLY manually labeled pairs)
-    const selectedPairKeys: string[] = []
-    const rejectedPairKeys: string[] = []
+    // Extract selected and rejected pair items with sources (ONLY manually labeled pairs)
+    const selectedItems: { key: string; source: 'click' | 'threshold' }[] = []
+    const rejectedItems: { key: string; source: 'click' | 'threshold' }[] = []
 
     pairSelectionStates.forEach((selectionState: string, pairKey: string) => {
       const source = pairSelectionSources.get(pairKey)
       // Only use user-confirmed pairs (click or threshold) for similarity sorting
       if (isUserConfirmed(source)) {
+        const weightedSource = source === 'click' ? 'click' : 'threshold' as const
         if (selectionState === 'selected') {
-          selectedPairKeys.push(pairKey)
+          selectedItems.push({ key: pairKey, source: weightedSource })
         } else if (selectionState === 'rejected') {
-          rejectedPairKeys.push(pairKey)
+          rejectedItems.push({ key: pairKey, source: weightedSource })
         }
       }
     })
 
     console.log('[Store.sortPairsBySimilarity] Selection counts (manual only):', {
-      selected: selectedPairKeys.length,
-      rejected: rejectedPairKeys.length
+      selected: selectedItems.length,
+      rejected: rejectedItems.length
     })
 
     // Need at least one of each for meaningful sort
-    if (selectedPairKeys.length === 0 && rejectedPairKeys.length === 0) {
+    if (selectedItems.length === 0 && rejectedItems.length === 0) {
       console.warn('[Store.sortPairsBySimilarity] ⚠️  Need at least one selected or rejected pair')
       return
     }
@@ -144,15 +145,15 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       set({ isPairSimilaritySortLoading: true })
 
       console.log('[Store.sortPairsBySimilarity] Calling API:', {
-        selectedPairKeys: selectedPairKeys.length,
-        rejectedPairKeys: rejectedPairKeys.length,
+        selectedItems: selectedItems.length,
+        rejectedItems: rejectedItems.length,
         totalPairs: allPairKeys.length
       })
 
       // Call API
       const response = await api.getPairSimilaritySort(
-        selectedPairKeys,
-        rejectedPairKeys,
+        selectedItems,
+        rejectedItems,
         allPairKeys
       )
 
@@ -174,8 +175,8 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
 
       // Generate selection signature to track this sort state
       // Format: "selected:[keys]|rejected:[keys]"
-      const selectedSig = selectedPairKeys.sort().join(',')
-      const rejectedSig = rejectedPairKeys.sort().join(',')
+      const selectedSig = selectedItems.map(i => i.key).sort().join(',')
+      const rejectedSig = rejectedItems.map(i => i.key).sort().join(',')
       const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
 
       // Freeze the current selection states for grouping
@@ -286,11 +287,11 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     console.log('[fetchSimilarityHistogram] Called with features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', availablePairs:', allClusterPairs?.length || 0)
 
     try {
-      // Extract selected and rejected pair keys
+      // Extract selected and rejected pair items with sources
       // IMPORTANT: Only include pairs that exist in allClusterPairs to avoid using stale
       // selection data from previous sessions with different clustering thresholds
-      const selectedPairKeys: string[] = []
-      const rejectedPairKeys: string[] = []
+      const selectedItems: { key: string; source: 'click' | 'threshold' }[] = []
+      const rejectedItems: { key: string; source: 'click' | 'threshold' }[] = []
 
       // Create a set of available pair keys for efficient lookup
       // Note: allClusterPairs uses snake_case from API (pair_key), not camelCase
@@ -306,8 +307,9 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         const source = pairSelectionSources.get(pairKey)
         if (!isUserConfirmed(source)) return
 
-        if (state === 'selected') selectedPairKeys.push(pairKey)
-        else if (state === 'rejected') rejectedPairKeys.push(pairKey)
+        const weightedSource = source === 'click' ? 'click' : 'threshold' as const
+        if (state === 'selected') selectedItems.push({ key: pairKey, source: weightedSource })
+        else if (state === 'rejected') rejectedItems.push({ key: pairKey, source: weightedSource })
       })
 
       // SIMPLIFIED FLOW: Use feature_ids + threshold (backend generates pairs via clustering)
@@ -318,15 +320,15 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         })
 
         // Need at least 1 selected and 1 rejected for meaningful histogram
-        if (selectedPairKeys.length === 0 || rejectedPairKeys.length === 0) {
+        if (selectedItems.length === 0 || rejectedItems.length === 0) {
           console.warn('[Store.fetchSimilarityHistogram] Need at least 1 selected and 1 rejected pair')
           return null
         }
 
         // Call simplified API - backend generates pairs via clustering
         const histogramData = await api.getPairSimilarityScoreHistogram(
-          selectedPairKeys,
-          rejectedPairKeys,
+          selectedItems,
+          rejectedItems,
           { featureIds: Array.from(selectedFeatureIds), threshold: threshold }  // Simplified flow
         )
 

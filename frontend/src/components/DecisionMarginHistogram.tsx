@@ -218,17 +218,18 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
           }
         } else {
           // Feature mode: Call API directly for feature similarity histogram
-          // Extract selected and rejected feature IDs
-          const selectedIds: number[] = []
-          const rejectedIds: number[] = []
+          // Extract selected and rejected feature items with sources
+          const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
+          const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
           const allFeatureIds: number[] = []
 
           featureSelectionStates.forEach((state, featureId) => {
             if (filteredFeatureIds && !filteredFeatureIds.has(featureId)) return
             const source = featureSelectionSources.get(featureId)
             if (isUserConfirmed(source)) {
-              if (state === 'selected') selectedIds.push(featureId)
-              else if (state === 'rejected') rejectedIds.push(featureId)
+              const weightedSource = source === 'click' ? 'click' : 'threshold' as const
+              if (state === 'selected') selectedItems.push({ id: featureId, source: weightedSource })
+              else if (state === 'rejected') rejectedItems.push({ id: featureId, source: weightedSource })
             }
           })
 
@@ -239,8 +240,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
 
           // Call API
           const histogramResponse = await api.getSimilarityScoreHistogram(
-            selectedIds,
-            rejectedIds,
+            selectedItems,
+            rejectedItems,
             allFeatureIds
           )
 

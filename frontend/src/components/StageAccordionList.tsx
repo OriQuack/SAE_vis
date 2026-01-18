@@ -36,11 +36,17 @@ interface StageAccordionListProps<T> {
   bootstrapDirection: 'asc' | 'desc'
   onBootstrapModeChange: (mode: BootstrapMode) => void
   onBootstrapDirectionChange: (direction: 'asc' | 'desc') => void
+  // Combined handler for cycling - receives both mode and direction together
+  onBootstrapOptionChange?: (mode: BootstrapMode, direction?: 'asc' | 'desc') => void
 
   // Availability flags
   hasDiversityIds?: boolean  // Show Representatives option when medoids available
   learnDisabled?: boolean    // Disable Learn stage (before SVM trained)
   applyDisabled?: boolean    // Disable Apply stage (before SVM trained)
+
+  // Smart pulsing flags (optional - overrides default pulsing behavior)
+  shouldPulseLearn?: boolean   // Pulse Train tab when user has viewed most representatives
+  shouldPulseApply?: boolean   // Pulse Apply tab when flip rate is stable (<3% for 5 iterations)
 
   // Labels for bootstrap "By Score" buttons
   byScoreAscLabel?: string   // e.g., "Least Similar First"
@@ -92,9 +98,12 @@ export function StageAccordionList<T>({
   bootstrapDirection,
   onBootstrapModeChange,
   onBootstrapDirectionChange,
+  onBootstrapOptionChange,
   hasDiversityIds = false,
   learnDisabled = false,
   applyDisabled = false,
+  shouldPulseLearn,
+  shouldPulseApply,
   byScoreAscLabel = 'Low → High',
   byScoreDescLabel = 'High → Low',
   hideTagged,
@@ -146,19 +155,28 @@ export function StageAccordionList<T>({
   }, [bootstrapOptions, bootstrapMode, bootstrapDirection])
 
   // Cycle handlers
+  // Use combined handler if available (preferred), otherwise fall back to separate handlers
   const handlePrevOption = useCallback(() => {
     const newIndex = (currentOptionIndex - 1 + bootstrapOptions.length) % bootstrapOptions.length
     const opt = bootstrapOptions[newIndex]
-    onBootstrapModeChange(opt.mode)
-    if (opt.direction) onBootstrapDirectionChange(opt.direction)
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange])
+    if (onBootstrapOptionChange) {
+      onBootstrapOptionChange(opt.mode, opt.direction)
+    } else {
+      if (opt.direction) onBootstrapDirectionChange(opt.direction)
+      onBootstrapModeChange(opt.mode)
+    }
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange])
 
   const handleNextOption = useCallback(() => {
     const newIndex = (currentOptionIndex + 1) % bootstrapOptions.length
     const opt = bootstrapOptions[newIndex]
-    onBootstrapModeChange(opt.mode)
-    if (opt.direction) onBootstrapDirectionChange(opt.direction)
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange])
+    if (onBootstrapOptionChange) {
+      onBootstrapOptionChange(opt.mode, opt.direction)
+    } else {
+      if (opt.direction) onBootstrapDirectionChange(opt.direction)
+      onBootstrapModeChange(opt.mode)
+    }
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange])
 
   // isTemplateSort - true when in decisionMargin asc mode (standard template)
   const isTemplateSort = useMemo(() => {
@@ -201,7 +219,7 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Bootstrap</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${!learnDisabled && activeStage === 'bootstrap' ? 'stage-selector__tab--pulsing' : ''}`}
+          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseLearn && activeStage === 'bootstrap' && !learnDisabled ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
           title={learnDisabled ? 'Tag 3+ items per category to enable' : undefined}
@@ -210,7 +228,7 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Train</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${!applyDisabled && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
+          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseApply && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
           title={applyDisabled ? 'Tag 3+ items per category to enable' : undefined}
@@ -236,7 +254,7 @@ export function StageAccordionList<T>({
               {bootstrapOptions[currentOptionIndex]?.label}
             </span>
             <button
-              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''}`}
+              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''} ${shouldPulseLearn && learnDisabled ? 'stage-selector__cycle-arrow--pulsing' : ''}`}
               onClick={handleNextOption}
               disabled={bootstrapOptions.length <= 1}
               aria-label="Next option"
