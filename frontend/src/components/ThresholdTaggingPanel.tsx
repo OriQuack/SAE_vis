@@ -285,7 +285,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
       : false
 
     return (
-      <div className={`pair-item-with-score ${isDisagreement ? 'pair-item--disagreement' : ''}`}>
+      <div className="pair-item-with-score" style={{ position: 'relative' }}>
+        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         <TagBadge
           featureId={pairIdString}
           tagName={tagName}
@@ -295,7 +296,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           isPair={true}
           isAuto={true}
         />
-        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>
         )}
@@ -331,7 +331,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
       : false
 
     return (
-      <div className={`pair-item-with-score ${isDisagreement ? 'pair-item--disagreement' : ''}`}>
+      <div className="pair-item-with-score" style={{ position: 'relative' }}>
+        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         <TagBadge
           featureId={item.featureId}
           tagName={tagName}
@@ -340,7 +341,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           fullWidth={true}
           isAuto={true}
         />
-        <DisagreementIndicator voteInfo={voteInfo} isDisagreement={isDisagreement} />
         {score !== undefined && (
           <span className="pair-similarity-score">{score.toFixed(2)}</span>
         )}
@@ -391,7 +391,12 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                   checked={showOnlyNeedReview}
                   onChange={(e) => setShowOnlyNeedReview(e.target.checked)}
                 />
-                Show Flagged Only ({needReviewCounts.left + needReviewCounts.right})
+                Show <span style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  borderLeft: '3px solid #f59e0b',
+                  padding: '2px',
+                  borderRadius: '2px'
+                }}>Disagreement</span> Only ({needReviewCounts.left + needReviewCounts.right})
               </label>
             )}
           </div>

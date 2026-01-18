@@ -296,7 +296,7 @@ export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
   isDisagreement,
   className = ''
 }) => {
-  // Only render when there's actual disagreement (computed by parent)
+  // Render nothing when no disagreement
   if (!voteInfo || !isDisagreement) {
     return null
   }
@@ -312,32 +312,19 @@ export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
 
   const tooltipText = `Models disagree: ${disagreeing.join(', ')} votes opposite to SVM\nVote entropy: ${voteInfo.vote_entropy.toFixed(3)}`
 
+  // Render absolutely positioned highlight overlay (parent must have position: relative)
   return (
-    <span
+    <div
       className={`disagreement-indicator ${className}`.trim()}
       title={tooltipText}
       style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginLeft: '4px',
-        cursor: 'help'
+        position: 'absolute',
+        inset: 0,
+        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+        boxShadow: 'inset 3px 0 0 #f59e0b',
+        borderRadius: '4px',
+        pointerEvents: 'none'
       }}
-    >
-      <svg
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#f59e0b"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-        <line x1="12" y1="9" x2="12" y2="13" />
-        <line x1="12" y1="17" x2="12.01" y2="17" />
-      </svg>
-    </span>
+    />
   )
 }

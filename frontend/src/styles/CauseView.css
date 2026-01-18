@@ -180,14 +180,12 @@
 }
 
 /* Bottom row columns - equal thirds */
-/* Left: Histogram (with border and gap for header) */
+/* Left: Histogram (no border, gap for header) */
 .cause-view__bottom-left {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
   overflow: hidden;
   gap: 4px;
 }
