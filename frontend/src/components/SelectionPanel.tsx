@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableStage } from '../lib/color-utils'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import SelectionStateBar, { type CategoryCounts, type CauseCategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
 
@@ -16,7 +17,7 @@ interface ClusterPair {
 }
 
 type SelectionState = 'selected' | 'rejected'
-type SelectionSource = 'manual' | 'auto'
+type SelectionSource = 'click' | 'threshold' | 'predicted'
 
 /**
  * Derives feature states from pair tagging states.
@@ -25,7 +26,7 @@ type SelectionSource = 'manual' | 'auto'
  * 2. Monosemantic: feature belongs to at least one monosemantic (rejected) pair, but NOT fragmented
  * 3. Unsure: feature does not belong to any tagged pair
  *
- * For source: 'manual' takes priority over 'auto'
+ * For source: user-confirmed ('click'/'threshold') takes priority over 'predicted'
  */
 function deriveFeatureStatesFromPairs(
   allPairs: ClusterPair[],
@@ -37,10 +38,10 @@ function deriveFeatureStatesFromPairs(
   const fragmentedFeatures = new Map<number, SelectionSource>() // featureId -> source
   const monosematicFeatures = new Map<number, SelectionSource>() // featureId -> source
 
-  // Helper: prioritize 'manual' over 'auto' for source tracking
+  // Helper: prioritize user-confirmed ('click'/'threshold') over 'predicted' for source tracking
   const updateFeatureSource = (map: Map<number, SelectionSource>, featureId: number, source: SelectionSource) => {
     const existing = map.get(featureId)
-    if (!existing || (existing === 'auto' && source === 'manual')) {
+    if (!existing || (!isUserConfirmed(existing) && isUserConfirmed(source))) {
       map.set(featureId, source)
     }
   }
@@ -53,7 +54,7 @@ function deriveFeatureStatesFromPairs(
     }
 
     const pairState = pairSelectionStates.get(pair.pair_key)
-    const pairSource = pairSelectionSources.get(pair.pair_key) || 'manual'
+    const pairSource = pairSelectionSources.get(pair.pair_key) || 'click'
 
     if (pairState === 'selected') {
       // Fragmented pair -> both features are fragmented
@@ -81,7 +82,7 @@ function deriveFeatureStatesFromPairs(
         source: monosematicFeatures.get(featureId)!
       })
     } else {
-      featureStates.set(featureId, { state: 'unsure', source: 'manual' })
+      featureStates.set(featureId, { state: 'unsure', source: 'click' })
     }
   }
 
@@ -181,15 +182,14 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   }, [propFilteredFeatureIds, getSelectedNodeFeatures])
 
   // Helper: get effective category for a feature (considering margin threshold)
-  // Priority: manual tags > auto-tags with margin check > unsure
+  // Priority: user-confirmed tags > predicted tags with margin check > unsure
   type EffectiveCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | 'unsure'
   const getEffectiveCategory = (featureId: number): EffectiveCategory => {
     const category = causeSelectionStates.get(featureId)
     const source = causeSelectionSources.get(featureId)
-    const isManual = source === 'manual'
 
-    // Priority 1: Manual tags respected (user intent takes precedence)
-    if (isManual && category) return category
+    // Priority 1: User-confirmed tags respected (user intent takes precedence)
+    if (isUserConfirmed(source) && category) return category
 
     // Priority 2: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
@@ -243,13 +243,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
         const source = featureSelectionSources.get(featureId)
 
         if (selectionState === 'selected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             autoSelected++
           } else {
             confirmed++
           }
         } else if (selectionState === 'rejected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             autoRejected++
           } else {
             rejected++
@@ -293,8 +293,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     for (const featureId of featureSet) {
       const effectiveCategory = getEffectiveCategory(featureId)
       const source = causeSelectionSources.get(featureId)
-      // Auto: tagged as 'auto' in causeSelectionSources
-      const isAuto = source === 'auto'
+      // Auto: tagged as 'predicted' in causeSelectionSources (SVM predictions)
+      const isAuto = source === 'predicted'
 
       switch (effectiveCategory) {
         case 'noisy-activation':
@@ -359,14 +359,14 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
         if (currentState === 'selected') {
           // Already selected
-          if (currentSource === 'auto') {
+          if (currentSource === 'predicted') {
             autoSelected++
           } else {
             confirmed++
           }
         } else if (currentState === 'rejected') {
           // Already rejected
-          if (currentSource === 'auto') {
+          if (currentSource === 'predicted') {
             autoRejected++
           } else {
             rejected++
@@ -422,10 +422,10 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       if (!pairSelectionStates.has(pairKey)) {
         if (score >= thresholds.select) {
           simulatedPairStates.set(pairKey, 'selected')
-          simulatedPairSources.set(pairKey, 'auto')
+          simulatedPairSources.set(pairKey, 'predicted')
         } else if (score <= thresholds.reject) {
           simulatedPairStates.set(pairKey, 'rejected')
-          simulatedPairSources.set(pairKey, 'auto')
+          simulatedPairSources.set(pairKey, 'predicted')
         }
       }
     })
@@ -450,13 +450,13 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     featureStates.forEach(({ state, source }) => {
       if (state === 'fragmented') {
-        if (source === 'auto') {
+        if (source === 'predicted') {
           autoSelected++
         } else {
           confirmed++
         }
       } else if (state === 'monosemantic') {
-        if (source === 'auto') {
+        if (source === 'predicted') {
           autoRejected++
         } else {
           rejected++

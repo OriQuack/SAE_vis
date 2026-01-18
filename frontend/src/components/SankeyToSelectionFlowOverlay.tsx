@@ -62,14 +62,14 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
       featureSelectionStates.forEach((selectionType, featureId) => {
         if (selectionType === 'selected') {
           const source = useVisualizationStore.getState().featureSelectionSources.get(featureId)
-          if (source === 'auto') {
+          if (source === 'predicted') {
             state.autoSelected.add(featureId)
           } else {
             state.confirmed.add(featureId)
           }
         } else if (selectionType === 'rejected') {
           const source = useVisualizationStore.getState().featureSelectionSources.get(featureId)
-          if (source === 'auto') {
+          if (source === 'predicted') {
             state.autoRejected.add(featureId)
           } else {
             state.rejected.add(featureId)
@@ -82,7 +82,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
         const [mainId, similarId] = pairKey.split('-').map(Number)
         if (selectionType === 'selected') {
           const source = useVisualizationStore.getState().pairSelectionSources.get(pairKey)
-          if (source === 'auto') {
+          if (source === 'predicted') {
             state.autoSelected.add(mainId)
             state.autoSelected.add(similarId)
           } else {
@@ -91,7 +91,7 @@ export const SankeyToSelectionFlowOverlay: React.FC<SankeyToSelectionFlowOverlay
           }
         } else if (selectionType === 'rejected') {
           const source = useVisualizationStore.getState().pairSelectionSources.get(pairKey)
-          if (source === 'auto') {
+          if (source === 'predicted') {
             state.autoRejected.add(mainId)
             state.autoRejected.add(similarId)
           } else {

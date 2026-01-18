@@ -13,7 +13,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
-import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation } from '../lib/tagging-hooks'
+import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import BatchTaggingPanel from './BatchTaggingPanel'
 import {
@@ -195,7 +195,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
 
     causeSelectionStates.forEach((category, featureId) => {
-      if (causeSelectionSources.get(featureId) === 'manual' && counts[category] !== undefined) {
+      if (isUserConfirmed(causeSelectionSources.get(featureId)) && counts[category] !== undefined) {
         counts[category]++
       }
     })
@@ -247,11 +247,11 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     hasAutoAdjustedBoundaryRef.current = true
 
-    // Collect all margins for non-manually-tagged features
+    // Collect all margins for non-user-confirmed features
     const margins: number[] = []
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'manual') return  // Skip manually tagged
+      if (isUserConfirmed(source)) return  // Skip user-confirmed tags
 
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (!categoryScores) {
@@ -291,7 +291,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     const margins: number[] = []
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'manual') return  // Skip manually tagged
+      if (isUserConfirmed(source)) return  // Skip user-confirmed tags
 
       const categoryScores = causeCategoryDecisionMargins.get(featureId)
       if (!categoryScores) {
@@ -485,12 +485,12 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [isTopMode, sortedMargins, _targetPercentage, setCauseMarginThreshold])
 
   // All features filtered by visibility (mode-based) and category filter
-  // When hideTagged=true, excludes manually tagged features (they're already done)
+  // When hideTagged=true, excludes user-confirmed features (they're already done)
   const filteredFeatureIds = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return []
     return Array.from(selectedFeatureIds).filter(featureId => {
-      // Optionally exclude manually tagged features from the list
-      if (hideTagged && causeSelectionSources.get(featureId) === 'manual') return false
+      // Optionally exclude user-confirmed features from the list
+      if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(featureId)) return false
       // In Top mode, apply tag filter if set
@@ -513,14 +513,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       // Diversity mode: hook already filtered to medoids, but still apply hideTagged filter
       const featureIds = sortedFeatureItems.map(item => item.featureId)
       if (!hideTagged) return featureIds
-      return featureIds.filter(featureId => causeSelectionSources.get(featureId) !== 'manual')
+      return featureIds.filter(featureId => !isUserConfirmed(causeSelectionSources.get(featureId)))
     }
 
     // Other modes: apply visibility filters
     return sortedFeatureItems
       .map(item => item.featureId)
       .filter(featureId => {
-        if (hideTagged && causeSelectionSources.get(featureId) === 'manual') return false
+        if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
         if (!isVisibleInCurrentMode(featureId)) return false
         if (isTopMode) {
           if (filterByTag) {
@@ -557,11 +557,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [featureListWithMetadata, getEffectiveCategory, visibleCategories])
 
-  // Check if all features are manually tagged (for enabling next stage button)
+  // Check if all features are user-confirmed tagged (for enabling next stage button)
   const allTagged = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return false
     for (const featureId of selectedFeatureIds) {
-      if (causeSelectionSources.get(featureId) !== 'manual') return false
+      if (!isUserConfirmed(causeSelectionSources.get(featureId))) return false
     }
     return true
   }, [selectedFeatureIds, causeSelectionSources])
@@ -735,7 +735,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     useVisualizationStore.setState({ stage3CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
     useVisualizationStore.setState({ stage3CommitData: data })
   }, [])
 
@@ -743,7 +743,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     useVisualizationStore.setState({ stage3CurrentCommitIndex: index })
   }, [])
 
-  const setFinalCommitFromHook = useCallback((data: { states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds: Set<number>; counts: CauseCommitCounts }) => {
+  const setFinalCommitFromHook = useCallback((data: { states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds: Set<number>; counts: CauseCommitCounts }) => {
     setStage3FinalCommit({
       causeSelectionStates: new Map(data.states),
       causeSelectionSources: new Map(data.sources),
@@ -765,7 +765,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   }), [isRevisitingStage3, stage3CommitHistory, stage3CommitData, stage3CurrentCommitIndex, setStoreCommitHistory, setStoreCommitData, setStoreCurrentCommitIndex, setFinalCommitFromHook])
 
   // Use the commit history hook with store sync
-  const { createCommit } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'manual' | 'auto'>, CauseCommitCounts>({
+  const { createCommit } = useCommitHistory<Map<number, CauseCategory>, Map<number, 'click' | 'threshold' | 'predicted'>, CauseCommitCounts>({
     ...createCauseCommitHistoryOptions(
       () => causeSelectionStates,
       () => causeSelectionSources,
@@ -828,14 +828,14 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [selectedFeatureData, causeSelectionSources])
 
   // Handle tag button click - toggle category on/off
-  // Clicking same category: if manual, clear to unsure; if auto, confirm as manual
-  // Clicking different category: set new category as manual
+  // Clicking same category: if user-confirmed, clear to unsure; if predicted, confirm
+  // Clicking different category: set new category as click source
   const handleTagClick = useCallback((category: CauseCategory) => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
 
     const isSameCategory = currentCauseCategory === category
-    const isAutoTagged = currentCauseSource === 'auto'
+    const isAutoTagged = currentCauseSource === 'predicted'
 
     if (isSameCategory && !isAutoTagged) {
       // Already manually selected same category - toggle off to unsure
@@ -870,15 +870,15 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
-    // 2. Apply tags to all filtered features that aren't manually tagged
+    // 2. Apply tags to all filtered features that aren't user-confirmed
     filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features - preserve user's explicit choices
-      if (source === 'manual') return
+      // Skip user-confirmed features - preserve user's explicit choices
+      if (isUserConfirmed(source)) return
       // Tag features with their predicted category
       const predictedCategory = causeSelectionStates.get(featureId)
       if (predictedCategory === 'missed-N-gram' || predictedCategory === 'missed-context' || predictedCategory === 'noisy-activation') {
-        setCauseCategory(featureId, predictedCategory, false)
+        setCauseCategory(featureId, predictedCategory)
       }
     })
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
@@ -894,12 +894,12 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 2. Apply tags only to features that are already predicted as this category
     filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features - preserve user's explicit choices
-      if (source === 'manual') return
+      // Skip user-confirmed features - preserve user's explicit choices
+      if (isUserConfirmed(source)) return
       // Only tag features that match the target category
       const predictedCategory = causeSelectionStates.get(featureId)
       if (predictedCategory !== category) return
-      setCauseCategory(featureId, category, false)
+      setCauseCategory(featureId, category)
     })
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
 
@@ -923,8 +923,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features
-      if (source === 'manual') return
+      // Skip user-confirmed features
+      if (isUserConfirmed(source)) return
 
       const categoryMargins = causeCategoryDecisionMargins.get(featureId)
       if (!categoryMargins) return
@@ -940,9 +940,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
 
     // 3. Apply all updates in a single state change
-    // isActualManual=false because this is a batch operation (decision boundary)
     if (batchUpdates.size > 0) {
-      setCauseCategoriesBatch(batchUpdates, false)
+      setCauseCategoriesBatch(batchUpdates)
     }
     // Effect will sync changes to current commit
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategoriesBatch, createCommit])
@@ -968,8 +967,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features
-      if (source === 'manual') return
+      // Skip user-confirmed features
+      if (isUserConfirmed(source)) return
 
       const categoryMargins = causeCategoryDecisionMargins.get(featureId)
       if (!categoryMargins) return
@@ -1000,8 +999,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     selectedFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features - they won't be re-tagged
-      if (source === 'manual') return
+      // Skip user-confirmed features - they won't be re-tagged
+      if (isUserConfirmed(source)) return
       // Skip well-explained features - they are tagged individually, not by SVM batch tagging
       const effectiveCategory = getEffectiveCategory(featureId)
       if (effectiveCategory === 'well-explained') return
@@ -1026,8 +1025,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
-      // Skip manually tagged features - they won't be re-tagged
-      if (source === 'manual') {
+      // Skip user-confirmed features - they won't be re-tagged
+      if (isUserConfirmed(source)) {
         manualCount++
         return
       }
@@ -1074,8 +1073,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     let isAuto = false
 
     if (sortMode === 'diversity') {
-      // Diversity mode: show manual tags, otherwise unsure
-      if (causeSource === 'manual') {
+      // Diversity mode: show user-confirmed tags, otherwise unsure
+      if (isUserConfirmed(causeSource)) {
         const manualCategory = causeSelectionStates.get(featureId)
         tagName = manualCategory ? (CAUSE_TAG_NAMES[manualCategory] || 'Unsure') : 'Unsure'
       } else {
@@ -1088,10 +1087,10 @@ const CauseView: React.FC<CauseViewProps> = ({
         ? 'Unsure'
         : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
 
-      // Stripe pattern only in Top mode for non-manual features (above-threshold candidates)
+      // Stripe pattern only in Top mode for predicted features (above-threshold candidates)
       // Low mode: no stripe (unsure features, no auto-tagging shown)
       // Top mode: stripe for candidates (above threshold, showing predicted category)
-      isAuto = isTopMode && causeSource !== 'manual' && effectiveCategory !== 'unsure'
+      isAuto = isTopMode && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
     }
 
     return (

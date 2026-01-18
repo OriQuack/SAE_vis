@@ -11,44 +11,47 @@ interface RegenerationViewProps {
 const RegenerationView: React.FC<RegenerationViewProps> = ({ className = '' }) => {
   const {
     pairSelectionStates,
-    manuallyTaggedPairs,
+    pairSelectionSources,
     featureSelectionStates,
-    manuallyTaggedFeatures,
+    featureSelectionSources,
     causeSelectionStates,
-    manuallyTaggedCauses
+    causeSelectionSources
   } = useVisualizationStore()
 
   const handleDownload = useCallback(() => {
     // Stage 1: Feature Splitting (pairs)
+    // Manual = click source (direct user clicks), Auto = threshold or predicted
     const stage1 = {
       fragmented: { manual: [] as string[], auto: [] as string[] },
       monosemantic: { manual: [] as string[], auto: [] as string[] }
     }
     pairSelectionStates.forEach((state, key) => {
       const tag = state === 'selected' ? 'fragmented' : 'monosemantic'
-      const source = manuallyTaggedPairs.has(key) ? 'manual' : 'auto'
+      const source = pairSelectionSources.get(key) === 'click' ? 'manual' : 'auto'
       stage1[tag][source].push(key)
     })
 
     // Stage 2: Quality (features) + Stage 3 well-explained merged
+    // Manual = click source (direct user clicks), Auto = threshold or predicted
     const stage2 = {
       wellExplained: { manual: [] as number[], auto: [] as number[] },
       needRevision: { manual: [] as number[], auto: [] as number[] }
     }
     featureSelectionStates.forEach((state, id) => {
       const tag = state === 'selected' ? 'wellExplained' : 'needRevision'
-      const source = manuallyTaggedFeatures.has(id) ? 'manual' : 'auto'
+      const source = featureSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
       stage2[tag][source].push(id)
     })
     // Merge Stage 3 well-explained into Stage 2
     causeSelectionStates.forEach((tag, id) => {
       if (tag === 'well-explained') {
-        const source = manuallyTaggedCauses.has(id) ? 'manual' : 'auto'
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
         stage2.wellExplained[source].push(id)
       }
     })
 
     // Stage 3: Cause categories (excluding well-explained, merged above)
+    // Manual = click source (direct user clicks), Auto = threshold or predicted
     const stage3 = {
       patternMiss: { manual: [] as number[], auto: [] as number[] },
       contextMiss: { manual: [] as number[], auto: [] as number[] },
@@ -56,13 +59,13 @@ const RegenerationView: React.FC<RegenerationViewProps> = ({ className = '' }) =
     }
     causeSelectionStates.forEach((tag, id) => {
       if (tag === 'missed-N-gram') {
-        const source = manuallyTaggedCauses.has(id) ? 'manual' : 'auto'
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
         stage3.patternMiss[source].push(id)
       } else if (tag === 'missed-context') {
-        const source = manuallyTaggedCauses.has(id) ? 'manual' : 'auto'
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
         stage3.contextMiss[source].push(id)
       } else if (tag === 'noisy-activation') {
-        const source = manuallyTaggedCauses.has(id) ? 'manual' : 'auto'
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
         stage3.noisyActivation[source].push(id)
       }
     })
@@ -91,11 +94,11 @@ const RegenerationView: React.FC<RegenerationViewProps> = ({ className = '' }) =
     URL.revokeObjectURL(url)
   }, [
     pairSelectionStates,
-    manuallyTaggedPairs,
+    pairSelectionSources,
     featureSelectionStates,
-    manuallyTaggedFeatures,
+    featureSelectionSources,
     causeSelectionStates,
-    manuallyTaggedCauses
+    causeSelectionSources
   ])
 
   return (

@@ -1,5 +1,6 @@
 import * as api from '../api'
 import { FLIP_HISTORY_WINDOW_SIZE } from '../components/ConvergenceIndicator'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 
 // ============================================================================
 // FEATURE SPLIT ACTIONS (Stage 1 - Pairs)
@@ -28,28 +29,28 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       return { fragmented: 0, monosemantic: 0, unsure: 0, total: 0, fragmentedManual: 0, fragmentedAuto: 0, monosematicManual: 0, monosematicAuto: 0 }
     }
 
-    // Track features by state (with source for manual/auto distinction)
-    const fragmentedFeatures = new Map<number, 'manual' | 'auto'>()
-    const monosematicFeatures = new Map<number, 'manual' | 'auto'>()
+    // Track features by state (with source for user-confirmed/predicted distinction)
+    const fragmentedFeatures = new Map<number, 'click' | 'threshold' | 'predicted'>()
+    const monosematicFeatures = new Map<number, 'click' | 'threshold' | 'predicted'>()
 
     for (const pair of allClusterPairs) {
       if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) continue
 
       const pairState = pairSelectionStates.get(pair.pair_key)
-      const pairSource = pairSelectionSources.get(pair.pair_key) || 'manual'
+      const pairSource = pairSelectionSources.get(pair.pair_key) || 'click'
 
       if (pairState === 'selected') {
-        // Update with priority: manual > auto
+        // Update with priority: user-confirmed > predicted
         for (const id of [pair.main_id, pair.similar_id]) {
           const existing = fragmentedFeatures.get(id)
-          if (!existing || (existing === 'auto' && pairSource === 'manual')) {
+          if (!existing || (!isUserConfirmed(existing) && isUserConfirmed(pairSource))) {
             fragmentedFeatures.set(id, pairSource)
           }
         }
       } else if (pairState === 'rejected') {
         for (const id of [pair.main_id, pair.similar_id]) {
           const existing = monosematicFeatures.get(id)
-          if (!existing || (existing === 'auto' && pairSource === 'manual')) {
+          if (!existing || (!isUserConfirmed(existing) && isUserConfirmed(pairSource))) {
             monosematicFeatures.set(id, pairSource)
           }
         }
@@ -63,11 +64,11 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     for (const featureId of filteredFeatureIds) {
       if (fragmentedFeatures.has(featureId)) {
         fragmented++
-        if (fragmentedFeatures.get(featureId) === 'manual') fragmentedManual++
+        if (isUserConfirmed(fragmentedFeatures.get(featureId))) fragmentedManual++
         else fragmentedAuto++
       } else if (monosematicFeatures.has(featureId)) {
         monosemantic++
-        if (monosematicFeatures.get(featureId) === 'manual') monosematicManual++
+        if (isUserConfirmed(monosematicFeatures.get(featureId))) monosematicManual++
         else monosematicAuto++
       } else {
         // Feature has no pairs OR untagged pairs - treat as unsure
@@ -116,8 +117,8 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
 
     pairSelectionStates.forEach((selectionState: string, pairKey: string) => {
       const source = pairSelectionSources.get(pairKey)
-      // Only use manually labeled pairs for similarity sorting
-      if (source === 'manual') {
+      // Only use user-confirmed pairs (click or threshold) for similarity sorting
+      if (isUserConfirmed(source)) {
         if (selectionState === 'selected') {
           selectedPairKeys.push(pairKey)
         } else if (selectionState === 'rejected') {
@@ -301,9 +302,9 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         // Only include pairs that exist in the current cluster pairs list
         if (availablePairKeys && !availablePairKeys.has(pairKey)) return
 
-        // Only include manual selections for SVM training
+        // Only include user-confirmed selections (click or threshold) for SVM training
         const source = pairSelectionSources.get(pairKey)
-        if (source !== 'manual') return
+        if (!isUserConfirmed(source)) return
 
         if (state === 'selected') selectedPairKeys.push(pairKey)
         else if (state === 'rejected') rejectedPairKeys.push(pairKey)
@@ -682,23 +683,23 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     let untaggedCount = 0
 
     Object.entries(scores).forEach(([pairKey, score]) => {
-      // Skip if already manually tagged
+      // Skip if already tagged
       if (pairSelectionStates.has(pairKey)) {
         return
       }
 
       // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
-      // Note: source is 'manual' because clicking "Apply Tags" means user has confirmed these tags
+      // Note: source is 'threshold' because user clicked "Apply Tags" to confirm batch threshold-based tags
       if (typeof score === 'number') {
         if (score >= selectThreshold) {
           // Blue zone: auto-select (confirmed by user clicking Apply Tags)
           newPairSelectionStates.set(pairKey, 'selected')
-          newPairSelectionSources.set(pairKey, 'manual')
+          newPairSelectionSources.set(pairKey, 'threshold')
           selectedCount++
         } else if (score <= rejectThreshold) {
           // Light red zone: auto-reject (confirmed by user clicking Apply Tags)
           newPairSelectionStates.set(pairKey, 'rejected')
-          newPairSelectionSources.set(pairKey, 'manual')
+          newPairSelectionSources.set(pairKey, 'threshold')
           rejectedCount++
         } else {
           // Middle zone: leave untagged

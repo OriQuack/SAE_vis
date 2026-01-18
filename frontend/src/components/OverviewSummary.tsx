@@ -24,15 +24,16 @@ const CAUSE_TAG_CONFIG: Record<string, { display: string }> = {
  */
 const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => {
   const {
-    manuallyTaggedPairs,
-    manuallyTaggedFeatures,
-    manuallyTaggedCauses,
     pairSelectionStates,
+    pairSelectionSources,
     featureSelectionStates,
-    causeSelectionStates
+    featureSelectionSources,
+    causeSelectionStates,
+    causeSelectionSources
   } = useVisualizationStore()
 
   // Stage 1: Count by tag (Fragmented / Monosemantic)
+  // Manual = click source (direct user clicks), Auto = threshold or predicted
   const stage1Counts = useMemo(() => {
     const counts = {
       Fragmented: { manual: 0, auto: 0 },
@@ -40,14 +41,15 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
     }
     pairSelectionStates.forEach((state, key) => {
       const tag = state === 'selected' ? 'Fragmented' : 'Monosemantic'
-      const isManual = manuallyTaggedPairs.has(key)
+      const isManual = pairSelectionSources.get(key) === 'click'
       counts[tag][isManual ? 'manual' : 'auto']++
     })
     return counts
-  }, [pairSelectionStates, manuallyTaggedPairs])
+  }, [pairSelectionStates, pairSelectionSources])
 
   // Stage 2: Count by tag (Well-Explained / Need Revision)
   // Includes Stage 3 'well-explained' merged into Well-Explained
+  // Manual = click source (direct user clicks), Auto = threshold or predicted
   const stage2Counts = useMemo(() => {
     const counts = {
       'Well-Explained': { manual: 0, auto: 0 },
@@ -55,20 +57,21 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
     }
     featureSelectionStates.forEach((state, id) => {
       const tag = state === 'selected' ? 'Well-Explained' : 'Need Revision'
-      const isManual = manuallyTaggedFeatures.has(id)
+      const isManual = featureSelectionSources.get(id) === 'click'
       counts[tag][isManual ? 'manual' : 'auto']++
     })
     // Merge Stage 3 'well-explained' into Stage 2 Well-Explained
     causeSelectionStates.forEach((tag, id) => {
       if (tag === 'well-explained') {
-        const isManual = manuallyTaggedCauses.has(id)
+        const isManual = causeSelectionSources.get(id) === 'click'
         counts['Well-Explained'][isManual ? 'manual' : 'auto']++
       }
     })
     return counts
-  }, [featureSelectionStates, manuallyTaggedFeatures, causeSelectionStates, manuallyTaggedCauses])
+  }, [featureSelectionStates, featureSelectionSources, causeSelectionStates, causeSelectionSources])
 
   // Stage 3: Count by cause tag (well-explained excluded, merged to Stage 2)
+  // Manual = click source (direct user clicks), Auto = threshold or predicted
   const stage3Counts = useMemo(() => {
     const counts: Record<string, { manual: number; auto: number }> = {
       'missed-N-gram': { manual: 0, auto: 0 },
@@ -77,12 +80,12 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
     }
     causeSelectionStates.forEach((tag, id) => {
       if (tag !== 'well-explained' && counts[tag]) {
-        const isManual = manuallyTaggedCauses.has(id)
+        const isManual = causeSelectionSources.get(id) === 'click'
         counts[tag][isManual ? 'manual' : 'auto']++
       }
     })
     return counts
-  }, [causeSelectionStates, manuallyTaggedCauses])
+  }, [causeSelectionStates, causeSelectionSources])
 
   // Helper to render a tag row with colored badge
   const renderTagRow = (

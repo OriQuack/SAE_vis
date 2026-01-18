@@ -44,7 +44,7 @@ export interface CommitCounts {
 // Stage 1 commit type for revisiting state restoration
 export interface Stage1FinalCommit {
   pairSelectionStates: Map<string, 'selected' | 'rejected'>
-  pairSelectionSources: Map<string, 'manual' | 'auto'>
+  pairSelectionSources: Map<string, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 1 feature IDs for pair fetching
   counts?: CommitCounts    // Optional: Counts at commit time for hover preview
   // Histogram state preservation for stage revisiting
@@ -73,7 +73,7 @@ export interface QualityCommitCounts {
 // Stage 2 commit type for revisiting state restoration
 export interface Stage2FinalCommit {
   featureSelectionStates: Map<number, 'selected' | 'rejected'>
-  featureSelectionSources: Map<number, 'manual' | 'auto'>
+  featureSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 2 feature IDs
   counts?: QualityCommitCounts
   // Histogram state preservation for stage revisiting
@@ -101,7 +101,7 @@ export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-conte
 // Stage 3 commit type for revisiting state restoration
 export interface Stage3FinalCommit {
   causeSelectionStates: Map<number, CauseCategory>
-  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 3 feature IDs
   counts?: CauseCommitCounts
 }
@@ -124,39 +124,33 @@ interface AppState {
   // Feature selection state (used by QualityView)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   featureSelectionStates: Map<number, 'selected' | 'rejected'>
-  // Track how features were selected: 'manual' (user click) or 'auto' (histogram tagging)
-  featureSelectionSources: Map<number, 'manual' | 'auto'>
+  // Track how features were selected: 'click' (direct click), 'threshold' (Apply Tags), or 'predicted' (SVM)
+  featureSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   toggleFeatureSelection: (featureId: number) => void
 
   // Pair selection state (used by FeatureSplitView)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
   // Key format: "${mainFeatureId}-${similarFeatureId}"
   pairSelectionStates: Map<string, 'selected' | 'rejected'>
-  // Track how pairs were selected: 'manual' (user click) or 'auto' (histogram tagging)
-  pairSelectionSources: Map<string, 'manual' | 'auto'>
+  // Track how pairs were selected: 'click' (direct click), 'threshold' (Apply Tags), or 'predicted' (SVM)
+  pairSelectionSources: Map<string, 'click' | 'threshold' | 'predicted'>
   togglePairSelection: (mainFeatureId: number, similarFeatureId: number) => void
   clearPairSelection: () => void
-  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => void
-  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => void
+  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'click' | 'threshold' | 'predicted'>) => void
+  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => void
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
   // Three-state cycle: null -> noisy-activation -> missed-N-gram -> missed-context -> null
   causeSelectionStates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>
-  // Track how features were selected: 'manual' (user click) or 'auto' (automatic tagging)
-  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  // Track how features were selected: 'click' (direct click), 'threshold' (Apply Tags), or 'predicted' (SVM)
+  causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   // Metric scores for each feature (for sorting/visualization)
   causeMetricScores: Map<number, CauseMetricScores>
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null, isActualManual?: boolean) => void
-  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>, isActualManual?: boolean) => void
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => void
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => void
   clearCauseSelection: () => void
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
-
-  // Truly manually tagged items (direct user clicks, not threshold-applied)
-  // Used for Stage 4 summary to distinguish manual vs auto tagging
-  manuallyTaggedPairs: Set<string>      // Stage 1: pair keys
-  manuallyTaggedFeatures: Set<number>   // Stage 2: feature IDs
-  manuallyTaggedCauses: Set<number>     // Stage 3: feature IDs
 
   // Comparison view state
   showComparisonView: boolean
@@ -323,7 +317,7 @@ interface AppState {
   stage3FinalCommit: Stage3FinalCommit | null
   setStage3FinalCommit: (commit: Stage3FinalCommit | null) => void
   setIsRevisitingStage3: (value: boolean) => void
-  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => void
+  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => void
 
   // ============================================================================
   // COMMIT HISTORY - Centralized for SelectionPanel display
@@ -331,15 +325,15 @@ interface AppState {
   // Stage 1 commit history (pair tagging)
   stage1CommitHistory: Array<{id: number; type: CommitType; counts?: CommitCounts}>
   stage1CurrentCommitIndex: number
-  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
+  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
   // Stage 2 commit history (feature tagging)
   stage2CommitHistory: Array<{id: number; type: CommitType; counts?: QualityCommitCounts}>
   stage2CurrentCommitIndex: number
-  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
+  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
   // Stage 3 commit history (cause tagging)
   stage3CommitHistory: Array<{id: number; type: CommitType; counts?: CauseCommitCounts}>
   stage3CurrentCommitIndex: number
-  stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number>}>
+  stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>}>
   // Commit history actions
   addStage1Commit: (type: 'apply' | 'tagAll', counts?: CommitCounts, featureIds?: Set<number>) => void
   setStage1CommitIndex: (index: number) => void
@@ -528,21 +522,16 @@ const initialState = {
 
   // Feature selection state (used by QualityView)
   featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
-  featureSelectionSources: new Map<number, 'manual' | 'auto'>(),
+  featureSelectionSources: new Map<number, 'click' | 'threshold' | 'predicted'>(),
 
   // Pair selection state (used by FeatureSplitView)
   pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
-  pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
+  pairSelectionSources: new Map<string, 'click' | 'threshold' | 'predicted'>(),
 
   // Cause category selection state (used by SelectionPanel for Stage 3)
   causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
-  causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
+  causeSelectionSources: new Map<number, 'click' | 'threshold' | 'predicted'>(),
   causeMetricScores: new Map<number, CauseMetricScores>(),
-
-  // Truly manually tagged items (direct user clicks, not threshold-applied)
-  manuallyTaggedPairs: new Set<string>(),
-  manuallyTaggedFeatures: new Set<number>(),
-  manuallyTaggedCauses: new Set<number>(),
 
   // Comparison view state
   showComparisonView: false,
@@ -709,7 +698,7 @@ export const useStore = create<AppState>((set, get) => {
     console.log('[Store.setIsRevisitingStage3] Set revisiting flag:', value)
   },
 
-  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'manual' | 'auto'>) => {
+  restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => {
     set({
       causeSelectionStates: new Map(states),
       causeSelectionSources: new Map(sources)
@@ -899,24 +888,20 @@ export const useStore = create<AppState>((set, get) => {
     set((state) => {
       const newStates = new Map(state.featureSelectionStates)
       const newSources = new Map(state.featureSelectionSources)
-      const newManuallyTagged = new Set(state.manuallyTaggedFeatures)
       const currentState = newStates.get(featureId)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(featureId, 'selected')
-        newSources.set(featureId, 'manual')
-        newManuallyTagged.add(featureId)
+        newSources.set(featureId, 'click')
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(featureId, 'rejected')
-        newSources.set(featureId, 'manual')
-        newManuallyTagged.add(featureId)
+        newSources.set(featureId, 'click')
       } else {
         // rejected -> null (remove from map)
         newStates.delete(featureId)
         newSources.delete(featureId)
-        newManuallyTagged.delete(featureId)
       }
 
       // Clear last sorted selection signature when selection changes
@@ -924,7 +909,6 @@ export const useStore = create<AppState>((set, get) => {
       return {
         featureSelectionStates: newStates,
         featureSelectionSources: newSources,
-        manuallyTaggedFeatures: newManuallyTagged,
         lastSortedSelectionSignature: null,
         doneFeatureSelectionStates: null
       }
@@ -941,30 +925,25 @@ export const useStore = create<AppState>((set, get) => {
         : `${similarFeatureId}-${mainFeatureId}`
       const newStates = new Map(state.pairSelectionStates)
       const newSources = new Map(state.pairSelectionSources)
-      const newManuallyTagged = new Set(state.manuallyTaggedPairs)
       const currentState = newStates.get(pairKey)
 
       if (currentState === undefined) {
         // null -> selected
         newStates.set(pairKey, 'selected')
-        newSources.set(pairKey, 'manual')
-        newManuallyTagged.add(pairKey)
+        newSources.set(pairKey, 'click')
       } else if (currentState === 'selected') {
         // selected -> rejected
         newStates.set(pairKey, 'rejected')
-        newSources.set(pairKey, 'manual')
-        newManuallyTagged.add(pairKey)
+        newSources.set(pairKey, 'click')
       } else {
         // rejected -> null (remove from map)
         newStates.delete(pairKey)
         newSources.delete(pairKey)
-        newManuallyTagged.delete(pairKey)
       }
 
       return {
         pairSelectionStates: newStates,
         pairSelectionSources: newSources,
-        manuallyTaggedPairs: newManuallyTagged,
         donePairSelectionStates: null
       }
     })
@@ -973,12 +952,12 @@ export const useStore = create<AppState>((set, get) => {
   clearPairSelection: () => {
     set({
       pairSelectionStates: new Map<string, 'selected' | 'rejected'>(),
-      pairSelectionSources: new Map<string, 'manual' | 'auto'>(),
+      pairSelectionSources: new Map<string, 'click' | 'threshold' | 'predicted'>(),
       featureSelectionStates: new Map<number, 'selected' | 'rejected'>()
     })
   },
 
-  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'manual' | 'auto'>) => {
+  restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'click' | 'threshold' | 'predicted'>) => {
     set({
       pairSelectionStates: new Map(states),
       pairSelectionSources: new Map(sources),
@@ -986,7 +965,7 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'manual' | 'auto'>) => {
+  restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => {
     set({
       featureSelectionStates: new Map(states),
       featureSelectionSources: new Map(sources),
@@ -999,7 +978,7 @@ export const useStore = create<AppState>((set, get) => {
   clearCauseSelection: () => {
     set({
       causeSelectionStates: new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>(),
-      causeSelectionSources: new Map<number, 'manual' | 'auto'>(),
+      causeSelectionSources: new Map<number, 'click' | 'threshold' | 'predicted'>(),
       causeMetricScores: new Map<number, CauseMetricScores>()
     })
   },
@@ -1023,54 +1002,41 @@ export const useStore = create<AppState>((set, get) => {
     console.log('[Store.initializeCauseMetricScores] Metric scores calculated, all features start as unsure')
   },
 
-  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null, isActualManual: boolean = true) => {
+  setCauseCategory: (featureId: number, category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained' | null) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
-      const newManuallyTagged = new Set(state.manuallyTaggedCauses)
 
       if (category === null) {
         // Clear the selection
         newStates.delete(featureId)
         newSources.delete(featureId)
-        newManuallyTagged.delete(featureId)
       } else {
         // Set the specific category
         newStates.set(featureId, category)
-        newSources.set(featureId, 'manual')
-        // Only add to manuallyTaggedCauses if truly manual (direct user click)
-        if (isActualManual) {
-          newManuallyTagged.add(featureId)
-        }
+        newSources.set(featureId, 'click')
       }
 
       return {
         causeSelectionStates: newStates,
-        causeSelectionSources: newSources,
-        manuallyTaggedCauses: newManuallyTagged
+        causeSelectionSources: newSources
       }
     })
   },
 
-  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>, isActualManual: boolean = true) => {
+  setCauseCategoriesBatch: (updates: Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>) => {
     set((state) => {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
-      const newManuallyTagged = new Set(state.manuallyTaggedCauses)
 
       updates.forEach((category, featureId) => {
         newStates.set(featureId, category)
-        newSources.set(featureId, 'manual')
-        // Only add to manuallyTaggedCauses if truly manual (direct user click)
-        if (isActualManual) {
-          newManuallyTagged.add(featureId)
-        }
+        newSources.set(featureId, 'click')
       })
 
       return {
         causeSelectionStates: newStates,
-        causeSelectionSources: newSources,
-        manuallyTaggedCauses: newManuallyTagged
+        causeSelectionSources: newSources
       }
     })
   },

@@ -6,11 +6,16 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 // Extracts common commit history logic from FeatureSplitView, QualityView, and CauseView
 
 export type SelectionState = 'selected' | 'rejected'
-export type SelectionSource = 'manual' | 'auto'
+export type SelectionSource = 'click' | 'threshold' | 'predicted'
 export type CommitType = 'initial' | 'apply' | 'tagAll' | 'verify'
 
 // CauseCategory for Stage 3 (multi-class instead of binary)
 export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
+
+// Helper: Check if a source is user-confirmed (should be used for SVM training)
+export function isUserConfirmed(source: SelectionSource | undefined): boolean {
+  return source === 'click' || source === 'threshold'
+}
 
 export interface Commit<TStates, TSources, TCounts = void> {
   id: number

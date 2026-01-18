@@ -133,13 +133,14 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // } | null>(null)
 
   // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
+  // Only 'click' source counts for SVM training (direct user clicks, not batch 'threshold' or SVM 'predicted')
   const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, string> = {}
 
     causeSelectionStates.forEach((category: string, featureId: number) => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'manual') {
+      if (source === 'click') {
         manualTags.set(category, (manualTags.get(category) || 0) + 1)
         selections[featureId] = category
       }
@@ -156,11 +157,12 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // Compute signature of manual tags to use as stable dependency
   // This prevents infinite loops by only triggering when the SET of manual tag IDs changes
   // Computing directly from Maps avoids intermediate object reference changes
+  // Only 'click' source counts for SVM training
   const manualTagsSignature = useMemo(() => {
     const manualIds: number[] = []
     causeSelectionStates.forEach((_category, featureId) => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'manual') {
+      if (source === 'click') {
         manualIds.push(featureId)
       }
     })

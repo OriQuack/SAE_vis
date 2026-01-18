@@ -18,7 +18,8 @@ export {
   useCommitHistory,
   createPairCommitHistoryOptions,
   createFeatureCommitHistoryOptions,
-  createCauseCommitHistoryOptions
+  createCauseCommitHistoryOptions,
+  isUserConfirmed
 } from './useCommitHistory'
 export type {
   SelectionState,

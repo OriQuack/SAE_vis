@@ -1,4 +1,5 @@
 import * as api from '../api'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 
 // ============================================================================
 // CAUSE STAGE ACTIONS (multi-class features)
@@ -34,23 +35,23 @@ export const createCauseActions = (set: any, get: any) => ({
     // Iterate directly over causeSelectionStates (not filtered by current selection)
     // This matches how OverviewSummary.tsx counts Stage 3 tags
     causeSelectionStates.forEach((category: string, featureId: number) => {
-      const source = causeSelectionSources.get(featureId) || 'manual'
+      const source = causeSelectionSources.get(featureId) || 'click'
 
       if (category === 'noisy-activation') {
         noisyActivation++
-        if (source === 'manual') noisyActivationManual++
+        if (isUserConfirmed(source)) noisyActivationManual++
         else noisyActivationAuto++
       } else if (category === 'missed-N-gram') {
         missedNgram++
-        if (source === 'manual') missedNgramManual++
+        if (isUserConfirmed(source)) missedNgramManual++
         else missedNgramAuto++
       } else if (category === 'missed-context') {
         missedContext++
-        if (source === 'manual') missedContextManual++
+        if (isUserConfirmed(source)) missedContextManual++
         else missedContextAuto++
       } else if (category === 'well-explained') {
         wellExplained++
-        if (source === 'manual') wellExplainedManual++
+        if (isUserConfirmed(source)) wellExplainedManual++
         else wellExplainedAuto++
       }
     })
@@ -103,8 +104,8 @@ export const createCauseActions = (set: any, get: any) => ({
 
     causeSelectionStates.forEach((category: 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained', featureId: number) => {
       const source = causeSelectionSources.get(featureId)
-      // Only count manually labeled features
-      if (source === 'manual') {
+      // Only count user-confirmed features (click or threshold)
+      if (isUserConfirmed(source)) {
         categoryCounts[category]++
       }
     })
@@ -124,12 +125,12 @@ export const createCauseActions = (set: any, get: any) => ({
     try {
       set({ isCauseSimilaritySortLoading: true })
 
-      // Convert Map to plain object for API (ONLY manually labeled)
+      // Convert Map to plain object for API (ONLY user-confirmed)
       const causeSelections: Record<number, string> = {}
       causeSelectionStates.forEach((category: string, featureId: number) => {
         const source = causeSelectionSources.get(featureId)
-        // Only use manually labeled features for similarity sorting
-        if (source === 'manual') {
+        // Only use user-confirmed features (click or threshold) for similarity sorting
+        if (isUserConfirmed(source)) {
           causeSelections[featureId] = category
         }
       })
@@ -410,7 +411,7 @@ export const createCauseActions = (set: any, get: any) => ({
       // Build change lists first without creating Maps
       // Only create new Map objects if there are actual changes to prevent infinite loops
       const statesToUpdate: Array<[number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained']> = []
-      const sourcesToUpdate: Array<[number, 'auto']> = []
+      const sourcesToUpdate: Array<[number, 'predicted']> = []
 
       response.results.forEach((result) => {
         // Only update non-manually-tagged features
@@ -420,9 +421,9 @@ export const createCauseActions = (set: any, get: any) => ({
           const predictedCategory = result.predicted_category as 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'
 
           // Only update if there's an actual change
-          if (currentCategory !== predictedCategory || currentSource !== 'auto') {
+          if (currentCategory !== predictedCategory || currentSource !== 'predicted') {
             statesToUpdate.push([result.feature_id, predictedCategory])
-            sourcesToUpdate.push([result.feature_id, 'auto'])
+            sourcesToUpdate.push([result.feature_id, 'predicted'])
           }
         }
       })

@@ -1,5 +1,6 @@
 import * as api from '../api'
 import { FLIP_HISTORY_WINDOW_SIZE } from '../components/ConvergenceIndicator'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 
 // ============================================================================
 // QUALITY STAGE ACTIONS (features)
@@ -32,15 +33,15 @@ export const createQualityActions = (set: any, get: any) => ({
 
     for (const featureId of filteredFeatureIds) {
       const selectionState = featureSelectionStates.get(featureId)
-      const source = featureSelectionSources.get(featureId) || 'manual'
+      const source = featureSelectionSources.get(featureId) || 'click'
 
       if (selectionState === 'selected') {
         wellExplained++
-        if (source === 'manual') wellExplainedManual++
+        if (isUserConfirmed(source)) wellExplainedManual++
         else wellExplainedAuto++
       } else if (selectionState === 'rejected') {
         needRevision++
-        if (source === 'manual') needRevisionManual++
+        if (isUserConfirmed(source)) needRevisionManual++
         else needRevisionAuto++
       } else {
         unsure++
@@ -89,8 +90,8 @@ export const createQualityActions = (set: any, get: any) => ({
 
     featureSelectionStates.forEach((selectionState: string, featureId: number) => {
       const source = featureSelectionSources.get(featureId)
-      // Only use manually labeled features for similarity sorting
-      if (source === 'manual') {
+      // Only use user-confirmed features (click or threshold) for similarity sorting
+      if (isUserConfirmed(source)) {
         if (selectionState === 'selected') {
           selectedIds.push(featureId)
         } else if (selectionState === 'rejected') {
@@ -502,23 +503,23 @@ export const createQualityActions = (set: any, get: any) => ({
     Object.entries(scores).forEach(([idStr, score]) => {
       const featureId = parseInt(idStr, 10)
 
-      // Skip if already manually tagged
+      // Skip if already tagged
       if (featureSelectionStates.has(featureId)) {
         return
       }
 
       // Apply dual threshold logic: auto-select above threshold, auto-reject below threshold
-      // Note: source is 'manual' because clicking "Apply Tags" means user has confirmed these tags
+      // Note: source is 'threshold' because user clicked "Apply Tags" to confirm batch threshold-based tags
       if (typeof score === 'number') {
         if (score >= selectThreshold) {
           // Blue zone: auto-select (confirmed by user clicking Apply Tags)
           newSelectionStates.set(featureId, 'selected')
-          newSelectionSources.set(featureId, 'manual')
+          newSelectionSources.set(featureId, 'threshold')
           selectedCount++
         } else if (score <= rejectThreshold) {
           // Light red zone: auto-reject (confirmed by user clicking Apply Tags)
           newSelectionStates.set(featureId, 'rejected')
-          newSelectionSources.set(featureId, 'manual')
+          newSelectionSources.set(featureId, 'threshold')
           rejectedCount++
         } else {
           // Middle zone: leave untagged

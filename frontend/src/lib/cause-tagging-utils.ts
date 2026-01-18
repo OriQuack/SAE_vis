@@ -4,6 +4,7 @@
 // ============================================================================
 
 import type { FeatureTableRow, ExplainerScoreData, ActivationExamples, ScorerScoreSet } from '../types'
+import { isUserConfirmed, type SelectionSource } from './tagging-hooks/useCommitHistory'
 
 // ============================================================================
 // TYPES
@@ -40,7 +41,7 @@ export interface CauseTagResult {
 
 export interface AutoTagResult {
   causeStates: Map<number, CauseCategory>
-  causeSources: Map<number, 'auto'>
+  causeSources: Map<number, 'predicted'>
   causeScores: Map<number, CauseMetricScores>
 }
 
@@ -382,7 +383,7 @@ export function autoTagFeatures(
   activationExamples: Record<number, ActivationExamples> | null
 ): AutoTagResult {
   const causeStates = new Map<number, CauseCategory>()
-  const causeSources = new Map<number, 'auto'>()
+  const causeSources = new Map<number, 'predicted'>()
   const causeScores = new Map<number, CauseMetricScores>()
 
   if (!tableData?.features) {
@@ -409,7 +410,7 @@ export function autoTagFeatures(
 
     // Store results
     causeStates.set(featureId, category)
-    causeSources.set(featureId, 'auto')
+    causeSources.set(featureId, 'predicted')
     causeScores.set(featureId, scores)
   }
 
@@ -428,14 +429,14 @@ export function autoTagFeatures(
 // ============================================================================
 
 /**
- * Get effective category for a feature based on manual tags, SVM predictions, and threshold.
- * - Manual tags take priority (user intent)
- * - Auto-tagged features below threshold = 'unsure'
- * - Auto-tagged features above threshold = predicted category
+ * Get effective category for a feature based on user-confirmed tags, SVM predictions, and threshold.
+ * - User-confirmed tags (click/threshold) take priority
+ * - Predicted features below threshold = 'unsure'
+ * - Predicted features above threshold = predicted category
  *
  * @param featureId - Feature to check
  * @param causeSelectionStates - Map of feature ID to cause category
- * @param causeSelectionSources - Map of feature ID to source ('manual' | 'auto')
+ * @param causeSelectionSources - Map of feature ID to source ('click' | 'threshold' | 'predicted')
  * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
  * @param causeMarginThreshold - Threshold for classifying as 'unsure'
  * @returns Effective category ('unsure' if below threshold or untagged)
@@ -443,16 +444,15 @@ export function autoTagFeatures(
 export function getEffectiveCategory(
   featureId: number,
   causeSelectionStates: Map<number, CauseCategory>,
-  causeSelectionSources: Map<number, 'manual' | 'auto'>,
+  causeSelectionSources: Map<number, SelectionSource>,
   causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
   causeMarginThreshold: number
 ): CauseCategory | 'unsure' {
   const category = causeSelectionStates.get(featureId)
   const source = causeSelectionSources.get(featureId)
-  const isManual = source === 'manual'
 
-  // Priority 1: Manual tags respected (user intent takes precedence)
-  if (isManual && category) return category
+  // Priority 1: User-confirmed tags respected (user intent takes precedence)
+  if (isUserConfirmed(source) && category) return category
 
   // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
   if (category && causeCategoryDecisionMargins) {
@@ -468,12 +468,12 @@ export function getEffectiveCategory(
 
 /**
  * Check if feature is visible based on mode and threshold.
- * - Manual tags are always visible
+ * - User-confirmed tags (click/threshold) are always visible
  * - Low mode: show below-threshold (unsure features)
  * - Top mode: show above-threshold (confident candidates)
  *
  * @param featureId - Feature to check
- * @param causeSelectionSources - Map of feature ID to source ('manual' | 'auto')
+ * @param causeSelectionSources - Map of feature ID to source ('click' | 'threshold' | 'predicted')
  * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
  * @param causeMarginThreshold - Threshold for visibility boundary
  * @param isTopMode - True for "Top" mode (most confident), false for "Low" mode (least confident)
@@ -481,14 +481,14 @@ export function getEffectiveCategory(
  */
 export function isFeatureVisibleInMode(
   featureId: number,
-  causeSelectionSources: Map<number, 'manual' | 'auto'>,
+  causeSelectionSources: Map<number, SelectionSource>,
   causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
   causeMarginThreshold: number,
   isTopMode: boolean
 ): boolean {
   const source = causeSelectionSources.get(featureId)
-  // Manual tags are always visible
-  if (source === 'manual') return true
+  // User-confirmed tags (click/threshold) are always visible
+  if (isUserConfirmed(source)) return true
 
   // Get margin for this feature
   const categoryScores = causeCategoryDecisionMargins?.get(featureId)

@@ -126,13 +126,14 @@ export function StageAccordionList<T>({
   }, [onStageChange, learnDisabled, applyDisabled])
 
   // Define bootstrap options order (for cycling)
+  // Order: Representatives → desc (e.g. Most Similar) → asc (e.g. Least Similar)
   const bootstrapOptions = useMemo(() => {
     const options: Array<{ mode: BootstrapMode; direction?: 'asc' | 'desc'; label: string }> = []
     if (hasDiversityIds) {
       options.push({ mode: 'diversity', label: 'Representatives' })
     }
-    options.push({ mode: 'byScore', direction: 'asc', label: byScoreAscLabel })
     options.push({ mode: 'byScore', direction: 'desc', label: byScoreDescLabel })
+    options.push({ mode: 'byScore', direction: 'asc', label: byScoreAscLabel })
     return options
   }, [hasDiversityIds, byScoreAscLabel, byScoreDescLabel])
 
@@ -164,13 +165,12 @@ export function StageAccordionList<T>({
     return activeStage === 'learn'
   }, [activeStage])
 
-  // Build list props to pass through (strip onClick from columnHeader to disable sort toggle)
+  // Build list props to pass through (strip onClick and isPulsing from columnHeader)
   const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => {
-    // Remove onClick from columnHeader - sorting is controlled by stage tabs
+    // Remove onClick and isPulsing - sorting is controlled by stage tabs
     const columnHeaderWithoutClick = columnHeader ? {
       label: columnHeader.label,
-      sortDirection: columnHeader.sortDirection,
-      isPulsing: columnHeader.isPulsing
+      sortDirection: columnHeader.sortDirection
     } : undefined
 
     return {
@@ -201,16 +201,16 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Bootstrap</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''}`}
+          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${!learnDisabled && activeStage === 'bootstrap' ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
           title={learnDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
           <span className="stage-selector__number">2</span>
-          <span className="stage-selector__label">Learn</span>
+          <span className="stage-selector__label">Train</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''}`}
+          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${!applyDisabled && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
           title={applyDisabled ? 'Tag 3+ items per category to enable' : undefined}

@@ -7,7 +7,7 @@ import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation } from '../lib/tagging-hooks'
+import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation, isUserConfirmed } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -265,24 +265,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [hideTagged, setActiveListSource])
 
-  // Track if we've auto-switched to decision margin mode for this session
-  const hasAutoSwitchedToDecisionMarginRef = useRef(false)
-
-  // Auto-switch to Decision Margin sort when histogram first becomes available
-  // Only switch if histogram is for feature mode (Stage 2), not pair mode (Stage 1)
-  // This prevents race condition where pair mode histogram from Stage 1 arrives late
-  useEffect(() => {
-    if (tagAutomaticState?.histogramData &&
-        tagAutomaticState?.mode === 'feature' &&
-        !hasAutoSwitchedToDecisionMarginRef.current) {
-      hasAutoSwitchedToDecisionMarginRef.current = true
-      setSortMode('decisionMargin')
-      setSortDirection('asc')
-      setCurrentFeatureIndex(0)
-      setActiveListSource('all')
-    }
-  }, [tagAutomaticState?.histogramData, tagAutomaticState?.mode, setSortMode, setSortDirection, setActiveListSource])
-
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting
   const prevSortRef = useRef({ sortMode, sortDirection })
@@ -322,7 +304,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     useVisualizationStore.setState({ stage2CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
     useVisualizationStore.setState({ stage2CommitData: data })
   }, [])
 
@@ -330,7 +312,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     useVisualizationStore.setState({ stage2CurrentCommitIndex: index })
   }, [])
 
-  const setFinalCommitFromHook = useCallback((data: { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'manual' | 'auto'>; featureIds: Set<number>; counts: QualityCommitCounts }) => {
+  const setFinalCommitFromHook = useCallback((data: { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds: Set<number>; counts: QualityCommitCounts }) => {
     setStage2FinalCommit({
       featureSelectionStates: new Map(data.states),
       featureSelectionSources: new Map(data.sources),
@@ -352,7 +334,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   }), [isRevisitingStage2, stage2CommitHistory, stage2CommitData, stage2CurrentCommitIndex, setStoreCommitHistory, setStoreCommitData, setStoreCurrentCommitIndex, setFinalCommitFromHook])
 
   // Use the commit history hook with store sync
-  const { createCommit } = useCommitHistory<Map<number, 'selected' | 'rejected'>, Map<number, 'manual' | 'auto'>, QualityCommitCounts>({
+  const { createCommit } = useCommitHistory<Map<number, 'selected' | 'rejected'>, Map<number, 'click' | 'threshold' | 'predicted'>, QualityCommitCounts>({
     ...createFeatureCommitHistoryOptions(
       () => featureSelectionStates,
       () => featureSelectionSources,
@@ -391,12 +373,12 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Auto-populate similarity scores when feature list is ready or selection states change
   useEffect(() => {
-    // Extract manual selections to compute signature
+    // Extract user-confirmed selections to compute signature
     const currentSelectedIds: number[] = []
     const currentRejectedIds: number[] = []
     featureSelectionStates.forEach((state, featureId) => {
       const source = featureSelectionSources.get(featureId)
-      if (source === 'manual') {
+      if (isUserConfirmed(source)) {
         if (state === 'selected') currentSelectedIds.push(featureId)
         else if (state === 'rejected') currentRejectedIds.push(featureId)
       }
@@ -733,7 +715,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Score display is handled by ScrollableItemList's sortConfig
   const renderFeatureItem = useCallback((feature: typeof featureList[0], index: number) => {
     const selectionState = featureSelectionStates.get(feature.featureId)
-    const isAutoSource = featureSelectionSources.get(feature.featureId) === 'auto'
+    const isAutoSource = featureSelectionSources.get(feature.featureId) === 'predicted'
     const inPreviewReject = previewRejectIds.has(feature.featureId)
     const inPreviewSelect = previewSelectIds.has(feature.featureId)
 
@@ -822,7 +804,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     featureList.forEach((f: { featureId: number }) => {
       if (!newStates.has(f.featureId)) {
         newStates.set(f.featureId, 'rejected')
-        newSources.set(f.featureId, 'manual')
+        newSources.set(f.featureId, 'click')
         taggedCount++
       }
     })
@@ -854,16 +836,16 @@ const QualityView: React.FC<QualityViewProps> = ({
       if (score !== undefined) {
         if (score >= 0) {
           newStates.set(f.featureId, 'selected')
-          newSources.set(f.featureId, 'manual')
+          newSources.set(f.featureId, 'click')
           selectedCount++
         } else {
           newStates.set(f.featureId, 'rejected')
-          newSources.set(f.featureId, 'manual')
+          newSources.set(f.featureId, 'click')
           rejectedCount++
         }
       } else {
         newStates.set(f.featureId, 'rejected')
-        newSources.set(f.featureId, 'manual')
+        newSources.set(f.featureId, 'click')
         rejectedCount++
       }
     })

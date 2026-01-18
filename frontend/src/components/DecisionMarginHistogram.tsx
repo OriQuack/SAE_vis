@@ -12,6 +12,7 @@ import { getSelectionColors, STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
 import '../styles/DecisionMarginHistogram.css'
@@ -125,8 +126,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
         if (availablePairKeys && !availablePairKeys.has(pairKey)) return
 
         const source = pairSelectionSources.get(pairKey)
-        // Only count manual selections for training (matches feature mode behavior)
-        if (source === 'manual') {
+        // Only count user-confirmed selections (click/threshold) for training
+        if (isUserConfirmed(source)) {
           if (state === 'selected') selectedCount++
           else if (state === 'rejected') rejectedCount++
         }
@@ -140,8 +141,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
         // Only count features in the filtered set
         if (filteredFeatureIds && !filteredFeatureIds.has(featureId)) return
         const source = featureSelectionSources.get(featureId)
-        // Only count manual selections for training
-        if (source === 'manual') {
+        // Only count user-confirmed selections (click/threshold) for training
+        if (isUserConfirmed(source)) {
           if (state === 'selected') selectedCount++
           else if (state === 'rejected') rejectedCount++
         }
@@ -225,7 +226,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
           featureSelectionStates.forEach((state, featureId) => {
             if (filteredFeatureIds && !filteredFeatureIds.has(featureId)) return
             const source = featureSelectionSources.get(featureId)
-            if (source === 'manual') {
+            if (isUserConfirmed(source)) {
               if (state === 'selected') selectedIds.push(featureId)
               else if (state === 'rejected') rejectedIds.push(featureId)
             }
@@ -352,13 +353,13 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
         const source = featureSelectionSources.get(featureId)
 
         if (selectionState === 'selected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             counts.autoSelected++
           } else {
             counts.confirmed++
           }
         } else if (selectionState === 'rejected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             counts.autoRejected++
           } else {
             counts.rejected++
@@ -382,13 +383,13 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
         const source = pairSelectionSources.get(id)
 
         if (selectionState === 'selected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             counts.autoSelected++
           } else {
             counts.confirmed++
           }
         } else if (selectionState === 'rejected') {
-          if (source === 'auto') {
+          if (source === 'predicted') {
             counts.autoRejected++
           } else {
             counts.rejected++

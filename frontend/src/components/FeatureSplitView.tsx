@@ -8,7 +8,7 @@ import StageAccordionList from './StageAccordionList'
 import { TagBadge } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit } from '../lib/tagging-hooks'
+import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed } from '../lib/tagging-hooks'
 import { useListNavigation } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -145,7 +145,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     useVisualizationStore.setState({ stage1CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
     useVisualizationStore.setState({ stage1CommitData: data })
   }, [])
 
@@ -153,7 +153,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     useVisualizationStore.setState({ stage1CurrentCommitIndex: index })
   }, [])
 
-  const setFinalCommitFromHook = useCallback((data: { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'manual' | 'auto'>; featureIds: Set<number>; counts: CommitCounts }) => {
+  const setFinalCommitFromHook = useCallback((data: { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds: Set<number>; counts: CommitCounts }) => {
     // Get current state to preserve histogram and cluster pairs
     const state = useVisualizationStore.getState()
     const currentTagState = state.tagAutomaticState
@@ -205,7 +205,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }), [isRevisitingStage1, stage1CommitHistory, stage1CommitData, stage1CurrentCommitIndex, setStoreCommitHistory, setStoreCommitData, setStoreCurrentCommitIndex, setFinalCommitFromHook])
 
   // Use the commit history hook with store sync
-  const { createCommit } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'manual' | 'auto'>, CommitCounts>({
+  const { createCommit } = useCommitHistory<Map<string, 'selected' | 'rejected'>, Map<string, 'click' | 'threshold' | 'predicted'>, CommitCounts>({
     ...createPairCommitHistoryOptions(
       () => pairSelectionStates,
       () => pairSelectionSources,
@@ -512,24 +512,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [hideTagged, setActiveListSource])
 
-  // Track if we've checked for auto-switch to decision margin mode for this session
-  const hasCheckedAutoSwitchRef = useRef(false)
-
-  // Auto-switch to Decision Margin sort when histogram first becomes available
-  // Skip if user is in diversity mode (Representatives Only) - respect their choice
-  useEffect(() => {
-    if (tagAutomaticState?.histogramData && !hasCheckedAutoSwitchRef.current) {
-      hasCheckedAutoSwitchRef.current = true
-      // Only actually switch if not in diversity mode
-      if (sortMode !== 'diversity') {
-        setSortMode('decisionMargin')
-        setSortDirection('asc')
-        setCurrentPairIndex(0)
-        setActiveListSource('all')
-      }
-    }
-  }, [tagAutomaticState?.histogramData, sortMode, setSortMode, setSortDirection, setActiveListSource])
-
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting
   const prevSortRef = useRef({ sortMode, sortDirection })
@@ -573,12 +555,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       return
     }
 
-    // Extract manual selections to compute signature
+    // Extract user-confirmed selections to compute signature
     const currentSelectedKeys: string[] = []
     const currentRejectedKeys: string[] = []
     pairSelectionStates.forEach((state, pairKey) => {
       const source = pairSelectionSources.get(pairKey)
-      if (source === 'manual') {
+      if (isUserConfirmed(source)) {
         if (state === 'selected') currentSelectedKeys.push(pairKey)
         else if (state === 'rejected') currentRejectedKeys.push(pairKey)
       }
@@ -877,7 +859,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     pairList.forEach(pair => {
       if (!newStates.has(pair.pairKey)) {
         newStates.set(pair.pairKey, 'rejected')
-        newSources.set(pair.pairKey, 'manual')
+        newSources.set(pair.pairKey, 'click')
         taggedCount++
       }
     })
@@ -912,17 +894,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       if (score !== undefined) {
         if (score >= 0) {
           newStates.set(pair.pairKey, 'selected')
-          newSources.set(pair.pairKey, 'manual')
+          newSources.set(pair.pairKey, 'click')
           selectedCount++
         } else {
           newStates.set(pair.pairKey, 'rejected')
-          newSources.set(pair.pairKey, 'manual')
+          newSources.set(pair.pairKey, 'click')
           rejectedCount++
         }
       } else {
         // No score available - default to Monosemantic (conservative)
         newStates.set(pair.pairKey, 'rejected')
-        newSources.set(pair.pairKey, 'manual')
+        newSources.set(pair.pairKey, 'click')
         rejectedCount++
       }
     })
@@ -949,7 +931,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Render function for pair items in ScrollableItemList
   const renderPairItem = useCallback((pair: typeof rawPairList[0], index: number) => {
     const selectionState = pairSelectionStates.get(pair.pairKey) || null
-    const isAutoSource = pairSelectionSources.get(pair.pairKey) === 'auto'
+    const isAutoSource = pairSelectionSources.get(pair.pairKey) === 'predicted'
     const inPreviewReject = previewRejectKeys?.has(pair.pairKey)
     const inPreviewSelect = previewSelectKeys?.has(pair.pairKey)
 

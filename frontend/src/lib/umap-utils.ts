@@ -8,6 +8,7 @@ import { contourDensity, type ContourMultiPolygon } from 'd3-contour'
 import { geoPath } from 'd3-geo'
 import type { UmapPoint } from '../types'
 import { getSelectionColors } from './color-utils'
+import { isUserConfirmed, type SelectionSource } from './tagging-hooks/useCommitHistory'
 
 // Darker gray for untagged points in UMAP (more visible than UNSURE_GRAY)
 const UMAP_UNTAGGED_COLOR = '#6b7280'
@@ -735,7 +736,7 @@ export interface CategoryContour {
 export function computeCategoryContours(
   points: UmapPoint[],
   causeStates: Map<number, CauseCategory>,
-  causeSelectionSources: Map<number, 'manual' | 'auto'>,
+  causeSelectionSources: Map<number, SelectionSource>,
   width: number,
   height: number,
   scales: UmapScales,
@@ -762,8 +763,8 @@ export function computeCategoryContours(
       const state = causeStates.get(p.feature_id)
       const source = causeSelectionSources.get(p.feature_id)
 
-      // Exclude manually tagged features from contours (they represent user decisions, not predictions)
-      if (excludeManual && source === 'manual') {
+      // Exclude user-confirmed tagged features from contours (they represent user decisions, not predictions)
+      if (excludeManual && isUserConfirmed(source)) {
         return false
       }
 

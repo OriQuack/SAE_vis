@@ -6,6 +6,7 @@ import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/umap-utils'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
+import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import '../styles/CauseMarginHistogram.css'
 
 // ============================================================================
@@ -59,8 +60,8 @@ interface CauseMarginHistogramProps {
   causeCategoryDecisionMargins: Map<number, Record<string, number>>
   /** Current category assignments */
   causeSelectionStates: Map<number, CauseCategory>
-  /** Manual vs auto tag source */
-  causeSelectionSources: Map<number, 'manual' | 'auto'>
+  /** Tag source: click (direct), threshold (batch), or predicted (SVM) */
+  causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   /** Current threshold value */
   threshold: number
   /** Callback when threshold changes */
@@ -221,7 +222,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       const margin = computeFeatureMargin(featureId, causeCategoryDecisionMargins)
       const category = causeSelectionStates.get(featureId)
       const source = causeSelectionSources.get(featureId)
-      const isManual = source === 'manual'
+      const isManual = isUserConfirmed(source)
 
       // Determine effective category (semantic - not based on mode)
       // Below threshold = unsure (always), Above threshold = predicted category
