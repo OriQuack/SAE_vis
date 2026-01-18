@@ -180,21 +180,6 @@
   min-height: 14px;
 }
 
-/* Two-line variant for threshold button */
-.batch-tagging__button-legend--two-lines {
-  flex-direction: column;
-  gap: 1px;
-}
-
-.batch-tagging__legend-row {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: center;
-  gap: 3px;
-  width: 100%;
-}
-
 /* Legend item (swatch + count) */
 .batch-tagging__legend-item {
   display: inline-flex;

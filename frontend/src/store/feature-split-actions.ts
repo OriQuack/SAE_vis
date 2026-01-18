@@ -366,7 +366,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         // Calculate flip tracking update
         const existingFlipTracking = currentState?.flipTracking
         let updatedFlipTracking: {
-          flipHistory: Array<{ flipRate: number; isBatch: boolean; iteration: number }>
+          flipHistory: Array<{ flipRate: number; isBatch: boolean; iteration: number; predictionCounts: Record<string, number>; flipTransitions: Record<string, number> }>
           totalIterations: number
           flippedBins: Set<number>
           previousPredictions: Map<string, 'selected' | 'rejected'>
@@ -417,9 +417,19 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
             historyLength: updatedFlipTracking.flipHistory.length
           })
         } else {
-          // First time - just initialize predictions
+          // First time - initialize with iteration 0 entry (stacked bar only, no line point)
+          const predictionCounts: Record<string, number> = { selected: 0, rejected: 0 }
+          currentPredictions.forEach((prediction) => {
+            predictionCounts[prediction] = (predictionCounts[prediction] || 0) + 1
+          })
           updatedFlipTracking = {
-            flipHistory: [],
+            flipHistory: [{
+              flipRate: 0,
+              isBatch: false,
+              iteration: 0,
+              predictionCounts,
+              flipTransitions: {}
+            }],
             totalIterations: 0,
             flippedBins: new Set<number>(),
             previousPredictions: currentPredictions
@@ -520,19 +530,37 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
       const currentState = get().tagAutomaticState
       const existingFlipTracking = currentState?.flipTracking
 
-      // Build initial predictions map based on current thresholds
+      // Build initial predictions map based on decision boundary (score >= 0) for flip tracking
       const initialPredictions = new Map<string, 'selected' | 'rejected'>()
+      let selectedCount = 0
+      let rejectedCount = 0
       if (histogramData.scores) {
         Object.entries(histogramData.scores).forEach(([pairKey, score]) => {
           if (typeof score === 'number') {
-            if (score >= selectThreshold) {
+            // Use decision boundary for consistent flip tracking
+            if (score >= 0) {
               initialPredictions.set(pairKey, 'selected')
-            } else if (score <= rejectThreshold) {
+              selectedCount++
+            } else {
               initialPredictions.set(pairKey, 'rejected')
+              rejectedCount++
             }
           }
         })
       }
+
+      // Initialize flipHistory with iteration 0 entry (shows stacked bar only, no line point yet)
+      // Check length explicitly since empty array is truthy
+      const hasExistingHistory = existingFlipTracking?.flipHistory && existingFlipTracking.flipHistory.length > 0
+      const initialFlipHistory = hasExistingHistory
+        ? existingFlipTracking.flipHistory
+        : [{
+            flipRate: 0,
+            isBatch: false,
+            iteration: 0,
+            predictionCounts: { selected: selectedCount, rejected: rejectedCount },
+            flipTransitions: {}
+          }]
 
       set({
         tagAutomaticState: {
@@ -545,11 +573,11 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           rejectThreshold,
           tagLabel,
           isLoading: false,
-          flipTracking: existingFlipTracking || {
-            flipHistory: [],
-            totalIterations: 0,
-            flippedBins: new Set<number>(),
-            previousPredictions: initialPredictions
+          flipTracking: {
+            flipHistory: initialFlipHistory,
+            totalIterations: hasExistingHistory ? existingFlipTracking.totalIterations : 0,
+            flippedBins: hasExistingHistory ? existingFlipTracking.flippedBins : new Set<number>(),
+            previousPredictions: hasExistingHistory ? existingFlipTracking.previousPredictions : initialPredictions
           }
         }
       })

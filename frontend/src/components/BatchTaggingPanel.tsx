@@ -233,41 +233,36 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                 />
                 <span className="batch-tagging__button-text">Confirm Threshold</span>
               </div>
-              <div className="batch-tagging__button-legend batch-tagging__button-legend--two-lines">
-                <div className="batch-tagging__legend-row">
-                  <span className="batch-tagging__legend-item">
-                    <span
-                      className="action-button__legend-swatch action-button__legend-swatch--striped"
-                      style={{ '--swatch-color': categories[0].color } as React.CSSProperties}
-                    />
-                    <span className="batch-tagging__legend-count">{thresholdCounts.left}</span>
-                  </span>
-                  <span className="batch-tagging__legend-arrow">→</span>
-                  <span className="batch-tagging__legend-item">
-                    <span
-                      className="action-button__legend-swatch"
-                      style={{ backgroundColor: categories[0].color }}
-                    />
-                    <span className="batch-tagging__legend-count">{thresholdCounts.left}</span>
-                  </span>
-                </div>
-                <div className="batch-tagging__legend-row">
-                  <span className="batch-tagging__legend-item">
-                    <span
-                      className="action-button__legend-swatch action-button__legend-swatch--striped"
-                      style={{ '--swatch-color': categories[1].color } as React.CSSProperties}
-                    />
-                    <span className="batch-tagging__legend-count">{thresholdCounts.right}</span>
-                  </span>
-                  <span className="batch-tagging__legend-arrow">→</span>
-                  <span className="batch-tagging__legend-item">
-                    <span
-                      className="action-button__legend-swatch"
-                      style={{ backgroundColor: categories[1].color }}
-                    />
-                    <span className="batch-tagging__legend-count">{thresholdCounts.right}</span>
-                  </span>
-                </div>
+              <div className="batch-tagging__button-legend">
+                <span className="batch-tagging__legend-item">
+                  <span
+                    className="action-button__legend-swatch action-button__legend-swatch--striped"
+                    style={{ '--swatch-color': categories[0].color } as React.CSSProperties}
+                  />
+                  <span className="batch-tagging__legend-count">{thresholdCounts.left}</span>
+                </span>
+                <span className="batch-tagging__legend-item">
+                  <span
+                    className="action-button__legend-swatch action-button__legend-swatch--striped"
+                    style={{ '--swatch-color': categories[1].color } as React.CSSProperties}
+                  />
+                  <span className="batch-tagging__legend-count">{thresholdCounts.right}</span>
+                </span>
+                <span className="batch-tagging__legend-arrow">→</span>
+                <span className="batch-tagging__legend-item">
+                  <span
+                    className="action-button__legend-swatch"
+                    style={{ backgroundColor: categories[0].color }}
+                  />
+                  <span className="batch-tagging__legend-count">{thresholdCounts.left}</span>
+                </span>
+                <span className="batch-tagging__legend-item">
+                  <span
+                    className="action-button__legend-swatch"
+                    style={{ backgroundColor: categories[1].color }}
+                  />
+                  <span className="batch-tagging__legend-count">{thresholdCounts.right}</span>
+                </span>
               </div>
             </button>
           )}
@@ -355,27 +350,13 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                 <span className="batch-tagging__button-text">Tag All Unsure by Decision Boundary</span>
               </div>
               <div className="batch-tagging__button-legend">
-                {categories.map(cat => {
-                  const inputCountValue = cat.inputCount ?? cat.count
-                  return inputCountValue > 0 && (
-                    <span key={`unsure-in-${cat.id}`} className="batch-tagging__legend-item">
-                      <span
-                        className="action-button__legend-swatch action-button__legend-swatch--striped"
-                        style={{ '--swatch-color': cat.color } as React.CSSProperties}
-                      />
-                      <span className="batch-tagging__legend-count">{inputCountValue}</span>
-                    </span>
-                  )
-                })}
-                {unsureCount > 0 && (
-                  <span className="batch-tagging__legend-item">
-                    <span
-                      className="action-button__legend-swatch"
-                      style={{ backgroundColor: '#e0e0e0' }}
-                    />
-                    <span className="batch-tagging__legend-count">{unsureCount}</span>
-                  </span>
-                )}
+                <span className="batch-tagging__legend-item">
+                  <span
+                    className="action-button__legend-swatch"
+                    style={{ backgroundColor: '#e0e0e0' }}
+                  />
+                  <span className="batch-tagging__legend-count">{unsureCount}</span>
+                </span>
                 <span className="batch-tagging__legend-arrow">→</span>
                 {categories.map(cat => {
                   const outputCount = cat.outputCount ?? 0

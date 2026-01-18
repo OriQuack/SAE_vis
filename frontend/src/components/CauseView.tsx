@@ -1444,7 +1444,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       color: missedNgramColor,
                       count: filteredBatchComposition.patternMiss,
                       inputCount: remainingComposition.patternMiss,
-                      outputCount: boundaryTagCounts['missed-N-gram']
+                      outputCount: filteredBatchComposition.patternMiss + boundaryTagCounts['missed-N-gram']
                     },
                     {
                       id: 'missed-context',
@@ -1452,7 +1452,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       color: missedContextColor,
                       count: filteredBatchComposition.contextMiss,
                       inputCount: remainingComposition.contextMiss,
-                      outputCount: boundaryTagCounts['missed-context']
+                      outputCount: filteredBatchComposition.contextMiss + boundaryTagCounts['missed-context']
                     },
                     {
                       id: 'noisy-activation',
@@ -1460,7 +1460,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       color: noisyActivationColor,
                       count: filteredBatchComposition.noisyActivation,
                       inputCount: remainingComposition.noisyActivation,
-                      outputCount: boundaryTagCounts['noisy-activation']
+                      outputCount: filteredBatchComposition.noisyActivation + boundaryTagCounts['noisy-activation']
                     }
                   ]}
                   unsureCount={remainingComposition.unsure}

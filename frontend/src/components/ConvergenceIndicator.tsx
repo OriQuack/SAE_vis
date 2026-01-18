@@ -78,17 +78,22 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     const xScale = (i: number) => padding.left + (i / Math.max(1, history.length - 1)) * chartWidth
     const yScale = (rate: number) => padding.top + chartHeight - (rate / maxRate) * chartHeight
 
-    // Build path and points
-    const points = history.map((entry, i) => ({
+    // Build all points for positioning (including iteration 0)
+    const allPoints = history.map((entry, i) => ({
       x: xScale(i),
       y: yScale(entry.flipRate),
       isBatch: entry.isBatch,
-      flipRate: entry.flipRate
+      flipRate: entry.flipRate,
+      iteration: entry.iteration
     }))
 
-    // Path string for line
-    const pathD = points.length > 1
-      ? 'M ' + points.map(p => `${p.x},${p.y}`).join(' L ')
+    // Line chart points: only show for iterations > 0 (after first tag)
+    // Iteration 0 only shows stacked bar, no line point
+    const linePoints = allPoints.filter(p => p.iteration > 0)
+
+    // Path string for line (only connecting iterations > 0)
+    const pathD = linePoints.length > 1
+      ? 'M ' + linePoints.map(p => `${p.x},${p.y}`).join(' L ')
       : null
 
     // Y-axis ticks (fixed 0% and 100%)
@@ -198,16 +203,16 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       }
     }
 
-    return { points, pathD, width, height, padding, yTicks, xTicks, xAxisY, thresholdLines, chartWidth, chartHeight, bars, links }
+    return { linePoints, pathD, width, height, padding, yTicks, xTicks, xAxisY, thresholdLines, chartWidth, chartHeight, bars, links }
   }, [flipTracking, containerSize.width, containerSize.height, categoryConfig])
 
-  // Placeholder state when no data
+  // Placeholder state when no data (shown before histogram is visible)
   if (!flipTracking || flipTracking.flipHistory.length === 0) {
     return (
       <div ref={containerRef} className="convergence-indicator">
         <div className="convergence-indicator__placeholder">
           <span className="convergence-indicator__placeholder-text">
-            <span className="convergence-indicator__stage-number">2</span> Tag with histogram to see trend
+            <span className="convergence-indicator__stage-number">2</span> Wait for histogram to see trend
           </span>
         </div>
       </div>
@@ -248,7 +253,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
                 y1={line.y}
                 x2={sparklineData.width - sparklineData.padding.right}
                 y2={line.y}
-                stroke="#4b5563"
+                stroke="#9ca3af"
                 strokeWidth={1}
                 strokeDasharray="3,2"
               />
@@ -360,8 +365,8 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             />
           )}
 
-          {/* Data points */}
-          {sparklineData.points.map((point, i) => (
+          {/* Line chart points (only for iterations > 0) */}
+          {sparklineData.linePoints.map((point, i) => (
             <circle
               key={i}
               cx={point.x}
