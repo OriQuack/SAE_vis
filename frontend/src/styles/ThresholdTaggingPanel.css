@@ -111,12 +111,86 @@
   min-height: 0;  /* Allow flex children to shrink below content size */
 }
 
+.threshold-tagging-panel__lists-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.threshold-tagging-panel__lists-header .subheader {
+  margin: 0;
+}
+
 .threshold-tagging-panel__lists-container {
   display: flex;
   flex-direction: row;
   gap: 4px;
   flex: 1;
   min-height: 0;  /* Allow flex children to shrink below content size */
+}
+
+/* ============================================================================
+ * NEED REVIEW CHECKBOX
+ * ============================================================================ */
+
+.threshold-tagging-panel__checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  line-height: 1;
+}
+
+.threshold-tagging-panel__checkbox-label:hover {
+  color: #374151;
+}
+
+.threshold-tagging-panel__checkbox-label:hover input[type="checkbox"] {
+  border-color: #9ca3af;
+}
+
+.threshold-tagging-panel__checkbox-label input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 2px;
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  margin: 0;
+  vertical-align: middle;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.threshold-tagging-panel__checkbox-label input[type="checkbox"]:hover {
+  border-color: #9ca3af;
+}
+
+.threshold-tagging-panel__checkbox-label input[type="checkbox"]:checked {
+  background: white;
+  border-color: #f59e0b;
+}
+
+.threshold-tagging-panel__checkbox-label input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid #f59e0b;
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
 }
 
 /* ============================================================================

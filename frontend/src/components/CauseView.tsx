@@ -110,8 +110,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [currentSelectedIndex, setCurrentSelectedIndex] = useState(0)
   const [activeListSource, setActiveListSource] = useState<'all' | 'selected'>('selected')
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
-  // Sort by specific tag (only used in Top mode / Most Confident First)
-  const [filterByTag, setFilterByTag] = useState<CauseCategory | null>(null)
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
   // Track if SVM has been trained (for conditional UI labels)
@@ -444,13 +442,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
 
-  // Reset filterByTag when leaving Top mode
-  useEffect(() => {
-    if (!isTopMode && filterByTag !== null) {
-      setFilterByTag(null)
-    }
-  }, [isTopMode, filterByTag])
-
   // Check if feature is visible based on mode and threshold - delegates to utility function
   const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
     return isFeatureVisibleInMode(
@@ -502,19 +493,15 @@ const CauseView: React.FC<CauseViewProps> = ({
       if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(featureId)) return false
-      // In Top mode, apply tag filter if set
+      // In Top mode, show all visible features
       if (isTopMode) {
-        if (filterByTag) {
-          const predicted = causeSelectionStates.get(featureId)
-          return predicted === filterByTag
-        }
         return true
       }
       // In Low mode, apply category filter (typically filtering 'unsure')
       const effectiveCategory = getEffectiveCategory(featureId)
       return visibleCategories.has(effectiveCategory)
     })
-  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates, causeSelectionSources, hideTagged])
+  }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, causeSelectionSources, hideTagged])
 
   // Apply visibility filters AFTER sorting
   const sortedFilteredFeatureList = useMemo(() => {
@@ -532,14 +519,11 @@ const CauseView: React.FC<CauseViewProps> = ({
         if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
         if (!isVisibleInCurrentMode(featureId)) return false
         if (isTopMode) {
-          if (filterByTag) {
-            return causeSelectionStates.get(featureId) === filterByTag
-          }
           return true
         }
         return visibleCategories.has(getEffectiveCategory(featureId))
       })
-  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, filterByTag, causeSelectionStates, visibleCategories, getEffectiveCategory])
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, visibleCategories, getEffectiveCategory])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -1051,9 +1035,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     return { patternMiss, contextMiss, noisyActivation, manualCount, taggableCount }
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates])
 
-  // Memoize featureIds array to prevent unnecessary UMAPScatter re-renders
+  // Memoize featureIds array to prevent unnecessary re-renders
   // Array.from creates a new array reference on every call, so we memoize it
-  // Always pass ALL features - filtering is done inside UMAPScatter via filterByTag prop
   const stableFeatureIds = useMemo(() => {
     return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
   }, [selectedFeatureIds])
@@ -1175,14 +1158,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   byScoreDescLabel="High ID First"
                   hideTagged={hideTagged}
                   onHideTaggedChange={setHideTagged}
-                  filterOptions={[
-                    { value: 'missed-N-gram', label: 'Pattern Miss', color: missedNgramColor },
-                    { value: 'missed-context', label: 'Context Miss', color: missedContextColor },
-                    { value: 'noisy-activation', label: 'Noisy Activation', color: noisyActivationColor }
-                  ]}
-                  filterValue={filterByTag}
-                  onFilterChange={(value) => setFilterByTag(value as CauseCategory | null)}
-                  filterDisabled={!isTopMode}
                   badges={[{
                     label: sortMode === 'diversity' && !svmTrainingStarted
                       ? 'Representative Features'
@@ -1438,7 +1413,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onFeatureSelect={handleUMAPFeatureSelect}
                   sortMode={sortMode}
                   sortDirection={selectedSortDirection}
-                  filterByTag={isTopMode ? filterByTag : null}
                 />
               </div>
 
@@ -1475,7 +1449,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   unsureCount={remainingComposition.unsure}
                   disabled={!canTrainSVM || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
                   onConfirmCategory={(categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram')}
-                  onConfirmAll={filterByTag === null ? handleTagAllConfident : undefined}
+                  onConfirmAll={handleTagAllConfident}
                   onTagAllUnsure={handleTagRemainingByBoundary}
                 />
               </div>

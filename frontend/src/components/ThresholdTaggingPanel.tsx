@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
@@ -199,6 +199,63 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   // Get committee data for disagreement highlighting
   const committeeVotes = tagAutomaticState?.committeeVotes ?? null
 
+  // State for filtering to show only items needing review (with disagreement)
+  const [showOnlyNeedReview, setShowOnlyNeedReview] = useState(false)
+
+  // Helper to check if an item has disagreement based on list type
+  const hasDisagreement = useCallback((itemKey: string, listType: 'left' | 'right'): boolean => {
+    const voteInfo = committeeVotes?.get(itemKey)
+    if (!voteInfo) return false
+    return listType === 'right'
+      ? (voteInfo.rf_prediction === 0 || voteInfo.mlp_prediction === 0)
+      : (voteInfo.rf_prediction === 1 || voteInfo.mlp_prediction === 1)
+  }, [committeeVotes])
+
+  // Filter sorted items based on showOnlyNeedReview
+  const filteredLeftItems = useMemo(() => {
+    if (!showOnlyNeedReview || !committeeVotes) return sortedLeftItems
+    if (mode === 'pair') {
+      return (sortedLeftItems as PairItemWithMetadata[]).filter(item => hasDisagreement(item.pairKey, 'left'))
+    } else {
+      return (sortedLeftItems as unknown as FeatureItemWithMetadata[]).filter(item => hasDisagreement(String(item.featureId), 'left'))
+    }
+  }, [sortedLeftItems, showOnlyNeedReview, committeeVotes, mode, hasDisagreement])
+
+  const filteredRightItems = useMemo(() => {
+    if (!showOnlyNeedReview || !committeeVotes) return sortedRightItems
+    if (mode === 'pair') {
+      return (sortedRightItems as PairItemWithMetadata[]).filter(item => hasDisagreement(item.pairKey, 'right'))
+    } else {
+      return (sortedRightItems as unknown as FeatureItemWithMetadata[]).filter(item => hasDisagreement(String(item.featureId), 'right'))
+    }
+  }, [sortedRightItems, showOnlyNeedReview, committeeVotes, mode, hasDisagreement])
+
+  // Count items needing review in each list
+  const needReviewCounts = useMemo(() => {
+    if (!committeeVotes) return { left: 0, right: 0 }
+
+    let leftCount = 0
+    let rightCount = 0
+
+    if (mode === 'pair') {
+      (sortedLeftItems as PairItemWithMetadata[]).forEach(item => {
+        if (hasDisagreement(item.pairKey, 'left')) leftCount++
+      });
+      (sortedRightItems as PairItemWithMetadata[]).forEach(item => {
+        if (hasDisagreement(item.pairKey, 'right')) rightCount++
+      })
+    } else {
+      (sortedLeftItems as unknown as FeatureItemWithMetadata[]).forEach(item => {
+        if (hasDisagreement(String(item.featureId), 'left')) leftCount++
+      });
+      (sortedRightItems as unknown as FeatureItemWithMetadata[]).forEach(item => {
+        if (hasDisagreement(String(item.featureId), 'right')) rightCount++
+      })
+    }
+
+    return { left: leftCount, right: rightCount }
+  }, [sortedLeftItems, sortedRightItems, committeeVotes, mode, hasDisagreement])
+
   // Render item for pair boundary lists
   // Shows PREVIEW tag (what it will be after apply) with stripe pattern
   const renderBoundaryItem = (item: PairItemWithMetadata, index: number, listType: 'left' | 'right') => {
@@ -323,21 +380,33 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
         {/* Boundary lists wrapper with subtitle */}
         <div className="threshold-tagging-panel__lists-section">
-          <h4 className="subheader">
-            {mode === 'pair' ? 'Boundary Feature Pairs' : 'Boundary Features'}
-          </h4>
+          <div className="threshold-tagging-panel__lists-header">
+            <h4 className="subheader">
+              {mode === 'pair' ? 'Thresholded Feature Pairs' : 'Thresholded Features'}
+            </h4>
+            {committeeVotes && (needReviewCounts.left > 0 || needReviewCounts.right > 0) && (
+              <label className="threshold-tagging-panel__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={showOnlyNeedReview}
+                  onChange={(e) => setShowOnlyNeedReview(e.target.checked)}
+                />
+                Show Flagged Only ({needReviewCounts.left + needReviewCounts.right})
+              </label>
+            )}
+          </div>
           <div className="threshold-tagging-panel__lists-container">
             {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
             <ScrollableItemList
               variant="boundary"
               badges={[
-                { label: leftListLabel, count: mode === 'pair' ? `${leftItems.length.toLocaleString()} pairs` : `${leftFeatures.length.toLocaleString()} features` }
+                { label: leftListLabel, count: mode === 'pair' ? `${filteredLeftItems.length.toLocaleString()} pairs` : `${filteredLeftItems.length.toLocaleString()} features` }
               ]}
               columnHeader={{
                 label: '|Decision Margin|',
                 sortDirection: sortDirection
               }}
-              items={sortedLeftItems as PairItemWithMetadata[]}
+              items={filteredLeftItems as PairItemWithMetadata[]}
               currentIndex={activeListSource === 'reject' ? currentIndex : -1}
               isActive={activeListSource === 'reject'}
               isTemplateSort={isTemplateSort}
@@ -351,13 +420,13 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             <ScrollableItemList
               variant="boundary"
               badges={[
-                { label: rightListLabel, count: mode === 'pair' ? `${rightItems.length.toLocaleString()} pairs` : `${rightFeatures.length.toLocaleString()} features` }
+                { label: rightListLabel, count: mode === 'pair' ? `${filteredRightItems.length.toLocaleString()} pairs` : `${filteredRightItems.length.toLocaleString()} features` }
               ]}
               columnHeader={{
                 label: '|Decision Margin|',
                 sortDirection: sortDirection
               }}
-              items={sortedRightItems as PairItemWithMetadata[]}
+              items={filteredRightItems as PairItemWithMetadata[]}
               currentIndex={activeListSource === 'select' ? currentIndex : -1}
               isActive={activeListSource === 'select'}
               isTemplateSort={isTemplateSort}

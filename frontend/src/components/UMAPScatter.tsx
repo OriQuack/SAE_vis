@@ -46,7 +46,6 @@ interface UMAPScatterProps {
   onFeatureSelect?: (featureId: number) => void  // Callback when a point is clicked
   sortMode?: SortMode  // Sort mode from StageAccordionList (for visibility filtering)
   sortDirection?: 'asc' | 'desc'  // Sort direction from StageAccordionList (for visibility filtering)
-  filterByTag?: CauseCategory | null  // Filter to show only features with this predicted category
 }
 
 // Margin configuration
@@ -75,8 +74,7 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
   // onVisibleCategoriesChange - removed filter buttons
   onFeatureSelect,
   sortMode = 'decisionMargin',
-  sortDirection = 'asc',
-  filterByTag = null
+  sortDirection = 'asc'
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -295,19 +293,15 @@ const UMAPScatter: React.FC<UMAPScatterProps> = ({
     return spreadPoints.filter(point => {
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(point.feature_id)) return false
-      // In Top mode, apply filterByTag if set
+      // In Top mode, show all visible features
       if (isTopMode) {
-        if (filterByTag) {
-          const predicted = causeSelectionStates.get(point.feature_id)
-          return predicted === filterByTag
-        }
         return true
       }
       // In Low mode, apply category filter
       const category = getEffectiveCategory(point.feature_id)
       return visibleCategories.has(category)
     })
-  }, [spreadPoints, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates])
+  }, [spreadPoints, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
 
   // Triangle grid disabled - using density heatmap instead
   // const gridState = useMemo(() => {

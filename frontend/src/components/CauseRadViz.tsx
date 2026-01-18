@@ -49,7 +49,6 @@ interface CauseRadVizProps {
   onFeatureSelect?: (featureId: number) => void
   sortMode?: SortMode
   sortDirection?: 'asc' | 'desc'
-  filterByTag?: CauseCategory | null
 }
 
 // Margin configuration
@@ -64,8 +63,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   visibleCategories: propVisibleCategories,
   onFeatureSelect,
   sortMode = 'decisionMargin',
-  sortDirection = 'asc',
-  filterByTag = null
+  sortDirection = 'asc'
 }) => {
   const svgRef = useRef<SVGSVGElement>(null)
   const containerElRef = useRef<HTMLDivElement | null>(null)
@@ -245,12 +243,8 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       // First check mode-based visibility (threshold)
       if (!isVisibleInCurrentMode(point.feature_id)) return false
 
-      // In Top mode, apply filterByTag if set
+      // In Top mode, show all visible features
       if (isTopMode) {
-        if (filterByTag) {
-          const predicted = causeSelectionStates.get(point.feature_id)
-          return predicted === filterByTag
-        }
         return true
       }
 
@@ -258,7 +252,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       const category = getEffectiveCategory(point.feature_id)
       return visibleCategories.has(category)
     })
-  }, [radVizPositions, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, filterByTag, causeSelectionStates])
+  }, [radVizPositions, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode])
 
   // Get set of manually tagged feature IDs for rendering
   const manuallyTaggedIds = useMemo(() => {

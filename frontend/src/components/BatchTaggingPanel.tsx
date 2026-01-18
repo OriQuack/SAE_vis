@@ -35,7 +35,7 @@ export interface BatchTaggingPanelProps {
   // Multi-class mode handlers (CauseView)
   /** Handler for per-category confirm buttons */
   onConfirmCategory?: (categoryId: string) => void
-  /** Handler for "Confirm All" button */
+  /** Handler for "Confirm All" bu  tton */
   onConfirmAll?: () => void
 
   // Binary mode handlers (ThresholdTaggingPanel)
@@ -231,7 +231,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                   width={24}
                   height={20}
                 />
-                <span className="batch-tagging__button-text">Confirm Threshold</span>
+                <span className="batch-tagging__button-text">Tag by Threshold</span>
               </div>
               <div className="batch-tagging__button-legend">
                 <span className="batch-tagging__legend-item">

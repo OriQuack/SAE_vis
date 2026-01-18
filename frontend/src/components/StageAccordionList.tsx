@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback, useState, type ReactNode } from 'react'
+import { useMemo, useCallback, useState, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/StageAccordionList.css'
@@ -18,13 +18,6 @@ import '../styles/StageAccordionList.css'
 
 export type ActiveStage = 'bootstrap' | 'learn' | 'apply'
 export type BootstrapMode = 'diversity' | 'byScore'
-
-// Filter option type for cause categories (optional)
-interface FilterOption {
-  value: string
-  label: string
-  color: string
-}
 
 interface StageAccordionListProps<T> {
   // Stage configuration
@@ -56,12 +49,6 @@ interface StageAccordionListProps<T> {
   // Hide tagged items checkbox
   hideTagged?: boolean
   onHideTaggedChange?: (value: boolean) => void
-
-  // Optional filter section (for CauseView)
-  filterOptions?: FilterOption[]
-  filterValue?: string | null
-  onFilterChange?: (value: string | null) => void
-  filterDisabled?: boolean
 
   // List props (passed through to ScrollableItemList)
   variant?: ListVariant
@@ -104,10 +91,6 @@ export function StageAccordionList<T>({
   byScoreDescLabel = 'High → Low',
   hideTagged,
   onHideTaggedChange,
-  filterOptions,
-  filterValue,
-  onFilterChange,
-  filterDisabled = false,
   // List props
   variant,
   badges,
@@ -320,31 +303,6 @@ export function StageAccordionList<T>({
           </label>
         )}
       </div>
-
-      {/* Optional Filter Section (for CauseView) */}
-      {filterOptions && onFilterChange && (
-        <div className={`stage-selector__filter ${filterDisabled ? 'stage-selector__filter--disabled' : ''}`}>
-          <span className="stage-selector__filter-label">Filter:</span>
-          <button
-            className={`stage-selector__filter-btn ${filterValue === null && !filterDisabled ? 'stage-selector__filter-btn--active' : ''}`}
-            onClick={() => !filterDisabled && onFilterChange(null)}
-            disabled={filterDisabled}
-          >
-            All
-          </button>
-          {filterOptions.map(option => (
-            <button
-              key={option.value}
-              className={`stage-selector__filter-btn ${filterValue === option.value && !filterDisabled ? 'stage-selector__filter-btn--active' : ''}`}
-              style={{ '--tag-color': option.color } as React.CSSProperties}
-              onClick={() => !filterDisabled && onFilterChange(option.value)}
-              disabled={filterDisabled}
-            >
-              {option.label}
-            </button>
-          ))}
-        </div>
-      )}
 
       {/* Scrollable Item List */}
       <div className="stage-selector__list">
