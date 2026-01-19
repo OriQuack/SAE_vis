@@ -7,7 +7,7 @@ Professional guidance for the FastAPI backend of the SAE Feature Visualization r
 **Purpose**: Provide stateless feature grouping, clustering, similarity scoring, and bimodality detection APIs for frontend visualization
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: SVM-based similarity scoring + hierarchical clustering + bimodality detection
+**Key Innovation**: SVM-based similarity scoring + Query by Committee (QBC) active learning + hierarchical clustering + bimodality detection
 
 ## Important Development Principles
 
@@ -104,7 +104,38 @@ def get_similarity_scores(selected_ids, rejected_ids, all_ids):
     return sorted_by_score(all_ids, scores)
 ```
 
-### 4. Bimodality Service
+### 4. Committee Service (QBC)
+Query by Committee approach using RF + MLP alongside SVM:
+
+```python
+# services/committee_service.py
+class CommitteeService:
+    """Train RF + MLP committee for active learning disagreement detection."""
+
+    MIN_SAMPLES_PER_CLASS = 3
+
+    def train_committee(self, X_train, y_train, sample_weights=None):
+        # 1. Train Random Forest
+        rf = RandomForestClassifier(n_estimators=100, max_depth=5)
+        rf.fit(X_train, y_train, sample_weight=sample_weights)
+
+        # 2. Train MLP
+        mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500)
+        mlp.fit(X_train_scaled, y_train)
+
+        return rf, mlp, scaler
+
+    def get_committee_predictions(self, X, svm_preds, rf, mlp):
+        # Returns CommitteePrediction with vote_entropy for each sample
+        # High entropy = disagreement between models (potential outlier)
+```
+
+**Use Cases**:
+- Detect cases where SVM is confident but RF/MLP disagree
+- Guide users toward uncertain samples during active learning
+- Support both binary (Stage 1/2) and multi-class (Stage 3) classification
+
+### 5. Bimodality Service
 Detect bimodal distributions using Hartigan's Dip test and GMM:
 
 ```python
@@ -129,7 +160,7 @@ def detect_bimodality(scores):
     }
 ```
 
-### 5. Alignment Service
+### 6. Alignment Service
 Find semantically aligned phrases across LLM explanations:
 
 ```python
@@ -140,7 +171,7 @@ async def get_highlighted_explanations(feature_id):
     # 3. Return segments with highlight metadata
 ```
 
-### 6. Activation Cache Service
+### 7. Activation Cache Service
 Pre-computed activation data using MessagePack + gzip:
 
 ```python
@@ -150,8 +181,8 @@ async def get_cached_activation_blob():
     # ~15-25s load vs ~100s for chunked JSON
 ```
 
-### 7. UMAP Service (Stage 3)
-Barycentric projections and SVM-based cause classification:
+### 8. UMAP Service (Stage 3)
+Barycentric projections, SVM-based cause classification, and flip rate tracking:
 
 ```python
 # services/umap_service.py
@@ -171,13 +202,17 @@ async def get_umap_projection(feature_ids):
     # Includes explainer_positions for detail view
     # Includes HDBSCAN cluster_id assignments
 
-async def get_cause_classification(feature_ids, cause_selections):
+async def get_cause_classification(feature_ids, cause_selections, prev_predictions=None):
     # Trains One-vs-Rest SVMs for each cause category
     # Uses 6D metric vectors per feature (averaged across 3 explainers)
     # Returns predicted_category and decision_scores per feature
+    # Calculates flip_rate when prev_predictions provided
+    # Also trains RF + MLP committee for QBC (via CommitteeService)
 ```
 
-### 8. Cold Start Service
+**Decision Flip Rate**: When `prev_predictions` is provided, calculates the percentage of features whose predicted category changed compared to the previous iteration. Used for convergence monitoring.
+
+### 9. Cold Start Service
 Diversity-based representative sampling for initializing tagging:
 
 ```python
@@ -210,12 +245,13 @@ backend/
 │   │   ├── requests.py           # Request models
 │   │   ├── responses.py          # Response models
 │   │   └── cold_start.py         # Cold start models
-│   └── services/                  # Business logic (14 files)
+│   └── services/                  # Business logic (15 files)
 │       ├── data_service.py           # Data loading + initialization
 │       ├── data_constants.py         # Metric definitions
 │       ├── feature_group_service.py  # Feature grouping
 │       ├── hierarchical_cluster_candidate_service.py # Clustering
 │       ├── similarity_sort_service.py # SVM scoring
+│       ├── committee_service.py      # QBC: RF + MLP committee
 │       ├── bimodality_service.py     # Bimodality detection
 │       ├── histogram_service.py      # Histogram generation
 │       ├── table_data_service.py     # Table processing
@@ -357,6 +393,10 @@ Get similarity histogram with bimodality detection
       {"mean": 0.8, "variance": 0.3, "weight": 0.6}
     ],
     "sample_size": 100
+  },
+  "committee_votes": {
+    "1": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 0, "vote_entropy": 0.92},
+    "2": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 1, "vote_entropy": 0.0}
   }
 }
 ```
@@ -406,13 +446,14 @@ Get barycentric 2D positions for features (Stage 3 UMAP)
 ```
 
 #### POST /api/cause-classification
-SVM cause classification for features (Stage 3)
+SVM cause classification for features (Stage 3) with QBC and flip rate tracking
 
 **Request**:
 ```json
 {
   "feature_ids": [1, 2, 3, 4, 5],
-  "cause_selections": {"1": "noisy-activation", "2": "missed-N-gram", "3": "missed-context"}
+  "cause_selections": {"1": "noisy-activation", "2": "missed-N-gram", "3": "missed-context"},
+  "prev_predictions": {"4": "missed-context", "5": "noisy-activation"}
 }
 ```
 
@@ -428,11 +469,18 @@ SVM cause classification for features (Stage 3)
         "noisy-activation": 0.589,
         "missed-N-gram": 0.035,
         "missed-context": -0.999
+      },
+      "committee_vote": {
+        "svm_category": "noisy-activation",
+        "rf_category": "noisy-activation",
+        "mlp_category": "missed-context"
       }
     }
   ],
   "total_features": 5,
-  "category_counts": {"noisy-activation": 2, "missed-N-gram": 2, "missed-context": 1}
+  "category_counts": {"noisy-activation": 2, "missed-N-gram": 2, "missed-context": 1},
+  "flip_rate": 0.15,
+  "flip_count": 1
 }
 ```
 

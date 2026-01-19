@@ -86,7 +86,7 @@ export function StageAccordionList<T>({
   applyDisabled = false,
   shouldPulseLearn,
   shouldPulseApply,
-  diversityLabel = 'Representatives',
+  diversityLabel = 'Most Critical 20',
   byScoreAscLabel = 'Low → High',
   byScoreDescLabel = 'High → Low',
   hideTagged,

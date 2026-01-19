@@ -18,7 +18,7 @@ const LAYOUT = {
   // Chart margins (space for axes and labels)
   margin: {
     top: 30,     // Space for threshold label arrow
-    right: 10,
+    right: 4,
     bottom: 36,  // Space for x-axis ticks and label
     left: 36,    // Space for y-axis ticks
   },
@@ -127,11 +127,11 @@ const HISTOGRAM_STRIPE = {
   opacity: STRIPE_PATTERN.opacity
 }
 
-// Category order for stacking (bottom to top)
+// Category order for stacking (bottom to top) - matches SelectionBar order
 const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
-  'noisy-activation',
   'missed-N-gram',
   'missed-context',
+  'noisy-activation',
   'well-explained',
   'unsure'
 ]

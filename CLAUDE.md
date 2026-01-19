@@ -48,6 +48,9 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • D3.js Visualizations (Sankey, Histograms, Alluvial, Flow Overlay)     │
 │  • 4-Stage Tag Workflow: Feature Splitting → Quality → Cause → Summary   │
 │  • SVM-Based Similarity Scoring with Bimodality Detection                 │
+│  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
+│  • Decision Flip Rate Tracking for Convergence Monitoring                 │
+│  • RadViz Visualization for Multi-class Cause Analysis                    │
 │  • Commit History for tagging state snapshots                             │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
@@ -65,6 +68,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Feature Grouping Service (filter → group by thresholds)                │
 │  • Hierarchical Clustering Service (decoder similarity)                   │
 │  • Similarity Sort Service (SVM-based scoring for features and pairs)     │
+│  • Committee Service (QBC: Random Forest + MLP for active learning)       │
 │  • Bimodality Service (Hartigan's Dip + GMM analysis)                     │
 │  • Alignment Service (semantic phrase matching)                           │
 │  • Activation Cache Service (pre-computed msgpack+gzip)                   │
@@ -156,10 +160,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (21 files + 10 tagging hooks)
+│   │   ├── components/    # UI components (33 files)
+│   │   ├── lib/          # D3 utilities, helpers (22 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (28 files)
+│   │   ├── styles/       # CSS files (30 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -167,7 +171,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   ├── app/
 │   │   ├── api/          # Endpoints (10 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (14 files)
+│   │   └── services/     # Business logic (15 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── master/           # Primary parquet files (13 files)
@@ -203,11 +207,13 @@ npm run dev -- --port 3003
 - **Alluvial Diagram**: Cross-explainer flow comparison (comparison overlay)
 - **Feature Split View**: Stage 1 - Pair similarity analysis with clustering
 - **Quality View**: Stage 2 - Feature quality assessment
-- **Cause View**: Stage 3 - Root cause analysis with UMAP scatter and decision margin histogram
+- **Cause View**: Stage 3 - Root cause analysis with RadViz scatter and decision margin histogram
+- **RadViz Scatter**: Softmax-weighted positioning using SVM decision scores toward category anchors
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
 - **Tag Stage Panel**: 4-stage navigation (Feature Splitting → Quality → Cause → Summary)
-- **Status Panel**: Sorting controls for scrollable lists (sort mode, direction)
+- **StageAccordionList**: Bootstrap → Learn → Apply workflow with sorting controls
+- **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
 - **Commit History**: Save and restore tagging state snapshots
 
 ### 4-Stage Tagging Workflow
@@ -220,14 +226,16 @@ npm run dev -- --port 3003
 | 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis
-- **UMAP Scatter**: Barycentric projection (precomputed 2D positions from 6D metric space)
+- **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
 - **Manual Tagging**: User tags features into cause categories (Pattern Miss / Context Miss / Noisy Activation)
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
+- **Query by Committee (QBC)**: RF + MLP models trained alongside SVM to detect disagreement cases
+- **Decision Flip Rate**: Tracks prediction stability across tagging iterations (convergence indicator)
 - **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution with filtering support
-- **Contour Visualization**: Shows category distributions on UMAP after classification
-- **HDBSCAN Clustering**: Pre-computed cluster assignments for feature grouping
+- **Contour Visualization**: Shows category distributions on RadViz after classification
+- **Bootstrap → Learn → Apply Workflow**: StageAccordionList guides users through active learning stages
 - **Representative Sampling**: Diversity-based sampling for cold start initialization
 
 ### Stage 4: Summary
@@ -239,10 +247,18 @@ npm run dev -- --port 3003
 Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
 1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
 2. **SVM Training**: Backend trains SVM on manual selections
-3. **Scoring**: All items scored by distance from decision boundary
-4. **Histogram**: Scores displayed with bimodality detection
-5. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
-6. **Commit History**: Each apply creates a restorable state snapshot
+3. **Query by Committee**: RF + MLP trained alongside SVM to detect disagreement (outliers)
+4. **Scoring**: All items scored by distance from decision boundary
+5. **Histogram**: Scores displayed with bimodality detection
+6. **Decision Flip Rate**: Tracks prediction changes across iterations for convergence
+7. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+8. **Commit History**: Each apply creates a restorable state snapshot
+
+### Tag Selection Sources
+Items can be tagged via three mechanisms (tracked in SelectionSource type):
+- **clicked**: User manually clicked to tag the item
+- **threshold**: Auto-tagged by applying threshold boundaries
+- **predicted**: SVM prediction accepted during batch tagging
 
 ### Performance
 - **Feature Group Caching**: Instant threshold updates

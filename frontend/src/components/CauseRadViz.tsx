@@ -669,6 +669,22 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
           <span>Updating...</span>
         </div>
       )}
+
+      {/* Legend */}
+      <div className="cause-radviz__legend">
+        <div className="cause-radviz__legend-item">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <circle cx="5" cy="5" r="3" fill="#686868" />
+          </svg>
+          <span>Manual</span>
+        </div>
+        <div className="cause-radviz__legend-item">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <circle cx="5" cy="5" r="2.5" fill="none" stroke="#686868" strokeWidth="1" />
+          </svg>
+          <span>Auto</span>
+        </div>
+      </div>
     </div>
   )
 }

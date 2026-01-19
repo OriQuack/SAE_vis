@@ -7,7 +7,7 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring
+**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning
 
 ## Important Development Principles
 
@@ -86,14 +86,16 @@ The application implements a 4-stage workflow for tagging features:
 | 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Root Cause Analysis (CauseView)
-- **UMAP Scatter**: Barycentric projection from 6D metric space with density contours
+- **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
 - **Manual Tagging**: Click features to assign cause categories (Pattern Miss / Context Miss / Noisy Activation)
-- **SVM Classification**: After tagging 1+ feature per category, SVM predicts remaining
+- **SVM Classification**: After tagging 2+ features per category, SVM predicts remaining
+- **Query by Committee (QBC)**: RF + MLP trained alongside SVM; vote entropy identifies disagreement cases
+- **Decision Flip Rate**: Tracks prediction stability across tagging iterations (ConvergenceIndicator)
 - **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence with filtering support and batch tagging
-- **Contour Update**: Contours show predicted category distributions after classification
-- **Status Panel**: Sorting controls (sort by default metric or uncertainty)
+- **Contour Visualization**: Density contours show predicted category distributions on RadViz
+- **Bootstrap → Learn → Apply**: StageAccordionList guides users through active learning workflow
 - **Representative Sampling**: Cold start with diversity-based feature sampling
 
 ### Stage 4: Summary (RegenerationView)
@@ -111,7 +113,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (30 files)
+├── components/                    # React Components (33 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -122,11 +124,13 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
 │   ├── CauseView.tsx             # Stage 3: Root cause analysis
+│   ├── CauseRadViz.tsx           # RadViz scatter plot for cause categories (Stage 3)
 │   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
-│   ├── UMAPScatter.tsx           # UMAP scatter plot (Stage 3)
-│   ├── StatusPanel.tsx           # Sorting controls for scrollable lists
+│   ├── UMAPScatter.tsx           # UMAP scatter plot (legacy, replaced by RadViz)
+│   ├── StageAccordionList.tsx    # Bootstrap → Learn → Apply workflow
+│   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
 │   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
-│   ├── ConvergenceIndicator.tsx  # SVM convergence indicator
+│   ├── ConvergenceIndicator.tsx  # Decision Flip Rate sparkline
 │   ├── SelectionPanel.tsx        # Unified selection panel
 │   ├── SelectionBar.tsx          # Selection state bar
 │   ├── TagStagePanel.tsx         # Stage navigation
@@ -136,14 +140,15 @@ frontend/src/
 │   ├── ScrollableItemList.tsx    # Scrollable item list
 │   ├── ActivationExamplePanel.tsx # Activation display panel
 │   ├── ExplanationPanel.tsx      # Explanation text with highlights
-│   ├── Indicators.tsx            # Score indicators
+│   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
+│   ├── Tooltip.tsx               # Reusable tooltip with composition pattern
 │   ├── QualityScoreBreakdown.tsx # Score breakdown
 │   ├── ModalityIndicator.tsx     # Modality detection display
 │   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
-├── lib/                          # Utilities (21 files + 10 tagging hooks)
+├── lib/                          # Utilities (22 files + 10 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -164,6 +169,7 @@ frontend/src/
 │   ├── pairUtils.ts              # Pair key utilities
 │   ├── cause-tagging-utils.ts    # Cause category metric calculations
 │   ├── umap-utils.ts             # UMAP scales, contours, colors
+│   ├── radviz-utils.ts           # RadViz positioning, anchors, scales
 │   ├── color-utils.tsx           # Color manipulation utilities
 │   ├── triangle-grid.ts          # Triangle grid layout utilities
 │   ├── utils.ts                  # General helpers
@@ -186,8 +192,8 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (28 files)
-│   ├── base.css                  # Base styles, CSS variables
+├── styles/                       # CSS Files (30 files)
+│   ├── base.css                  # Base styles, CSS variables, unified styling
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
 │   ├── SankeyDiagram.css         # Sankey styles
@@ -197,9 +203,13 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── QualityView.css           # Stage 2 styles
 │   ├── CauseView.css             # Stage 3 styles
+│   ├── CauseRadViz.css           # RadViz scatter styles (Stage 3)
 │   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
-│   ├── UMAPScatter.css           # UMAP scatter styles
-│   ├── StatusPanel.css           # Status panel styles
+│   ├── UMAPScatter.css           # UMAP scatter styles (legacy)
+│   ├── StageAccordionList.css    # Bootstrap/Learn/Apply workflow styles
+│   ├── BatchTaggingPanel.css     # Batch tagging panel styles
+│   ├── Tooltip.css               # Unified tooltip styles
+│   ├── ConvergenceIndicator.css  # Decision Flip Rate sparkline styles
 │   ├── SelectionPanel.css        # Selection panel styles
 │   ├── SelectionBar.css          # Selection bar styles
 │   ├── TagStagePanel.css         # Stage panel styles
@@ -254,33 +264,43 @@ frontend/src/
 
 **CauseView.tsx** - Stage 3: Root Cause Analysis
 - Mode: `cause`
-- UMAP scatter plot with barycentric projections from 6D metric space
+- RadViz scatter plot with softmax-weighted positioning toward category anchors
 - CauseMarginHistogram for SVM decision margin visualization with filtering and batch tagging
 - Features start as "unsure" (no pre-assignment)
 - SVM-based classification after manual tagging
+- Query by Committee (QBC) for detecting disagreement cases
+- Decision Flip Rate tracking with ConvergenceIndicator
 - Tags: Pattern Miss / Context Miss / Noisy Activation
-- StatusPanel for sorting controls
+- StageAccordionList for Bootstrap → Learn → Apply workflow
 - Cold start with representative sampling
 
-**UMAPScatter.tsx** - UMAP Visualization (Stage 3)
-- Canvas-based scatter plot for performance
-- SVG overlay for contours and lasso selection
-- Barycentric precomputed 2D positions (mean across 3 explainers)
-- Density contours per cause category
-- Lasso selection for batch operations
-- Explainer position detail view on feature selection
-- HDBSCAN cluster visualization
+**CauseRadViz.tsx** - RadViz Visualization (Stage 3)
+- Canvas-based scatter plot for performance with SVG overlay
+- Softmax-weighted positioning: features positioned using `softmax(decision_scores)` as weights toward category anchors
+- 3 category anchors arranged in equilateral triangle: Pattern Miss, Context Miss, Noisy Activation
+- Density contours per cause category after SVM classification
+- Category filtering via legend interaction
+- Contour update when predictions change
+- Uses radviz-utils.ts for positioning calculations
 
 **CauseMarginHistogram.tsx** - Decision Margin Histogram (Stage 3)
 - SVM decision margin histogram with threshold handles
 - Category-colored stacked bars (manual vs auto distinction)
 - Supports filtering features by histogram bins
-- Bin hover interaction with UMAP scatter highlighting
+- Bin hover interaction with RadViz scatter highlighting
 
-**StatusPanel.tsx** - Sorting Controls
-- Sort mode toggle (default metric vs uncertainty)
-- Sort direction controls (ascending/descending)
-- Used across Stage 1, 2, and 3 views
+**StageAccordionList.tsx** - Active Learning Workflow
+- Bootstrap → Learn → Apply stage progression
+- Bootstrap options: Representatives (diversity sampling) or By Score (ascending/descending)
+- Learn stage: Review SVM predictions, accept/reject
+- Apply stage: Batch apply threshold-based tagging
+- Smart pulsing indicators when ready to advance
+
+**ConvergenceIndicator.tsx** - Decision Flip Rate
+- Sparkline visualization of flip rate history (sliding window of 10 iterations)
+- Stacked bar showing category distribution per iteration
+- Reference lines at 10%, 25%, 50% flip rate
+- Stage-aware coloring (Stage 1/2: selected/rejected, Stage 3: cause categories)
 
 **AlluvialDiagram.tsx** - Comparison View
 - Cross-explainer flow visualization
@@ -357,9 +377,17 @@ frontend/src/
 - Explanation text with keyword highlights
 - Cross-explainer comparison support
 
-**Indicators.tsx** - Score Indicators
-- Visual indicators for metric scores
+**Indicators.tsx** - Visual Indicators
+- **TagBadge**: Unified tag badge showing Feature ID + Tag Name with category colors
+- **MetricBar**: Horizontal bar for metric values with optional uncertainty display
+- **QBC Vote Indicators**: Shows committee vote disagreement (RF/MLP vs SVM)
 - Circle encoding for score visualization
+- Auto-tag stripe pattern overlay for threshold/predicted items
+
+**Tooltip.tsx** - Reusable Tooltip
+- Composition pattern for flexible content: Tooltip.Header, Tooltip.Summary, Tooltip.Row
+- Positioned tooltips with automatic viewport boundary detection
+- Consistent styling across all visualizations (histogram, RadViz, etc.)
 
 ## SVM-Based Similarity Scoring
 
@@ -367,11 +395,19 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 
 1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
 2. **SVM Training**: Backend trains SVM on manual selections
-3. **Scoring**: All items scored by distance from decision boundary
-4. **Histogram**: Scores displayed in DecisionMarginHistogram with dual thresholds
-5. **Modality Detection**: Hartigan's Dip test + GMM analysis
-6. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
-7. **Commit History**: Each apply creates a restorable state snapshot
+3. **Query by Committee**: Backend trains RF + MLP alongside SVM to detect disagreement
+4. **Scoring**: All items scored by distance from decision boundary
+5. **Histogram**: Scores displayed in DecisionMarginHistogram with dual thresholds
+6. **Modality Detection**: Hartigan's Dip test + GMM analysis
+7. **Decision Flip Rate**: Track prediction stability across iterations
+8. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+9. **Commit History**: Each apply creates a restorable state snapshot
+
+### Tag Selection Sources (SelectionSource type)
+Items can be tagged via three mechanisms:
+- **clicked**: User manually clicked to tag the item
+- **threshold**: Auto-tagged by applying threshold boundaries
+- **predicted**: SVM prediction accepted during batch tagging
 
 ## Tagging Hooks (lib/tagging-hooks/)
 

@@ -378,6 +378,6 @@ The goal is efficient, reproducible data processing for a research visualization
 
 ---
 
-**Pipeline Version**: 3.2 (6D Barycentric + HDBSCAN + Cold Start)
+**Pipeline Version**: 3.3 (6D Barycentric + HDBSCAN + Cold Start + QBC)
 **Last Updated**: January 2026
 **Status**: Conference-ready research prototype
