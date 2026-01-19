@@ -127,11 +127,12 @@ const HISTOGRAM_STRIPE = {
   opacity: STRIPE_PATTERN.opacity
 }
 
-// Category order for stacking (bottom to top) - matches SelectionBar order
+// Category order for stacking (bottom to top)
+// Visual top-to-bottom: unsure, well-explained, Pattern Miss, Context Miss, Noisy Activation
 const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
-  'missed-N-gram',
-  'missed-context',
   'noisy-activation',
+  'missed-context',
+  'missed-N-gram',
   'well-explained',
   'unsure'
 ]

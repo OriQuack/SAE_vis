@@ -78,3 +78,28 @@
   );
   border: 1px solid var(--swatch-color);
 }
+
+/* Transition row - for showing category transitions with arrow */
+.tooltip__transition-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 6px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.tooltip__transition-arrow {
+  color: var(--text-tertiary, #9ca3af);
+  font-size: 12px;
+}
+
+.tooltip__transition-label {
+  margin-left: 4px;
+  font-size: 12px;
+}
+
+.tooltip__transition-count {
+  margin-left: 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}

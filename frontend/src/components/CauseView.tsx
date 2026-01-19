@@ -111,6 +111,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
+  // Store selected feature ID directly to preserve highlight across mode switches
+  const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
   // Multi-list navigation: main list (all) or boundary list
   const { activeListSource, setActiveListSource } = useListNavigation({
@@ -428,6 +430,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     setSortMode(newMode)
     setSelectedSortDirection(newDir)
     setCurrentFeatureIndex(0)
+    setSelectedFeatureIdState(null)  // Reset stored state on manual stage change
   }, [bootstrapMode, bootstrapDirection, setSortMode, setSelectedSortDirection])
 
   const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
@@ -643,14 +646,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       .filter(item => item.row !== null)
   }, [tableData, selectedFeatureIds])
 
-  // Filtered feature list based on visible categories (for detail panel navigation)
-  const filteredFeatureList = useMemo(() => {
-    return featureListWithMetadata.filter(item => {
-      const effectiveCategory = getEffectiveCategory(item.featureId)
-      return visibleCategories.has(effectiveCategory)
-    })
-  }, [featureListWithMetadata, getEffectiveCategory, visibleCategories])
-
   // Check if all features are user-confirmed tagged (for enabling next stage button)
   const allTagged = useMemo(() => {
     if (!selectedFeatureIds || selectedFeatureIds.size === 0) return false
@@ -683,26 +678,34 @@ const CauseView: React.FC<CauseViewProps> = ({
     return map
   }, [featureSelectionStates, tableData, activationExamples])
 
-  // Reset feature index when filtered list changes
-  useEffect(() => {
-    if (currentFeatureIndex >= filteredFeatureList.length && filteredFeatureList.length > 0) {
-      setCurrentFeatureIndex(filteredFeatureList.length - 1)
-    } else if (filteredFeatureList.length === 0) {
-      setCurrentFeatureIndex(0)
-    }
-  }, [filteredFeatureList.length, currentFeatureIndex])
-
   // Reset feature index when visible categories change (auto-select first feature)
   useEffect(() => {
     setCurrentFeatureIndex(0)
   }, [visibleCategories])
 
 
-  // Compute selected feature ID from active list and current index
+  // Compute selected feature ID - prefer stored state, fallback to index-based
   // This is the source of truth for which feature is selected
   const selectedFeatureId = useMemo(() => {
+    // Prefer stored state when available (survives mode switches)
+    if (selectedFeatureIdState !== null) {
+      return selectedFeatureIdState
+    }
+    // Fallback to index-based selection
     return activeFeatureList[currentFeatureIndex] ?? null
-  }, [activeFeatureList, currentFeatureIndex])
+  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+
+  // Sync currentFeatureIndex when lists change (after mode switch)
+  // This keeps the index pointing to the stored selected item
+  useEffect(() => {
+    if (selectedFeatureIdState === null) return
+
+    // Find the stored item in the current active list
+    const newIndex = activeFeatureList.indexOf(selectedFeatureIdState)
+    if (newIndex !== -1 && newIndex !== currentFeatureIndex) {
+      setCurrentFeatureIndex(newIndex)
+    }
+  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
 
   // Compute highlight index for main list (always show where selected item is)
   const mainListHighlightIndex = useMemo(() => {
@@ -777,12 +780,19 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Handle click on feature list item (main StageAccordionList)
   const handleListItemClick = useCallback((index: number) => {
+    // Set feature ID first (survives mode switches)
+    const featureId = sortedFilteredFeatureList[index]
+    if (featureId !== undefined) {
+      setSelectedFeatureIdState(featureId)
+    }
     setActiveListSource('all')
     setCurrentFeatureIndex(index)
-  }, [setActiveListSource])
+  }, [sortedFilteredFeatureList, setActiveListSource])
 
   // Handle click on boundary list item (ThresholdTaggingPanel)
   const handleBoundaryListItemClick = useCallback((featureId: number) => {
+    // Set feature ID first (survives mode switches)
+    setSelectedFeatureIdState(featureId)
     const index = causeBoundaryItems.findIndex(item => item.featureId === featureId)
     if (index !== -1) {
       setActiveListSource('boundary')
@@ -793,6 +803,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Handle click on a point in RadViz scatter or histogram
   const handleUMAPFeatureSelect = useCallback((featureId: number) => {
+    // Set feature ID first (survives mode switches)
+    setSelectedFeatureIdState(featureId)
     // Try to find in main list first
     const mainIndex = sortedFilteredFeatureList.indexOf(featureId)
     if (mainIndex !== -1) {
@@ -909,10 +921,12 @@ const CauseView: React.FC<CauseViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
+    setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
   }, [])
 
   const handleNavigateNext = useCallback(() => {
+    setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.min(activeFeatureList.length - 1, i + 1))
   }, [activeFeatureList.length])
 
@@ -924,6 +938,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     listLength: activeFeatureList.length,
     onNavigateNext: handleNavigateNext,
     onResetToFirst: () => {
+      setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
       setCurrentFeatureIndex(0)
       setActiveListSource('all')
     },
@@ -1205,10 +1220,11 @@ const CauseView: React.FC<CauseViewProps> = ({
         ? 'Unsure'
         : CAUSE_TAG_NAMES[effectiveCategory] || 'Unsure'
 
-      // Stripe pattern only in Top mode for predicted features (above-threshold candidates)
-      // Low mode: no stripe (unsure features, no auto-tagging shown)
-      // Top mode: stripe for candidates (above threshold, showing predicted category)
-      isAuto = isTopMode && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
+      // Stripe pattern for predicted (non-user-confirmed) features with a category
+      // This applies in both Train (asc) and Apply (desc) stages in decisionMargin mode
+      // Train: shows which features have predictions above threshold
+      // Apply: shows which features will be auto-tagged
+      isAuto = sortMode === 'decisionMargin' && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
     }
 
     return (
@@ -1221,7 +1237,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         isAuto={isAuto}
       />
     )
-  }, [sortMode, getEffectiveCategory, causeSelectionStates, causeSelectionSources, isTopMode, handleListItemClick])
+  }, [sortMode, getEffectiveCategory, causeSelectionStates, causeSelectionSources, handleListItemClick])
 
   // ============================================================================
   // RENDER

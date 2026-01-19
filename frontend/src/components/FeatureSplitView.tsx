@@ -64,6 +64,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
 
+  // Store selected pair key directly to preserve highlight across mode switches
+  const [selectedPairKeyState, setSelectedPairKeyState] = useState<string | null>(null)
+
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = pairSimilarityScores.size > 0
 
@@ -496,6 +499,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setSortDirection(newDir)
     setCurrentPairIndex(0)
     setActiveListSource('all')
+    setSelectedPairKeyState(null)  // Reset stored state on manual stage change
   }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
 
   const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
@@ -767,12 +771,29 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [activeListSource, displayPairList, boundaryItems])
 
-  // Compute selected pair key from active list and current index
+  // Compute selected pair key - prefer stored state, fallback to index-based
   // This is the source of truth for which pair is selected
   const selectedPairKey = useMemo(() => {
+    // Prefer stored state when available (survives mode switches)
+    if (selectedPairKeyState !== null) {
+      return selectedPairKeyState
+    }
+    // Fallback to index-based selection
     const pair = activePairList[currentPairIndex]
     return pair?.pairKey ?? null
-  }, [activePairList, currentPairIndex])
+  }, [selectedPairKeyState, activePairList, currentPairIndex])
+
+  // Sync currentPairIndex when lists change (after mode switch)
+  // This keeps the index pointing to the stored selected item
+  useEffect(() => {
+    if (selectedPairKeyState === null) return
+
+    // Find the stored item in the current active list
+    const newIndex = activePairList.findIndex(p => p.pairKey === selectedPairKeyState)
+    if (newIndex !== -1 && newIndex !== currentPairIndex) {
+      setCurrentPairIndex(newIndex)
+    }
+  }, [selectedPairKeyState, activePairList, currentPairIndex])
 
   // Compute highlight index for main list (always show where selected pair is)
   const mainListHighlightIndex = useMemo(() => {
@@ -846,13 +867,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // All Pairs list click handler
   const handleAllPairsListClick = useCallback((index: number) => {
     if (index >= 0 && index < displayPairList.length) {
-      setActiveListSource('all')
-      setCurrentPairIndex(index)
-      // Pre-fetch activation examples for clicked pair
+      // Set pair key first (survives mode switches)
       const pair = displayPairList[index]
       if (pair) {
+        setSelectedPairKeyState(pair.pairKey)
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
+      setActiveListSource('all')
+      setCurrentPairIndex(index)
     }
   }, [displayPairList, fetchActivationExamples, setActiveListSource])
 
@@ -860,12 +882,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
     if (index >= 0 && index < items.length) {
-      const pairKey = items[index].pairKey
+      const pair = items[index]
+      // Set pair key first (survives mode switches)
+      setSelectedPairKeyState(pair.pairKey)
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentPairIndex(index)
-      scrollToItemInMainList(pairKey)
+      scrollToItemInMainList(pair.pairKey)
       // Pre-fetch activation examples for clicked pair
-      const pair = items[index]
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
@@ -877,10 +900,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
+    setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
     setCurrentPairIndex(prev => Math.max(0, prev - 1))
   }, [])
 
   const handleNavigateNext = useCallback(() => {
+    setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
     setCurrentPairIndex(prev => Math.min(activePairList.length - 1, prev + 1))
   }, [activePairList.length])
 
@@ -1122,6 +1147,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             isLoading={isPairSimilaritySortLoading}
             isTemplateSort={isTemplateSort}
             onResetToFirstPair={() => {
+              setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
               setCurrentPairIndex(0)
               setActiveListSource('all')
             }}

@@ -71,6 +71,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
 
+  // Store selected feature ID directly to preserve highlight across mode switches
+  const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
+
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = similarityScores.size > 0
 
@@ -247,6 +250,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     setSortDirection(newDir)
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
+    setSelectedFeatureIdState(null)  // Reset stored state on manual stage change
   }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
 
   const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
@@ -545,13 +549,32 @@ const QualityView: React.FC<QualityViewProps> = ({
     return displayFeatures
   }, [activeListSource, displayFeatures, boundaryItems.rejectBelow, boundaryItems.selectAbove])
 
-  // Compute selected feature ID from active list and current index
+  // Compute selected feature ID - prefer stored state, fallback to index-based
   // This is the source of truth for which feature is selected
   const selectedFeatureId = useMemo(() => {
+    // Prefer stored state when available (survives mode switches)
+    if (selectedFeatureIdState !== null) {
+      return selectedFeatureIdState
+    }
+    // Fallback to index-based selection
     const item = activeFeatureList[currentFeatureIndex]
     if (!item) return null
     return 'featureId' in item ? item.featureId : null
-  }, [activeFeatureList, currentFeatureIndex])
+  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+
+  // Sync currentFeatureIndex when lists change (after mode switch)
+  // This keeps the index pointing to the stored selected item
+  useEffect(() => {
+    if (selectedFeatureIdState === null) return
+
+    // Find the stored item in the current active list
+    const newIndex = activeFeatureList.findIndex(
+      (item: FeatureWithMetadata) => item.featureId === selectedFeatureIdState
+    )
+    if (newIndex !== -1 && newIndex !== currentFeatureIndex) {
+      setCurrentFeatureIndex(newIndex)
+    }
+  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
 
   // Compute highlight index for main list (always show where selected item is)
   const mainListHighlightIndex = useMemo(() => {
@@ -722,17 +745,20 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
+    setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
     // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
   }, [])
 
   const handleNavigateNext = useCallback(() => {
+    setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.min(displayFeatures.length - 1, i + 1))
     // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
   }, [displayFeatures.length])
 
   // Reset to first feature in 'all' list (used after tagging in decision margin mode)
   const handleResetToFirst = useCallback(() => {
+    setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
   }, [setActiveListSource])
@@ -827,9 +853,14 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Handle click on feature in top row list
   const handleFeatureListClick = useCallback((index: number) => {
+    // Set feature ID first (survives mode switches)
+    const feature = displayFeatures[index]
+    if (feature) {
+      setSelectedFeatureIdState(feature.featureId)
+    }
     setCurrentFeatureIndex(index)
     setActiveListSource('all')
-  }, [setActiveListSource])
+  }, [displayFeatures, setActiveListSource])
 
   // Render feature item for the ScrollableItemList
   // Score display is handled by ScrollableItemList's sortConfig
@@ -872,6 +903,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
     if (index >= 0 && index < items.length) {
       const featureId = items[index].featureId
+      // Set feature ID first (survives mode switches)
+      setSelectedFeatureIdState(featureId)
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentFeatureIndex(index)
       scrollToItemInMainList(featureId)

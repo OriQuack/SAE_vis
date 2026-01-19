@@ -1,9 +1,33 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/ConvergenceIndicator.css'
 import type { FlipTrackingInfo } from '../types'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { Tooltip } from './Tooltip'
+
+// Tooltip data types
+type TooltipDataSegment = {
+  type: 'segment'
+  iteration: number
+  segments: Array<{ category: string; count: number; color: string; label: string }>
+  total: number
+  flipRate: number | null  // null for iteration 0
+}
+
+type TooltipDataAllLinks = {
+  type: 'allLinks'
+  fromIteration: number
+  toIteration: number
+  totalFlipped: number
+  links: Array<{
+    sourceColor: string
+    targetColor: string
+    count: number
+  }>
+}
+
+type TooltipData = TooltipDataSegment | TooltipDataAllLinks
 
 interface ConvergenceIndicatorProps {
   flipTracking: FlipTrackingInfo | null
@@ -25,6 +49,12 @@ export const FLIP_HISTORY_WINDOW_SIZE = 10
  * IEEE VIS-style: reference lines + categorical zones + trend indicator
  */
 export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flipTracking, stage }) => {
+  // Tooltip state
+  const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
+  const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
+  const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null)
+  const [hoveredGapIndex, setHoveredGapIndex] = useState<number | null>(null)
+
   // Use resize observer for responsive sizing
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: DEFAULT_WIDTH,
@@ -33,27 +63,38 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     debugId: 'convergence-indicator'
   })
 
-  // Color configuration for stacked bars based on stage
-  const categoryConfig = useMemo((): { order: string[]; colors: Record<string, string> } => {
+  // Color and label configuration for stacked bars based on stage
+  const categoryConfig = useMemo((): { order: string[]; colors: Record<string, string>; labels: Record<string, string> } => {
     if (stage === 'stage3') {
+      // Order is bottom-to-top; visual top-to-bottom: Pattern Miss, Context Miss, Noisy Activation
       return {
-        order: ['missed-N-gram', 'missed-context', 'noisy-activation', 'well-explained'],
+        order: ['noisy-activation', 'missed-context', 'missed-N-gram', 'well-explained'],
         colors: {
           'well-explained': getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#4CAF50',
           'noisy-activation': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#FF5722',
           'missed-N-gram': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9C27B0',
           'missed-context': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#2196F3'
+        },
+        labels: {
+          'well-explained': 'Well-Explained',
+          'noisy-activation': 'Noisy Activation',
+          'missed-N-gram': 'Pattern Miss',
+          'missed-context': 'Context Miss'
         }
       }
     }
-    const categoryId = stage === 'stage1' ? TAG_CATEGORY_FEATURE_SPLITTING : TAG_CATEGORY_QUALITY
     const selectedTag = stage === 'stage1' ? 'Fragmented' : 'Well-Explained'
     const rejectedTag = stage === 'stage1' ? 'Monosemantic' : 'Need Revision'
+    const categoryId = stage === 'stage1' ? TAG_CATEGORY_FEATURE_SPLITTING : TAG_CATEGORY_QUALITY
     return {
       order: ['rejected', 'selected'],
       colors: {
         selected: getTagColor(categoryId, selectedTag) || '#4CAF50',
         rejected: getTagColor(categoryId, rejectedTag) || '#F44336'
+      },
+      labels: {
+        selected: selectedTag,
+        rejected: rejectedTag
       }
     }
   }, [stage])
@@ -128,7 +169,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       if (totalCount === 0) return null
 
       // Build stacked segments from bottom up (full chart height)
-      const segments: Array<{ x: number; y: number; width: number; height: number; color: string; category: string }> = []
+      const segments: Array<{ x: number; y: number; width: number; height: number; color: string; category: string; count: number; label: string }> = []
       let currentY = xAxisY  // Start from x-axis (bottom)
 
       for (const category of categoryConfig.order) {
@@ -144,11 +185,13 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           width: barWidth,
           height: segmentHeight,
           color: categoryConfig.colors[category] || '#999',
-          category
+          category,
+          count,
+          label: categoryConfig.labels[category] || category
         })
       }
 
-      return { segments, x: xScale(i) }
+      return { segments, x: xScale(i), iteration: entry.iteration, totalCount, flipRate: entry.flipRate }
     }).filter((bar): bar is NonNullable<typeof bar> => bar !== null)
 
     // Calculate links between consecutive bars for flip transitions
@@ -161,6 +204,13 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       sourceColor: string
       targetColor: string
       transition: string
+      count: number
+      fromCategory: string
+      toCategory: string
+      fromLabel: string
+      toLabel: string
+      fromIteration: number
+      toIteration: number
     }> = []
 
     for (let i = 1; i < history.length; i++) {
@@ -198,12 +248,52 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           height: linkHeight,
           sourceColor: categoryConfig.colors[fromCategory] || '#999',
           targetColor: categoryConfig.colors[toCategory] || '#999',
-          transition: transitionKey
+          transition: transitionKey,
+          count,
+          fromCategory,
+          toCategory,
+          fromLabel: categoryConfig.labels[fromCategory] || fromCategory,
+          toLabel: categoryConfig.labels[toCategory] || toCategory,
+          fromIteration: prevEntry.iteration,
+          toIteration: currEntry.iteration
         })
       }
     }
 
-    return { linePoints, pathD, width, height, padding, yTicks, xTicks, xAxisY, thresholdLines, chartWidth, chartHeight, bars, links }
+    // Calculate transparent hover gaps between consecutive bars
+    const gaps: Array<{
+      x: number
+      y: number
+      width: number
+      height: number
+      fromIteration: number
+      toIteration: number
+      links: typeof links
+    }> = []
+
+    for (let i = 0; i < bars.length - 1; i++) {
+      const leftBar = bars[i]
+      const rightBar = bars[i + 1]
+      const gapX = leftBar.x + barWidth / 2  // Right edge of left bar
+      const gapWidth = rightBar.x - barWidth / 2 - gapX  // Left edge of right bar
+
+      // Get links for this gap
+      const gapLinks = links.filter(
+        link => link.fromIteration === leftBar.iteration && link.toIteration === rightBar.iteration
+      )
+
+      gaps.push({
+        x: gapX,
+        y: padding.top,
+        width: gapWidth,
+        height: chartHeight,
+        fromIteration: leftBar.iteration,
+        toIteration: rightBar.iteration,
+        links: gapLinks
+      })
+    }
+
+    return { linePoints, pathD, width, height, padding, yTicks, xTicks, xAxisY, thresholdLines, chartWidth, chartHeight, bars, links, gaps, barWidth }
   }, [flipTracking, containerSize.width, containerSize.height, categoryConfig])
 
   // Placeholder state when no data (shown before histogram is visible)
@@ -322,8 +412,35 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           </text>
 
           {/* Stacked bars (behind line) - SVM prediction category distribution */}
-          {sparklineData.bars?.map((bar, i) => (
-            <g key={`bar-${i}`}>
+          {sparklineData.bars?.map((bar, barIndex) => (
+            <g
+              key={`bar-${barIndex}`}
+              style={{ cursor: 'pointer' }}
+              onMouseEnter={(e) => {
+                setHoveredBarIndex(barIndex)
+                setTooltipPosition({ x: e.clientX, y: e.clientY })
+                setTooltipData({
+                  type: 'segment',
+                  iteration: bar.iteration,
+                  segments: bar.segments.map(seg => ({
+                    category: seg.category,
+                    count: seg.count,
+                    color: seg.color,
+                    label: seg.label
+                  })),
+                  total: bar.totalCount,
+                  flipRate: bar.iteration > 0 ? bar.flipRate : null
+                })
+              }}
+              onMouseMove={(e) => {
+                setTooltipPosition({ x: e.clientX, y: e.clientY })
+              }}
+              onMouseLeave={() => {
+                setHoveredBarIndex(null)
+                setTooltipPosition(null)
+                setTooltipData(null)
+              }}
+            >
               {bar.segments.map((seg, j) => (
                 <rect
                   key={j}
@@ -332,26 +449,74 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
                   width={seg.width}
                   height={seg.height}
                   fill={seg.color}
+                  opacity={hoveredBarIndex === barIndex ? 1 : 0.85}
                 />
               ))}
             </g>
           ))}
 
           {/* Flip transition links between consecutive bars */}
-          {sparklineData.links?.map((link, i) => (
-            <path
-              key={`link-${i}`}
-              d={`M ${link.sourceX},${link.sourceY}
-                  C ${(link.sourceX + link.targetX) / 2},${link.sourceY}
-                    ${(link.sourceX + link.targetX) / 2},${link.targetY}
-                    ${link.targetX},${link.targetY}
-                  L ${link.targetX},${link.targetY + link.height}
-                  C ${(link.sourceX + link.targetX) / 2},${link.targetY + link.height}
-                    ${(link.sourceX + link.targetX) / 2},${link.sourceY + link.height}
-                    ${link.sourceX},${link.sourceY + link.height}
-                  Z`}
-              fill={`url(#link-gradient-${i})`}
-              opacity={0.7}
+          {sparklineData.links?.map((link, linkIndex) => {
+            // Check if this link belongs to the currently hovered gap
+            const isInHoveredGap = hoveredGapIndex !== null &&
+              sparklineData.gaps?.[hoveredGapIndex]?.fromIteration === link.fromIteration &&
+              sparklineData.gaps?.[hoveredGapIndex]?.toIteration === link.toIteration
+
+            return (
+              <path
+                key={`link-${linkIndex}`}
+                d={`M ${link.sourceX},${link.sourceY}
+                    C ${(link.sourceX + link.targetX) / 2},${link.sourceY}
+                      ${(link.sourceX + link.targetX) / 2},${link.targetY}
+                      ${link.targetX},${link.targetY}
+                    L ${link.targetX},${link.targetY + link.height}
+                    C ${(link.sourceX + link.targetX) / 2},${link.targetY + link.height}
+                      ${(link.sourceX + link.targetX) / 2},${link.sourceY + link.height}
+                      ${link.sourceX},${link.sourceY + link.height}
+                    Z`}
+                fill={`url(#link-gradient-${linkIndex})`}
+                opacity={isInHoveredGap ? 0.9 : 0.7}
+                style={{ pointerEvents: 'none' }}
+              />
+            )
+          })}
+
+          {/* Transparent hover blocks between bars for easier link interaction */}
+          {sparklineData.gaps?.map((gap, gapIndex) => (
+            <rect
+              key={`gap-${gapIndex}`}
+              x={gap.x}
+              y={gap.y}
+              width={gap.width}
+              height={gap.height}
+              fill="transparent"
+              style={{ cursor: gap.links.length > 0 ? 'pointer' : 'default' }}
+              onMouseEnter={(e) => {
+                if (gap.links.length === 0) return
+                setHoveredGapIndex(gapIndex)
+                setTooltipPosition({ x: e.clientX, y: e.clientY })
+                const totalFlipped = gap.links.reduce((sum, l) => sum + l.count, 0)
+                setTooltipData({
+                  type: 'allLinks',
+                  fromIteration: gap.fromIteration,
+                  toIteration: gap.toIteration,
+                  totalFlipped,
+                  links: gap.links.map(l => ({
+                    sourceColor: l.sourceColor,
+                    targetColor: l.targetColor,
+                    count: l.count
+                  }))
+                })
+              }}
+              onMouseMove={(e) => {
+                if (gap.links.length === 0) return
+                setTooltipPosition({ x: e.clientX, y: e.clientY })
+              }}
+              onMouseLeave={() => {
+                setHoveredGapIndex(null)
+                setTooltipPosition(null)
+                setTooltipData(null)
+              }}
             />
           ))}
 
@@ -366,16 +531,68 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           )}
 
           {/* Line chart points (only for iterations > 0) */}
-          {sparklineData.linePoints.map((point, i) => (
+          {sparklineData.linePoints.map((point, pointIndex) => (
             <circle
-              key={i}
+              key={pointIndex}
               cx={point.x}
               cy={point.y}
               r={2.5}
               fill="#1f2937"
+              style={{ pointerEvents: 'none' }}
             />
           ))}
         </svg>
+      )}
+
+      {/* Tooltip */}
+      {tooltipData && (
+        <Tooltip position={tooltipPosition}>
+          {tooltipData.type === 'segment' && (
+            <>
+              <Tooltip.Header>Iteration {tooltipData.iteration}</Tooltip.Header>
+              <Tooltip.Summary showSeparator={tooltipData.flipRate === null}>
+                {tooltipData.flipRate !== null
+                  ? `Flip Rate: ${(tooltipData.flipRate * 100).toFixed(1)}%`
+                  : `Total: ${tooltipData.total.toLocaleString()} features`
+                }
+              </Tooltip.Summary>
+              {tooltipData.flipRate !== null && (
+                <Tooltip.Summary>Total: {tooltipData.total.toLocaleString()} features</Tooltip.Summary>
+              )}
+              {tooltipData.segments.map((seg, i) => (
+                <Tooltip.Row key={i} color={seg.color}>
+                  {seg.label}: {seg.count.toLocaleString()}
+                </Tooltip.Row>
+              ))}
+            </>
+          )}
+          {tooltipData.type === 'allLinks' && (
+            <>
+              <Tooltip.Header>
+                Iteration {tooltipData.fromIteration} → {tooltipData.toIteration}
+              </Tooltip.Header>
+              <Tooltip.Summary showSeparator={false}>
+                {tooltipData.totalFlipped.toLocaleString()} feature{tooltipData.totalFlipped !== 1 ? 's' : ''} changed
+              </Tooltip.Summary>
+              {tooltipData.links.map((link, i) => (
+                <div key={i} className="tooltip__transition-row">
+                  <span
+                    className="tooltip__swatch"
+                    style={{ backgroundColor: link.sourceColor }}
+                  />
+                  <span className="tooltip__transition-arrow">→</span>
+                  <span
+                    className="tooltip__swatch"
+                    style={{ backgroundColor: link.targetColor }}
+                  />
+                  <span className="tooltip__transition-count">
+                    {link.count.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </>
+          )}
+        </Tooltip>
       )}
     </div>
   )
