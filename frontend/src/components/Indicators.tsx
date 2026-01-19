@@ -312,19 +312,36 @@ export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
 
   const tooltipText = `Models disagree: ${disagreeing.join(', ')} votes opposite to SVM\nVote entropy: ${voteInfo.vote_entropy.toFixed(3)}`
 
-  // Render absolutely positioned highlight overlay (parent must have position: relative)
+  // Render two layers: background (behind TagBadge) and left border (in front)
   return (
-    <div
-      className={`disagreement-indicator ${className}`.trim()}
-      title={tooltipText}
-      style={{
-        position: 'absolute',
-        inset: 0,
-        backgroundColor: 'rgba(245, 158, 11, 0.1)',
-        boxShadow: 'inset 3px 0 0 #f59e0b',
-        borderRadius: '4px',
-        pointerEvents: 'none'
-      }}
-    />
+    <>
+      {/* Background overlay - behind TagBadge */}
+      <div
+        className={`disagreement-indicator ${className}`.trim()}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundColor: 'rgba(245, 158, 11, 0.1)',
+          borderRadius: '4px',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      />
+      {/* Left border - in front of TagBadge */}
+      <div
+        title={tooltipText}
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
+          width: '3px',
+          backgroundColor: '#f59e0b',
+          borderRadius: '4px 0 0 4px',
+          pointerEvents: 'none',
+          zIndex: 2
+        }}
+      />
+    </>
   )
 }

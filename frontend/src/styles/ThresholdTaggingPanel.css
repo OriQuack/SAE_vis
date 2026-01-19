@@ -131,13 +131,42 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 200px;  /* Unified width for all modes (fits 2-3 categories) */
+  width: 230px;  /* Unified width for all modes (fits 2-3 categories) */
   flex-shrink: 0;  /* Maintain fixed width, don't shrink */
 }
 
 /* Subheader uses shared .subheader class from base.css */
 .threshold-tagging-panel__buttons-section .subheader {
   padding: 0;
+}
+
+/* ============================================================================
+ * MODE INDICATOR - Small badge showing "Unsure" or "Confident"
+ * ============================================================================ */
+
+.mode-indicator {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+
+.mode-indicator--unsure {
+  background-color: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.mode-indicator--confident {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
 }
 
 /* ============================================================================

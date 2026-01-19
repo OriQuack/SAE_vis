@@ -454,9 +454,11 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   }
 
   // Render item for cause boundary list (Stage 3)
-  // Shows predicted category tag with stripe pattern (isAuto=true for preview)
+  // In apply stage: shows predicted category with stripe pattern
+  // In unsure stage: shows "Unsure" without stripe
   const renderCauseBoundaryItem = (item: CauseFeatureItem, _index: number) => {
-    const tagName = CAUSE_TAG_NAMES[item.predictedCategory] || 'Unsure'
+    const isApplyStage = causeProps?.activeStage === 'apply'
+    const tagName = isApplyStage ? (CAUSE_TAG_NAMES[item.predictedCategory] || 'Unsure') : 'Unsure'
 
     // Check for disagreement in cause mode
     const causeVoteInfo = causeProps?.causeCommitteeVotes?.get(item.featureId)
@@ -466,21 +468,36 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
     return (
       <div className="pair-item-with-score" style={{ position: 'relative' }}>
-        {/* Disagreement indicator for cause mode */}
+        {/* Disagreement indicator for cause mode - matches DisagreementIndicator styling */}
         {isCauseDisagreement && (
-          <div
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: '3px',
-              backgroundColor: '#f59e0b',
-              borderRadius: '2px 0 0 2px',
-              zIndex: 1
-            }}
-            title={`RF: ${causeVoteInfo?.rf_category}, MLP: ${causeVoteInfo?.mlp_category}`}
-          />
+          <>
+            {/* Background overlay - behind TagBadge */}
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                borderRadius: '4px',
+                pointerEvents: 'none',
+                zIndex: 0
+              }}
+            />
+            {/* Left border - in front of TagBadge */}
+            <div
+              title={`RF: ${causeVoteInfo?.rf_category}, MLP: ${causeVoteInfo?.mlp_category}`}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: '3px',
+                backgroundColor: '#f59e0b',
+                borderRadius: '4px 0 0 4px',
+                pointerEvents: 'none',
+                zIndex: 2
+              }}
+            />
+          </>
         )}
         <TagBadge
           featureId={item.featureId}
@@ -488,7 +505,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           tagCategoryId={TAG_CATEGORY_CAUSE}
           onClick={() => onCauseListItemClick?.(item.featureId)}
           fullWidth={true}
-          isAuto={true}
+          isAuto={isApplyStage}
         />
         {item.margin !== undefined && (
           <span className="pair-similarity-score">{item.margin.toFixed(2)}</span>
@@ -546,7 +563,12 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           </div>
           {/* Content header for cause mode */}
           <div className="threshold-tagging-panel__content-header">
-            <h4 className="subheader">Thresholded Features</h4>
+            <h4 className="subheader">
+              Thresholded Features
+              <span className={`mode-indicator mode-indicator--${causeProps.activeStage === 'apply' ? 'confident' : 'unsure'}`}>
+                {causeProps.activeStage === 'apply' ? 'Confident' : 'Unsure'}
+              </span>
+            </h4>
             {causeProps.causeCommitteeVotes && causeNeedReviewCount > 0 && (
               <label className="threshold-tagging-panel__checkbox-label">
                 <input

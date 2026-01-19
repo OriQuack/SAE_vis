@@ -616,40 +616,42 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
             )}
           </svg>
 
-          {/* Anchor labels positioned outside the circle */}
+          {/* Anchor labels positioned outside the circle with rotation */}
           {scales && (
             <>
-              {/* Top anchor: Noisy Activation (90°) */}
+              {/* Top anchor: Noisy Activation (90°) - horizontal */}
               <div
                 className="cause-radviz__vertex-label"
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['noisy-activation'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['noisy-activation'].y),
-                  transform: 'translate(-50%, -100%) translateY(-6px)',
+                  transform: 'translate(-50%, -100%) translateY(-8px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
                 } as React.CSSProperties}
               >
                 Noisy Activation
               </div>
-              {/* Bottom-left anchor: Pattern Miss (210°) */}
+              {/* Bottom-left anchor: Pattern Miss (210°) - rotated 60° clockwise for radial alignment */}
               <div
                 className="cause-radviz__vertex-label"
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-N-gram'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-N-gram'].y),
-                  transform: 'translate(-90%, 75%) translateX(-5px)',
+                  transform: 'translate(-100%, 150%) rotate(60deg)',
+                  transformOrigin: 'right center',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
                 } as React.CSSProperties}
               >
                 Pattern Miss
               </div>
-              {/* Bottom-right anchor: Context Miss (330°) */}
+              {/* Bottom-right anchor: Context Miss (330°) - rotated 60° counterclockwise for radial alignment */}
               <div
                 className="cause-radviz__vertex-label"
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-context'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-context'].y),
-                  transform: 'translate(-10%, 75%) translateX(5px)',
+                  transform: 'translate(0%, 150%) rotate(-60deg)',
+                  transformOrigin: 'left center',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
                 } as React.CSSProperties}
               >

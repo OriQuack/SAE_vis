@@ -17,7 +17,7 @@ import '../styles/CauseMarginHistogram.css'
 const LAYOUT = {
   // Chart margins (space for axes and labels)
   margin: {
-    top: 20,     // Space for threshold label arrow
+    top: 30,     // Space for threshold label arrow
     right: 10,
     bottom: 36,  // Space for x-axis ticks and label
     left: 36,    // Space for y-axis ticks
