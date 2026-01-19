@@ -307,7 +307,7 @@
 }
 
 .scrollable-list--variant-boundary {
-  width: 260px;
+  width: 255px;
   flex-shrink: 0;
   height: 100%;
   min-height: 0;

@@ -69,6 +69,9 @@ interface StageAccordionListProps<T> {
   emptyMessage?: string
   disableAutoScroll?: boolean
 
+  // External scroll target index - triggers scroll from subview clicks
+  scrollTargetIndex?: number
+
   className?: string
 }
 
@@ -103,6 +106,7 @@ export function StageAccordionList<T>({
   sortConfig,
   emptyMessage = 'None',
   disableAutoScroll = false,
+  scrollTargetIndex,
   className = ''
 }: StageAccordionListProps<T>) {
   // Track if arrow pulsing has been dismissed (user clicked once)
@@ -187,9 +191,10 @@ export function StageAccordionList<T>({
       isTemplateSort,
       sortConfig,
       emptyMessage,
-      disableAutoScroll
+      disableAutoScroll,
+      scrollTargetIndex
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll, scrollTargetIndex])
 
   return (
     <div className={`stage-selector ${className}`}>

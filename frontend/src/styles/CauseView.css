@@ -131,8 +131,8 @@
 
 /* Activation section - content only (HAS border) */
 .cause-view__activation-section {
-  flex: 1;
-  min-height: 0;
+  height: 160px;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
   background-color: white;

@@ -96,6 +96,10 @@ export interface ScrollableItemListProps<T = any> {
   // Disable auto-scrolling to center the current item when currentIndex changes
   disableAutoScroll?: boolean
 
+  // External scroll target index - triggers scroll without changing highlight
+  // Use this to scroll to an item from external events (e.g., subview clicks)
+  scrollTargetIndex?: number
+
   // Styling (ignored when variant is set)
   width?: number | string
   height?: number | string
@@ -118,6 +122,7 @@ export function ScrollableItemList<T = any>({
   variant,
   emptyMessage = 'None',
   disableAutoScroll = false,
+  scrollTargetIndex,
   width = 200,
   height,
   minHeight,
@@ -139,6 +144,14 @@ export function ScrollableItemList<T = any>({
       virtualizer.scrollToIndex(currentIndex, { align: 'center', behavior: 'auto' })
     }
   }, [currentIndex, items.length, virtualizer, disableAutoScroll])
+
+  // Scroll to external target index (from subview clicks)
+  // This scrolls without changing the highlight - just moves viewport
+  useEffect(() => {
+    if (scrollTargetIndex !== undefined && scrollTargetIndex >= 0 && scrollTargetIndex < items.length) {
+      virtualizer.scrollToIndex(scrollTargetIndex, { align: 'center', behavior: 'smooth' })
+    }
+  }, [scrollTargetIndex, items.length, virtualizer])
 
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {

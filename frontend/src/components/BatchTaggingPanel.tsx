@@ -30,10 +30,6 @@ export interface BatchTaggingPanelProps {
   unsureCount: number
   /** Whether all buttons are disabled */
   disabled: boolean
-  /** Show instruction placeholder instead of buttons (default: false) */
-  showPlaceholder?: boolean
-  /** Custom placeholder message */
-  placeholderMessage?: string
 
   // Multi-class mode handlers (CauseView)
   /** Handler for per-category confirm buttons */
@@ -62,8 +58,6 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
   categories,
   unsureCount,
   disabled,
-  showPlaceholder = false,
-  placeholderMessage = 'Batch tagging not available',
   onConfirmCategory,
   onConfirmAll,
   onApplyThreshold,
@@ -76,25 +70,6 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
 
   // Calculate total input count for "Tag All Unsure" button
   const totalInputCount = categories.reduce((sum, cat) => sum + (cat.inputCount ?? cat.count), 0)
-
-  // ============================================================================
-  // PLACEHOLDER STATE
-  // ============================================================================
-
-  if (showPlaceholder) {
-    return (
-      <div className="batch-tagging__placeholder">
-        <div className="batch-tagging__placeholder-instruction">
-          <span className="batch-tagging__placeholder-number">2</span>
-          {placeholderMessage}
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================================
-  // RENDER
-  // ============================================================================
 
   return (
     <>

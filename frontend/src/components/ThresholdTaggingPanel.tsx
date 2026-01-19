@@ -12,6 +12,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE } from '../lib/constants'
 import type { CauseCategory } from '../lib/umap-utils'
 import type { SortMode, ActiveStage } from '../lib/tagging-hooks/useSortableList'
+import type { ListSource } from '../lib/tagging-hooks/useListNavigation'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -91,6 +92,9 @@ export interface CauseModeProps {
     rf_category: string
     mlp_category: string
   }>
+  // Boundary list navigation state
+  boundaryListActiveIndex?: number
+  isBoundaryListActive?: boolean
 }
 
 export interface ThresholdTaggingPanelProps {
@@ -123,9 +127,14 @@ export interface ThresholdTaggingPanelProps {
   onListItemClick: (listType: 'left' | 'right', index: number) => void
 
   // State from parent
-  activeListSource: 'all' | 'reject' | 'select'
+  activeListSource: ListSource
   currentIndex: number
   isBimodal: boolean
+
+  // Separate highlight indices for boundary lists (show selection in all lists)
+  // If provided, these override the conditional logic based on activeListSource
+  leftHighlightIndex?: number
+  rightHighlightIndex?: number
 
   // Whether current sort matches template (default) sort
   // When false, selection highlight is disabled in boundary lists
@@ -159,6 +168,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   onListItemClick,
   activeListSource,
   currentIndex,
+  leftHighlightIndex,
+  rightHighlightIndex,
   isTemplateSort = true,
   sortDirection = 'asc',
   // Cause mode props
@@ -565,9 +576,11 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           <div className="threshold-tagging-panel__content-header">
             <h4 className="subheader">
               Thresholded Features
-              <span className={`mode-indicator mode-indicator--${causeProps.activeStage === 'apply' ? 'confident' : 'unsure'}`}>
-                {causeProps.activeStage === 'apply' ? 'Confident' : 'Unsure'}
-              </span>
+              {causeProps.causeCategoryDecisionMargins.size > 0 && (
+                <span className={`mode-indicator mode-indicator--${causeProps.activeStage === 'apply' ? 'confident' : 'unsure'}`}>
+                  {causeProps.activeStage === 'apply' ? 'Confident' : 'Unsure'}
+                </span>
+              )}
             </h4>
             {causeProps.causeCommitteeVotes && causeNeedReviewCount > 0 && (
               <label className="threshold-tagging-panel__checkbox-label">
@@ -611,8 +624,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 sortDirection: sortDirection
               }}
               items={filteredCauseBoundaryItems as CauseFeatureItem[]}
-              currentIndex={-1}
-              isActive={false}
+              currentIndex={causeProps.isBoundaryListActive ? causeProps.boundaryListActiveIndex ?? -1 : -1}
+              isActive={causeProps.isBoundaryListActive ?? false}
               isTemplateSort={true}
               renderItem={(item, index) => renderCauseBoundaryItem(item as CauseFeatureItem, index)}
             />
@@ -671,7 +684,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 sortDirection: sortDirection
               }}
               items={filteredLeftItems as PairItemWithMetadata[]}
-              currentIndex={activeListSource === 'reject' ? currentIndex : -1}
+              currentIndex={leftHighlightIndex !== undefined ? leftHighlightIndex : (activeListSource === 'reject' ? currentIndex : -1)}
               isActive={activeListSource === 'reject'}
               isTemplateSort={isTemplateSort}
               renderItem={(item, index) => mode === 'pair'
@@ -691,7 +704,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 sortDirection: sortDirection
               }}
               items={filteredRightItems as PairItemWithMetadata[]}
-              currentIndex={activeListSource === 'select' ? currentIndex : -1}
+              currentIndex={rightHighlightIndex !== undefined ? rightHighlightIndex : (activeListSource === 'select' ? currentIndex : -1)}
               isActive={activeListSource === 'select'}
               isTemplateSort={isTemplateSort}
               renderItem={(item, index) => mode === 'pair'
@@ -711,7 +724,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             categories={causeProps.categories}
             unsureCount={causeProps.unsureCount}
             disabled={!causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
-            showPlaceholder={false}
             onConfirmCategory={causeProps.onConfirmCategory}
             onConfirmAll={causeProps.onConfirmAll}
             onTagAllUnsure={causeProps.onTagAllUnsure}
@@ -738,7 +750,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             ]}
             unsureCount={remainingCount}
             disabled={!tagAutomaticState?.histogramData}
-            showPlaceholder={false}
             onApplyThreshold={onApplyTags}
             thresholdCounts={{ left: leftCount, right: rightCount }}
             onTagAllAsCategory={() => onTagAll('left')}

@@ -7,7 +7,7 @@ import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation, isUserConfirmed } from '../lib/tagging-hooks'
+import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -283,6 +283,19 @@ const QualityView: React.FC<QualityViewProps> = ({
     return sortedFeatures.filter(f => !featureSelectionStates.has(f.featureId))
   }, [sortedFeatures, hideTagged, featureSelectionStates])
 
+  // Extract feature IDs from displayFeatures for scroll hook
+  const sortedFilteredFeatureIds = useMemo(() => {
+    return displayFeatures.map(f => f.featureId)
+  }, [displayFeatures])
+
+  // Main list scroll hook - scroll to item when clicked in subviews
+  const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
+    sortedFilteredList: sortedFilteredFeatureIds,
+    sortMode,
+    setSortMode,
+    setSortDirection: setSortDirection,
+  })
+
   // Reset to first feature when hideTagged changes (to avoid index out of bounds)
   const prevHideTaggedRef = useRef(hideTagged)
   useEffect(() => {
@@ -427,22 +440,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])
 
 
-  // ============================================================================
-  // SELECTED FEATURE DATA (for right panel)
-  // ============================================================================
-
-  // Get the currently selected feature's data (use displayFeatures for filtered view)
-  const selectedFeatureData = useMemo(() => {
-    const feature = displayFeatures[currentFeatureIndex]
-    if (!feature) return null
-
-    return {
-      featureId: feature.featureId,
-      row: feature.row,
-      activation: activationExamples[feature.featureId] || null
-    }
-  }, [displayFeatures, currentFeatureIndex, activationExamples])
-
   // Track visited representative features for smart pulsing
   useEffect(() => {
     if (bootstrapMode === 'diversity' && displayFeatures.length > 0) {
@@ -468,6 +465,147 @@ const QualityView: React.FC<QualityViewProps> = ({
     const last5 = history.slice(-5)
     return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
+
+  // ============================================================================
+  // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
+  // ============================================================================
+
+  type FeatureWithMetadata = {
+    featureId: number
+    qualityScore: number
+    row: FeatureTableRow | null
+  }
+
+  // Keep previous boundary items during histogram reload
+  const prevBoundaryItemsRef = useRef<{ rejectBelow: FeatureWithMetadata[], selectAbove: FeatureWithMetadata[] }>({ rejectBelow: [], selectAbove: [] })
+
+  const boundaryItems = useMemo(() => {
+    if (!tagAutomaticState?.histogramData) {
+      if (prevBoundaryItemsRef.current.rejectBelow.length > 0 || prevBoundaryItemsRef.current.selectAbove.length > 0) {
+        return prevBoundaryItemsRef.current
+      }
+      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
+    }
+
+    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
+    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
+
+    if (featureList.length === 0) {
+      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
+    }
+
+    // Filter features that have SVM similarity scores
+    const featuresWithScores = featureList.filter((f: FeatureWithMetadata) => similarityScores.has(f.featureId))
+
+    if (featuresWithScores.length === 0) {
+      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
+    }
+
+    // REJECT THRESHOLD - Below reject: features < rejectThreshold, sorted descending (closest to threshold first)
+    const rejectBelow = featuresWithScores
+      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! < rejectThreshold)
+      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(b.featureId)! - similarityScores.get(a.featureId)!)
+
+    // SELECT THRESHOLD - Above select: features >= selectThreshold, sorted ascending (closest to threshold first)
+    const selectAbove = featuresWithScores
+      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! >= selectThreshold)
+      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(a.featureId)! - similarityScores.get(b.featureId)!)
+
+    const result = { rejectBelow, selectAbove }
+    prevBoundaryItemsRef.current = result
+    return result
+  }, [featureList, tagAutomaticState, similarityScores])
+
+  // Create Sets of preview feature IDs (items in threshold regions that will be auto-tagged)
+  // Separate sets to know which direction they'll be tagged
+  const previewRejectIds = useMemo(() => {
+    const ids = new Set<number>()
+    boundaryItems.rejectBelow.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
+    return ids
+  }, [boundaryItems.rejectBelow])
+
+  const previewSelectIds = useMemo(() => {
+    const ids = new Set<number>()
+    boundaryItems.selectAbove.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
+    return ids
+  }, [boundaryItems.selectAbove])
+
+  // ============================================================================
+  // SELECTED FEATURE DATA (for right panel)
+  // ============================================================================
+
+  // Compute the active feature list based on which list has focus
+  const activeFeatureList = useMemo(() => {
+    if (activeListSource === 'reject') {
+      return boundaryItems.rejectBelow
+    }
+    if (activeListSource === 'select') {
+      return boundaryItems.selectAbove
+    }
+    return displayFeatures
+  }, [activeListSource, displayFeatures, boundaryItems.rejectBelow, boundaryItems.selectAbove])
+
+  // Compute selected feature ID from active list and current index
+  // This is the source of truth for which feature is selected
+  const selectedFeatureId = useMemo(() => {
+    const item = activeFeatureList[currentFeatureIndex]
+    if (!item) return null
+    return 'featureId' in item ? item.featureId : null
+  }, [activeFeatureList, currentFeatureIndex])
+
+  // Compute highlight index for main list (always show where selected item is)
+  const mainListHighlightIndex = useMemo(() => {
+    if (selectedFeatureId === null) return -1
+    return displayFeatures.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+  }, [selectedFeatureId, displayFeatures])
+
+  // Compute highlight index for left boundary list (reject/Need Revision)
+  const leftBoundaryHighlightIndex = useMemo(() => {
+    if (selectedFeatureId === null) return -1
+    return boundaryItems.rejectBelow.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+  }, [selectedFeatureId, boundaryItems.rejectBelow])
+
+  // Compute highlight index for right boundary list (select/Well-Explained)
+  const rightBoundaryHighlightIndex = useMemo(() => {
+    if (selectedFeatureId === null) return -1
+    return boundaryItems.selectAbove.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+  }, [selectedFeatureId, boundaryItems.selectAbove])
+
+  // Effect: Auto-switch from diversity mode when selected feature is not visible in main list
+  // This ensures the highlight always appears when a feature is selected from subviews
+  useEffect(() => {
+    if (selectedFeatureId === null || sortMode !== 'diversity') return
+
+    const indexInMainList = mainListHighlightIndex
+    if (indexInMainList === -1) {
+      // Selected feature not visible in medoids list, switch to Learn mode
+      setSortMode('decisionMargin')
+      setSortDirection('asc')
+    }
+  }, [selectedFeatureId, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
+
+  // Get the currently selected feature's data
+  const selectedFeatureData = useMemo(() => {
+    if (selectedFeatureId === null) return null
+    const feature = displayFeatures.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+    if (!feature) {
+      // Feature might be in boundary lists but not in displayFeatures (e.g., when hideTagged is on)
+      const boundaryFeature = boundaryItems.rejectBelow.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+        || boundaryItems.selectAbove.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+      if (!boundaryFeature) return null
+      return {
+        featureId: boundaryFeature.featureId,
+        row: boundaryFeature.row,
+        activation: activationExamples[boundaryFeature.featureId] || null
+      }
+    }
+
+    return {
+      featureId: feature.featureId,
+      row: feature.row,
+      activation: activationExamples[feature.featureId] || null
+    }
+  }, [selectedFeatureId, displayFeatures, boundaryItems.rejectBelow, boundaryItems.selectAbove, activationExamples])
 
   // Compute pairwise similarities for ExplainerComparisonGrid
   const pairwiseSimilarities = useMemo(() => {
@@ -573,70 +711,6 @@ const QualityView: React.FC<QualityViewProps> = ({
       !!(item.highlightedExplanation?.segments || item.explanationText)
     )
   }, [allExplainerExplanations])
-
-  // ============================================================================
-  // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
-  // ============================================================================
-
-  type FeatureWithMetadata = {
-    featureId: number
-    qualityScore: number
-    row: FeatureTableRow | null
-  }
-
-  // Keep previous boundary items during histogram reload
-  const prevBoundaryItemsRef = useRef<{ rejectBelow: FeatureWithMetadata[], selectAbove: FeatureWithMetadata[] }>({ rejectBelow: [], selectAbove: [] })
-
-  const boundaryItems = useMemo(() => {
-    if (!tagAutomaticState?.histogramData) {
-      if (prevBoundaryItemsRef.current.rejectBelow.length > 0 || prevBoundaryItemsRef.current.selectAbove.length > 0) {
-        return prevBoundaryItemsRef.current
-      }
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
-
-    if (featureList.length === 0) {
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    // Filter features that have SVM similarity scores
-    const featuresWithScores = featureList.filter((f: FeatureWithMetadata) => similarityScores.has(f.featureId))
-
-    if (featuresWithScores.length === 0) {
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    // REJECT THRESHOLD - Below reject: features < rejectThreshold, sorted descending (closest to threshold first)
-    const rejectBelow = featuresWithScores
-      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! < rejectThreshold)
-      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(b.featureId)! - similarityScores.get(a.featureId)!)
-
-    // SELECT THRESHOLD - Above select: features >= selectThreshold, sorted ascending (closest to threshold first)
-    const selectAbove = featuresWithScores
-      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! >= selectThreshold)
-      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(a.featureId)! - similarityScores.get(b.featureId)!)
-
-    const result = { rejectBelow, selectAbove }
-    prevBoundaryItemsRef.current = result
-    return result
-  }, [featureList, tagAutomaticState, similarityScores])
-
-  // Create Sets of preview feature IDs (items in threshold regions that will be auto-tagged)
-  // Separate sets to know which direction they'll be tagged
-  const previewRejectIds = useMemo(() => {
-    const ids = new Set<number>()
-    boundaryItems.rejectBelow.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
-    return ids
-  }, [boundaryItems.rejectBelow])
-
-  const previewSelectIds = useMemo(() => {
-    const ids = new Set<number>()
-    boundaryItems.selectAbove.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
-    return ids
-  }, [boundaryItems.selectAbove])
 
   // Get tag colors for header badge and buttons
   const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50'
@@ -797,10 +871,12 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
     if (index >= 0 && index < items.length) {
+      const featureId = items[index].featureId
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentFeatureIndex(index)
+      scrollToItemInMainList(featureId)
     }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, setActiveListSource])
+  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, setActiveListSource, scrollToItemInMainList])
 
   // ============================================================================
   // APPLY TAGS HANDLER
@@ -973,8 +1049,9 @@ const QualityView: React.FC<QualityViewProps> = ({
               items={displayFeatures}
               renderItem={renderFeatureItem}
               sortConfig={{ getDisplayScore }}
-              currentIndex={activeListSource === 'all' ? currentFeatureIndex : -1}
+              currentIndex={mainListHighlightIndex}
               isActive={activeListSource === 'all'}
+              scrollTargetIndex={scrollTargetIndex}
             />
             {/* Right panel - activation examples and explanations */}
             <div className="quality-view__right-panel" ref={rightPanelRef}>
@@ -1183,6 +1260,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             onListItemClick={handleBoundaryListClick}
             activeListSource={activeListSource}
             currentIndex={currentFeatureIndex}
+            leftHighlightIndex={leftBoundaryHighlightIndex}
+            rightHighlightIndex={rightBoundaryHighlightIndex}
             isBimodal={isBimodal}
             isTemplateSort={isTemplateSort}
             sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}

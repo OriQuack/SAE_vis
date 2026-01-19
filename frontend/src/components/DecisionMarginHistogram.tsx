@@ -530,7 +530,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__empty-message">
           <div className="tag-panel__main-instruction">
-            <span className="tag-panel__stage-number">1</span> Tag 3+ {itemType} in each category
+            <span className="tag-panel__stage-number">1</span> Tag 3+ {itemType} in each category to see histogram.
           </div>
           <div className="tag-panel__progress-row">
             <span className="tag-panel__progress-item" style={{ backgroundColor: rejectedColor }}>
@@ -721,27 +721,31 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                   />
 
                   {/* X axis ticks and labels */}
-                  {xAxisTicks.map((tick, i) => (
-                    <g key={i}>
-                      <line
-                        x1={tick.position}
-                        y1={histogramChart.height}
-                        x2={tick.position}
-                        y2={histogramChart.height + 5}
-                        stroke="#333"
-                        strokeWidth={1}
-                      />
-                      <text
-                        x={tick.position}
-                        y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xTickOffset}
-                        textAnchor="middle"
-                        fontSize={12}
-                        fill="#666"
-                      >
-                        {tick.label}
-                      </text>
-                    </g>
-                  ))}
+                  {xAxisTicks.map((tick, i) => {
+                    const isFirst = i === 0
+                    const isLast = i === xAxisTicks.length - 1
+                    return (
+                      <g key={i}>
+                        <line
+                          x1={tick.position}
+                          y1={histogramChart.height}
+                          x2={tick.position}
+                          y2={histogramChart.height + 5}
+                          stroke="#333"
+                          strokeWidth={1}
+                        />
+                        <text
+                          x={tick.position}
+                          y={histogramChart.height + TAG_HISTOGRAM_SPACING.svg.xTickOffset}
+                          textAnchor={isFirst ? 'start' : isLast ? 'end' : 'middle'}
+                          fontSize={12}
+                          fill="#666"
+                        >
+                          {tick.label}
+                        </text>
+                      </g>
+                    )
+                  })}
 
                   {/* Y axis */}
                   <line

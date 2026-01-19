@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } 
 // ============================================================================
 // Extracts common list source switching logic from FeatureSplitView and QualityView
 
-export type ListSource = 'all' | 'reject' | 'select'
+export type ListSource = 'all' | 'reject' | 'select' | 'boundary'
 
 interface UseListNavigationOptions {
   /** Whether threshold is currently being dragged */
@@ -25,6 +25,8 @@ interface UseListNavigationReturn {
   isRejectActive: boolean
   /** Convenience: is 'select' list active */
   isSelectActive: boolean
+  /** Convenience: is 'boundary' list active */
+  isBoundaryActive: boolean
   /** Reset to 'all' list */
   resetToAll: () => void
 }
@@ -40,7 +42,7 @@ export function useListNavigation(
   // Auto-reset to 'all' when threshold dragging starts
   // This prevents the selected item from becoming invalid as boundary items change
   useEffect(() => {
-    if (isDraggingThreshold && (activeListSource === 'reject' || activeListSource === 'select')) {
+    if (isDraggingThreshold && activeListSource !== 'all') {
       setActiveListSource('all')
       onReset?.()
     }
@@ -58,6 +60,7 @@ export function useListNavigation(
     isAllActive: activeListSource === 'all',
     isRejectActive: activeListSource === 'reject',
     isSelectActive: activeListSource === 'select',
+    isBoundaryActive: activeListSource === 'boundary',
     resetToAll
   }
 }

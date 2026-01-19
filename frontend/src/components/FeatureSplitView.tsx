@@ -8,7 +8,7 @@ import StageAccordionList from './StageAccordionList'
 import { TagBadge } from './Indicators'
 import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed } from '../lib/tagging-hooks'
+import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { useListNavigation } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -532,6 +532,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     return pairList.filter(pair => !pairSelectionStates.has(pair.pairKey))
   }, [pairList, hideTagged, pairSelectionStates])
 
+  // Extract pair keys from displayPairList for scroll hook
+  const sortedFilteredPairKeys = useMemo(() => {
+    return displayPairList.map(p => p.pairKey)
+  }, [displayPairList])
+
+  // Main list scroll hook - scroll to item when clicked in subviews
+  const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
+    sortedFilteredList: sortedFilteredPairKeys,
+    sortMode,
+    setSortMode,
+    setSortDirection: setSortDirection,
+  })
+
   // Reset to first pair when hideTagged changes (to avoid index out of bounds)
   const prevHideTaggedRef = useRef(hideTagged)
   useEffect(() => {
@@ -754,6 +767,44 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [activeListSource, displayPairList, boundaryItems])
 
+  // Compute selected pair key from active list and current index
+  // This is the source of truth for which pair is selected
+  const selectedPairKey = useMemo(() => {
+    const pair = activePairList[currentPairIndex]
+    return pair?.pairKey ?? null
+  }, [activePairList, currentPairIndex])
+
+  // Compute highlight index for main list (always show where selected pair is)
+  const mainListHighlightIndex = useMemo(() => {
+    if (selectedPairKey === null) return -1
+    return displayPairList.findIndex(p => p.pairKey === selectedPairKey)
+  }, [selectedPairKey, displayPairList])
+
+  // Compute highlight index for left boundary list (reject/Monosemantic)
+  const leftBoundaryHighlightIndex = useMemo(() => {
+    if (selectedPairKey === null) return -1
+    return boundaryItems.rejectBelow.findIndex(p => p.pairKey === selectedPairKey)
+  }, [selectedPairKey, boundaryItems.rejectBelow])
+
+  // Compute highlight index for right boundary list (select/Fragmented)
+  const rightBoundaryHighlightIndex = useMemo(() => {
+    if (selectedPairKey === null) return -1
+    return boundaryItems.selectAbove.findIndex(p => p.pairKey === selectedPairKey)
+  }, [selectedPairKey, boundaryItems.selectAbove])
+
+  // Effect: Auto-switch from diversity mode when selected pair is not visible in main list
+  // This ensures the highlight always appears when a pair is selected from subviews
+  useEffect(() => {
+    if (selectedPairKey === null || sortMode !== 'diversity') return
+
+    const indexInMainList = mainListHighlightIndex
+    if (indexInMainList === -1) {
+      // Selected pair not visible in medoids list, switch to Learn mode
+      setSortMode('decisionMargin')
+      setSortDirection('asc')
+    }
+  }, [selectedPairKey, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
+
   // Fetch activation examples for current pair when it changes
   useEffect(() => {
     const currentPair = activePairList[currentPairIndex]
@@ -809,15 +860,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
     const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
     if (index >= 0 && index < items.length) {
+      const pairKey = items[index].pairKey
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentPairIndex(index)
+      scrollToItemInMainList(pairKey)
       // Pre-fetch activation examples for clicked pair
       const pair = items[index]
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
     }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples, setActiveListSource])
+  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples, setActiveListSource, scrollToItemInMainList])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Work with active list
@@ -1055,8 +1108,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               items={displayPairList}
               renderItem={renderPairItem}
               sortConfig={{ getDisplayScore }}
-              currentIndex={activeListSource === 'all' ? currentPairIndex : -1}
+              currentIndex={mainListHighlightIndex}
               isActive={activeListSource === 'all'}
+              scrollTargetIndex={scrollTargetIndex}
             />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
@@ -1093,6 +1147,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           onListItemClick={handleBoundaryListClick}
           activeListSource={activeListSource}
           currentIndex={currentPairIndex}
+          leftHighlightIndex={leftBoundaryHighlightIndex}
+          rightHighlightIndex={rightBoundaryHighlightIndex}
           isBimodal={isBimodal}
           isTemplateSort={isTemplateSort}
           sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}

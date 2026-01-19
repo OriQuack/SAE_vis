@@ -403,8 +403,8 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return (
       <div ref={containerRef} className={`cause-radviz cause-radviz--empty ${className}`}>
         <div className="cause-radviz__placeholder">
-          <span className="cause-radviz__main-instruction">
-            Plot will appear here once SVM training begins.
+          <span className="cause-radviz__placeholder-text">
+            <span className="cause-radviz__stage-number">2</span> Wait for histogram to see plot.
           </span>
         </div>
       </div>

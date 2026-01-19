@@ -496,7 +496,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
         <div className="cause-margin-histogram__placeholder-content">
           <div className="cause-margin-histogram__main-instruction">
             <span className="cause-margin-histogram__stage-number">1</span>
-            Tag 2+ features in each category
+            Tag 2+ features in each category to see histogram.
           </div>
           <div className="cause-margin-histogram__progress-row">
             <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: noisyActivationColor }}>

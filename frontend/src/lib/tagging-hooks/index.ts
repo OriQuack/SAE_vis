@@ -35,3 +35,5 @@ export { useTaggingStatus } from './useTaggingStatus'
 export { useThresholdPreview } from './useThresholdPreview'
 
 export { useTaggingNavigation } from './useTaggingNavigation'
+
+export { useMainListScroll } from './useMainListScroll'
