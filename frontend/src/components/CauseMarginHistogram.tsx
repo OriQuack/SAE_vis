@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
+import { Tooltip, formatCount } from './Tooltip'
 import { TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
@@ -588,6 +589,25 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             fill="#ffffff"
           />
 
+          {/* Full-height hover hit areas for each bin */}
+          {bins.map((_bin, binIndex) => {
+            const binWidth = dimensions.chart.width / NUM_BINS
+            return (
+              <rect
+                key={`hit-area-${binIndex}`}
+                x={binIndex * binWidth}
+                y={0}
+                width={binWidth}
+                height={dimensions.chart.height}
+                fill={hoveredBinIndex === binIndex ? 'rgba(0, 0, 0, 0.04)' : 'transparent'}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={(e) => handleBinMouseEnter(binIndex, e)}
+                onMouseMove={handleBinMouseMove}
+                onMouseLeave={handleBinMouseLeave}
+              />
+            )
+          })}
+
           {/* Category bars - solid for manual, striped for auto */}
           {barSegments.map((segment, i) => (
             <rect
@@ -623,7 +643,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               <g key={`y-tick-${i}`}>
                 <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#333" strokeWidth={1} />
                 <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={12} fill="#666" textAnchor="end">
-                  {value}
+                  {formatCount(value)}
                 </text>
               </g>
             )
@@ -726,38 +746,38 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       </svg>
 
       {/* Tooltip */}
-      {tooltipContent && tooltipPosition && (
-        <div
-          className="cause-margin-histogram__tooltip"
-          style={{
-            left: tooltipPosition.x + 10,
-            top: tooltipPosition.y - 10
-          }}
-        >
-          <div className="cause-margin-histogram__tooltip-header">
-            Margin: {tooltipContent.range}
-          </div>
-          <div className="cause-margin-histogram__tooltip-total">
-            Total: {tooltipContent.total} features
-          </div>
+      {tooltipContent && (
+        <Tooltip position={tooltipPosition}>
+          <Tooltip.Header>
+            {tooltipContent.range}
+          </Tooltip.Header>
+          <Tooltip.Summary showSeparator={tooltipContent.total > 0}>
+            Total: {formatCount(tooltipContent.total)} features
+          </Tooltip.Summary>
           {Object.entries(tooltipContent.counts)
             .filter(([, { manual, auto }]) => manual + auto > 0)
-            .map(([cat, { manual, auto }]) => (
-              <div key={cat} className="cause-margin-histogram__tooltip-row">
-                <span
-                  className="cause-margin-histogram__tooltip-color"
-                  style={{ backgroundColor: getCategoryColor(cat as CauseCategory | 'unsure') }}
-                />
-                <span>
-                  {cat === 'unsure' ? 'Unsure' : CATEGORY_TO_TAG_NAME[cat as CauseCategory]}: {manual + auto}
-                  {manual > 0 && auto > 0 && ` (${manual}m/${auto}a)`}
-                  {manual > 0 && auto === 0 && ' (manual)'}
-                  {manual === 0 && auto > 0 && ' (auto)'}
-                </span>
-              </div>
-            ))
+            .flatMap(([cat, { manual, auto }]) => {
+              const color = getCategoryColor(cat as CauseCategory | 'unsure')
+              const label = cat === 'unsure' ? 'Unsure' : CATEGORY_TO_TAG_NAME[cat as CauseCategory]
+              const rows: React.ReactNode[] = []
+              if (manual > 0) {
+                rows.push(
+                  <Tooltip.Row key={`${cat}-manual`} color={color}>
+                    {label}: {formatCount(manual)}
+                  </Tooltip.Row>
+                )
+              }
+              if (auto > 0) {
+                rows.push(
+                  <Tooltip.Row key={`${cat}-auto`} color={color} striped>
+                    {label}: {formatCount(auto)}
+                  </Tooltip.Row>
+                )
+              }
+              return rows
+            })
           }
-        </div>
+        </Tooltip>
       )}
     </div>
   )

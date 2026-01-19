@@ -392,6 +392,14 @@ class CauseClassificationResult(BaseModel):
     )
 
 
+class CauseCommitteeVoteInfo(BaseModel):
+    """Committee vote information for cause classification (multi-class)."""
+
+    svm_category: str = Field(..., description="SVM predicted category")
+    rf_category: str = Field(..., description="Random Forest predicted category")
+    mlp_category: str = Field(..., description="MLP predicted category")
+
+
 class CauseClassificationResponse(BaseModel):
     """Response model for cause classification."""
 
@@ -403,6 +411,10 @@ class CauseClassificationResponse(BaseModel):
     category_counts: Dict[str, int] = Field(
         default_factory=dict,
         description="Count of features predicted in each category"
+    )
+    committee_votes: Optional[Dict[int, CauseCommitteeVoteInfo]] = Field(
+        default=None,
+        description="Committee vote info (SVM/RF/MLP predictions) per feature for disagreement highlighting"
     )
 
 

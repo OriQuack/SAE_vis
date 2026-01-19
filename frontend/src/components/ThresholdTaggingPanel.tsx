@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, FlipTrackingInfo } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
 import CauseMarginHistogram from './CauseMarginHistogram'
 import CauseRadViz from './CauseRadViz'
@@ -11,7 +11,7 @@ import { TagBadge, DisagreementIndicator } from './Indicators'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE } from '../lib/constants'
 import type { CauseCategory } from '../lib/umap-utils'
-import type { SortMode } from '../lib/tagging-hooks/useSortableList'
+import type { SortMode, ActiveStage } from '../lib/tagging-hooks/useSortableList'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -38,9 +38,64 @@ export type FeatureItemWithMetadata = {
   row: FeatureTableRow | null
 }
 
+// Cause feature item type for cause mode (Stage 3)
+export type CauseFeatureItem = {
+  featureId: number
+  margin: number
+  predictedCategory: CauseCategory
+  row: FeatureTableRow | null
+}
+
+// Filter category type (CauseCategory + 'unsure')
+type FilterCategory = CauseCategory | 'unsure'
+
+// Cause mode specific props
+export interface CauseModeProps {
+  featureIds: Set<number>
+  causeCategoryDecisionMargins: Map<number, Record<string, number>>
+  causeSelectionStates: Map<number, CauseCategory>
+  causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
+  threshold: number
+  onThresholdChange: (value: number) => void
+  sortMode: SortMode
+  sortDirection: 'asc' | 'desc'
+  activeStage: ActiveStage  // 'bootstrap' | 'train' | 'apply'
+  onPercentageChange: (pct: number) => void
+  canTrainSVM: boolean
+  manualTagCountsByCategory: Record<string, number>
+  // Flip tracking for ConvergenceIndicator (optional - null until implemented)
+  flipTracking?: FlipTrackingInfo | null
+  // RadViz props
+  selectedFeatureId: number | null
+  visibleCategories: Set<FilterCategory>
+  onVisibleCategoriesChange: (cats: Set<FilterCategory>) => void
+  onFeatureSelect: (featureId: number) => void
+  stableFeatureIds: number[]  // For RadViz
+  // Batch tagging category counts and colors
+  categories: Array<{
+    id: string
+    label: string
+    color: string
+    count: number
+    inputCount: number
+    outputCount: number
+  }>
+  unsureCount: number
+  // Batch tagging handlers
+  onConfirmCategory: (categoryId: string) => void
+  onConfirmAll: () => void
+  onTagAllUnsure: () => void
+  // Committee votes for disagreement highlighting (optional)
+  causeCommitteeVotes?: Map<number, {
+    svm_category: string
+    rf_category: string
+    mlp_category: string
+  }>
+}
+
 export interface ThresholdTaggingPanelProps {
   // Mode for DecisionMarginHistogram
-  mode: 'feature' | 'pair'
+  mode: 'feature' | 'pair' | 'cause'
   tagCategoryId: string
 
   // Pre-computed boundary items from parent (pair mode)
@@ -78,6 +133,15 @@ export interface ThresholdTaggingPanelProps {
 
   // Sort direction from parent (synced with StageAccordionList)
   sortDirection?: 'asc' | 'desc'
+
+  // Cause mode specific props (only when mode='cause')
+  causeProps?: CauseModeProps
+
+  // Pre-computed boundary items for cause mode (single list with all categories)
+  causeBoundaryItems?: CauseFeatureItem[]
+
+  // Cause mode list item click handler
+  onCauseListItemClick?: (featureId: number) => void
 }
 
 const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
@@ -97,6 +161,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   currentIndex,
   isTemplateSort = true,
   sortDirection = 'asc',
+  // Cause mode props
+  causeProps,
+  causeBoundaryItems = [],
+  onCauseListItemClick,
 }) => {
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -206,6 +274,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
   // State for filtering to show only items needing review (with disagreement)
   const [showOnlyNeedReview, setShowOnlyNeedReview] = useState(false)
+  const [showOnlyCauseNeedReview, setShowOnlyCauseNeedReview] = useState(false)
 
   // Helper to check if an item has disagreement based on list type
   const hasDisagreement = useCallback((itemKey: string, listType: 'left' | 'right'): boolean => {
@@ -260,6 +329,29 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
     return { left: leftCount, right: rightCount }
   }, [sortedLeftItems, sortedRightItems, committeeVotes, mode, hasDisagreement])
+
+  // Helper to check if a cause item has disagreement (RF or MLP predicts different category than SVM)
+  const hasCauseDisagreement = useCallback((featureId: number, svmCategory: string): boolean => {
+    const voteInfo = causeProps?.causeCommitteeVotes?.get(featureId)
+    if (!voteInfo) return false
+    return voteInfo.rf_category !== svmCategory || voteInfo.mlp_category !== svmCategory
+  }, [causeProps?.causeCommitteeVotes])
+
+  // Filter cause boundary items based on showOnlyCauseNeedReview
+  const filteredCauseBoundaryItems = useMemo(() => {
+    if (!showOnlyCauseNeedReview || !causeProps?.causeCommitteeVotes) return causeBoundaryItems
+    return causeBoundaryItems.filter(item =>
+      hasCauseDisagreement(item.featureId, item.predictedCategory)
+    )
+  }, [causeBoundaryItems, showOnlyCauseNeedReview, causeProps?.causeCommitteeVotes, hasCauseDisagreement])
+
+  // Count cause items needing review
+  const causeNeedReviewCount = useMemo(() => {
+    if (!causeProps?.causeCommitteeVotes) return 0
+    return causeBoundaryItems.filter(item =>
+      hasCauseDisagreement(item.featureId, item.predictedCategory)
+    ).length
+  }, [causeBoundaryItems, causeProps?.causeCommitteeVotes, hasCauseDisagreement])
 
   // Render item for pair boundary lists
   // Shows PREVIEW tag (what it will be after apply) with stripe pattern
@@ -353,39 +445,178 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     )
   }
 
+  // Map CauseCategory to display tag names
+  const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
+    'noisy-activation': 'Noisy Activation',
+    'missed-N-gram': 'Pattern Miss',
+    'missed-context': 'Context Miss',
+    'well-explained': 'Well-Explained'
+  }
+
+  // Render item for cause boundary list (Stage 3)
+  // Shows predicted category tag with stripe pattern (isAuto=true for preview)
+  const renderCauseBoundaryItem = (item: CauseFeatureItem, _index: number) => {
+    const tagName = CAUSE_TAG_NAMES[item.predictedCategory] || 'Unsure'
+
+    // Check for disagreement in cause mode
+    const causeVoteInfo = causeProps?.causeCommitteeVotes?.get(item.featureId)
+    const isCauseDisagreement = causeVoteInfo
+      ? (causeVoteInfo.rf_category !== item.predictedCategory || causeVoteInfo.mlp_category !== item.predictedCategory)
+      : false
+
+    return (
+      <div className="pair-item-with-score" style={{ position: 'relative' }}>
+        {/* Disagreement indicator for cause mode */}
+        {isCauseDisagreement && (
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: '3px',
+              backgroundColor: '#f59e0b',
+              borderRadius: '2px 0 0 2px',
+              zIndex: 1
+            }}
+            title={`RF: ${causeVoteInfo?.rf_category}, MLP: ${causeVoteInfo?.mlp_category}`}
+          />
+        )}
+        <TagBadge
+          featureId={item.featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_CAUSE}
+          onClick={() => onCauseListItemClick?.(item.featureId)}
+          fullWidth={true}
+          isAuto={true}
+        />
+        {item.margin !== undefined && (
+          <span className="pair-similarity-score">{item.margin.toFixed(2)}</span>
+        )}
+      </div>
+    )
+  }
+
   return (
     <div className="threshold-tagging-panel">
-      {/* Histogram */}
+      {/* Histogram Section */}
       <div className="threshold-tagging-panel__histogram-section">
-        <DecisionMarginHistogram
-          mode={mode}
-          availablePairs={histogramProps.availablePairs}
-          filteredFeatureIds={histogramProps.filteredFeatureIds}
-          threshold={histogramProps.threshold}
-        />
+        {mode === 'cause' && causeProps ? (
+          <CauseMarginHistogram
+            featureIds={causeProps.featureIds}
+            causeCategoryDecisionMargins={causeProps.causeCategoryDecisionMargins}
+            causeSelectionStates={causeProps.causeSelectionStates}
+            causeSelectionSources={causeProps.causeSelectionSources}
+            threshold={causeProps.threshold}
+            onThresholdChange={causeProps.onThresholdChange}
+            sortMode={causeProps.sortMode}
+            sortDirection={causeProps.sortDirection}
+            onPercentageChange={causeProps.onPercentageChange}
+            canTrainSVM={causeProps.canTrainSVM}
+            manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
+          />
+        ) : (
+          <DecisionMarginHistogram
+            mode={mode as 'feature' | 'pair'}
+            availablePairs={histogramProps.availablePairs}
+            filteredFeatureIds={histogramProps.filteredFeatureIds}
+            threshold={histogramProps.threshold}
+          />
+        )}
       </div>
 
-      {/* Middle section: Flip Rate (top) + Boundary lists (bottom) */}
-      <div className="threshold-tagging-panel__middle-section">
-        {/* Convergence indicator at top of middle section */}
-        <div className="threshold-tagging-panel__indicator-section">
-          <h4 className="subheader subheader--with-value">
-            Prediction Flip Rate
-            {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
-              <span className="subheader__value">
-                {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
-              </span>
-            ) : null}
-          </h4>
-          <ConvergenceIndicator
-            flipTracking={tagAutomaticState?.flipTracking ?? null}
-            stage={mode === 'pair' ? 'stage1' : 'stage2'}
-          />
+      {/* Middle section: different layouts for cause vs pair/feature modes */}
+      {mode === 'cause' && causeProps ? (
+        /* Cause mode: Convergence indicator (top) + RadViz + Boundary List (bottom) */
+        <div className="threshold-tagging-panel__middle-section">
+          {/* Convergence indicator at top (same as pair/feature modes) */}
+          <div className="threshold-tagging-panel__indicator-section">
+            <h4 className="subheader subheader--with-value">
+              Prediction Flip Rate
+              {causeProps.flipTracking?.flipHistory?.length ? (
+                <span className="subheader__value">
+                  {(causeProps.flipTracking.flipHistory[causeProps.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
+                </span>
+              ) : null}
+            </h4>
+            <ConvergenceIndicator
+              flipTracking={causeProps.flipTracking ?? null}
+              stage="stage3"
+            />
+          </div>
+          {/* Content header for cause mode */}
+          <div className="threshold-tagging-panel__content-header">
+            <h4 className="subheader">Thresholded Features</h4>
+            {causeProps.causeCommitteeVotes && causeNeedReviewCount > 0 && (
+              <label className="threshold-tagging-panel__checkbox-label">
+                <input
+                  type="checkbox"
+                  checked={showOnlyCauseNeedReview}
+                  onChange={(e) => setShowOnlyCauseNeedReview(e.target.checked)}
+                />
+                Show <span style={{
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  borderLeft: '3px solid #f59e0b',
+                  padding: '2px',
+                  borderRadius: '2px'
+                }}>Disagreement</span> Only ({causeNeedReviewCount})
+              </label>
+            )}
+          </div>
+          {/* RadViz + Boundary List side by side - same structure as pair/feature mode */}
+          <div className="threshold-tagging-panel__content-section threshold-tagging-panel__content-section--dual">
+            {/* RadViz on left - sets its own 260px width */}
+            <CauseRadViz
+              featureIds={causeProps.stableFeatureIds}
+              selectedFeatureId={causeProps.selectedFeatureId}
+              visibleCategories={causeProps.visibleCategories}
+              onVisibleCategoriesChange={causeProps.onVisibleCategoriesChange}
+              onFeatureSelect={causeProps.onFeatureSelect}
+              sortMode={causeProps.sortMode}
+              sortDirection={causeProps.sortDirection}
+            />
+            {/* Boundary list on right - sets its own 260px width via variant */}
+            <ScrollableItemList
+              variant="boundary"
+              badges={[
+                {
+                  label: causeProps.activeStage === 'apply' ? 'Confident Features' : 'Unsure Features',
+                  count: `${filteredCauseBoundaryItems.length}`
+                }
+              ]}
+              columnHeader={{
+                label: '|Decision Margin|',
+                sortDirection: sortDirection
+              }}
+              items={filteredCauseBoundaryItems as CauseFeatureItem[]}
+              currentIndex={-1}
+              isActive={false}
+              isTemplateSort={true}
+              renderItem={(item, index) => renderCauseBoundaryItem(item as CauseFeatureItem, index)}
+            />
+          </div>
         </div>
+      ) : (
+        /* Pair/Feature mode: Flip Rate (top) + Boundary lists (bottom) */
+        <div className="threshold-tagging-panel__middle-section">
+          {/* Convergence indicator at top of middle section */}
+          <div className="threshold-tagging-panel__indicator-section">
+            <h4 className="subheader subheader--with-value">
+              Prediction Flip Rate
+              {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
+                <span className="subheader__value">
+                  {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
+                </span>
+              ) : null}
+            </h4>
+            <ConvergenceIndicator
+              flipTracking={tagAutomaticState?.flipTracking ?? null}
+              stage={mode === 'pair' ? 'stage1' : 'stage2'}
+            />
+          </div>
 
-        {/* Boundary lists wrapper with subtitle */}
-        <div className="threshold-tagging-panel__lists-section">
-          <div className="threshold-tagging-panel__lists-header">
+          {/* Content header with subtitle and optional checkbox */}
+          <div className="threshold-tagging-panel__content-header">
             <h4 className="subheader">
               {mode === 'pair' ? 'Thresholded Feature Pairs' : 'Thresholded Features'}
             </h4>
@@ -405,7 +636,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               </label>
             )}
           </div>
-          <div className="threshold-tagging-panel__lists-container">
+          {/* Boundary lists container */}
+          <div className="threshold-tagging-panel__content-section threshold-tagging-panel__content-section--dual">
             {/* Left boundary list (Monosemantic/Need Revision - below reject threshold) */}
             <ScrollableItemList
               variant="boundary"
@@ -447,38 +679,50 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             />
           </div>
         </div>
-      </div>
+      )}
 
       {/* Buttons section on the right */}
       <div className="threshold-tagging-panel__buttons-section">
         <h4 className="subheader">Batch Tagging</h4>
-        <BatchTaggingPanel
-          categories={[
-            {
-              id: 'left',
-              label: leftListLabel,
-              color: leftTagColor,
-              count: leftCount,
-              inputCount: boundaryTagCounts.left,
-              outputCount: boundaryTagCounts.left
-            },
-            {
-              id: 'right',
-              label: rightListLabel,
-              color: rightTagColor,
-              count: rightCount,
-              inputCount: boundaryTagCounts.right,
-              outputCount: boundaryTagCounts.right
-            }
-          ]}
-          unsureCount={remainingCount}
-          disabled={!tagAutomaticState?.histogramData}
-          showPlaceholder={false}
-          onApplyThreshold={onApplyTags}
-          thresholdCounts={{ left: leftCount, right: rightCount }}
-          onTagAllAsCategory={() => onTagAll('left')}
-          onTagAllUnsure={() => onTagAll('byBoundary')}
-        />
+        {mode === 'cause' && causeProps ? (
+          <BatchTaggingPanel
+            categories={causeProps.categories}
+            unsureCount={causeProps.unsureCount}
+            disabled={!causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
+            showPlaceholder={false}
+            onConfirmCategory={causeProps.onConfirmCategory}
+            onConfirmAll={causeProps.onConfirmAll}
+            onTagAllUnsure={causeProps.onTagAllUnsure}
+          />
+        ) : (
+          <BatchTaggingPanel
+            categories={[
+              {
+                id: 'left',
+                label: leftListLabel,
+                color: leftTagColor,
+                count: leftCount,
+                inputCount: boundaryTagCounts.left,
+                outputCount: boundaryTagCounts.left
+              },
+              {
+                id: 'right',
+                label: rightListLabel,
+                color: rightTagColor,
+                count: rightCount,
+                inputCount: boundaryTagCounts.right,
+                outputCount: boundaryTagCounts.right
+              }
+            ]}
+            unsureCount={remainingCount}
+            disabled={!tagAutomaticState?.histogramData}
+            showPlaceholder={false}
+            onApplyThreshold={onApplyTags}
+            thresholdCounts={{ left: leftCount, right: rightCount }}
+            onTagAllAsCategory={() => onTagAll('left')}
+            onTagAllUnsure={() => onTagAll('byBoundary')}
+          />
+        )}
       </div>
     </div>
   )

@@ -1,0 +1,80 @@
+/* ============================================================================
+ * TOOLTIP - Reusable tooltip component styles
+ * ============================================================================
+ * Based on CauseMarginHistogram tooltip styling for consistency across the app.
+ * ============================================================================ */
+
+.tooltip {
+  position: fixed;
+  z-index: 10000;
+  background: white;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 4px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  pointer-events: none;
+  font-size: 13px;
+  min-width: 140px;
+  max-width: 200px;
+}
+
+/* Speech bubble arrow pointing to mouse position */
+.tooltip__arrow {
+  position: absolute;
+  left: -6px;
+  top: 12px;
+  transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-right: 6px solid white;
+  filter: drop-shadow(-1px 0 0 var(--border-color, #e5e7eb));
+}
+
+.tooltip__header {
+  font-weight: 600;
+  color: var(--text-primary, #1f2937);
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+
+.tooltip__summary {
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.tooltip__summary--no-separator {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin-bottom: 4px;
+}
+
+.tooltip__row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+  color: var(--text-secondary, #6b7280);
+}
+
+.tooltip__swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* Striped swatch - diagonal stripes for auto/predicted items */
+.tooltip__swatch--striped {
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--unsure-gray, #e0e0e0),
+    var(--unsure-gray, #e0e0e0) 2px,
+    var(--swatch-color) 2px,
+    var(--swatch-color) 4px
+  );
+  border: 1px solid var(--swatch-color);
+}

@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
+import { Tooltip, formatCount } from './Tooltip'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {
@@ -137,7 +138,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         description: 'Manually selected by user'
       },
       autoSelected: {
-        label: `${currentTags.confirmed} (auto)`,
+        label: currentTags.confirmed,
         color: stageColors.autoSelected,
         description: 'Auto-tagged by histogram thresholds'
       },
@@ -147,7 +148,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         description: 'Manually selected by user'
       },
       autoRejected: {
-        label: `${currentTags.rejected} (auto)`,
+        label: currentTags.rejected,
         color: stageColors.autoRejected,
         description: 'Auto-tagged by histogram thresholds'
       },
@@ -588,77 +589,39 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       )}
 
       {/* Custom Tooltip */}
-      {hoveredCategory && tooltipPosition && (() => {
+      {hoveredCategory && (() => {
         const count = getCategoryValue(hoveredCategory, counts)
         const percentage = getCategoryValue(hoveredCategory, percentages)
         const previewChange = previewChanges ? getCategoryValue(hoveredCategory, previewChanges) : 0
+        const isAuto = hoveredCategory === 'autoSelected' || hoveredCategory === 'autoRejected'
 
         return (
-          <div
-            className="selection-state-bar__tooltip"
-            style={{
-              position: 'fixed',
-              left: `${tooltipPosition.x + 12}px`,
-              top: `${tooltipPosition.y - 8}px`,
-              pointerEvents: 'none',
-              zIndex: 10000
-            }}
-          >
-            <div className="selection-state-bar__tooltip-content">
-              <div className="selection-state-bar__tooltip-label">
-                {categoryConfig[hoveredCategory].label}
-              </div>
-              <div className="selection-state-bar__tooltip-count">
-                {count.toLocaleString()} features
-                {previewChange !== 0 && (
-                  <span className="selection-state-bar__tooltip-preview">
-                    {' '}→ {(count + previewChange).toLocaleString()}
-                  </span>
-                )}
-              </div>
-              <div className="selection-state-bar__tooltip-percentage">
-                {percentage.toFixed(1)}%
-              </div>
-            </div>
-          </div>
+          <Tooltip position={tooltipPosition} offsetX={12} offsetY={-12}>
+            <Tooltip.Row color={getColor(hoveredCategory)} striped={isAuto}>
+              {categoryConfig[hoveredCategory].label}
+            </Tooltip.Row>
+            <Tooltip.Summary showSeparator={false}>
+              {formatCount(count)} features ({percentage.toFixed(1)}%)
+              {previewChange !== 0 && (
+                <span className="selection-state-bar__tooltip-preview">
+                  {' '}→ {formatCount(count + previewChange)}
+                </span>
+              )}
+            </Tooltip.Summary>
+          </Tooltip>
         )
       })()}
 
       {/* Cause Segment Tooltip (Stage 3) */}
-      {hoveredCauseSegment && causeTooltipPosition && (
-        <div
-          className="selection-state-bar__tooltip"
-          style={{
-            position: 'fixed',
-            left: `${causeTooltipPosition.x + 12}px`,
-            top: `${causeTooltipPosition.y - 8}px`,
-            pointerEvents: 'none',
-            zIndex: 10000
-          }}
-        >
-          <div className="selection-state-bar__tooltip-content">
-            <div className="selection-state-bar__tooltip-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span
-                className="selection-state-bar__tooltip-color"
-                style={{
-                  width: '10px',
-                  height: '10px',
-                  borderRadius: '2px',
-                  backgroundColor: hoveredCauseSegment.color,
-                  flexShrink: 0
-                }}
-              />
-              {hoveredCauseSegment.label}
-              {hoveredCauseSegment.isAuto && <span style={{ opacity: 0.7 }}>(auto)</span>}
-            </div>
-            <div className="selection-state-bar__tooltip-count">
-              {hoveredCauseSegment.count.toLocaleString()} features
-            </div>
-            <div className="selection-state-bar__tooltip-percentage">
-              {hoveredCauseSegment.percentage.toFixed(1)}%
-            </div>
-          </div>
-        </div>
+      {hoveredCauseSegment && (
+        <Tooltip position={causeTooltipPosition} offsetX={12} offsetY={-12}>
+          <Tooltip.Row color={hoveredCauseSegment.color} striped={hoveredCauseSegment.isAuto}>
+            {hoveredCauseSegment.label}
+          </Tooltip.Row>
+          <Tooltip.Summary showSeparator={false}>
+            {formatCount(hoveredCauseSegment.count)} features ({hoveredCauseSegment.percentage.toFixed(1)}%)
+          </Tooltip.Summary>
+        </Tooltip>
       )}
     </div>
   )

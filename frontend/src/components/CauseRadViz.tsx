@@ -122,7 +122,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
 
   // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
   // Both 'click' and 'threshold' sources count for SVM training (with different weights)
-  const { canUseDecisionSpace, manualCauseSelections, manualTagCounts } = useMemo(() => {
+  const { canUseDecisionSpace, manualCauseSelections, manualTagCounts: _manualTagCounts } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, { category: string; source: 'click' | 'threshold' }> = {}
 
@@ -396,43 +396,23 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   // RENDER
   // ============================================================================
 
-  const containerStyle = { width: '100%', height: '100%' }
+  // No inline styles - dimensions set by CSS (.cause-radviz has fixed 260px width)
 
   // Empty state - no SVM data yet
   if (!radVizPositions || radVizPositions.length === 0) {
     return (
-      <div ref={containerRef} className={`cause-radviz cause-radviz--empty ${className}`} style={containerStyle}>
+      <div ref={containerRef} className={`cause-radviz cause-radviz--empty ${className}`}>
         <div className="cause-radviz__placeholder">
           <span className="cause-radviz__main-instruction">
-            Tag features to start SVM training
+            Plot will appear here once SVM training begins.
           </span>
-          <div className="cause-radviz__progress-row">
-            <div
-              className="cause-radviz__progress-item"
-              style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#e69f00' }}
-            >
-              Pattern Miss: {manualTagCounts['missed-N-gram']} / {MIN_TAGS_PER_CATEGORY}
-            </div>
-            <div
-              className="cause-radviz__progress-item"
-              style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#d55e00' }}
-            >
-              Context Miss: {manualTagCounts['missed-context']} / {MIN_TAGS_PER_CATEGORY}
-            </div>
-            <div
-              className="cause-radviz__progress-item"
-              style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#cc79a7' }}
-            >
-              Noisy Activation: {manualTagCounts['noisy-activation']} / {MIN_TAGS_PER_CATEGORY}
-            </div>
-          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div ref={containerRef} className={`cause-radviz ${className}${causeClassificationLoading ? ' cause-radviz--training' : ''}`} style={containerStyle}>
+    <div ref={containerRef} className={`cause-radviz ${className}${causeClassificationLoading ? ' cause-radviz--training' : ''}`}>
       {/* Centered chart wrapper */}
       <div
         className="cause-radviz__chart-wrapper"
@@ -645,7 +625,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['noisy-activation'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['noisy-activation'].y),
-                  transform: 'translate(-50%, -100%) translateY(-8px)',
+                  transform: 'translate(-50%, -100%) translateY(-6px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
                 } as React.CSSProperties}
               >
@@ -657,7 +637,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-N-gram'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-N-gram'].y),
-                  transform: 'translate(-100%, 0) translateX(-8px)',
+                  transform: 'translate(-90%, 75%) translateX(-5px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
                 } as React.CSSProperties}
               >
@@ -669,7 +649,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-context'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-context'].y),
-                  transform: 'translate(0, 0) translateX(8px)',
+                  transform: 'translate(-10%, 75%) translateX(5px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
                 } as React.CSSProperties}
               >
@@ -687,34 +667,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
           <span>Updating...</span>
         </div>
       )}
-
-      {/* Legend */}
-      <div className="cause-radviz__unified-legend">
-        <span className="instruction-subheader">Legend</span>
-        <div className="cause-radviz__legend-section">
-          {/* Filled circle = manually tagged */}
-          <div className="cause-radviz__legend-item">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="3" fill="#686868" />
-            </svg>
-            <span>Tagged</span>
-          </div>
-          {/* Ring = auto/unsure */}
-          <div className="cause-radviz__legend-item">
-            <svg width="14" height="14" viewBox="0 0 14 14">
-              <circle cx="7" cy="7" r="2.5" fill="none" stroke="#686868" strokeWidth="1" />
-            </svg>
-            <span>Untagged</span>
-          </div>
-          {/* Contour = density */}
-          <div className="cause-radviz__legend-item">
-            <svg width="18" height="14" viewBox="0 0 18 14">
-              <ellipse cx="9" cy="7" rx="7" ry="5" fill="#686868" fillOpacity={0.15} stroke="#686868" strokeWidth={1} strokeOpacity={0.5} />
-            </svg>
-            <span>Density</span>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

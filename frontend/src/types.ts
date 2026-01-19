@@ -881,6 +881,12 @@ export interface CauseClassificationResponse {
   results: CauseClassificationResult[]
   total_features: number
   category_counts: Record<string, number>
+  // Committee votes for disagreement highlighting (optional - only returned if QBC is enabled)
+  committee_votes?: Record<number, {
+    svm_category: string
+    rf_category: string
+    mlp_category: string
+  }>
 }
 
 // ============================================================================

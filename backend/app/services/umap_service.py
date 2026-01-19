@@ -12,6 +12,7 @@ from typing import List, Dict, Optional, TYPE_CHECKING
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from .committee_service import CommitteeService, MulticlassCommitteePrediction
 from ..models.umap import (
     UmapProjectionRequest,
     UmapProjectionResponse,
@@ -22,7 +23,8 @@ from ..models.similarity_sort import (
     CauseClassificationRequest,
     CauseClassificationResponse,
     CauseClassificationResult,
-    CauseSelectionItem
+    CauseSelectionItem,
+    CauseCommitteeVoteInfo
 )
 from .data_constants import COL_FEATURE_ID
 
@@ -72,6 +74,7 @@ class UMAPService:
             data_service: Instance of DataService for data access
         """
         self.data_service = data_service
+        self.committee_service = CommitteeService()
 
     async def get_umap_projection(
         self,
@@ -212,10 +215,22 @@ class UMAPService:
         # Map feature_ids to indices for cause_selections lookup
         feature_id_to_idx = {int(fid): idx for idx, fid in enumerate(feature_ids_ordered)}
 
+        # Scale metrics for training
+        scaler = StandardScaler()
+        metrics_scaled = scaler.fit_transform(metrics_matrix)
+
         # Train One-vs-Rest SVMs and compute decision function vectors
         # Uses only manual tags (no anchor points)
         decision_vectors = self._compute_decision_function_vectors(
             metrics_matrix,
+            feature_ids_ordered,
+            cause_selections,
+            feature_id_to_idx
+        )
+
+        # Train RF and MLP committee for multi-class prediction
+        committee_votes = self._train_committee_and_predict(
+            metrics_scaled,
             feature_ids_ordered,
             cause_selections,
             feature_id_to_idx
@@ -248,10 +263,22 @@ class UMAPService:
 
         logger.info(f"Classification complete. Predicted counts: {predicted_counts}")
 
+        # Update committee_votes with actual SVM predictions (from decision vectors)
+        if committee_votes is not None:
+            for result in results:
+                if result.feature_id in committee_votes:
+                    # Update svm_category with the actual SVM prediction
+                    committee_votes[result.feature_id] = CauseCommitteeVoteInfo(
+                        svm_category=result.predicted_category,
+                        rf_category=committee_votes[result.feature_id].rf_category,
+                        mlp_category=committee_votes[result.feature_id].mlp_category
+                    )
+
         return CauseClassificationResponse(
             results=results,
             total_features=len(results),
-            category_counts=predicted_counts
+            category_counts=predicted_counts,
+            committee_votes=committee_votes
         )
 
     def _compute_decision_function_vectors(
@@ -335,6 +362,95 @@ class UMAPService:
             logger.info(f"Trained SVM for {category}: {len(manual_positive)} manual positive, {len(manual_negative)} manual negative")
 
         return decision_vectors
+
+    def _train_committee_and_predict(
+        self,
+        metrics_scaled: np.ndarray,
+        feature_ids: np.ndarray,
+        cause_selections: Dict[int, CauseSelectionItem],
+        feature_id_to_idx: Dict[int, int]
+    ) -> Optional[Dict[int, CauseCommitteeVoteInfo]]:
+        """Train RF and MLP committee for multi-class cause prediction.
+
+        Uses CommitteeService to train Random Forest and MLP classifiers,
+        then predicts category for all features. Returns committee votes
+        for disagreement highlighting.
+
+        Args:
+            metrics_scaled: (N, D) scaled feature matrix
+            feature_ids: Array of feature IDs
+            cause_selections: Dict mapping feature_id to CauseSelectionItem
+            feature_id_to_idx: Dict mapping feature_id to matrix index
+
+        Returns:
+            Dict mapping feature_id to CauseCommitteeVoteInfo, or None if insufficient data
+        """
+        # Build training data from manual tags
+        train_indices = []
+        train_labels = []
+        sample_weights = []
+
+        category_to_label = {cat: i for i, cat in enumerate(CAUSE_CATEGORIES)}
+        label_to_category = {i: cat for cat, i in category_to_label.items()}
+
+        for fid, item in cause_selections.items():
+            if fid in feature_id_to_idx and item.category in category_to_label:
+                idx = feature_id_to_idx[fid]
+                train_indices.append(idx)
+                train_labels.append(category_to_label[item.category])
+                weight = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+                sample_weights.append(weight)
+
+        # Need at least 2 samples per category for meaningful committee
+        if len(train_indices) < 6:  # At least 2 per 3 categories
+            logger.warning(f"[UMAPService] Insufficient training data for committee: {len(train_indices)} samples")
+            return None
+
+        X_train = metrics_scaled[train_indices]
+        y_train = np.array(train_labels)
+        weights = np.array(sample_weights)
+
+        # Train committee using CommitteeService
+        rf_model, mlp_model, scaler = self.committee_service.train_multiclass_committee(
+            X_train, y_train, weights
+        )
+
+        # If both failed, return None
+        if rf_model is None and mlp_model is None:
+            return None
+
+        # Create placeholder SVM category indices (will be updated by caller with actual SVM predictions)
+        # Use RF predictions as initial placeholder
+        if rf_model is not None and scaler is not None:
+            X_scaled = scaler.transform(metrics_scaled)
+            svm_category_indices = rf_model.predict(X_scaled).astype(int)
+        else:
+            svm_category_indices = np.zeros(len(feature_ids), dtype=int)
+
+        # Get committee predictions
+        committee_preds = self.committee_service.predict_multiclass_with_committee(
+            metrics_scaled,
+            svm_category_indices,
+            rf_model,
+            mlp_model,
+            scaler,
+            label_to_category
+        )
+
+        # Convert MulticlassCommitteePrediction to CauseCommitteeVoteInfo
+        committee_votes: Dict[int, CauseCommitteeVoteInfo] = {}
+        for i, fid in enumerate(feature_ids):
+            fid_int = int(fid)
+            if i in committee_preds:
+                pred = committee_preds[i]
+                committee_votes[fid_int] = CauseCommitteeVoteInfo(
+                    svm_category=pred.svm_category,  # Will be overwritten with actual SVM prediction
+                    rf_category=pred.rf_category,
+                    mlp_category=pred.mlp_category
+                )
+
+        logger.info(f"[UMAPService] Committee votes generated for {len(committee_votes)} features")
+        return committee_votes
 
     async def _extract_metrics_from_barycentric(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """Extract MEAN metrics per feature from barycentric parquet for SVM training.

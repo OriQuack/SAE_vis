@@ -1,8 +1,8 @@
 /* ============================================================================
  * THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
  * ============================================================================
- * Layout: [Histogram] | [Flip Rate (top) + Boundary Lists (bottom)] | [Buttons]
- * Used by: FeatureSplitView and QualityView
+ * Layout: [Histogram] | [Indicator + Content] | [Buttons]
+ * Used by: FeatureSplitView, QualityView, and CauseView
  * ============================================================================ */
 
 .threshold-tagging-panel {
@@ -55,14 +55,15 @@
 }
 
 /* ============================================================================
- * MIDDLE SECTION - Flip Rate (top) + Boundary lists (bottom)
+ * MIDDLE SECTION - Unified layout for all modes
+ * Contains: Indicator (top) + Content header (optional) + Content section (bottom)
  * ============================================================================ */
 
 .threshold-tagging-panel__middle-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  flex-shrink: 0;
+  flex-shrink: 0;   /* Don't shrink - fit content */
   min-height: 0;
 }
 
@@ -74,12 +75,52 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 4;  /* 3:7 ratio with lists section */
+  flex: 4;  /* 4:6 ratio with content section */
   min-height: 0;
 }
 
 .threshold-tagging-panel__indicator-section .subheader__value {
   margin-left: 6px;
+}
+
+/* Make convergence indicator fill available space */
+.threshold-tagging-panel__indicator-section .convergence-indicator {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ============================================================================
+ * CONTENT HEADER - Subheader with optional checkbox (pair/feature modes)
+ * ============================================================================ */
+
+.threshold-tagging-panel__content-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.threshold-tagging-panel__content-header .subheader {
+  margin: 0;
+}
+
+/* ============================================================================
+ * CONTENT SECTION - Unified container for lists or RadViz + list
+ * ============================================================================ */
+
+.threshold-tagging-panel__content-section {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  flex: 6;  /* 4:6 ratio with indicator section */
+  min-height: 0;
+  min-width: 0;
+}
+
+/* Pair/Feature mode: dual lists with tighter gap */
+.threshold-tagging-panel__content-section--dual {
+  gap: 4px;
 }
 
 /* ============================================================================
@@ -90,45 +131,13 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 180px;
+  width: 200px;  /* Unified width for all modes (fits 2-3 categories) */
+  flex-shrink: 0;  /* Maintain fixed width, don't shrink */
 }
 
 /* Subheader uses shared .subheader class from base.css */
 .threshold-tagging-panel__buttons-section .subheader {
   padding: 0;
-}
-
-
-/* ============================================================================
- * LISTS SECTION - Wrapper for boundary lists with subtitle
- * ============================================================================ */
-
-.threshold-tagging-panel__lists-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex: 6;  /* 7:3 ratio with indicator section */
-  min-height: 0;  /* Allow flex children to shrink below content size */
-}
-
-.threshold-tagging-panel__lists-header {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.threshold-tagging-panel__lists-header .subheader {
-  margin: 0;
-}
-
-.threshold-tagging-panel__lists-container {
-  display: flex;
-  flex-direction: row;
-  gap: 4px;
-  flex: 1;
-  min-height: 0;  /* Allow flex children to shrink below content size */
 }
 
 /* ============================================================================
@@ -192,4 +201,3 @@
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }
-

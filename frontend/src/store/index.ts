@@ -360,6 +360,9 @@ interface AppState {
   fetchCauseClassification: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
   causeClassificationLoading: boolean
   causeClassificationError: string | null
+  causeCommitteeVotes: Map<number, { svm_category: string; rf_category: string; mlp_category: string }> | null
+  causeFlipTracking: FlipTrackingInfo | null
+  clearCauseFlipTracking: () => void
   setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
   clearUmapProjection: () => void
 
@@ -527,6 +530,10 @@ const initialState = {
   // Cause classification state
   causeClassificationLoading: false,
   causeClassificationError: null,
+  causeCommitteeVotes: null as Map<number, { svm_category: string; rf_category: string; mlp_category: string }> | null,
+
+  // Stage 3 flip tracking (separate from tagAutomaticState.flipTracking)
+  causeFlipTracking: null,
 
   // Multi-modality state
   causeMultiModality: null,
@@ -669,6 +676,7 @@ export const useStore = create<AppState>((set, get) => {
   fetchCauseClassification: causeActions.fetchCauseClassification,
   setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
   clearUmapProjection: causeActions.clearUmapProjection,
+  clearCauseFlipTracking: causeActions.clearCauseFlipTracking,
 
   // Compose Multi-modality action (Stage 3)
   fetchMultiModality: causeActions.fetchMultiModality,

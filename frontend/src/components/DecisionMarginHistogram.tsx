@@ -15,6 +15,7 @@ import { isPairInSelection } from '../lib/pairUtils'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
+import { Tooltip, formatCount } from './Tooltip'
 import '../styles/DecisionMarginHistogram.css'
 
 // ============================================================================
@@ -615,6 +616,34 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     fill="url(#autoSelectedPreviewStripe)"
                   />
 
+                  {/* Full-height hover hit areas for each bin */}
+                  {histogramChart.bins.map((bin, binIndex) => {
+                    const binX = histogramChart.xScale(bin.x0)
+                    const binWidth = histogramChart.xScale(bin.x1) - binX
+                    return (
+                      <rect
+                        key={`hit-area-${binIndex}`}
+                        x={binX}
+                        y={0}
+                        width={binWidth}
+                        height={histogramChart.height}
+                        fill={hoveredBinIndex === binIndex ? 'rgba(0, 0, 0, 0.04)' : 'transparent'}
+                        style={{ cursor: 'pointer' }}
+                        onMouseEnter={(e) => {
+                          setHoveredBinIndex(binIndex)
+                          setTooltipPosition({ x: e.clientX, y: e.clientY })
+                        }}
+                        onMouseMove={(e) => {
+                          setTooltipPosition({ x: e.clientX, y: e.clientY })
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredBinIndex(null)
+                          setTooltipPosition(null)
+                        }}
+                      />
+                    )
+                  })}
+
                   {/* Stacked category bars */}
                   {categoryBars.map((segment, i) => (
                     <rect
@@ -742,7 +771,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                         fontSize={12}
                         fill="#666"
                       >
-                        {tick.label}
+                        {formatCount(tick.value)}
                       </text>
                     </g>
                   ))}
@@ -828,37 +857,30 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                 const counts = categoryData.get(hoveredBinIndex)
                 if (!bin || !counts) return null
 
-                // Build legend items for non-zero counts
-                const legendItems: Array<{ color: string; count: number }> = []
-                if (counts.confirmed > 0) legendItems.push({ color: modeColors.confirmed, count: counts.confirmed })
-                if (counts.autoSelected > 0) legendItems.push({ color: modeColors.autoSelected, count: counts.autoSelected })
-                if (counts.rejected > 0) legendItems.push({ color: modeColors.rejected, count: counts.rejected })
-                if (counts.autoRejected > 0) legendItems.push({ color: modeColors.autoRejected, count: counts.autoRejected })
-                if (counts.unsure > 0) legendItems.push({ color: modeColors.unsure, count: counts.unsure })
+                // Build legend items for non-zero counts with labels and striped flag
+                const legendItems: Array<{ color: string; count: number; label: string; striped: boolean }> = []
+                if (counts.confirmed > 0) legendItems.push({ color: modeColors.confirmed, count: counts.confirmed, label: modeLabels.selected, striped: false })
+                if (counts.autoSelected > 0) legendItems.push({ color: modeColors.autoSelected, count: counts.autoSelected, label: modeLabels.selected, striped: true })
+                if (counts.rejected > 0) legendItems.push({ color: modeColors.rejected, count: counts.rejected, label: modeLabels.rejected, striped: false })
+                if (counts.autoRejected > 0) legendItems.push({ color: modeColors.autoRejected, count: counts.autoRejected, label: modeLabels.rejected, striped: true })
+                if (counts.unsure > 0) legendItems.push({ color: modeColors.unsure, count: counts.unsure, label: 'Unsure', striped: false })
+
+                const totalCount = counts.confirmed + counts.autoSelected + counts.rejected + counts.autoRejected + counts.unsure
 
                 return (
-                  <div
-                    className="histogram-bin-tooltip"
-                    style={{
-                      position: 'fixed',
-                      left: tooltipPosition.x + 12,
-                      top: tooltipPosition.y - 20,
-                      zIndex: 10000,
-                      pointerEvents: 'none'
-                    }}
-                  >
-                    <div className="histogram-bin-tooltip__legend">
-                      {legendItems.map((item, idx) => (
-                        <span key={idx} className="histogram-bin-tooltip__item">
-                          <span
-                            className="histogram-bin-tooltip__swatch"
-                            style={{ backgroundColor: item.color }}
-                          />
-                          <span className="histogram-bin-tooltip__count">{item.count}</span>
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+                  <Tooltip position={tooltipPosition} offsetX={12} offsetY={-12}>
+                    <Tooltip.Header>
+                      {bin.x0.toFixed(2)} – {bin.x1.toFixed(2)}
+                    </Tooltip.Header>
+                    <Tooltip.Summary showSeparator={totalCount > 0}>
+                      Total: {formatCount(totalCount)} {mode === 'pair' ? 'pairs' : 'features'}
+                    </Tooltip.Summary>
+                    {legendItems.map((item, idx) => (
+                      <Tooltip.Row key={idx} color={item.color} striped={item.striped}>
+                        {item.label}: {formatCount(item.count)}
+                      </Tooltip.Row>
+                    ))}
+                  </Tooltip>
                 )
               })()}
             </>

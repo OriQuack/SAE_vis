@@ -1,5 +1,7 @@
 import * as api from '../api'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
+import { FLIP_HISTORY_WINDOW_SIZE } from '../components/ConvergenceIndicator'
+import type { FlipTrackingInfo } from '../types'
 
 // ============================================================================
 // CAUSE STAGE ACTIONS (multi-class features)
@@ -412,6 +414,76 @@ export const createCauseActions = (set: any, get: any) => ({
       // This enables contour visualization of the SVM classification results
       const currentState = get()
 
+      // === FLIP TRACKING LOGIC ===
+      // Build current predictions map from SVM results
+      const currentPredictions = new Map<number, string>()
+      response.results.forEach((result) => {
+        currentPredictions.set(result.feature_id, result.predicted_category)
+      })
+
+      // Get existing flip tracking
+      const existingFlipTracking = currentState.causeFlipTracking
+
+      let updatedFlipTracking: FlipTrackingInfo
+
+      if (existingFlipTracking && existingFlipTracking.previousPredictions.size > 0) {
+        // Calculate flips vs previous iteration
+        let flips = 0
+        let total = 0
+        const flipTransitions: Record<string, number> = {}
+
+        currentPredictions.forEach((curr, featureId) => {
+          const prev = existingFlipTracking.previousPredictions.get(featureId)
+          if (prev !== undefined) {
+            total++
+            if (prev !== curr) {
+              flips++
+              const transitionKey = `${prev}→${curr}`
+              flipTransitions[transitionKey] = (flipTransitions[transitionKey] || 0) + 1
+            }
+          }
+        })
+
+        const flipRate = total > 0 ? flips / total : 0
+        const newIteration = existingFlipTracking.totalIterations + 1
+
+        // Count predictions by category
+        const predictionCounts: Record<string, number> = {}
+        currentPredictions.forEach((category) => {
+          predictionCounts[category] = (predictionCounts[category] || 0) + 1
+        })
+
+        updatedFlipTracking = {
+          flipHistory: [
+            ...existingFlipTracking.flipHistory,
+            { flipRate, isBatch: false, iteration: newIteration, predictionCounts, flipTransitions }
+          ].slice(-FLIP_HISTORY_WINDOW_SIZE),
+          totalIterations: newIteration,
+          flippedBins: new Set<number>(),
+          previousPredictions: currentPredictions as Map<number | string, string> as Map<number | string, 'selected' | 'rejected'>
+        }
+      } else {
+        // First classification - initialize iteration 0
+        const predictionCounts: Record<string, number> = {}
+        currentPredictions.forEach((category) => {
+          predictionCounts[category] = (predictionCounts[category] || 0) + 1
+        })
+
+        updatedFlipTracking = {
+          flipHistory: [{
+            flipRate: 0,
+            isBatch: false,
+            iteration: 0,
+            predictionCounts,
+            flipTransitions: {}
+          }],
+          totalIterations: 0,
+          flippedBins: new Set<number>(),
+          previousPredictions: currentPredictions as Map<number | string, string> as Map<number | string, 'selected' | 'rejected'>
+        }
+      }
+      // === END FLIP TRACKING LOGIC ===
+
       // Set of manually tagged feature IDs (from the request)
       const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
 
@@ -441,6 +513,18 @@ export const createCauseActions = (set: any, get: any) => ({
         hasChanges: statesToUpdate.length > 0
       })
 
+      // Parse committee votes if returned by API (for disagreement highlighting)
+      let causeCommitteeVotes: Map<number, { svm_category: string; rf_category: string; mlp_category: string }> | null = null
+      if (response.committee_votes) {
+        causeCommitteeVotes = new Map(
+          Object.entries(response.committee_votes).map(([id, vote]) => [
+            parseInt(id, 10),
+            vote as { svm_category: string; rf_category: string; mlp_category: string }
+          ])
+        )
+        console.log('[Store.fetchCauseClassification] Committee votes parsed:', causeCommitteeVotes.size)
+      }
+
       // Only create new Maps and update state if there are actual changes
       // This prevents cascading re-renders from new Map references that would cause infinite loops
       if (statesToUpdate.length > 0) {
@@ -462,13 +546,17 @@ export const createCauseActions = (set: any, get: any) => ({
           causeSelectionStates: newStates,
           causeSelectionSources: newSources,
           causeClassificationLoading: false,
-          causeClassificationError: null
+          causeClassificationError: null,
+          causeFlipTracking: updatedFlipTracking,
+          causeCommitteeVotes
         })
       } else {
-        // No changes - don't update ANY Maps to avoid triggering cascading effects
+        // No state changes but still update flip tracking and committee votes
         set({
           causeClassificationLoading: false,
-          causeClassificationError: null
+          causeClassificationError: null,
+          causeFlipTracking: updatedFlipTracking,
+          causeCommitteeVotes
         })
       }
     } catch (error) {
@@ -500,6 +588,14 @@ export const createCauseActions = (set: any, get: any) => ({
       umapError: null,
       umapBrushedFeatureIds: new Set<number>()
     })
+  },
+
+  /**
+   * Clear cause flip tracking state
+   */
+  clearCauseFlipTracking: () => {
+    console.log('[Store.clearCauseFlipTracking] Clearing cause flip tracking state')
+    set({ causeFlipTracking: null })
   },
 
   // ============================================================================

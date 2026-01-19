@@ -13,9 +13,10 @@
 
 .cause-radviz {
   position: relative;
-  width: 100%;
+  width: 260px;         /* Fixed width matching boundary lists */
+  flex-shrink: 0;       /* Don't shrink */
   height: 100%;
-  min-height: 200px;
+  min-height: 0;
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -182,51 +183,15 @@
 
 .cause-radviz__vertex-label {
   position: absolute;
-  padding: 2px 8px;
-  font-size: 13px;
+  padding: 1px 4px;
+  font-size: 10px;
   font-weight: 600;
   color: #000;
   background-color: var(--tag-color, #9ca3af);
   border: 1px solid var(--tag-color, #9ca3af);
-  border-radius: 3px;
+  border-radius: 2px;
   white-space: nowrap;
   pointer-events: none;
   z-index: 5;
 }
 
-/* ============================================================================
-   UNIFIED LEGEND PANEL
-   ============================================================================ */
-
-.cause-radviz__unified-legend {
-  position: absolute;
-  top: 20px;
-  left: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  background: rgba(255, 255, 255, 0.95);
-  padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--border-color, #e5e7eb);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  font-size: 14px;
-  z-index: 10;
-}
-
-.cause-radviz__legend-section {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.cause-radviz__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--text-primary, #374151);
-}
-
-.cause-radviz__legend-item svg {
-  flex-shrink: 0;
-}

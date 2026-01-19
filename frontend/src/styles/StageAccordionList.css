@@ -1,7 +1,7 @@
 /* ============================================================================
- * STAGE SELECTOR LIST - Horizontal stage tabs + scrollable list
+ * STAGE SELECTOR LIST - Notebook Tab Style + scrollable list
  * ============================================================================
- * Flat stage selector with consistent options row.
+ * Notebook-style stage tabs similar to TagStagePanel.
  * Implements Bootstrap → Learn → Apply workflow stages.
  * ============================================================================ */
 
@@ -13,37 +13,49 @@
 }
 
 /* ============================================================================
- * ROW 1: HORIZONTAL STAGE TABS
+ * ROW 1: NOTEBOOK-STYLE STAGE TABS
  * ============================================================================ */
 
 .stage-selector__tabs {
   display: flex;
   flex-direction: row;
-  gap: 3px;
-  padding: 4px;
-  background-color: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-bottom: none;
-  border-radius: 4px 4px 0 0;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px 0 0 0;
+  background: transparent;
+  position: relative;
+}
+
+/* Bottom border line that tabs sit on */
+.stage-selector__tabs::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #cbd5e1;
+  z-index: 1;
 }
 
 .stage-selector__tab {
   flex: 1;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
-  padding: 3px 2px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
+  gap: 2px;
+  padding: 4px;
+  background: #f1f5f9;
+  border: 2px solid #cbd5e1;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 500;
-  color: #6b7280;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   -webkit-appearance: none;
   appearance: none;
+  position: relative;
+  z-index: 2;
 }
 
 .stage-selector__tab:focus {
@@ -52,21 +64,31 @@
 }
 
 .stage-selector__tab:hover:not(:disabled) {
-  background: #f9fafb;
-  border-color: #9ca3af;
-  color: #374151;
+  background: #e2e8f0;
 }
 
+/* Active state - tab rises up and connects to content below */
 .stage-selector__tab--active {
-  background: #eff6ff;
+  background: white;
   border-color: #3b82f6;
-  color: #1d4ed8;
-  font-weight: 600;
+  box-shadow: 0 -2px 6px rgba(59, 130, 246, 0.15);
+  z-index: 10;
+}
+
+/* White overlay to cover the bottom border line */
+.stage-selector__tab--active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 4px;
+  background: white;
+  z-index: 3;
 }
 
 .stage-selector__tab--active:hover:not(:disabled) {
-  background: #dbeafe;
-  border-color: #2563eb;
+  background: white;
 }
 
 .stage-selector__tab--disabled {
@@ -81,18 +103,18 @@
 
 @keyframes tab-pulse {
   0%, 100% {
-    border-color: #d1d5db;
+    border-color: #cbd5e1;
     box-shadow: none;
-    background: #ffffff;
+    background: #f1f5f9;
   }
   50% {
     border-color: #3b82f6;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+    box-shadow: 0 -2px 6px rgba(59, 130, 246, 0.3);
     background: #dbeafe;
   }
 }
 
-/* Stage Number - Circled number like TagStagePanel */
+/* Stage Number - Circular badge */
 .stage-selector__number {
   display: flex;
   align-items: center;
@@ -101,31 +123,37 @@
   height: 14px;
   border-radius: 50%;
   background: white;
-  border: 1px solid #d1d5db;
   color: #6b7280;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .stage-selector__tab--active .stage-selector__number {
   background: #3b82f6;
-  border-color: #3b82f6;
   color: white;
+  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.4);
 }
 
 .stage-selector__tab--disabled .stage-selector__number {
   background: #f3f4f6;
-  border-color: #e5e7eb;
   color: #9ca3af;
+  box-shadow: none;
 }
 
 /* Stage Label */
 .stage-selector__label {
   font-size: 11px;
-  font-weight: inherit;
-  color: inherit;
+  font-weight: 500;
+  color: #6b7280;
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.stage-selector__tab--active .stage-selector__label {
+  color: #1e293b;
+  font-weight: 600;
 }
 
 /* ============================================================================
@@ -138,9 +166,8 @@
   padding: 6px 8px;
   gap: 6px;
   background-color: white;
-  border: 1px solid #e5e7eb;
+  border: 2px solid #cbd5e1;
   border-top: none;
-  border-bottom: none;
   min-height: 32px; /* Consistent height even when no options */
 }
 
@@ -183,8 +210,8 @@
 .stage-selector__cycle-group {
   display: inline-flex;
   align-items: stretch;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
   background-color: white;
   overflow: hidden;
   width: 160px;
@@ -246,8 +273,8 @@
   font-weight: 600;
   color: #1d4ed8;
   background: rgba(59, 130, 246, 0.15);
-  border-left: 1px solid #d1d5db;
-  border-right: 1px solid #d1d5db;
+  border-left: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
   text-align: center;
   white-space: nowrap;
   overflow: hidden;
@@ -276,7 +303,7 @@
 }
 
 .stage-selector__checkbox-label:hover input[type="checkbox"] {
-  border-color: #9ca3af;
+  border-color: #94a3b8;
 }
 
 .stage-selector__checkbox-label input[type="checkbox"] {
@@ -285,7 +312,7 @@
   width: 13px;
   height: 13px;
   background: white;
-  border: 1px solid #d1d5db;
+  border: 1px solid #cbd5e1;
   border-radius: 2px;
   cursor: pointer;
   position: relative;
@@ -296,7 +323,7 @@
 }
 
 .stage-selector__checkbox-label input[type="checkbox"]:hover {
-  border-color: #9ca3af;
+  border-color: #94a3b8;
 }
 
 .stage-selector__checkbox-label input[type="checkbox"]:checked {
@@ -317,7 +344,7 @@
 }
 
 /* ============================================================================
- * LIST SECTION - Connected to header
+ * LIST SECTION - Connected to options row
  * ============================================================================ */
 
 .stage-selector__list {
@@ -328,10 +355,11 @@
   width: 280px;
 }
 
-/* Override ScrollableItemList border to connect with header */
+/* Override ScrollableItemList border to connect with options row */
 .stage-selector__list .scrollable-list {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
+  border: 2px solid #cbd5e1;
+  border-top: none;
+  border-radius: 0 0 6px 6px;
   flex: 1;
   width: 280px;
 }

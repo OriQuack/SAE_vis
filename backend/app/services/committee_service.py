@@ -19,11 +19,19 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class CommitteePrediction:
-    """Prediction result from the committee of models."""
+    """Prediction result from the committee of models (binary classification)."""
     svm_prediction: int      # 0 or 1
     rf_prediction: int       # 0 or 1
     mlp_prediction: int      # 0 or 1
     vote_entropy: float      # 0 to ~1.58 (log2(3) for 3 models)
+
+
+@dataclass
+class MulticlassCommitteePrediction:
+    """Prediction result from committee for multi-class classification."""
+    svm_category: str
+    rf_category: str
+    mlp_category: str
 
 
 class CommitteeService:
@@ -294,3 +302,139 @@ class CommitteeService:
                     "vote_entropy": pred.vote_entropy
                 }
         return result
+
+    # =========================================================================
+    # MULTI-CLASS CLASSIFICATION SUPPORT (Stage 3)
+    # =========================================================================
+
+    def train_multiclass_committee(
+        self,
+        X_train: np.ndarray,
+        y_train: np.ndarray,
+        sample_weights: Optional[np.ndarray] = None
+    ) -> Tuple[Optional[RandomForestClassifier], Optional[MLPClassifier], Optional[StandardScaler]]:
+        """
+        Train RF and MLP for multi-class classification.
+
+        Reuses internal _train_random_forest and _train_mlp methods.
+        sklearn's RF and MLP naturally support multi-class classification.
+
+        Args:
+            X_train: Training feature matrix (N_samples, N_features)
+            y_train: Training labels (N_samples,) with integer class labels
+            sample_weights: Optional sample weights (N_samples,)
+
+        Returns:
+            Tuple of (RF model, MLP model, Scaler) - any may be None if training fails
+        """
+        n_samples = len(y_train)
+        unique_classes = np.unique(y_train)
+        n_classes = len(unique_classes)
+
+        # Count samples per class
+        class_counts = {int(c): int(np.sum(y_train == c)) for c in unique_classes}
+        min_class_count = min(class_counts.values())
+
+        # Check minimum samples per class
+        if min_class_count < 2:
+            logger.warning(
+                f"[CommitteeService] Insufficient samples for multi-class training: "
+                f"class counts = {class_counts}. Need at least 2 per class."
+            )
+            return None, None, None
+
+        logger.info(
+            f"[CommitteeService] Training multi-class committee with {n_samples} samples "
+            f"across {n_classes} classes: {class_counts}"
+        )
+
+        # Scale features (important for MLP)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X_train)
+
+        # Train Random Forest (reuse existing method - works for multi-class)
+        rf_model = self._train_random_forest(X_scaled, y_train, sample_weights, n_samples)
+
+        # Train MLP (reuse existing method - works for multi-class)
+        mlp_model = self._train_mlp(X_scaled, y_train, sample_weights, n_samples)
+
+        return rf_model, mlp_model, scaler
+
+    def predict_multiclass_with_committee(
+        self,
+        X: np.ndarray,
+        svm_category_indices: np.ndarray,
+        rf_model: Optional[RandomForestClassifier],
+        mlp_model: Optional[MLPClassifier],
+        scaler: Optional[StandardScaler],
+        label_to_category: Dict[int, str]
+    ) -> Dict[int, MulticlassCommitteePrediction]:
+        """
+        Get multi-class predictions from committee.
+
+        Args:
+            X: Feature matrix (N_samples, N_features)
+            svm_category_indices: SVM predicted class indices from OvR (N_samples,)
+            rf_model: Trained Random Forest model
+            mlp_model: Trained MLP model
+            scaler: Fitted StandardScaler
+            label_to_category: Dict mapping integer labels to category strings
+
+        Returns:
+            Dict mapping sample index to MulticlassCommitteePrediction
+        """
+        n_samples = len(svm_category_indices)
+        results: Dict[int, MulticlassCommitteePrediction] = {}
+
+        # Default category for fallback
+        default_category = label_to_category.get(0, list(label_to_category.values())[0])
+
+        # If no committee models, return SVM-only predictions
+        if rf_model is None and mlp_model is None:
+            for i in range(n_samples):
+                svm_cat = label_to_category.get(int(svm_category_indices[i]), default_category)
+                results[i] = MulticlassCommitteePrediction(
+                    svm_category=svm_cat,
+                    rf_category=svm_cat,  # Fallback to SVM
+                    mlp_category=svm_cat   # Fallback to SVM
+                )
+            return results
+
+        # Scale features for RF/MLP
+        X_scaled = scaler.transform(X) if scaler is not None else X
+
+        # Get RF predictions
+        if rf_model is not None:
+            rf_preds = rf_model.predict(X_scaled).astype(int)
+        else:
+            rf_preds = svm_category_indices.astype(int)
+
+        # Get MLP predictions
+        if mlp_model is not None:
+            mlp_preds = mlp_model.predict(X_scaled).astype(int)
+        else:
+            mlp_preds = rf_preds if rf_model is not None else svm_category_indices.astype(int)
+
+        # Build prediction results
+        for i in range(n_samples):
+            svm_cat = label_to_category.get(int(svm_category_indices[i]), default_category)
+            rf_cat = label_to_category.get(int(rf_preds[i]), default_category)
+            mlp_cat = label_to_category.get(int(mlp_preds[i]), default_category)
+
+            results[i] = MulticlassCommitteePrediction(
+                svm_category=svm_cat,
+                rf_category=rf_cat,
+                mlp_category=mlp_cat
+            )
+
+        # Log summary
+        n_disagreements = sum(
+            1 for r in results.values()
+            if not (r.svm_category == r.rf_category == r.mlp_category)
+        )
+        logger.info(
+            f"[CommitteeService] Multi-class committee predictions: "
+            f"{n_samples} samples, {n_disagreements} disagreements"
+        )
+
+        return results

@@ -179,47 +179,7 @@
   overflow: hidden;
 }
 
-/* Bottom row columns - equal thirds */
-/* Left: Histogram (no border, gap for header) */
-.cause-view__bottom-left {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  gap: 4px;
-}
-
-/* Center: RadViz (no border) */
-.cause-view__bottom-center {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-}
-
-.cause-view__bottom-right {
-  width: 280px;
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-/* Histogram fills its container (now in bottom-left) */
-.cause-view__bottom-left .cause-margin-histogram {
-  flex: 1;
-  min-height: 0;
-}
-
-/* RadViz fills its container (now in bottom-center) */
-.cause-view__bottom-center .cause-radviz,
-.cause-view__bottom-center .cause-view__radviz {
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  height: 100%;
-}
+/* Bottom row now uses ThresholdTaggingPanel which handles its own layout */
 
 .cause-view__placeholder {
   flex: 1;

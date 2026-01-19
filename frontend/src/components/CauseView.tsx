@@ -3,11 +3,11 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import * as api from '../api'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import CauseRadViz from './CauseRadViz'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
+import ThresholdTaggingPanel, { type CauseFeatureItem } from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
@@ -15,13 +15,11 @@ import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/umap-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
-import BatchTaggingPanel from './BatchTaggingPanel'
 import {
   calculateCauseMetricScores,
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
-import CauseMarginHistogram from './CauseMarginHistogram'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/CauseView.css'
 
@@ -96,6 +94,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   // SVM decision margins for auto-tagging by decision boundary
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
+  const causeFlipTracking = useVisualizationStore(state => state.causeFlipTracking)
+  const causeCommitteeVotes = useVisualizationStore(state => state.causeCommitteeVotes)
   const umapLoading = useVisualizationStore(state => state.umapLoading)
 
   // Stage navigation
@@ -1042,6 +1042,76 @@ const CauseView: React.FC<CauseViewProps> = ({
     return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
   }, [selectedFeatureIds])
 
+  // Compute boundary items for ThresholdTaggingPanel
+  // Apply stage: show confident features (margin >= threshold)
+  // Bootstrap/Train stage: show unsure features (margin < threshold or no prediction)
+  const causeBoundaryItems = useMemo((): CauseFeatureItem[] => {
+    if (!selectedFeatureIds) {
+      return []
+    }
+
+    const items: CauseFeatureItem[] = []
+    const isApplyStage = activeStage === 'apply'
+    const hasSVMData = causeCategoryDecisionMargins && causeCategoryDecisionMargins.size > 0
+
+    selectedFeatureIds.forEach(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      if (isUserConfirmed(source)) return  // Skip manually tagged
+
+      const margins = hasSVMData ? causeCategoryDecisionMargins.get(featureId) : null
+
+      if (isApplyStage) {
+        // Apply stage: show confident features (above threshold)
+        if (!margins) return
+
+        const entries = Object.entries(margins)
+        if (entries.length === 0) return
+        const [predicted] = entries.reduce((a, b) => b[1] > a[1] ? b : a)
+        const margin = Math.min(...Object.values(margins).map(Math.abs))
+
+        if (margin >= causeMarginThreshold) {
+          items.push({
+            featureId,
+            margin,
+            predictedCategory: predicted as CauseCategory,
+            row: tableData?.features?.find((f: FeatureTableRow) => f.feature_id === featureId) || null
+          })
+        }
+      } else {
+        // Bootstrap/Train stage: show unsure features (below threshold or no SVM prediction)
+        if (!margins) {
+          // No SVM data yet - show all untagged features as unsure
+          items.push({
+            featureId,
+            margin: 0,
+            predictedCategory: 'noisy-activation' as CauseCategory,  // Placeholder, will show as unsure
+            row: tableData?.features?.find((f: FeatureTableRow) => f.feature_id === featureId) || null
+          })
+        } else {
+          const entries = Object.entries(margins)
+          if (entries.length === 0) return
+          const [predicted] = entries.reduce((a, b) => b[1] > a[1] ? b : a)
+          const margin = Math.min(...Object.values(margins).map(Math.abs))
+
+          // Only include if below threshold (unsure)
+          if (margin < causeMarginThreshold) {
+            items.push({
+              featureId,
+              margin,
+              predictedCategory: predicted as CauseCategory,
+              row: tableData?.features?.find((f: FeatureTableRow) => f.feature_id === featureId) || null
+            })
+          }
+        }
+      }
+    })
+
+    // Sort by margin: ascending for apply (closest to threshold first), descending for bootstrap/train (most unsure first)
+    return isApplyStage
+      ? items.sort((a, b) => a.margin - b.margin)
+      : items.sort((a, b) => a.margin - b.margin)  // Ascending: lowest margin (most unsure) first
+  }, [selectedFeatureIds, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, tableData, activeStage])
+
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
   const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
@@ -1376,52 +1446,42 @@ const CauseView: React.FC<CauseViewProps> = ({
             </div>
 
             {/* ============================================================ */}
-            {/* BOTTOM ROW: Histogram (1/3) + RadViz (1/3) + Batch Tagging (1/3) */}
+            {/* BOTTOM ROW: ThresholdTaggingPanel with cause mode */}
             {/* ============================================================ */}
             <div className="cause-view__row-bottom">
-              {/* Left: Histogram (was center) */}
-              <div className="cause-view__bottom-left">
-                <div className="cause-view__header-row">
-                  <h4 className="subheader">Unsure Boundary</h4>
-                  <span className="subheader__value">
-                    {sortMode === 'decisionMargin' && selectedSortDirection === 'desc' ? 'Top' : 'Low'} {_targetPercentage}%
-                  </span>
-                </div>
-                <CauseMarginHistogram
-                  featureIds={selectedFeatureIds || new Set()}
-                  causeCategoryDecisionMargins={causeCategoryDecisionMargins}
-                  causeSelectionStates={causeSelectionStates as Map<number, CauseCategory>}
-                  causeSelectionSources={causeSelectionSources}
-                  threshold={causeMarginThreshold}
-                  onThresholdChange={setCauseMarginThreshold}
-                  height={undefined}
-                  sortMode={sortMode}
-                  sortDirection={selectedSortDirection}
-                  onPercentageChange={setTargetPercentage}
-                  canTrainSVM={canTrainSVM}
-                  manualTagCountsByCategory={manualTagCountsByCategory}
-                />
-              </div>
-
-              {/* Center: RadViz (was left) */}
-              <div className="cause-view__bottom-center">
-                <CauseRadViz
-                  featureIds={stableFeatureIds}
-                  className="cause-view__radviz"
-                  selectedFeatureId={selectedFeatureData?.featureId ?? null}
-                  visibleCategories={visibleCategories}
-                  onVisibleCategoriesChange={setVisibleCategories}
-                  onFeatureSelect={handleUMAPFeatureSelect}
-                  sortMode={sortMode}
-                  sortDirection={selectedSortDirection}
-                />
-              </div>
-
-              {/* Right: Batch Tagging */}
-              <div className="cause-view__bottom-right">
-                <h4 className="subheader">Batch Tagging</h4>
-                <BatchTaggingPanel
-                  categories={[
+              <ThresholdTaggingPanel
+                mode="cause"
+                tagCategoryId={TAG_CATEGORY_CAUSE}
+                leftListLabel=""
+                rightListLabel=""
+                histogramProps={{}}
+                onApplyTags={() => {}}
+                onTagAll={() => {}}
+                onListItemClick={() => {}}
+                activeListSource="all"
+                currentIndex={-1}
+                isBimodal={false}
+                sortDirection={selectedSortDirection}
+                causeProps={{
+                  featureIds: selectedFeatureIds || new Set(),
+                  causeCategoryDecisionMargins,
+                  causeSelectionStates: causeSelectionStates as Map<number, CauseCategory>,
+                  causeSelectionSources: causeSelectionSources as Map<number, 'click' | 'threshold' | 'predicted'>,
+                  threshold: causeMarginThreshold,
+                  onThresholdChange: setCauseMarginThreshold,
+                  sortMode,
+                  sortDirection: selectedSortDirection,
+                  activeStage,
+                  onPercentageChange: setTargetPercentage,
+                  canTrainSVM,
+                  manualTagCountsByCategory,
+                  flipTracking: causeFlipTracking,
+                  selectedFeatureId: selectedFeatureData?.featureId ?? null,
+                  visibleCategories,
+                  onVisibleCategoriesChange: setVisibleCategories,
+                  onFeatureSelect: handleUMAPFeatureSelect,
+                  stableFeatureIds,
+                  categories: [
                     {
                       id: 'missed-N-gram',
                       label: 'Pattern Miss',
@@ -1446,14 +1506,16 @@ const CauseView: React.FC<CauseViewProps> = ({
                       inputCount: remainingComposition.noisyActivation,
                       outputCount: filteredBatchComposition.noisyActivation + boundaryTagCounts['noisy-activation']
                     }
-                  ]}
-                  unsureCount={remainingComposition.unsure}
-                  disabled={!canTrainSVM || !causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0}
-                  onConfirmCategory={(categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram')}
-                  onConfirmAll={handleTagAllConfident}
-                  onTagAllUnsure={handleTagRemainingByBoundary}
-                />
-              </div>
+                  ],
+                  unsureCount: remainingComposition.unsure,
+                  onConfirmCategory: (categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram'),
+                  onConfirmAll: handleTagAllConfident,
+                  onTagAllUnsure: handleTagRemainingByBoundary,
+                  causeCommitteeVotes: causeCommitteeVotes ?? undefined
+                }}
+                causeBoundaryItems={causeBoundaryItems}
+                onCauseListItemClick={handleUMAPFeatureSelect}
+              />
             </div>
           </div>
         </div>
