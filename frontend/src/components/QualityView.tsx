@@ -269,13 +269,14 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [bootstrapMode, setSortDirection, setActiveListSource])
 
-  // Combined handler for bootstrap option cycling - receives both mode and direction together
-  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode, direction?: 'asc' | 'desc') => {
+  // Combined handler for bootstrap option cycling - receives mode only (direction controlled by column header)
+  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
     if (mode === 'diversity') {
       setSortMode('diversity')
     } else {
       setSortMode('default')
-      if (direction) setSortDirection(direction)
+      // Set default direction for Quality Score: asc (lowest quality first)
+      setSortDirection('asc')
     }
     setCurrentFeatureIndex(0)
     setActiveListSource('all')
@@ -1066,8 +1067,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               shouldPulseLearn={hasVisitedMostReps}
               shouldPulseApply={isFlipRateStable}
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
-              byScoreAscLabel="Lowest Quality First"
-              byScoreDescLabel="Highest Quality First"
+              byScoreLabel="Quality Score"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{

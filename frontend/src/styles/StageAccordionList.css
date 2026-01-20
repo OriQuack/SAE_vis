@@ -114,32 +114,25 @@
   }
 }
 
-/* Stage Number - Circular badge */
+/* Stage Number - Underlined number */
 .stage-selector__number {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: white;
   color: #6b7280;
-  font-size: 9px;
+  font-size: 11px;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .stage-selector__tab--active .stage-selector__number {
-  background: #3b82f6;
-  color: white;
-  box-shadow: 0 1px 2px rgba(59, 130, 246, 0.4);
+  color: #3b82f6;
 }
 
 .stage-selector__tab--disabled .stage-selector__number {
-  background: #f3f4f6;
   color: #9ca3af;
-  box-shadow: none;
 }
 
 /* Stage Label */

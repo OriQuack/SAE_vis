@@ -26,11 +26,11 @@ interface StageAccordionListProps<T> {
 
   // Bootstrap sub-options (when bootstrap is active)
   bootstrapMode: BootstrapMode
-  bootstrapDirection: 'asc' | 'desc'
+  bootstrapDirection?: 'asc' | 'desc'  // Kept for backward compatibility (direction controlled by column header)
   onBootstrapModeChange: (mode: BootstrapMode) => void
-  onBootstrapDirectionChange: (direction: 'asc' | 'desc') => void
-  // Combined handler for cycling - receives both mode and direction together
-  onBootstrapOptionChange?: (mode: BootstrapMode, direction?: 'asc' | 'desc') => void
+  onBootstrapDirectionChange?: (direction: 'asc' | 'desc') => void  // Kept for backward compatibility
+  // Combined handler for cycling - receives mode only (direction controlled by column header)
+  onBootstrapOptionChange?: (mode: BootstrapMode) => void
 
   // Availability flags
   hasDiversityIds?: boolean  // Show Representatives option when medoids available
@@ -43,8 +43,7 @@ interface StageAccordionListProps<T> {
 
   // Labels for bootstrap options
   diversityLabel?: string    // e.g., "Most Critical 20" (defaults to "Representatives")
-  byScoreAscLabel?: string   // e.g., "Least Similar First"
-  byScoreDescLabel?: string  // e.g., "Most Similar First"
+  byScoreLabel?: string      // e.g., "Similarity", "Quality Score" (single metric name)
 
   // Hide tagged items checkbox
   hideTagged?: boolean
@@ -80,9 +79,9 @@ export function StageAccordionList<T>({
   activeStage,
   onStageChange,
   bootstrapMode,
-  bootstrapDirection,
+  bootstrapDirection: _bootstrapDirection,
   onBootstrapModeChange,
-  onBootstrapDirectionChange,
+  onBootstrapDirectionChange: _onBootstrapDirectionChange,
   onBootstrapOptionChange,
   hasDiversityIds = false,
   learnDisabled = false,
@@ -90,8 +89,7 @@ export function StageAccordionList<T>({
   shouldPulseLearn,
   shouldPulseApply,
   diversityLabel = 'Most Critical 20',
-  byScoreAscLabel = 'Low → High',
-  byScoreDescLabel = 'High → Low',
+  byScoreLabel = 'Score',
   hideTagged,
   onHideTaggedChange,
   // List props
@@ -109,6 +107,10 @@ export function StageAccordionList<T>({
   scrollTargetIndex,
   className = ''
 }: StageAccordionListProps<T>) {
+  // Consume unused props for backward compatibility
+  void _bootstrapDirection
+  void _onBootstrapDirectionChange
+
   // Track if arrow pulsing has been dismissed (user clicked once)
   const [arrowPulsingDismissed, setArrowPulsingDismissed] = useState(false)
 
@@ -120,24 +122,20 @@ export function StageAccordionList<T>({
   }, [onStageChange, learnDisabled, applyDisabled])
 
   // Define bootstrap options order (for cycling)
-  // Order: Most Critical → desc (e.g. Most Similar) → asc (e.g. Least Similar)
+  // Order: Most Critical → byScore (direction controlled by column header click)
   const bootstrapOptions = useMemo(() => {
-    const options: Array<{ mode: BootstrapMode; direction?: 'asc' | 'desc'; label: string }> = []
+    const options: Array<{ mode: BootstrapMode; label: string }> = []
     if (hasDiversityIds) {
       options.push({ mode: 'diversity', label: diversityLabel })
     }
-    options.push({ mode: 'byScore', direction: 'desc', label: byScoreDescLabel })
-    options.push({ mode: 'byScore', direction: 'asc', label: byScoreAscLabel })
+    options.push({ mode: 'byScore', label: byScoreLabel })
     return options
-  }, [hasDiversityIds, diversityLabel, byScoreAscLabel, byScoreDescLabel])
+  }, [hasDiversityIds, diversityLabel, byScoreLabel])
 
   // Get current option index
   const currentOptionIndex = useMemo(() => {
-    return bootstrapOptions.findIndex(opt =>
-      opt.mode === bootstrapMode &&
-      (opt.mode === 'diversity' || opt.direction === bootstrapDirection)
-    )
-  }, [bootstrapOptions, bootstrapMode, bootstrapDirection])
+    return bootstrapOptions.findIndex(opt => opt.mode === bootstrapMode)
+  }, [bootstrapOptions, bootstrapMode])
 
   // Cycle handlers
   // Use combined handler if available (preferred), otherwise fall back to separate handlers
@@ -145,12 +143,11 @@ export function StageAccordionList<T>({
     const newIndex = (currentOptionIndex - 1 + bootstrapOptions.length) % bootstrapOptions.length
     const opt = bootstrapOptions[newIndex]
     if (onBootstrapOptionChange) {
-      onBootstrapOptionChange(opt.mode, opt.direction)
+      onBootstrapOptionChange(opt.mode)
     } else {
-      if (opt.direction) onBootstrapDirectionChange(opt.direction)
       onBootstrapModeChange(opt.mode)
     }
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange])
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapOptionChange])
 
   const handleNextOption = useCallback(() => {
     // Dismiss arrow pulsing when clicked
@@ -160,29 +157,35 @@ export function StageAccordionList<T>({
     const newIndex = (currentOptionIndex + 1) % bootstrapOptions.length
     const opt = bootstrapOptions[newIndex]
     if (onBootstrapOptionChange) {
-      onBootstrapOptionChange(opt.mode, opt.direction)
+      onBootstrapOptionChange(opt.mode)
     } else {
-      if (opt.direction) onBootstrapDirectionChange(opt.direction)
       onBootstrapModeChange(opt.mode)
     }
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapDirectionChange, onBootstrapOptionChange, arrowPulsingDismissed])
+  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapOptionChange, arrowPulsingDismissed])
 
   // isTemplateSort - true when in decisionMargin asc mode (standard template)
   const isTemplateSort = useMemo(() => {
     return activeStage === 'learn'
   }, [activeStage])
 
-  // Build list props to pass through (strip onClick and isPulsing from columnHeader)
+  // Build list props to pass through
+  // Column header is clickable ONLY in Bootstrap + byScore mode (for toggling sort direction)
+  // In Learn/Apply stages, column header is NOT clickable (fixed labels)
   const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => {
-    // Remove onClick and isPulsing - sorting is controlled by stage tabs
-    const columnHeaderWithoutClick = columnHeader ? {
+    const isBootstrapByScore = activeStage === 'bootstrap' && bootstrapMode === 'byScore'
+    const columnHeaderForList = columnHeader ? {
       label: columnHeader.label,
-      sortDirection: columnHeader.sortDirection
+      sortDirection: columnHeader.sortDirection,
+      // Only include onClick and isSortable in Bootstrap + byScore mode
+      ...(isBootstrapByScore ? {
+        onClick: columnHeader.onClick,
+        isSortable: columnHeader.isSortable
+      } : {})
     } : undefined
 
     return {
       badges,
-      columnHeader: columnHeaderWithoutClick,
+      columnHeader: columnHeaderForList,
       items,
       renderItem,
       currentIndex,
@@ -194,7 +197,7 @@ export function StageAccordionList<T>({
       disableAutoScroll,
       scrollTargetIndex
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll, scrollTargetIndex])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode])
 
   return (
     <div className={`stage-selector ${className}`}>

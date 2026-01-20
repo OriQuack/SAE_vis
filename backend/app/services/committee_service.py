@@ -11,8 +11,9 @@ import logging
 from typing import Tuple, List, Dict, Optional
 from dataclasses import dataclass
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.neural_network import MLPClassifier
 from sklearn.preprocessing import StandardScaler
+
+from .pytorch_mlp import WeightedMLPClassifier
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class CommitteeService:
     def __init__(self):
         """Initialize CommitteeService."""
         self._rf_model: Optional[RandomForestClassifier] = None
-        self._mlp_model: Optional[MLPClassifier] = None
+        self._mlp_model: Optional[WeightedMLPClassifier] = None
         self._scaler: Optional[StandardScaler] = None
 
     def train_committee(
@@ -56,7 +57,7 @@ class CommitteeService:
         X_train: np.ndarray,
         y_train: np.ndarray,
         sample_weights: Optional[np.ndarray] = None
-    ) -> Tuple[Optional[RandomForestClassifier], Optional[MLPClassifier], Optional[StandardScaler]]:
+    ) -> Tuple[Optional[RandomForestClassifier], Optional[WeightedMLPClassifier], Optional[StandardScaler]]:
         """
         Train Random Forest and MLP models for committee.
 
@@ -148,39 +149,38 @@ class CommitteeService:
         y_train: np.ndarray,
         sample_weights: Optional[np.ndarray],
         n_samples: int
-    ) -> Optional[MLPClassifier]:
+    ) -> Optional[WeightedMLPClassifier]:
         """
-        Train MLP with Active Learning optimized configuration.
+        Train PyTorch MLP with proper sample weight support.
 
-        Uses early stopping, L2 regularization, and architecture scaled to data size.
+        Uses WeightedMLPClassifier which applies sample weights directly to
+        CrossEntropyLoss during training, as described in the cVIL paper:
+        "Batch labels are given a lower sample weight during training, which is
+        realized by assigning them lower costs in the loss function before
+        back-propagation."
         """
         try:
             # Architecture based on sample size
             if n_samples < 20:
                 hidden_layer_sizes = (16,)  # Single small layer
-            elif n_samples < 50:
-                hidden_layer_sizes = (32, 16)
             else:
                 hidden_layer_sizes = (32, 16)
 
-            mlp = MLPClassifier(
+            mlp = WeightedMLPClassifier(
                 hidden_layer_sizes=hidden_layer_sizes,
-                alpha=0.01,  # L2 regularization
-                solver='adam',
-                learning_rate='adaptive',
+                alpha=0.01,  # L2 regularization (weight_decay in Adam)
                 max_iter=500,
                 early_stopping=True,
                 validation_fraction=0.2,
-                n_iter_no_change=20,  # Patience
+                n_iter_no_change=20,
                 random_state=42
             )
 
-            # Note: MLPClassifier doesn't support sample_weight in fit()
-            # We work around this by using class_weight-like behavior through regularization
-            mlp.fit(X_scaled, y_train)
+            # Sample weights are applied directly in loss function (cVIL approach)
+            mlp.fit(X_scaled, y_train, sample_weight=sample_weights)
 
             logger.info(
-                f"[CommitteeService] MLP trained: hidden_layers={hidden_layer_sizes}, "
+                f"[CommitteeService] PyTorch MLP trained: hidden_layers={hidden_layer_sizes}, "
                 f"iterations={mlp.n_iter_}"
             )
 
@@ -195,7 +195,7 @@ class CommitteeService:
         X: np.ndarray,
         svm_scores: np.ndarray,
         rf_model: Optional[RandomForestClassifier],
-        mlp_model: Optional[MLPClassifier],
+        mlp_model: Optional[WeightedMLPClassifier],
         scaler: Optional[StandardScaler]
     ) -> Dict[int, CommitteePrediction]:
         """
@@ -312,7 +312,7 @@ class CommitteeService:
         X_train: np.ndarray,
         y_train: np.ndarray,
         sample_weights: Optional[np.ndarray] = None
-    ) -> Tuple[Optional[RandomForestClassifier], Optional[MLPClassifier], Optional[StandardScaler]]:
+    ) -> Tuple[Optional[RandomForestClassifier], Optional[WeightedMLPClassifier], Optional[StandardScaler]]:
         """
         Train RF and MLP for multi-class classification.
 
@@ -365,7 +365,7 @@ class CommitteeService:
         X: np.ndarray,
         svm_category_indices: np.ndarray,
         rf_model: Optional[RandomForestClassifier],
-        mlp_model: Optional[MLPClassifier],
+        mlp_model: Optional[WeightedMLPClassifier],
         scaler: Optional[StandardScaler],
         label_to_category: Dict[int, str]
     ) -> Dict[int, MulticlassCommitteePrediction]:

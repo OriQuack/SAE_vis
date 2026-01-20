@@ -518,13 +518,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [bootstrapMode, setSortDirection, setActiveListSource])
 
-  // Combined handler for bootstrap option cycling - receives both mode and direction together
-  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode, direction?: 'asc' | 'desc') => {
+  // Combined handler for bootstrap option cycling - receives mode only (direction controlled by column header)
+  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
     if (mode === 'diversity') {
       setSortMode('diversity')
     } else {
       setSortMode('default')
-      if (direction) setSortDirection(direction)
+      // Set default direction for Similarity: desc (highest similarity first)
+      setSortDirection('desc')
     }
     setCurrentPairIndex(0)
     setActiveListSource('all')
@@ -1117,8 +1118,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               shouldPulseLearn={hasVisitedMostReps}
               shouldPulseApply={isFlipRateStable}
               diversityLabel={`Most Critical ${diversityPairIds.size}`}
-              byScoreAscLabel="Least Similar First"
-              byScoreDescLabel="Most Similar First"
+              byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{

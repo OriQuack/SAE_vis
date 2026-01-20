@@ -109,7 +109,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     // Use measured container size for viewBox
     const width = containerSize.width
     const height = containerSize.height
-    const padding = { top: 10, bottom: 35, left: 40, right: 30 }
+    const padding = { top: 10, bottom: 35, left: 40, right: 35 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -349,7 +349,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               />
               {/* Threshold label on right side */}
               <text
-                x={sparklineData.width - sparklineData.padding.right + 5}
+                x={sparklineData.width - sparklineData.padding.right + 8}
                 y={line.y}
                 fontSize={12}
                 fill="#666"
