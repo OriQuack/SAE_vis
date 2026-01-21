@@ -256,7 +256,7 @@ class ActivationSimilarityProcessor:
 
         return words
 
-    def _compute_pairwise_semantic_similarity(self, feature_id: int, examples: List[Tuple]) -> Optional[float]:
+    def _compute_pairwise_semantic_similarity(self, feature_id: int, examples: List[Tuple]) -> Tuple[Optional[float], Optional[float]]:
         """Compute average pairwise cosine similarity using pre-computed embeddings.
 
         Args:
@@ -264,10 +264,10 @@ class ActivationSimilarityProcessor:
             examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
 
         Returns:
-            Average pairwise similarity or None if <2 examples
+            Tuple of (mean, std) pairwise similarity or (None, None) if <2 examples
         """
         if len(examples) < 2:
-            return None
+            return None, None
 
         # Get prompt IDs from examples
         prompt_ids = [ex[0] for ex in examples]
@@ -277,7 +277,7 @@ class ActivationSimilarityProcessor:
 
         if len(feature_embeddings) == 0:
             logger.warning(f"No pre-computed embeddings found for feature {feature_id}")
-            return None
+            return None, None
 
         # Extract embeddings and prompt_ids lists
         stored_prompt_ids = feature_embeddings["prompt_ids"][0]
@@ -293,10 +293,10 @@ class ActivationSimilarityProcessor:
                 embeddings.append(embedding_map[prompt_id])
             else:
                 logger.warning(f"Prompt {prompt_id} not found in pre-computed embeddings for feature {feature_id}")
-                return None
+                return None, None
 
         if len(embeddings) < 2:
-            return None
+            return None, None
 
         # Convert to numpy array
         embeddings = np.array(embeddings)
@@ -313,9 +313,9 @@ class ActivationSimilarityProcessor:
                 pairwise_sims.append(sim_matrix[i, j])
 
         if not pairwise_sims:
-            return None
+            return None, None
 
-        return float(np.mean(pairwise_sims))
+        return float(np.mean(pairwise_sims)), float(np.std(pairwise_sims))
 
     def _extract_character_ngrams(self, text: str, n: int) -> List[str]:
         """Extract character n-grams from text.
@@ -757,6 +757,7 @@ class ActivationSimilarityProcessor:
                 "prompt_ids_for_display": [],
                 "num_total_activations": num_total_activations,
                 "avg_pairwise_semantic_similarity": None,
+                "std_pairwise_semantic_similarity": None,
                 "top_char_ngrams": [],
                 "top_word_ngrams": [],
                 "top_char_ngram": None,
@@ -801,6 +802,7 @@ class ActivationSimilarityProcessor:
                 "prompt_ids_for_display": [],
                 "num_total_activations": num_total_activations,
                 "avg_pairwise_semantic_similarity": None,
+                "std_pairwise_semantic_similarity": None,
                 "top_char_ngrams": [],
                 "top_word_ngrams": [],
                 "top_char_ngram": None,
@@ -825,8 +827,8 @@ class ActivationSimilarityProcessor:
         display_prompt_ids = [ex[0] for ex in display_examples]
 
         # Compute metrics using ALL examples for robust statistics
-        semantic_sim = self._compute_pairwise_semantic_similarity(feature_id, all_examples)
-        if semantic_sim is not None:
+        semantic_sim_mean, semantic_sim_std = self._compute_pairwise_semantic_similarity(feature_id, all_examples)
+        if semantic_sim_mean is not None:
             self.stats["semantic_similarity_computed"] += 1
 
         # Compute Jaccard similarity for each n-gram size using ALL examples
@@ -881,7 +883,8 @@ class ActivationSimilarityProcessor:
             "prompt_ids_for_calculation": calc_prompt_ids,  # All 12
             "prompt_ids_for_display": display_prompt_ids,   # Top 8
             "num_total_activations": num_total_activations,
-            "avg_pairwise_semantic_similarity": semantic_sim,
+            "avg_pairwise_semantic_similarity": semantic_sim_mean,
+            "std_pairwise_semantic_similarity": semantic_sim_std,
             "top_char_ngrams": top_char_ngrams,
             "top_word_ngrams": top_word_ngrams,
             "top_char_ngram": overall_top_char,
@@ -956,6 +959,7 @@ class ActivationSimilarityProcessor:
             pl.col("sae_id").cast(pl.Categorical),
             pl.col("num_total_activations").cast(pl.UInt32),
             pl.col("avg_pairwise_semantic_similarity").cast(pl.Float32),
+            pl.col("std_pairwise_semantic_similarity").cast(pl.Float32),
         ])
 
         logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")
@@ -976,6 +980,7 @@ class ActivationSimilarityProcessor:
             "prompt_ids_for_display": pl.List(pl.UInt32),      # Top 8 for positions
             "num_total_activations": pl.UInt32,
             "avg_pairwise_semantic_similarity": pl.Float32,
+            "std_pairwise_semantic_similarity": pl.Float32,
 
             # Character-level n-grams (per-token)
             "top_char_ngrams": pl.List(pl.Struct([

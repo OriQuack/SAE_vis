@@ -1,0 +1,11 @@
+{
+  "input_path": "data/master/activation_embeddings.parquet",
+  "output_dir": "data/feature_similarity/{sae_id}",
+  "output_filename": "activation_semantic_similarities.npy",
+  "metadata_filename": "activation_semantic_similarities_metadata.json",
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "aggregation_method": "mean",
+  "use_float16": true,
+  "device": "auto",
+  "description": "Compute FULL pairwise activation semantic similarity matrix"
+}

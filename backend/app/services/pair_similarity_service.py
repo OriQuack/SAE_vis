@@ -4,10 +4,12 @@ Pair similarity-based sorting service for feature pairs.
 Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
 from user-labeled feature pairs. Scores pairs by signed distance from SVM decision boundary.
 
-11-dimensional pair vectors using symmetric operations:
-- 5 dims: A + B (combined properties)
-- 5 dims: |A - B| (dissimilarity)
-- 1 dim: decoder similarity between A and B
+9-dimensional pair vectors:
+- 3 dims: A + B (combined intra-feature properties)
+- 3 dims: |A - B| (intra-feature dissimilarity)
+- 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
+- 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
+- 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
 """
 
 import polars as pl
@@ -45,14 +47,13 @@ THRESHOLD_WEIGHT = 0.2
 class PairSimilarityService:
     """Service for calculating feature pair similarity scores."""
 
-    # 5 metrics used for PAIR SVM similarity calculation
-    # Only intrinsic feature properties from activation and inter-feature data
-    # Note: Pair-specific decoder similarity is handled separately in _extract_pair_metrics()
+    # 4 intra-feature metrics used for PAIR SVM similarity calculation
+    # Used with A+B and |A-B| operations (8 dims total)
+    # Note: Pair-specific inter-feature metrics and decoder similarity are handled separately
     PAIR_METRICS = [
         'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
-        'intra_semantic_sim',        # Feature-level: semantic consistency within activations
-        'inter_ngram_jaccard',       # Feature-level: lexical similarity between features (max of char/word)
-        'inter_semantic_sim',        # Feature-level: semantic similarity between features
+        'intra_semantic_sim',        # Feature-level: semantic consistency within activations (mean)
+        'intra_semantic_sim_std',    # Feature-level: semantic consistency std (variability)
         'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
     ]
 
@@ -89,10 +90,12 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 11-dimensional using symmetric operations:
-        - 5 dims: A + B (combined properties)
-        - 5 dims: |A - B| (dissimilarity)
-        - 1 dim: decoder similarity between A and B (pair-specific metric from _extract_pair_metrics)
+        Pair vectors are 11-dimensional:
+        - 4 dims: A + B (combined intra-feature properties)
+        - 4 dims: |A - B| (intra-feature dissimilarity)
+        - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
+        - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
+        - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
 
         Only uses feature-level metrics (no explanation-related metrics).
 
@@ -167,11 +170,16 @@ class PairSimilarityService:
         # Extract pair metrics (cosine_similarity from decoder_similarity)
         pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
 
+        # Extract pair-specific inter-feature metrics
+        pair_inter_metrics = await self._extract_pair_specific_interfeature_metrics(pair_ids)
+        logger.info(f"Extracted pair-specific inter-feature metrics for {len(pair_inter_metrics)} pairs")
+
         # Calculate similarity scores for pairs using SVM
         logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs with SVM")
         pair_scores = self._calculate_pair_similarity_scores(
             metrics_df,
             pair_metrics_dict,
+            pair_inter_metrics,
             request.selected_items,
             request.rejected_items,
             pair_ids
@@ -297,12 +305,17 @@ class PairSimilarityService:
         # Extract pair metrics (cosine_similarity from decoder_similarity)
         pair_metrics_dict = await self._extract_pair_metrics(pair_ids)
 
+        # Extract pair-specific inter-feature metrics
+        pair_inter_metrics = await self._extract_pair_specific_interfeature_metrics(pair_ids)
+        logger.info(f"Extracted pair-specific inter-feature metrics for {len(pair_inter_metrics)} pairs")
+
         # Calculate similarity scores for ALL pairs (including selected/rejected)
         # Also train committee (RF + MLP) for QBC approach
         logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram with SVM + committee")
         pair_scores, committee_votes = self._calculate_pair_similarity_scores_for_histogram(
             metrics_df,
             pair_metrics_dict,
+            pair_inter_metrics,
             request.selected_items,
             request.rejected_items,
             pair_ids,
@@ -394,20 +407,22 @@ class PairSimilarityService:
 
     async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract the 5 PAIR_METRICS for pair SVM calculations.
+        Extract the 4 PAIR_METRICS (intra-feature) for pair SVM calculations.
 
-        Uses in-memory caching to avoid repeated 3-query + 2-join operations.
+        Uses in-memory caching to avoid repeated queries.
 
         Metrics extracted:
-        - From activation_display: intra_ngram_jaccard, intra_semantic_sim
-        - From inter-feature data: inter_ngram_jaccard, inter_semantic_sim
+        - From activation_display: intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
         - From features.parquet: frac_nonzero
+
+        Note: Inter-feature metrics (inter_ngram_jaccard, inter_semantic_sim) are now
+        extracted at the pair level via _extract_pair_specific_interfeature_metrics().
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 5 pair metrics
+            DataFrame with feature_id and 4 intra-feature metrics
         """
         # Check cache first
         cache_key = self._get_metrics_cache_key(feature_ids)
@@ -439,18 +454,11 @@ class PairSimilarityService:
             activation_df = await self._extract_activation_metrics(feature_ids)
             logger.info(f"[_extract_pair_feature_metrics] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
 
-            # Extract inter-feature metrics
-            interfeature_df = await self._extract_interfeature_metrics(feature_ids)
-            logger.info(f"[_extract_pair_feature_metrics] Inter-feature metrics: {len(interfeature_df) if interfeature_df is not None else 0} rows")
-
-            # Join all metrics together
+            # Join activation metrics
             result_df = base_df
 
             if activation_df is not None:
                 result_df = result_df.join(activation_df, on="feature_id", how="left")
-
-            if interfeature_df is not None:
-                result_df = result_df.join(interfeature_df, on="feature_id", how="left")
 
             # Fill nulls with 0 for missing metrics
             for metric in self.PAIR_METRICS:
@@ -461,7 +469,7 @@ class PairSimilarityService:
                         pl.col(metric).fill_null(0.0)
                     )
 
-            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with pair metrics")
+            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with 4 intra-feature metrics")
 
             # Cache result for subsequent calls with same features
             if len(self._metrics_cache) >= self._max_metrics_cache_size:
@@ -485,7 +493,7 @@ class PairSimilarityService:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim
+            DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
         """
         try:
             # Try optimized activation_display file first
@@ -494,18 +502,32 @@ class PairSimilarityService:
                     pl.col("feature_id").is_in(feature_ids)
                 ).collect()
 
-                # Extract metrics
-                df = df.select([
+                # Build select columns
+                select_cols = [
                     "feature_id",
                     # Max of char and word ngram jaccard
                     pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
                       .fill_null(0.0)
                       .alias("intra_ngram_jaccard"),
-                    # Semantic similarity
+                    # Semantic similarity (mean)
                     pl.col("semantic_similarity")
                       .fill_null(0.0)
-                      .alias("intra_semantic_sim")
-                ]).unique(subset=["feature_id"])
+                      .alias("intra_semantic_sim"),
+                ]
+
+                # Add semantic_similarity_std if available
+                if "semantic_similarity_std" in df.columns:
+                    select_cols.append(
+                        pl.col("semantic_similarity_std")
+                          .fill_null(0.0)
+                          .alias("intra_semantic_sim_std")
+                    )
+
+                df = df.select(select_cols).unique(subset=["feature_id"])
+
+                # Add column with 0.0 if not present
+                if "intra_semantic_sim_std" not in df.columns:
+                    df = df.with_columns(pl.lit(0.0).alias("intra_semantic_sim_std"))
 
                 logger.info(f"Extracted activation metrics from optimized file for {len(df)} features")
                 return df
@@ -516,15 +538,30 @@ class PairSimilarityService:
                     pl.col("feature_id").is_in(feature_ids)
                 ).collect()
 
-                df = df.select([
+                # Build select columns
+                select_cols = [
                     "feature_id",
                     pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
                       .fill_null(0.0)
                       .alias("intra_ngram_jaccard"),
                     pl.col("semantic_similarity")
                       .fill_null(0.0)
-                      .alias("intra_semantic_sim")
-                ]).unique(subset=["feature_id"])
+                      .alias("intra_semantic_sim"),
+                ]
+
+                # Add semantic_similarity_std if available
+                if "semantic_similarity_std" in df.columns:
+                    select_cols.append(
+                        pl.col("semantic_similarity_std")
+                          .fill_null(0.0)
+                          .alias("intra_semantic_sim_std")
+                    )
+
+                df = df.select(select_cols).unique(subset=["feature_id"])
+
+                # Add column with 0.0 if not present
+                if "intra_semantic_sim_std" not in df.columns:
+                    df = df.with_columns(pl.lit(0.0).alias("intra_semantic_sim_std"))
 
                 logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
                 return df
@@ -535,53 +572,6 @@ class PairSimilarityService:
 
         except Exception as e:
             logger.warning(f"Failed to extract activation metrics: {e}")
-            return None
-
-    async def _extract_interfeature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
-        Extract inter-feature similarity metrics.
-
-        Optimized: Uses Polars native list operations instead of Python loops.
-
-        Args:
-            feature_ids: List of feature IDs
-
-        Returns:
-            DataFrame with feature_id, inter_ngram_jaccard, inter_semantic_sim
-        """
-        try:
-            if self.data_service._interfeature_similarity_lazy is None:
-                logger.warning("No inter-feature similarity data available")
-                return None
-
-            df = self.data_service._interfeature_similarity_lazy.filter(
-                pl.col("feature_id").is_in(feature_ids)
-            ).collect()
-
-            # Use Polars list operations to extract max values from all_pairs
-            # Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
-            result_df = df.select([
-                "feature_id",
-                # Extract max char_jaccard from all_pairs
-                pl.col("all_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0).alias("max_char_jaccard"),
-                # Extract max word_jaccard from all_pairs
-                pl.col("all_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0).alias("max_word_jaccard"),
-                # Extract max semantic_similarity from all_pairs
-                pl.col("all_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0).alias("max_semantic_sim")
-            ]).select([
-                "feature_id",
-                # Combine char and word jaccard to get final inter_ngram_jaccard
-                pl.max_horizontal("max_char_jaccard", "max_word_jaccard").alias("inter_ngram_jaccard"),
-                pl.col("max_semantic_sim").alias("inter_semantic_sim")
-            ]).unique(subset=["feature_id"])
-
-            # Cast feature_id to UInt32 to match other dataframes
-            result_df = result_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
-            logger.info(f"Extracted inter-feature metrics for {len(result_df)} features using Polars operations")
-            return result_df
-
-        except Exception as e:
-            logger.warning(f"Failed to extract inter-feature metrics: {e}")
             return None
 
     async def _extract_pair_metrics(
@@ -660,6 +650,88 @@ class PairSimilarityService:
         logger.info(f"Extracted pair metrics for {len(pair_metrics)} pairs using dict lookup")
         return pair_metrics
 
+    async def _extract_pair_specific_interfeature_metrics(
+        self,
+        pair_ids: List[Tuple[int, int]]
+    ) -> Dict[str, Tuple[float, float]]:
+        """
+        Extract inter-feature metrics for SPECIFIC pairs (A, B).
+
+        Unlike _extract_interfeature_metrics which extracts MAX across all similar features,
+        this method looks up the exact pair (A, B) in the all_pairs list.
+
+        Args:
+            pair_ids: List of (main_id, similar_id) tuples
+
+        Returns:
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim)
+        """
+        if self.data_service._interfeature_similarity_lazy is None:
+            logger.warning("No inter-feature similarity data available for pair-specific metrics")
+            return {}
+
+        # Get all unique feature IDs
+        all_feature_ids = list(set(fid for a, b in pair_ids for fid in (a, b)))
+
+        try:
+            df = self.data_service._interfeature_similarity_lazy.filter(
+                pl.col("feature_id").is_in(all_feature_ids)
+            ).collect()
+        except Exception as e:
+            logger.error(f"Failed to load inter-feature data: {e}")
+            return {}
+
+        # Build lookup: feature_id -> {similar_feature_id -> (char_jaccard, word_jaccard, semantic_sim)}
+        feature_to_pairs: Dict[int, Dict[int, Tuple[float, float, float]]] = {}
+        for row in df.iter_rows(named=True):
+            fid = row["feature_id"]
+            all_pairs = row.get("all_pairs")
+            if all_pairs:
+                feature_to_pairs[fid] = {
+                    p["similar_feature_id"]: (
+                        p.get("char_jaccard", 0.0),
+                        p.get("word_jaccard", 0.0),
+                        p.get("semantic_similarity", 0.0)
+                    )
+                    for p in all_pairs
+                    if isinstance(p, dict) and "similar_feature_id" in p
+                }
+
+        # Extract metrics for each pair
+        result: Dict[str, Tuple[float, float]] = {}
+        missing_count = 0
+        for main_id, similar_id in pair_ids:
+            # Use canonical key (smaller ID first)
+            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
+
+            char_j, word_j, sem_sim = 0.0, 0.0, 0.0
+            found = False
+
+            # Try A -> B
+            if main_id in feature_to_pairs and similar_id in feature_to_pairs[main_id]:
+                char_j, word_j, sem_sim = feature_to_pairs[main_id][similar_id]
+                found = True
+            # Try B -> A
+            elif similar_id in feature_to_pairs and main_id in feature_to_pairs[similar_id]:
+                char_j, word_j, sem_sim = feature_to_pairs[similar_id][main_id]
+                found = True
+
+            if not found:
+                missing_count += 1
+
+            # inter_ngram = max of char/word jaccard
+            inter_ngram = max(char_j, word_j)
+            result[pair_key] = (inter_ngram, sem_sim)
+
+        logger.info(f"Extracted pair-specific inter-feature metrics for {len(result)} pairs")
+        if missing_count > 0:
+            logger.warning(
+                f"⚠️  {missing_count}/{len(pair_ids)} pairs ({100*missing_count/len(pair_ids):.1f}%) "
+                f"have no interfeature similarity data (using 0.0 as default). "
+                f"These pairs were clustered by decoder similarity but lack activation/semantic overlap data."
+            )
+        return result
+
     # =========================================================================
     # SVM SCORING
     # =========================================================================
@@ -668,6 +740,7 @@ class PairSimilarityService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
+        pair_inter_metrics: Dict[str, Tuple[float, float]],
         selected_items: List[WeightedPairKey],
         rejected_items: List[WeightedPairKey],
         pair_ids: List[Tuple[int, int]]
@@ -675,7 +748,12 @@ class PairSimilarityService:
         """
         Calculate similarity scores for all pairs using SVM.
 
-        11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
+        11-dim pair vector:
+        - [A+B (4)] intra-feature sum
+        - [|A-B| (4)] intra-feature difference
+        - [inter_ngram(A,B)] pair-specific lexical similarity
+        - [inter_semantic(A,B)] pair-specific semantic similarity
+        - [decoder_sim(A,B)] pair-specific decoder similarity
 
         Optimized with:
         - O(1) index lookups via dict instead of O(n) np.where per pair
@@ -683,8 +761,9 @@ class PairSimilarityService:
         - Batch SVM scoring
 
         Args:
-            metrics_df: DataFrame with metrics for all features
-            pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
+            metrics_df: DataFrame with 4 intra-feature metrics for all features
+            pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
+            pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
             selected_items: Weighted pair items marked as selected (✓)
             rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -702,7 +781,8 @@ class PairSimilarityService:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
         for item in rejected_items:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-        # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
+
+        # Convert to numpy for SVM - use PAIR_METRICS (4 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
@@ -739,19 +819,30 @@ class PairSimilarityService:
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs")
 
-        # Vectorized metric extraction for all pairs
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 5)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 5)
+        # Vectorized metric extraction for all pairs (4 intra-feature metrics)
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
 
-        # Vectorized pair vector construction
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 5)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 5)
+        # Vectorized pair vector construction for intra-feature metrics
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
+
+        # Get pair-specific inter-feature metrics
+        inter_ngrams = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[0] for pk in pair_key_list])
+        inter_semantics = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[1] for pk in pair_key_list])
 
         # Get decoder similarities
         decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
 
         # Concatenate: (n_pairs, 11)
-        all_pair_vectors = np.hstack([pair_sum, pair_diff, decoder_sims.reshape(-1, 1)])
+        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        all_pair_vectors = np.hstack([
+            pair_sum,
+            pair_diff,
+            inter_ngrams.reshape(-1, 1),
+            inter_semantics.reshape(-1, 1),
+            decoder_sims.reshape(-1, 1)
+        ])
 
         # Build pair_vectors dict for training vector extraction
         pair_vectors = {
@@ -843,6 +934,7 @@ class PairSimilarityService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
+        pair_inter_metrics: Dict[str, Tuple[float, float]],
         selected_items: List[WeightedPairKey],
         rejected_items: List[WeightedPairKey],
         pair_ids: List[Tuple[int, int]],
@@ -854,7 +946,12 @@ class PairSimilarityService:
         This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
 
-        11-dim symmetric pair vector = [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
+        11-dim pair vector:
+        - [A+B (4)] intra-feature sum
+        - [|A-B| (4)] intra-feature difference
+        - [inter_ngram(A,B)] pair-specific lexical similarity
+        - [inter_semantic(A,B)] pair-specific semantic similarity
+        - [decoder_sim(A,B)] pair-specific decoder similarity
 
         Optimized with:
         - O(1) index lookups via dict instead of O(n) np.where per pair
@@ -862,8 +959,9 @@ class PairSimilarityService:
         - Batch SVM scoring
 
         Args:
-            metrics_df: DataFrame with metrics for all features
-            pair_metrics: Dictionary mapping pair_key to cosine_similarity between the two features
+            metrics_df: DataFrame with 4 intra-feature metrics for all features
+            pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
+            pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
             selected_items: Weighted pair items marked as selected (✓)
             rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
@@ -884,7 +982,8 @@ class PairSimilarityService:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
         for item in rejected_items:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-        # Convert to numpy for SVM - use PAIR_METRICS (5 metrics) for pairs
+
+        # Convert to numpy for SVM - use PAIR_METRICS (4 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
@@ -921,19 +1020,30 @@ class PairSimilarityService:
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs (histogram)")
 
-        # Vectorized metric extraction for all pairs
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 5)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 5)
+        # Vectorized metric extraction for all pairs (4 intra-feature metrics)
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
 
-        # Vectorized pair vector construction
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 5)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 5)
+        # Vectorized pair vector construction for intra-feature metrics
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
+
+        # Get pair-specific inter-feature metrics
+        inter_ngrams = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[0] for pk in pair_key_list])
+        inter_semantics = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[1] for pk in pair_key_list])
 
         # Get decoder similarities
         decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
 
         # Concatenate: (n_pairs, 11)
-        all_pair_vectors = np.hstack([pair_sum, pair_diff, decoder_sims.reshape(-1, 1)])
+        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        all_pair_vectors = np.hstack([
+            pair_sum,
+            pair_diff,
+            inter_ngrams.reshape(-1, 1),
+            inter_semantics.reshape(-1, 1),
+            decoder_sims.reshape(-1, 1)
+        ])
 
         # Build pair_vectors dict for training vector extraction
         pair_vectors = {

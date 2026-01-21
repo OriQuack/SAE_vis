@@ -279,6 +279,7 @@ class ActivationDisplayProcessor:
                 "sae_id": self.sae_id,
                 "pattern_type": "None",
                 "semantic_similarity": None,
+                "semantic_similarity_std": None,
                 "char_ngram_max_jaccard": 0.0,
                 "word_ngram_max_jaccard": 0.0,
                 "top_char_ngram_text": None,
@@ -291,6 +292,7 @@ class ActivationDisplayProcessor:
         # Extract metadata
         prompt_ids = sim_row.get("prompt_ids_for_display", [])
         semantic_sim = sim_row.get("avg_pairwise_semantic_similarity")
+        semantic_sim_std = sim_row.get("std_pairwise_semantic_similarity")
         quantile_boundaries = sim_row.get("quantile_boundaries", [])
 
         # Extract dual Jaccard values
@@ -315,6 +317,7 @@ class ActivationDisplayProcessor:
                 "sae_id": self.sae_id,
                 "pattern_type": "None",
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
+                "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
                 "char_ngram_max_jaccard": float(char_ngram_jaccard),
                 "word_ngram_max_jaccard": float(word_ngram_jaccard),
                 "top_char_ngram_text": None,
@@ -418,6 +421,7 @@ class ActivationDisplayProcessor:
             "sae_id": self.sae_id,
             "pattern_type": pattern_type,
             "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
+            "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
             "char_ngram_max_jaccard": float(char_ngram_jaccard),
             "word_ngram_max_jaccard": float(word_ngram_jaccard),
             "top_char_ngram_text": char_ngram_text,
@@ -494,6 +498,7 @@ class ActivationDisplayProcessor:
             pl.col("sae_id").cast(pl.Categorical),
             pl.col("pattern_type").cast(pl.Categorical),
             pl.col("semantic_similarity").cast(pl.Float32),
+            pl.col("semantic_similarity_std").cast(pl.Float32),
             pl.col("char_ngram_max_jaccard").cast(pl.Float32),
             pl.col("word_ngram_max_jaccard").cast(pl.Float32),
         ])
@@ -514,6 +519,7 @@ class ActivationDisplayProcessor:
             "sae_id": pl.Categorical,
             "pattern_type": pl.Categorical,
             "semantic_similarity": pl.Float32,
+            "semantic_similarity_std": pl.Float32,
             "char_ngram_max_jaccard": pl.Float32,
             "word_ngram_max_jaccard": pl.Float32,
             "top_char_ngram_text": pl.Utf8,

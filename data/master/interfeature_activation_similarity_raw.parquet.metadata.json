@@ -1,25 +1,28 @@
 {
-  "created_at": "2026-01-12T01:32:24.610386",
+  "created_at": "2026-01-21T19:16:27.455775",
   "script_version": "5.0",
   "architecture": "raw_all_pairs_no_filtering",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
-  "total_rows": 16384,
+  "total_rows": 100,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
-    "all_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_char_ngram_jaccard', Float32), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('max_word_ngram_jaccard', Float32), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))"
+    "all_pairs": "List(Struct([Field('similar_feature_id', UInt32), Field('decoder_similarity', Float32), Field('similarity_source', Utf8), Field('semantic_similarity', Float32), Field('char_jaccard', Float32), Field('word_jaccard', Float32), Field('main_prompt_ids', List(UInt32)), Field('similar_prompt_ids', List(UInt32)), Field('num_comparisons', UInt32), Field('max_char_ngram', Utf8), Field('max_char_ngram_size', UInt8), Field('max_char_ngram_jaccard', Float32), Field('max_word_ngram', Utf8), Field('max_word_ngram_size', UInt8), Field('max_word_ngram_jaccard', Float32), Field('main_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_char_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('main_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_word_ngram_positions', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))"
   },
   "processing_stats": {
-    "features_processed": 16384,
-    "total_pairs_compared": 65522,
-    "total_pairs_saved": 65522,
+    "features_processed": 100,
+    "total_pairs_compared": 1920,
+    "total_pairs_saved": 1920,
+    "pairs_from_decoder": 920,
+    "pairs_from_semantic": 920,
+    "pairs_from_both": 80,
     "features_with_insufficient_decoder_similar": 0,
-    "features_with_no_activations": 1
+    "features_with_no_activations": 0
   },
   "result_stats": {
-    "features_with_pairs": 16383,
-    "total_pairs": 65522,
-    "mean_pairs_per_feature": 3.9991455078125
+    "features_with_pairs": 100,
+    "total_pairs": 1920,
+    "mean_pairs_per_feature": 19.2
   },
   "config_used": {
     "features_path": "data/master/features.parquet",
@@ -28,7 +31,7 @@
     "output_path": "data/master/interfeature_activation_similarity_raw.parquet",
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "processing_parameters": {
-      "top_n_decoder_similar": 4,
+      "top_n_decoder_similar": 10,
       "num_quantiles": 4,
       "samples_per_quantile": 4,
       "embedding_window_size": 32,
@@ -48,18 +51,22 @@
       "semantic_threshold": 0.3,
       "char_jaccard_threshold": 0.3,
       "word_jaccard_threshold": 0.3,
+      "top_n_semantic_similar": 10,
       "position_samples_per_quantile": 2
     },
-    "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar features. Outputs RAW data with ALL pairs - filtering/classification done in script 7.",
+    "activation_semantic_similarity_path": "data/raw/feature_similarity/{sae_id}/activation_semantic_similarities.npy",
+    "decoder_similarity_path": "data/raw/feature_similarity/{sae_id}/feature_similarity.npz",
+    "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar and semantically-similar features. Outputs RAW data with ALL pairs - filtering/classification done in script 7.",
     "processing_notes": {
       "expected_features": 16384,
-      "expected_pairs": "~65536 (16384 features \u00d7 4 decoder-similar each)",
-      "processing_strategy": "decoder_similarity_based_pairing",
+      "expected_pairs": "~327680 max (16384 features \u00d7 up to 20 similar each, decoder + semantic)",
+      "processing_strategy": "decoder_and_semantic_similarity_based_pairing",
       "handle_insufficient_examples": "use_all_available",
       "embeddings_source": "pre_computed_from_4_act_embeddings.py",
       "dependencies": [
         "3_features_parquet.py must be run first (for decoder_similarity field)",
-        "4_act_embeddings.py must be run first (for pre-computed embeddings)"
+        "4_act_embeddings.py must be run first (for pre-computed embeddings)",
+        "4_1_activation_semantic_similarity.py must be run first (for semantic similarity matrix)"
       ],
       "primary_key_fields": [
         "feature_id",
@@ -78,10 +85,11 @@
       "field_descriptions": {
         "feature_id": "Main feature ID (0-16383)",
         "sae_id": "SAE model identifier",
-        "all_pairs": "ALL feature pairs with decoder-similar features (no filtering)",
-        "similar_feature_id": "ID of the decoder-similar feature being compared",
-        "decoder_similarity": "Decoder weight cosine similarity from features.parquet",
-        "semantic_similarity": "Average pairwise cosine similarity of embeddings",
+        "all_pairs": "ALL feature pairs with decoder-similar and semantic-similar features (no filtering)",
+        "similar_feature_id": "ID of the similar feature being compared",
+        "decoder_similarity": "Decoder weight cosine similarity from precomputed matrix (always available for all pairs)",
+        "semantic_similarity": "Pre-computed semantic similarity from NPY matrix",
+        "similarity_source": "Source of pair: 'decoder', 'semantic', or 'both'",
         "char_jaccard": "Character-level n-gram Jaccard similarity (overall set overlap)",
         "word_jaccard": "Word-level n-gram Jaccard similarity (overall set overlap)",
         "main_prompt_ids": "List of prompt IDs analyzed from main feature (max 16 for calculation)",

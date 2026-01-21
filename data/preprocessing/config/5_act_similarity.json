@@ -43,6 +43,7 @@
       "prompt_ids_analyzed": "List of prompt IDs selected for analysis",
       "num_total_activations": "Total number of activation examples for this feature",
       "avg_pairwise_semantic_similarity": "Average cosine similarity across all pairs of 32-token windows",
+      "std_pairwise_semantic_similarity": "Standard deviation of cosine similarity across all pairs of 32-token windows",
       "top_char_ngrams": "Most frequent character n-gram per size (2-5) extracted from individual tokens with '▁' prefix stripped (3-token window around max activation)",
       "top_word_ngrams": "Most frequent word-level n-gram per size (1-3) reconstructed from subword tokens (11-token window around max activation)",
       "top_char_ngram": "Overall most frequent character n-gram (across all sizes 2-5) with all occurrence positions including char_offset within token (3-token window)",

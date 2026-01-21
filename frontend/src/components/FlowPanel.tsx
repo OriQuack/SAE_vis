@@ -23,9 +23,9 @@ const getTextNodeBackgroundColor = (nodeId: string) => {
 }
 
 const getTextNodeFontSize = (nodeId: string) => {
-  // Smaller font for label nodes - reduced from 11 to 9
+  // Font for label nodes
   if (nodeId === 'explanation-label' || nodeId === 'score-label' || nodeId === 'embedding-label') {
-    return '9'
+    return '10'
   }
   // Average operation node - medium font for symbol visibility
   if (nodeId === 'average-op') {
@@ -57,12 +57,8 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
   return '0'
 }
 
-const getTextNodeColor = (nodeId: string) => {
-  // White text for quality score (dark background)
-  if (nodeId === 'quality-score') {
-    return '#ffffff'
-  }
-  // Default dark text for other nodes
+const getTextNodeColor = (_nodeId: string) => {
+  // Dark text for all nodes
   return '#334155'
 }
 
@@ -123,12 +119,7 @@ const FlowPanel: React.FC = () => {
       return `${count}k`
     }
 
-    // Helper function to calculate badge width based on text length
-    const getBadgeWidth = (text: string): number => {
-      return Math.max(24, text.length * 8 + 8)
-    }
-
-    // Update node badges
+    // Update node badges - keep original widths from flow-utils.ts for consistency
     const updatedNodes = baseFlowLayout.nodes.map(node => {
       if (node.badge) {
         let newBadgeText: string | undefined
@@ -142,16 +133,11 @@ const FlowPanel: React.FC = () => {
         }
 
         if (newBadgeText) {
-          const newBadgeWidth = getBadgeWidth(newBadgeText)
-          const widthDiff = newBadgeWidth - node.badge.width
-
           return {
             ...node,
             badge: {
               ...node.badge,
-              text: newBadgeText,
-              width: newBadgeWidth,
-              textX: node.badge.textX + widthDiff / 2
+              text: newBadgeText
             }
           }
         }
@@ -404,8 +390,9 @@ const FlowPanel: React.FC = () => {
                           <text
                             key={i}
                             x={node.x + node.width / 2}
-                            y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12 + 4}
+                            y={node.y + node.height / 2 + (i - (splitLabel(node.label).length - 1) / 2) * 12}
                             textAnchor="middle"
+                            dominantBaseline="central"
                             fontSize={getTextNodeFontSize(node.id)}
                             fill={getTextNodeColor(node.id)}
                             fontWeight={getTextNodeFontWeight(node.id)}
@@ -431,9 +418,9 @@ const FlowPanel: React.FC = () => {
                             y={node.badge.textY}
                             textAnchor="middle"
                             dominantBaseline="central"
-                            fontSize="9"
+                            fontSize="10"
                             fill="white"
-                            fontWeight="700"
+                            fontWeight="600"
                           >
                             {node.badge.text}
                           </text>
@@ -484,7 +471,7 @@ const FlowPanel: React.FC = () => {
                             dominantBaseline="central"
                             fontSize="10"
                             fill="white"
-                            fontWeight="700"
+                            fontWeight="600"
                           >
                             {node.badge.text}
                           </text>

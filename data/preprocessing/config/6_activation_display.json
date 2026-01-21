@@ -23,6 +23,7 @@
       "sae_id": "SAE model identifier",
       "pattern_type": "Pattern classification: Semantic, Lexical, Both, or None (uses separate thresholds for semantic and lexical)",
       "semantic_similarity": "Average pairwise semantic similarity",
+      "semantic_similarity_std": "Standard deviation of pairwise semantic similarity",
       "char_ngram_max_jaccard": "Jaccard similarity for the most frequent character n-gram",
       "word_ngram_max_jaccard": "Jaccard similarity for the most frequent word n-gram",
       "top_char_ngram_text": "The actual character n-gram text (e.g., 'ing')",

@@ -149,6 +149,9 @@ class InterFeatureSimilarityProcessor:
             "features_processed": 0,
             "total_pairs_compared": 0,
             "total_pairs_saved": 0,
+            "pairs_from_decoder": 0,
+            "pairs_from_semantic": 0,
+            "pairs_from_both": 0,
             "features_with_insufficient_decoder_similar": 0,
             "features_with_no_activations": 0
         }
@@ -157,6 +160,11 @@ class InterFeatureSimilarityProcessor:
         self.features_df = None
         self.activation_df = None
         self.embeddings_df = None
+        self.semantic_sim_matrix = None
+        self.decoder_sim_matrix = None
+
+        # Load similarity matrices if paths provided
+        self._load_similarity_matrices()
 
     def _resolve_path(self, path_str: str) -> Path:
         """Resolve path relative to project root if not absolute."""
@@ -164,6 +172,44 @@ class InterFeatureSimilarityProcessor:
         if not path.is_absolute():
             return self.project_root / path
         return path
+
+    def _load_similarity_matrices(self):
+        """Load precomputed similarity matrices (semantic and decoder)."""
+        # Load activation semantic similarity matrix from NPY file
+        semantic_sim_path_template = self.config.get(
+            "activation_semantic_similarity_path",
+            "data/feature_similarity/{sae_id}/activation_semantic_similarities.npy"
+        )
+        # Replace {sae_id} placeholder with actual sae_id
+        semantic_sim_path_str = semantic_sim_path_template.replace("{sae_id}", self.sae_id)
+        semantic_sim_path = self._resolve_path(semantic_sim_path_str)
+
+        if semantic_sim_path.exists():
+            logger.info(f"Loading semantic similarity matrix from {semantic_sim_path}")
+            self.semantic_sim_matrix = np.load(semantic_sim_path)
+            logger.info(f"Loaded semantic matrix shape: {self.semantic_sim_matrix.shape}")
+        else:
+            logger.warning(f"Semantic similarity matrix not found: {semantic_sim_path}")
+            logger.warning("Pairs will only be created from decoder similarity")
+            self.semantic_sim_matrix = None
+
+        # Load decoder similarity matrix from NPZ file
+        decoder_sim_path_template = self.config.get(
+            "decoder_similarity_path",
+            "data/raw/feature_similarity/{sae_id}/feature_similarity.npz"
+        )
+        decoder_sim_path_str = decoder_sim_path_template.replace("{sae_id}", self.sae_id)
+        decoder_sim_path = self._resolve_path(decoder_sim_path_str)
+
+        if decoder_sim_path.exists():
+            logger.info(f"Loading decoder similarity matrix from {decoder_sim_path}")
+            data = np.load(decoder_sim_path)
+            self.decoder_sim_matrix = data['cosine_similarity']
+            logger.info(f"Loaded decoder matrix shape: {self.decoder_sim_matrix.shape}, dtype: {self.decoder_sim_matrix.dtype}")
+        else:
+            logger.warning(f"Decoder similarity matrix not found: {decoder_sim_path}")
+            logger.warning("Decoder similarity values will come from features.parquet top-N list")
+            self.decoder_sim_matrix = None
 
     def _load_data(self):
         """Load all required data files."""
@@ -208,6 +254,36 @@ class InterFeatureSimilarityProcessor:
         top_n = self.proc_params["top_n_decoder_similar"]
         return [(item["feature_id"], item["cosine_similarity"])
                 for item in decoder_sim[:top_n]]
+
+    def _get_top_semantic_similar_features(self, feature_id: int) -> List[Tuple[int, float]]:
+        """Extract top N semantically similar features from precomputed matrix.
+
+        Args:
+            feature_id: Feature ID to get similar features for
+
+        Returns:
+            List of (feature_id, similarity_score) tuples
+        """
+        if self.semantic_sim_matrix is None:
+            return []
+
+        top_n = self.proc_params.get("top_n_semantic_similar", 10)
+        if top_n == 0:
+            return []
+
+        # Validate feature_id is in range
+        if feature_id < 0 or feature_id >= self.semantic_sim_matrix.shape[0]:
+            logger.warning(f"Feature {feature_id} out of range for semantic similarity matrix")
+            return []
+
+        # Get similarity row for this feature
+        sim_row = self.semantic_sim_matrix[feature_id]
+
+        # Get top N indices (excluding self - diagonal should be 0 already)
+        # Sort descending to get highest similarities first
+        top_indices = np.argsort(sim_row)[::-1][:top_n]
+
+        return [(int(idx), float(sim_row[idx])) for idx in top_indices]
 
     def _select_top_k_per_quantile(self, examples: List[Tuple], k: int) -> List[Tuple]:
         """Select top k examples per quantile using rank-based sampling.
@@ -918,6 +994,32 @@ class InterFeatureSimilarityProcessor:
         if len(decoder_similar) < self.proc_params["top_n_decoder_similar"]:
             self.stats["features_with_insufficient_decoder_similar"] += 1
 
+        # Get top semantic-similar features from precomputed matrix
+        semantic_similar = self._get_top_semantic_similar_features(feature_id)
+
+        # Merge pairs from both sources with source tracking
+        # Structure: {similar_feature_id: {"decoder_sim": float|None, "semantic_sim": float|None, "source": str}}
+        pair_sources: Dict[int, Dict[str, Any]] = {}
+
+        for feat_id, dec_sim in decoder_similar:
+            pair_sources[feat_id] = {
+                "decoder_sim": dec_sim,
+                "precomputed_semantic_sim": None,
+                "source": "decoder"
+            }
+
+        for feat_id, sem_sim in semantic_similar:
+            if feat_id in pair_sources:
+                # Feature appears in both sources
+                pair_sources[feat_id]["precomputed_semantic_sim"] = sem_sim
+                pair_sources[feat_id]["source"] = "both"
+            else:
+                pair_sources[feat_id] = {
+                    "decoder_sim": None,
+                    "precomputed_semantic_sim": sem_sim,
+                    "source": "semantic"
+                }
+
         # Get activation examples for main feature using prompt IDs from embeddings
         # This ensures we only use examples that have pre-computed embeddings
         main_all_examples = self._get_examples_from_embeddings(feature_id)
@@ -934,15 +1036,14 @@ class InterFeatureSimilarityProcessor:
         position_samples_per_quantile = self.proc_params.get("position_samples_per_quantile", 2)
         main_display_examples = self._select_top_k_per_quantile(main_all_examples, k=position_samples_per_quantile)
 
-        # Prompt IDs for calculations (all) and display (subset)
+        # Prompt IDs for calculations (all)
         main_calc_prompt_ids = [ex[0] for ex in main_all_examples]
-        main_display_prompt_ids = [ex[0] for ex in main_display_examples]
 
         # Collect ALL pairs (no filtering - filtering done in script 7)
         all_pairs = []
 
-        # Process each decoder-similar feature
-        for selected_feature_id, decoder_sim in decoder_similar:
+        # Process each similar feature (from either decoder or semantic source)
+        for selected_feature_id, pair_info in pair_sources.items():
             # Get activation examples using prompt IDs from embeddings
             # This ensures we only use examples that have pre-computed embeddings
             selected_all_examples = self._get_examples_from_embeddings(selected_feature_id)
@@ -953,15 +1054,14 @@ class InterFeatureSimilarityProcessor:
             # Phase 2: Select top examples for position tracking (8 total: 2 per quantile)
             selected_display_examples = self._select_top_k_per_quantile(selected_all_examples, k=position_samples_per_quantile)
 
-            # Prompt IDs for calculations (all) and display (subset)
+            # Prompt IDs for calculations (all)
             selected_calc_prompt_ids = [ex[0] for ex in selected_all_examples]
-            selected_display_prompt_ids = [ex[0] for ex in selected_display_examples]
 
-            # Compute semantic similarity using ALL examples (16 x 16 = 256 pairs for robust statistics)
-            semantic_sim = self._compute_cross_feature_semantic_similarity(
-                feature_id, main_all_examples,
-                selected_feature_id, selected_all_examples
-            )
+            # Get semantic similarity from precomputed matrix (if available)
+            if self.semantic_sim_matrix is not None:
+                semantic_sim = float(self.semantic_sim_matrix[feature_id, selected_feature_id])
+            else:
+                semantic_sim = None
 
             # Compute dual Jaccard similarity with three-phase approach
             # - Use ALL examples (16 each) for frequency counting and overall Jaccard calculation
@@ -977,11 +1077,28 @@ class InterFeatureSimilarityProcessor:
 
             self.stats["total_pairs_compared"] += 1
 
+            # Track pair source statistics
+            source = pair_info["source"]
+            if source == "decoder":
+                self.stats["pairs_from_decoder"] += 1
+            elif source == "semantic":
+                self.stats["pairs_from_semantic"] += 1
+            else:  # "both"
+                self.stats["pairs_from_both"] += 1
+
+            # Get decoder similarity from precomputed matrix (always available for all pairs)
+            if self.decoder_sim_matrix is not None:
+                decoder_sim = float(self.decoder_sim_matrix[feature_id, selected_feature_id])
+            else:
+                # Fallback to pair_info (from features.parquet top-N list) if matrix not loaded
+                decoder_sim = float(pair_info["decoder_sim"]) if pair_info["decoder_sim"] is not None else None
+
             # Create pair dict with explicit type casting and position data
             # No filtering - ALL pairs are saved (filtering done in script 7)
             pair_dict = {
                 "similar_feature_id": int(selected_feature_id),  # Will cast to UInt32 later
-                "decoder_similarity": float(decoder_sim) if decoder_sim is not None else None,
+                "decoder_similarity": decoder_sim,
+                "similarity_source": source,
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
                 "char_jaccard": float(char_jaccard) if char_jaccard is not None else None,
                 "word_jaccard": float(word_jaccard) if word_jaccard is not None else None,
@@ -1101,6 +1218,7 @@ class InterFeatureSimilarityProcessor:
         pair_struct = pl.Struct([
             pl.Field("similar_feature_id", pl.UInt32),
             pl.Field("decoder_similarity", pl.Float32),
+            pl.Field("similarity_source", pl.Utf8),
             pl.Field("semantic_similarity", pl.Float32),
             pl.Field("char_jaccard", pl.Float32),
             pl.Field("word_jaccard", pl.Float32),
@@ -1227,6 +1345,10 @@ def main():
     logger.info(f"  Features processed: {processor.stats['features_processed']:,}")
     logger.info(f"  Total pairs compared: {processor.stats['total_pairs_compared']:,}")
     logger.info(f"  Total pairs saved: {processor.stats['total_pairs_saved']:,}")
+    logger.info(f"  Pair sources:")
+    logger.info(f"    - From decoder only: {processor.stats['pairs_from_decoder']:,}")
+    logger.info(f"    - From semantic only: {processor.stats['pairs_from_semantic']:,}")
+    logger.info(f"    - From both sources: {processor.stats['pairs_from_both']:,}")
     logger.info(f"  Features with insufficient decoder similar: {processor.stats['features_with_insufficient_decoder_similar']:,}")
     logger.info(f"  Features with no activations: {processor.stats['features_with_no_activations']:,}")
     logger.info("=" * 80)

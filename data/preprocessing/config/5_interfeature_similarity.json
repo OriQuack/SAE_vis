@@ -4,11 +4,14 @@
   "activation_embeddings_path": "data/master/activation_embeddings.parquet",
   "output_path": "data/master/interfeature_activation_similarity_raw.parquet",
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "activation_semantic_similarity_path": "data/raw/feature_similarity/{sae_id}/activation_semantic_similarities.npy",
+  "decoder_similarity_path": "data/raw/feature_similarity/{sae_id}/feature_similarity.npz",
 
-  "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar features. Outputs RAW data with ALL pairs - filtering/classification done in script 7.",
+  "description": "Configuration for calculating inter-feature activation similarity metrics between decoder-similar and semantically-similar features. Outputs RAW data with ALL pairs - filtering/classification done in script 7.",
 
   "processing_parameters": {
-    "top_n_decoder_similar": 4,
+    "top_n_decoder_similar": 30,
+    "top_n_semantic_similar": 30,
     "num_quantiles": 4,
     "samples_per_quantile": 4,
     "position_samples_per_quantile": 2,
@@ -21,13 +24,14 @@
 
   "processing_notes": {
     "expected_features": 16384,
-    "expected_pairs": "~65536 (16384 features × 4 decoder-similar each)",
-    "processing_strategy": "decoder_similarity_based_pairing",
+    "expected_pairs": "~327680 max (16384 features × up to 20 similar each, decoder + semantic)",
+    "processing_strategy": "decoder_and_semantic_similarity_based_pairing",
     "handle_insufficient_examples": "use_all_available",
     "embeddings_source": "pre_computed_from_4_act_embeddings.py",
     "dependencies": [
       "3_features_parquet.py must be run first (for decoder_similarity field)",
-      "4_act_embeddings.py must be run first (for pre-computed embeddings)"
+      "4_act_embeddings.py must be run first (for pre-computed embeddings)",
+      "4_1_activation_semantic_similarity.py must be run first (for semantic similarity matrix)"
     ],
     "primary_key_fields": [
       "feature_id",
@@ -47,10 +51,11 @@
     "field_descriptions": {
       "feature_id": "Main feature ID (0-16383)",
       "sae_id": "SAE model identifier",
-      "all_pairs": "ALL feature pairs with decoder-similar features (no filtering)",
-      "similar_feature_id": "ID of the decoder-similar feature being compared",
-      "decoder_similarity": "Decoder weight cosine similarity from features.parquet",
-      "semantic_similarity": "Average pairwise cosine similarity of embeddings",
+      "all_pairs": "ALL feature pairs with decoder-similar and semantic-similar features (no filtering)",
+      "similar_feature_id": "ID of the similar feature being compared",
+      "decoder_similarity": "Decoder weight cosine similarity from precomputed matrix (always available for all pairs)",
+      "semantic_similarity": "Pre-computed semantic similarity from NPY matrix",
+      "similarity_source": "Source of pair: 'decoder', 'semantic', or 'both'",
       "char_jaccard": "Character-level n-gram Jaccard similarity (overall set overlap)",
       "word_jaccard": "Word-level n-gram Jaccard similarity (overall set overlap)",
       "main_prompt_ids": "List of prompt IDs analyzed from main feature (max 16 for calculation)",
