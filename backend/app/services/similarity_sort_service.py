@@ -41,17 +41,20 @@ THRESHOLD_WEIGHT = 0.2
 class SimilaritySortService:
     """Service for calculating feature similarity scores."""
 
-    # 9 metrics used for SINGLE FEATURE SVM similarity calculation
-    # Same as Stage 3 (Cause) for uniformity - uses composite intra_feature_sim
+    # 12 metrics used for SINGLE FEATURE SVM similarity calculation
+    # Same as Stage 3 (Cause) for uniformity - splits composite intra_feature_sim into components
     METRICS = [
-        # Mean metrics (6)
-        'intra_feature_sim',         # Activation-level: max(char_ngram, word_ngram, semantic) - composite consistency
+        # Mean metrics (7)
+        'intra_ngram_jaccard',       # Activation-level: max(char_ngram, word_ngram) - lexical consistency
+        'intra_semantic_sim',        # Activation-level: semantic_similarity - semantic consistency
         'score_embedding',           # Score: embedding-based scoring
         'score_fuzz',                # Score: fuzzy matching score
         'score_detection',           # Score: detection score
-        'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations (semsim_mean)
-        'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
-        # Std metrics - scores only (3) - captures cross-explainer disagreement
+        'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations
+        'log_frac_nonzero',          # Neuronpedia: log(frac_nonzero + 1e-8) - sparse activation handling
+        # Std metrics (5) - captures cross-explainer disagreement and activation variability
+        'intra_semantic_sim_std',    # Activation-level: semantic consistency std (variability within feature)
+        'explanation_semantic_sim_std',  # Explanation-level: cross-explainer semantic disagreement
         'score_embedding_std',
         'score_fuzz_std',
         'score_detection_std',
@@ -569,40 +572,53 @@ class SimilaritySortService:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 6 metrics (mean across explainers)
+            DataFrame with feature_id and all 12 metrics (mean across explainers)
         """
         try:
             logger.info(f"[_extract_metrics_from_barycentric] Extracting metrics for {len(feature_ids)} features")
 
-            # Compute mean and std across 3 explainers for each feature
+            # Compute mean and std across 3 explainers for each feature from barycentric data
             df = self.data_service._barycentric_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
             ).group_by("feature_id").agg([
-                # Mean metrics
-                pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
+                # Score metrics (mean across explainers)
                 pl.col("score_embedding").mean().alias("score_embedding"),
                 pl.col("score_fuzz").mean().alias("score_fuzz"),
                 pl.col("score_detection").mean().alias("score_detection"),
                 pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
-                # Std metrics (scores only) - captures cross-explainer disagreement
-                pl.col("score_embedding").std().alias("score_embedding_std"),
-                pl.col("score_fuzz").std().alias("score_fuzz_std"),
-                pl.col("score_detection").std().alias("score_detection_std"),
+                pl.col("frac_nonzero").mean().alias("frac_nonzero"),
+                # Std metrics - captures cross-explainer disagreement
+                pl.col("explanation_semantic_sim_std").mean().alias("explanation_semantic_sim_std"),
+                pl.col("score_embedding_std").mean().alias("score_embedding_std"),
+                pl.col("score_fuzz_std").mean().alias("score_fuzz_std"),
+                pl.col("score_detection_std").mean().alias("score_detection_std"),
             ]).collect()
 
-            # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
-            if self.data_service._df_lazy is not None:
-                frac_df = self.data_service._df_lazy.filter(
+            # Compute log_frac_nonzero from frac_nonzero
+            df = df.with_columns([
+                (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
+            ])
+
+            # Load activation-level metrics from activation_display.parquet
+            if self.data_service._activation_display_lazy is not None:
+                act_df = self.data_service._activation_display_lazy.filter(
                     pl.col("feature_id").is_in(feature_ids)
                 ).select([
-                    "feature_id",
-                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero")
+                    pl.col("feature_id").cast(pl.Int64),
+                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
+                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                        .fill_null(0.0).alias("intra_ngram_jaccard"),
+                    # intra_semantic_sim (activation-level semantic similarity)
+                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
+                    # intra_semantic_sim_std
+                    pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
                 ]).unique(subset=["feature_id"]).collect()
 
-                # Join frac_nonzero to the main metrics
-                df = df.join(frac_df, on="feature_id", how="left")
+                # Join activation metrics to the main metrics
+                df = df.join(act_df, on="feature_id", how="left")
+                logger.info(f"[_extract_metrics_from_barycentric] Joined activation metrics")
 
-            # Fill null values
+            # Fill null values for all metrics
             for metric in self.METRICS:
                 if metric in df.columns:
                     df = df.with_columns(pl.col(metric).fill_null(0.0))
@@ -626,7 +642,7 @@ class SimilaritySortService:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 6 metrics
+            DataFrame with feature_id and all 12 metrics
         """
         try:
             logger.info(f"[_extract_metrics_legacy] Starting extraction for {len(feature_ids)} features")
@@ -657,9 +673,14 @@ class SimilaritySortService:
                     pl.col("score_detection").fill_null(0.0).alias("score_detection"),
                     # Explanation semantic similarity (semsim_mean)
                     pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
-                    # Neuronpedia: fraction of non-zero activations
+                    # Neuronpedia: fraction of non-zero activations (will be log-transformed later)
                     pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
                 ]).unique(subset=["feature_id"]).collect()
+
+                # Compute log_frac_nonzero
+                base_df = base_df.with_columns([
+                    (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
+                ])
 
                 logger.info(f"[_extract_metrics_legacy] Main dataframe metrics extracted: {len(base_df)} features")
             except Exception as agg_error:
@@ -682,7 +703,7 @@ class SimilaritySortService:
                 result_df = result_df.join(activation_df, on="feature_id", how="left")
                 logger.info("[_extract_metrics_legacy] Joined activation metrics")
 
-            # Fill nulls with 0 for missing metrics
+            # Fill nulls with 0 for missing metrics (including std metrics that may not exist in legacy)
             for metric in self.METRICS:
                 if metric not in result_df.columns:
                     result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
@@ -702,16 +723,18 @@ class SimilaritySortService:
 
     async def _extract_activation_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract intra-feature activation metrics.
+        Extract intra-feature activation metrics for new 12-metric configuration.
 
-        Computes composite intra_feature_sim = max(char_ngram, word_ngram, semantic)
-        for uniformity with Stage 3 (Cause) classification.
+        Extracts:
+        - intra_ngram_jaccard: max(char_ngram, word_ngram) - lexical consistency
+        - intra_semantic_sim: semantic_similarity - semantic consistency
+        - intra_semantic_sim_std: semantic_similarity_std - variability
 
         Args:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id, intra_feature_sim
+            DataFrame with feature_id and activation-level metrics
         """
         try:
             # Try optimized activation_display file first
@@ -720,14 +743,18 @@ class SimilaritySortService:
                     pl.col("feature_id").is_in(feature_ids)
                 ).collect()
 
-                # Compute composite intra_feature_sim = max(char, word, semantic)
+                # Extract split activation metrics
                 df = df.select([
                     "feature_id",
+                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
                     pl.max_horizontal(
                         "char_ngram_max_jaccard",
-                        "word_ngram_max_jaccard",
-                        "semantic_similarity"
-                    ).fill_null(0.0).alias("intra_feature_sim")
+                        "word_ngram_max_jaccard"
+                    ).fill_null(0.0).alias("intra_ngram_jaccard"),
+                    # intra_semantic_sim (activation-level semantic similarity)
+                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
+                    # intra_semantic_sim_std
+                    pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
                 ]).unique(subset=["feature_id"])
 
                 logger.info(f"Extracted activation metrics from optimized file for {len(df)} features")
@@ -741,11 +768,15 @@ class SimilaritySortService:
 
                 df = df.select([
                     "feature_id",
+                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
                     pl.max_horizontal(
                         "char_ngram_max_jaccard",
-                        "word_ngram_max_jaccard",
-                        "semantic_similarity"
-                    ).fill_null(0.0).alias("intra_feature_sim")
+                        "word_ngram_max_jaccard"
+                    ).fill_null(0.0).alias("intra_ngram_jaccard"),
+                    # intra_semantic_sim (activation-level semantic similarity)
+                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
+                    # intra_semantic_sim_std - may not exist in legacy, fill with 0
+                    pl.lit(0.0).alias("intra_semantic_sim_std"),
                 ]).unique(subset=["feature_id"])
 
                 logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
@@ -807,9 +838,16 @@ class SimilaritySortService:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model (key: {cache_key[:8]}...)")
         else:
-            # Extract training vectors and weights
-            selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
-            rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
+            # Extract training vectors and weights - single pass with set lookups
+            selected_set = set(selected_ids)
+            rejected_set = set(rejected_ids)
+            selected_indices = []
+            rejected_indices = []
+            for i, fid in enumerate(feature_ids):
+                if fid in selected_set:
+                    selected_indices.append(i)
+                elif fid in rejected_set:
+                    rejected_indices.append(i)
 
             if not selected_indices or not rejected_indices:
                 logger.warning("Insufficient training data for SVM (need both selected and rejected)")
@@ -909,8 +947,16 @@ class SimilaritySortService:
 
             # Still need training data for committee if requested
             if train_committee:
-                selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
-                rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
+                # Single pass with set lookups
+                selected_set = set(selected_ids)
+                rejected_set = set(rejected_ids)
+                selected_indices = []
+                rejected_indices = []
+                for i, fid in enumerate(feature_ids):
+                    if fid in selected_set:
+                        selected_indices.append(i)
+                    elif fid in rejected_set:
+                        rejected_indices.append(i)
                 if selected_indices and rejected_indices:
                     selected_vectors = metrics_matrix[selected_indices]
                     rejected_vectors = metrics_matrix[rejected_indices]
@@ -920,9 +966,16 @@ class SimilaritySortService:
                     rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
                     sample_weights = np.concatenate([selected_weights, rejected_weights])
         else:
-            # Extract training vectors and weights
-            selected_indices = [i for i, fid in enumerate(feature_ids) if fid in selected_ids]
-            rejected_indices = [i for i, fid in enumerate(feature_ids) if fid in rejected_ids]
+            # Extract training vectors and weights - single pass with set lookups
+            selected_set = set(selected_ids)
+            rejected_set = set(rejected_ids)
+            selected_indices = []
+            rejected_indices = []
+            for i, fid in enumerate(feature_ids):
+                if fid in selected_set:
+                    selected_indices.append(i)
+                elif fid in rejected_set:
+                    rejected_indices.append(i)
 
             if not selected_indices or not rejected_indices:
                 logger.warning("Insufficient training data for SVM histogram")

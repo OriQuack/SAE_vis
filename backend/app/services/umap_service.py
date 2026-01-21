@@ -12,7 +12,7 @@ from typing import List, Dict, Optional, TYPE_CHECKING
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
-from .committee_service import CommitteeService, MulticlassCommitteePrediction
+from .committee_service import CommitteeService
 from ..models.umap import (
     UmapProjectionRequest,
     UmapProjectionResponse,
@@ -43,16 +43,20 @@ CAUSE_CATEGORIES = [
 CLICK_WEIGHT = 1.0
 THRESHOLD_WEIGHT = 0.2
 
-# Metrics used for SVM decision function UMAP (kept for decision function endpoint)
+# 12 metrics used for SVM decision function UMAP
+# Same as Stage 2 (Quality) for uniformity - splits composite intra_feature_sim into components
 METRICS_FOR_SVM = [
-    # Mean metrics (6)
-    'intra_feature_sim',
-    'score_embedding',
-    'score_fuzz',
-    'score_detection',
-    'explanation_semantic_sim',
-    'frac_nonzero',
-    # Std metrics - scores only (3) - captures cross-explainer disagreement
+    # Mean metrics (7)
+    'intra_ngram_jaccard',       # Activation-level: max(char_ngram, word_ngram) - lexical consistency
+    'intra_semantic_sim',        # Activation-level: semantic_similarity - semantic consistency
+    'score_embedding',           # Score: embedding-based scoring
+    'score_fuzz',                # Score: fuzzy matching score
+    'score_detection',           # Score: detection score
+    'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations
+    'log_frac_nonzero',          # Neuronpedia: log(frac_nonzero + 1e-8) - sparse activation handling
+    # Std metrics (5) - captures cross-explainer disagreement and activation variability
+    'intra_semantic_sim_std',    # Activation-level: semantic consistency std (variability within feature)
+    'explanation_semantic_sim_std',  # Explanation-level: cross-explainer semantic disagreement
     'score_embedding_std',
     'score_fuzz_std',
     'score_detection_std',
@@ -115,11 +119,22 @@ class UMAPService:
             .alias("avg_score")
         ])
 
-        # Group by feature_id to find best explainer and collect all positions
+        # Group by feature_id using partition_by for O(N) single-pass grouping
         points = []
-        for fid in df["feature_id"].unique().to_list():
-            feature_rows = df.filter(pl.col("feature_id") == fid)
+        partitions = df.partition_by("feature_id", as_dict=True)
 
+        # Get column indices for tuple-based iter_rows (2-3x faster than named=True)
+        col_names = df.columns
+        exp_col = col_names.index("llm_explainer")
+        px_col = col_names.index("position_x")
+        py_col = col_names.index("position_y")
+        anchor_col = col_names.index("nearest_anchor")
+        emb_col = col_names.index("score_embedding")
+        fuzz_col = col_names.index("score_fuzz")
+        det_col = col_names.index("score_detection")
+        avg_col = col_names.index("avg_score")
+
+        for fid, feature_rows in partitions.items():
             # Find best explainer (highest avg_score)
             best_idx = feature_rows["avg_score"].arg_max()
             best_row = feature_rows.row(best_idx, named=True)
@@ -128,28 +143,31 @@ class UMAPService:
             best_x = float(best_row["position_x"])
             best_y = float(best_row["position_y"])
             best_anchor = best_row["nearest_anchor"]
+            best_explainer = best_row["llm_explainer"]
 
             # Get cluster_id (same for all explainers of a feature)
             cluster_id = int(feature_rows["cluster_id"][0])
 
-            # Collect all explainer positions with scores
+            # Collect all explainer positions with scores using tuple-based iteration
             explainer_positions = []
-            for row in feature_rows.iter_rows(named=True):
-                is_best = row["llm_explainer"] == best_row["llm_explainer"]
+            for row in feature_rows.iter_rows():
+                is_best = row[exp_col] == best_explainer
                 explainer_positions.append(ExplainerPosition(
-                    explainer=row["llm_explainer"],
-                    x=float(row["position_x"]),
-                    y=float(row["position_y"]),
-                    nearest_anchor=row["nearest_anchor"],
-                    score_embedding=float(row["score_embedding"]) if row["score_embedding"] is not None else None,
-                    score_fuzz=float(row["score_fuzz"]) if row["score_fuzz"] is not None else None,
-                    score_detection=float(row["score_detection"]) if row["score_detection"] is not None else None,
-                    avg_score=float(row["avg_score"]) if row["avg_score"] is not None else None,
+                    explainer=row[exp_col],
+                    x=float(row[px_col]),
+                    y=float(row[py_col]),
+                    nearest_anchor=row[anchor_col],
+                    score_embedding=float(row[emb_col]) if row[emb_col] is not None else None,
+                    score_fuzz=float(row[fuzz_col]) if row[fuzz_col] is not None else None,
+                    score_detection=float(row[det_col]) if row[det_col] is not None else None,
+                    avg_score=float(row[avg_col]) if row[avg_col] is not None else None,
                     is_best=is_best
                 ))
 
+            # fid from partition_by is a tuple, extract the actual feature_id
+            actual_fid = fid[0] if isinstance(fid, tuple) else fid
             points.append(UmapPoint(
-                feature_id=int(fid),
+                feature_id=int(actual_fid),
                 x=best_x,
                 y=best_y,
                 cluster_id=cluster_id,
@@ -456,56 +474,68 @@ class UMAPService:
         """Extract MEAN metrics per feature from barycentric parquet for SVM training.
 
         Computes mean across 3 explainers for each feature.
-        Also loads frac_nonzero from features.parquet (per-feature, not per-explainer).
+        Also joins activation-level metrics from activation_display.parquet.
 
         Args:
             feature_ids: List of feature IDs
 
         Returns:
-            DataFrame with feature_id and mean metrics (including frac_nonzero)
+            DataFrame with feature_id and all 12 metrics
         """
         try:
             if self.data_service._barycentric_lazy is None:
                 logger.error("Barycentric data not loaded")
                 return None
 
-            # Compute mean and std across 3 explainers for each feature
+            # Compute mean and std across 3 explainers for each feature from barycentric data
             df = self.data_service._barycentric_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
             ).group_by("feature_id").agg([
-                # Mean metrics
-                pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
+                # Score metrics (mean across explainers)
                 pl.col("score_embedding").mean().alias("score_embedding"),
                 pl.col("score_fuzz").mean().alias("score_fuzz"),
                 pl.col("score_detection").mean().alias("score_detection"),
                 pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
-                # Std metrics (scores only) - captures cross-explainer disagreement
-                pl.col("score_embedding").std().alias("score_embedding_std"),
-                pl.col("score_fuzz").std().alias("score_fuzz_std"),
-                pl.col("score_detection").std().alias("score_detection_std"),
+                pl.col("frac_nonzero").mean().alias("frac_nonzero"),
+                # Std metrics - captures cross-explainer disagreement
+                pl.col("explanation_semantic_sim_std").mean().alias("explanation_semantic_sim_std"),
+                pl.col("score_embedding_std").mean().alias("score_embedding_std"),
+                pl.col("score_fuzz_std").mean().alias("score_fuzz_std"),
+                pl.col("score_detection_std").mean().alias("score_detection_std"),
             ]).collect()
 
-            # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
-            if self.data_service._df_lazy is not None:
-                frac_df = self.data_service._df_lazy.filter(
+            # Compute log_frac_nonzero from frac_nonzero
+            df = df.with_columns([
+                (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
+            ])
+
+            # Load activation-level metrics from activation_display.parquet
+            if self.data_service._activation_display_lazy is not None:
+                act_df = self.data_service._activation_display_lazy.filter(
                     pl.col("feature_id").is_in(feature_ids)
                 ).select([
-                    "feature_id",
-                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero")
+                    pl.col("feature_id").cast(pl.Int64),
+                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
+                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                        .fill_null(0.0).alias("intra_ngram_jaccard"),
+                    # intra_semantic_sim (activation-level semantic similarity)
+                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
+                    # intra_semantic_sim_std
+                    pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
                 ]).unique(subset=["feature_id"]).collect()
 
-                # Join frac_nonzero to the main metrics
-                df = df.join(frac_df, on="feature_id", how="left")
-                logger.info(f"Joined frac_nonzero from features.parquet")
+                # Join activation metrics to the main metrics
+                df = df.join(act_df, on="feature_id", how="left")
+                logger.info(f"Joined activation metrics from activation_display.parquet")
 
-            # Fill null values
+            # Fill null values for all metrics
             for metric in METRICS_FOR_SVM:
                 if metric in df.columns:
                     df = df.with_columns(pl.col(metric).fill_null(0.0))
                 else:
                     df = df.with_columns(pl.lit(0.0).alias(metric))
 
-            logger.info(f"Extracted mean of {len(METRICS_FOR_SVM)} metrics for {len(df)} features from barycentric data")
+            logger.info(f"Extracted {len(METRICS_FOR_SVM)} metrics for {len(df)} features from barycentric data")
             return df
 
         except Exception as e:

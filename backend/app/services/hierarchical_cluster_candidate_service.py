@@ -313,10 +313,13 @@ class HierarchicalClusterCandidateService:
             feature_ids, threshold
         )
 
-        # Generate ALL pairwise combinations within each cluster
+        # Generate pairwise combinations within each cluster (with global cap)
+        MAX_TOTAL_PAIRS = 16384 * 2  # 32,768 pairs max to prevent memory issues
+
         pairs = []
         pair_keys = []
         cluster_details = []
+        pair_limit_reached = False
 
         for cluster_id, cluster_features in valid_clusters.items():
             sorted_features = sorted(cluster_features)
@@ -324,6 +327,8 @@ class HierarchicalClusterCandidateService:
 
             # Generate all pairs within this cluster: C(n, 2)
             for i in range(len(sorted_features)):
+                if pair_limit_reached:
+                    break
                 for j in range(i + 1, len(sorted_features)):
                     id1, id2 = sorted_features[i], sorted_features[j]
 
@@ -344,11 +349,22 @@ class HierarchicalClusterCandidateService:
                     pair_keys.append(pair_key)
                     cluster_pairs.append(pair_key)
 
+                    # Check global pair limit
+                    if len(pairs) >= MAX_TOTAL_PAIRS:
+                        pair_limit_reached = True
+                        logger.warning(
+                            f"Pair limit reached ({MAX_TOTAL_PAIRS}), stopping pair generation"
+                        )
+                        break
+
             cluster_details.append({
                 "cluster_id": cluster_id,
                 "feature_ids": sorted_features,
                 "pair_count": len(cluster_pairs)
             })
+
+            if pair_limit_reached:
+                break
 
         total_pairs = len(pairs)
         logger.info(
@@ -357,11 +373,12 @@ class HierarchicalClusterCandidateService:
         )
 
         return {
-            "pairs": pairs,                          # NEW: Full pair objects for frontend
+            "pairs": pairs,                          # Full pair objects for frontend
             "pair_keys": pair_keys,                  # For backward compatibility (histogram)
             "clusters": cluster_details,
             "feature_to_cluster": feature_to_cluster,
             "total_clusters": total_clusters,
             "total_pairs": total_pairs,
-            "threshold_used": threshold
+            "threshold_used": threshold,
+            "truncated": pair_limit_reached          # True if pair limit was reached
         }

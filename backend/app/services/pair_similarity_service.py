@@ -47,14 +47,13 @@ THRESHOLD_WEIGHT = 0.2
 class PairSimilarityService:
     """Service for calculating feature pair similarity scores."""
 
-    # 4 intra-feature metrics used for PAIR SVM similarity calculation
-    # Used with A+B and |A-B| operations (8 dims total)
+    # 3 intra-feature metrics used for PAIR SVM similarity calculation
+    # Used with A+B and |A-B| operations (6 dims total)
     # Note: Pair-specific inter-feature metrics and decoder similarity are handled separately
     PAIR_METRICS = [
         'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
         'intra_semantic_sim',        # Feature-level: semantic consistency within activations (mean)
         'intra_semantic_sim_std',    # Feature-level: semantic consistency std (variability)
-        'frac_nonzero',              # Neuronpedia: fraction of non-zero activations
     ]
 
     def __init__(
@@ -90,9 +89,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 11-dimensional:
-        - 4 dims: A + B (combined intra-feature properties)
-        - 4 dims: |A - B| (intra-feature dissimilarity)
+        Pair vectors are 9-dimensional:
+        - 3 dims: A + B (combined intra-feature properties)
+        - 3 dims: |A - B| (intra-feature dissimilarity)
         - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
         - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
         - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
@@ -407,13 +406,12 @@ class PairSimilarityService:
 
     async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract the 4 PAIR_METRICS (intra-feature) for pair SVM calculations.
+        Extract the 3 PAIR_METRICS (intra-feature) for pair SVM calculations.
 
         Uses in-memory caching to avoid repeated queries.
 
         Metrics extracted:
         - From activation_display: intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
-        - From features.parquet: frac_nonzero
 
         Note: Inter-feature metrics (inter_ngram_jaccard, inter_semantic_sim) are now
         extracted at the pair level via _extract_pair_specific_interfeature_metrics().
@@ -422,7 +420,7 @@ class PairSimilarityService:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and 4 intra-feature metrics
+            DataFrame with feature_id and 3 intra-feature metrics
         """
         # Check cache first
         cache_key = self._get_metrics_cache_key(feature_ids)
@@ -440,12 +438,9 @@ class PairSimilarityService:
                 logger.error("Main dataframe not initialized")
                 return None
 
-            # Filter to requested features and get unique feature IDs + frac_nonzero
+            # Filter to requested features and get unique feature IDs
             lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
-            base_df = lf.select([
-                "feature_id",
-                pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
-            ]).unique(subset=["feature_id"]).collect()
+            base_df = lf.select(["feature_id"]).unique(subset=["feature_id"]).collect()
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
             logger.info(f"[_extract_pair_feature_metrics] Base features: {len(base_df)}")
@@ -469,7 +464,7 @@ class PairSimilarityService:
                         pl.col(metric).fill_null(0.0)
                     )
 
-            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with 4 intra-feature metrics")
+            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with 3 intra-feature metrics")
 
             # Cache result for subsequent calls with same features
             if len(self._metrics_cache) >= self._max_metrics_cache_size:
@@ -616,10 +611,15 @@ class PairSimilarityService:
 
         # Build lookup dictionary once (instead of filtering repeatedly)
         # Maps: feature_id -> {similar_feature_id -> cosine_similarity}
+        # Use iter_rows() (tuple) instead of iter_rows(named=True) for performance
+        col_names = df.columns
+        fid_col_idx = col_names.index("feature_id")
+        dec_sim_col_idx = col_names.index("decoder_similarity")
+
         feature_to_sims = {}
-        for row in df.iter_rows(named=True):
-            feature_id = row["feature_id"]
-            decoder_sims = row["decoder_similarity"]
+        for row in df.iter_rows():
+            feature_id = row[fid_col_idx]
+            decoder_sims = row[dec_sim_col_idx]
             if isinstance(decoder_sims, list):
                 # Build a dict: similar_feature_id -> cosine_similarity
                 feature_to_sims[feature_id] = {
@@ -682,16 +682,21 @@ class PairSimilarityService:
             return {}
 
         # Build lookup: feature_id -> {similar_feature_id -> (char_jaccard, word_jaccard, semantic_sim)}
+        # Use iter_rows() (tuple) instead of iter_rows(named=True) for performance
+        col_names = df.columns
+        fid_col_idx = col_names.index("feature_id")
+        all_pairs_col_idx = col_names.index("all_pairs")
+
         feature_to_pairs: Dict[int, Dict[int, Tuple[float, float, float]]] = {}
-        for row in df.iter_rows(named=True):
-            fid = row["feature_id"]
-            all_pairs = row.get("all_pairs")
+        for row in df.iter_rows():
+            fid = row[fid_col_idx]
+            all_pairs = row[all_pairs_col_idx]
             if all_pairs:
                 feature_to_pairs[fid] = {
                     p["similar_feature_id"]: (
-                        p.get("char_jaccard", 0.0),
-                        p.get("word_jaccard", 0.0),
-                        p.get("semantic_similarity", 0.0)
+                        p.get("char_jaccard", 0.0) or 0.0,
+                        p.get("word_jaccard", 0.0) or 0.0,
+                        p.get("semantic_similarity", 0.0) or 0.0
                     )
                     for p in all_pairs
                     if isinstance(p, dict) and "similar_feature_id" in p
@@ -748,9 +753,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for all pairs using SVM.
 
-        11-dim pair vector:
-        - [A+B (4)] intra-feature sum
-        - [|A-B| (4)] intra-feature difference
+        9-dim pair vector:
+        - [A+B (3)] intra-feature sum
+        - [|A-B| (3)] intra-feature difference
         - [inter_ngram(A,B)] pair-specific lexical similarity
         - [inter_semantic(A,B)] pair-specific semantic similarity
         - [decoder_sim(A,B)] pair-specific decoder similarity
@@ -761,7 +766,7 @@ class PairSimilarityService:
         - Batch SVM scoring
 
         Args:
-            metrics_df: DataFrame with 4 intra-feature metrics for all features
+            metrics_df: DataFrame with 3 intra-feature metrics for all features
             pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
             pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
             selected_items: Weighted pair items marked as selected (✓)
@@ -782,7 +787,7 @@ class PairSimilarityService:
         for item in rejected_items:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
 
-        # Convert to numpy for SVM - use PAIR_METRICS (4 intra-feature metrics) for pairs
+        # Convert to numpy for SVM - use PAIR_METRICS (3 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
@@ -791,18 +796,23 @@ class PairSimilarityService:
         # Build index lookup once - O(n) total instead of O(n) per pair
         fid_to_idx = {int(fid): i for i, fid in enumerate(feature_ids)}
 
-        # Prepare arrays for vectorized construction
+        # Prepare arrays for vectorized construction (pre-allocate all arrays)
         n_pairs = len(pair_ids)
         main_indices = np.empty(n_pairs, dtype=np.int32)
         similar_indices = np.empty(n_pairs, dtype=np.int32)
         valid_mask = np.ones(n_pairs, dtype=bool)
-        pair_key_list = []
+        pair_key_list = [""] * n_pairs  # Pre-allocate list
+        inter_ngrams = np.empty(n_pairs, dtype=np.float64)
+        inter_semantics = np.empty(n_pairs, dtype=np.float64)
+        decoder_sims = np.empty(n_pairs, dtype=np.float64)
 
+        # Single loop: build indices, pair keys, and extract metrics
         for i, (main_id, similar_id) in enumerate(pair_ids):
-            # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
+            # Canonical key (smaller ID first)
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
-            pair_key_list.append(pair_key)
+            pair_key_list[i] = pair_key
 
+            # Index lookups
             main_idx = fid_to_idx.get(main_id)
             similar_idx = fid_to_idx.get(similar_id)
 
@@ -814,28 +824,27 @@ class PairSimilarityService:
                 main_indices[i] = main_idx
                 similar_indices[i] = similar_idx
 
+            # Extract inter-feature and decoder metrics in same loop
+            inter_data = pair_inter_metrics.get(pair_key, (0.0, 0.0))
+            inter_ngrams[i] = inter_data[0]
+            inter_semantics[i] = inter_data[1]
+            decoder_sims[i] = pair_metrics.get(pair_key, 0.0)
+
         # Log missing pairs
         n_invalid = np.sum(~valid_mask)
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs")
 
-        # Vectorized metric extraction for all pairs (4 intra-feature metrics)
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
+        # Vectorized metric extraction for all pairs (3 intra-feature metrics)
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 3)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 3)
 
         # Vectorized pair vector construction for intra-feature metrics
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 3)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 3)
 
-        # Get pair-specific inter-feature metrics
-        inter_ngrams = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[0] for pk in pair_key_list])
-        inter_semantics = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[1] for pk in pair_key_list])
-
-        # Get decoder similarities
-        decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
-
-        # Concatenate: (n_pairs, 11)
-        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        # Concatenate: (n_pairs, 9)
+        # [A+B (3)] + [|A-B| (3)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
         all_pair_vectors = np.hstack([
             pair_sum,
             pair_diff,
@@ -906,21 +915,20 @@ class PairSimilarityService:
             logger.info(f"Pair SVM model cached (key: {cache_key[:8]}...)")
 
         # Batch score all pairs (excluding selected and rejected)
-        selected_set = set(selected_pair_keys)
-        rejected_set = set(rejected_pair_keys)
+        # Use numpy boolean indexing instead of loop with append
+        excluded_set = set(selected_pair_keys) | set(rejected_pair_keys)
+        pair_key_arr = np.array(pair_key_list, dtype=object)
 
-        valid_pairs = []
-        valid_vector_indices = []
-        for i, pair_key in enumerate(pair_key_list):
-            if not valid_mask[i]:
-                continue
-            if pair_key in selected_set or pair_key in rejected_set:
-                continue
-            valid_pairs.append(pair_key)
-            valid_vector_indices.append(i)
+        # Build combined mask: valid AND not in excluded set
+        not_excluded_mask = np.array([pk not in excluded_set for pk in pair_key_list], dtype=bool)
+        combined_mask = valid_mask & not_excluded_mask
+
+        # Use boolean indexing
+        valid_vector_indices = np.where(combined_mask)[0]
+        valid_pairs = pair_key_arr[combined_mask].tolist()
 
         pair_scores = []
-        if valid_pairs:
+        if len(valid_pairs) > 0:
             valid_vectors = all_pair_vectors[valid_vector_indices]
             scores = self._score_with_svm(model, scaler, valid_vectors)
             pair_scores = [
@@ -946,9 +954,9 @@ class PairSimilarityService:
         This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
         For histogram visualization, we need scores for everything.
 
-        11-dim pair vector:
-        - [A+B (4)] intra-feature sum
-        - [|A-B| (4)] intra-feature difference
+        9-dim pair vector:
+        - [A+B (3)] intra-feature sum
+        - [|A-B| (3)] intra-feature difference
         - [inter_ngram(A,B)] pair-specific lexical similarity
         - [inter_semantic(A,B)] pair-specific semantic similarity
         - [decoder_sim(A,B)] pair-specific decoder similarity
@@ -959,7 +967,7 @@ class PairSimilarityService:
         - Batch SVM scoring
 
         Args:
-            metrics_df: DataFrame with 4 intra-feature metrics for all features
+            metrics_df: DataFrame with 3 intra-feature metrics for all features
             pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
             pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
             selected_items: Weighted pair items marked as selected (✓)
@@ -983,7 +991,7 @@ class PairSimilarityService:
         for item in rejected_items:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
 
-        # Convert to numpy for SVM - use PAIR_METRICS (4 intra-feature metrics) for pairs
+        # Convert to numpy for SVM - use PAIR_METRICS (3 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
@@ -992,18 +1000,23 @@ class PairSimilarityService:
         # Build index lookup once - O(n) total instead of O(n) per pair
         fid_to_idx = {int(fid): i for i, fid in enumerate(feature_ids)}
 
-        # Prepare arrays for vectorized construction
+        # Prepare arrays for vectorized construction (pre-allocate all arrays)
         n_pairs = len(pair_ids)
         main_indices = np.empty(n_pairs, dtype=np.int32)
         similar_indices = np.empty(n_pairs, dtype=np.int32)
         valid_mask = np.ones(n_pairs, dtype=bool)
-        pair_key_list = []
+        pair_key_list = [""] * n_pairs  # Pre-allocate list
+        inter_ngrams = np.empty(n_pairs, dtype=np.float64)
+        inter_semantics = np.empty(n_pairs, dtype=np.float64)
+        decoder_sims = np.empty(n_pairs, dtype=np.float64)
 
+        # Single loop: build indices, pair keys, and extract metrics
         for i, (main_id, similar_id) in enumerate(pair_ids):
-            # IMPORTANT: Use canonical key (smaller ID first) to match pair_metrics
+            # Canonical key (smaller ID first)
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
-            pair_key_list.append(pair_key)
+            pair_key_list[i] = pair_key
 
+            # Index lookups
             main_idx = fid_to_idx.get(main_id)
             similar_idx = fid_to_idx.get(similar_id)
 
@@ -1015,28 +1028,27 @@ class PairSimilarityService:
                 main_indices[i] = main_idx
                 similar_indices[i] = similar_idx
 
+            # Extract inter-feature and decoder metrics in same loop
+            inter_data = pair_inter_metrics.get(pair_key, (0.0, 0.0))
+            inter_ngrams[i] = inter_data[0]
+            inter_semantics[i] = inter_data[1]
+            decoder_sims[i] = pair_metrics.get(pair_key, 0.0)
+
         # Log missing pairs
         n_invalid = np.sum(~valid_mask)
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs (histogram)")
 
-        # Vectorized metric extraction for all pairs (4 intra-feature metrics)
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
+        # Vectorized metric extraction for all pairs (3 intra-feature metrics)
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 3)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 3)
 
         # Vectorized pair vector construction for intra-feature metrics
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 3)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 3)
 
-        # Get pair-specific inter-feature metrics
-        inter_ngrams = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[0] for pk in pair_key_list])
-        inter_semantics = np.array([pair_inter_metrics.get(pk, (0.0, 0.0))[1] for pk in pair_key_list])
-
-        # Get decoder similarities
-        decoder_sims = np.array([pair_metrics.get(pk, 0.0) for pk in pair_key_list])
-
-        # Concatenate: (n_pairs, 11)
-        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        # Concatenate: (n_pairs, 9)
+        # [A+B (3)] + [|A-B| (3)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
         all_pair_vectors = np.hstack([
             pair_sum,
             pair_diff,
@@ -1100,16 +1112,14 @@ class PairSimilarityService:
             self._svm_cache[cache_key] = (model, scaler)
 
         # Batch score ALL pairs (including selected and rejected for histogram)
-        valid_pairs = []
-        valid_vector_indices = []
-        for i, pair_key in enumerate(pair_key_list):
-            if valid_mask[i]:
-                valid_pairs.append(pair_key)
-                valid_vector_indices.append(i)
+        # Use numpy boolean indexing instead of loop with append
+        pair_key_arr = np.array(pair_key_list, dtype=object)
+        valid_vector_indices = np.where(valid_mask)[0]
+        valid_pairs = pair_key_arr[valid_mask].tolist()
 
         pair_scores = []
         scores = np.array([])
-        if valid_pairs:
+        if len(valid_pairs) > 0:
             valid_vectors = all_pair_vectors[valid_vector_indices]
             scores = self._score_with_svm(model, scaler, valid_vectors)
             pair_scores = [
