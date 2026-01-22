@@ -1,0 +1,250 @@
+# SAE Preprocessing Pipeline - Master Configuration
+#
+# This file consolidates all settings for the preprocessing pipeline.
+# Run with: python data/pipeline/run.py
+#
+# Variables can use ${path.key} syntax for interpolation.
+
+# Global settings shared across all steps
+global:
+  # SAE model identifier
+  sae_id: "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+  sae_id_sanitized: "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120"
+
+  # Base paths (relative to project root)
+  paths:
+    input: "data/input"
+    intermediate: "data/intermediate"
+    output: "data/output"
+    master: "data/master"  # Legacy path for transition
+    feature_similarity: "data/feature_similarity"
+    scores: "data/scores"
+
+  # Common processing parameters (truly global)
+  processing:
+    num_features: 16384
+    feature_range:
+      start: 0
+      end: 16384
+
+    # Embedding model settings (used by multiple steps)
+    embedding:
+      model: "google/embeddinggemma-300m"
+      dimension: 768
+      device: "cuda"
+      batch_size: 256
+
+  # Data sources (LLM explainers)
+  data_sources:
+    - "llama_e-llama_s-16k-v2"
+    - "gemini_e-llama_s-16k-v2"
+    - "openai_e-llama_s-16k-v2"
+
+  # Explainer name mapping
+  llm_explainer_mapping:
+    llama_e: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
+    gemini_e: "google/gemini-flash-2.5"
+    openai_e: "openai/gpt-4o-mini"
+
+# Step-specific configurations
+steps:
+  # Step 1: Create activation examples parquet
+  step_01_activations:
+    enabled: true
+    inputs:
+      activations: "${input}/activation_examples/activations.jsonl"
+      prompts: "${input}/activation_examples/prompts.json"
+    outputs:
+      main: "${intermediate}/activation_examples.parquet"
+    parameters:
+      log_missing_features: true
+      batch_log_interval: 50000
+
+  # Step 2: Compute decoder weight similarities
+  step_02_decoder_similarity:
+    enabled: true
+    inputs:
+      model: "google/gemma-scope-9b-pt-res"
+      position: "layer_30/width_16k/average_l0_120"
+    outputs:
+      similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+    parameters:
+      device: "auto"
+      use_float16: false
+      memory_warning_threshold_gb: 2.0
+
+  # Step 3: Process raw scoring metrics
+  step_03_scores:
+    enabled: true
+    inputs:
+      raw_dir: "${input}"
+      data_sources: "${global.data_sources}"
+    outputs:
+      main: "${intermediate}/aggregated_scores.parquet"
+    parameters:
+      scoring_methods:
+        - fuzz
+        - detection
+        - embedding
+
+  # Step 4: Generate explanation embeddings
+  step_04_explanation_embeddings:
+    enabled: true
+    inputs:
+      raw_dir: "${input}"
+      data_sources: "${global.data_sources}"
+    outputs:
+      main: "${intermediate}/explanation_embeddings.parquet"
+    parameters:
+      file_pattern: "layers.30_latent*.txt"
+
+  # Step 5: Feature clustering (agglomerative)
+  step_05_clustering:
+    enabled: true
+    inputs:
+      similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+    outputs:
+      linkage_matrix: "${output}/clustering_linkage.npy"
+    parameters:
+      linkage_method: "average"
+
+  # Step 6: Create main features parquet
+  step_06_features:
+    enabled: true
+    inputs:
+      explanation_embeddings: "${intermediate}/explanation_embeddings.parquet"
+      aggregated_scores: "${intermediate}/aggregated_scores.parquet"
+      decoder_similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+      clustering_linkage: "${output}/clustering_linkage.npy"
+      frac_nonzero: "${input}/neuronpedia_frac_nonzero/frac_nonzero.json"
+    outputs:
+      main: "${output}/features.parquet"
+    parameters:
+      top_k_decoder_sim: 10  # Number of top decoder similarity values per feature
+
+  # Step 7: Pre-compute activation embeddings
+  step_07_activation_embeddings:
+    enabled: true
+    inputs:
+      activation_examples: "${intermediate}/activation_examples.parquet"
+    outputs:
+      main: "${intermediate}/activation_embeddings.parquet"
+    parameters:
+      pooling_mode: "weighted"
+      pooling_temperature: 50.0
+      sentence_transformer_model: "google/embeddinggemma-300m"
+      # Quantile sampling
+      num_quantiles: 4
+      examples_per_quantile: 4
+      target_examples_per_feature: 16
+      # Window size
+      embedding_window_size: 32
+
+  # Step 8: Calculate activation similarity metrics
+  step_08_activation_similarity:
+    enabled: true
+    inputs:
+      activation_examples: "${intermediate}/activation_examples.parquet"
+      activation_embeddings: "${intermediate}/activation_embeddings.parquet"
+    outputs:
+      main: "${intermediate}/activation_example_similarity.parquet"
+    parameters:
+      # Window sizes
+      embedding_window_size: 32
+      char_ngram_window_size: 3
+      word_ngram_window_size: 11
+      # N-gram settings
+      char_ngram_sizes: [2, 3, 4, 5]
+      word_ngram_sizes: [1, 2, 3]
+
+  # Step 9: Inter-feature activation similarity
+  step_09_interfeature_similarity:
+    enabled: true
+    inputs:
+      activation_examples: "${intermediate}/activation_examples.parquet"
+      activation_embeddings: "${intermediate}/activation_embeddings.parquet"
+      decoder_similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+    outputs:
+      main: "${intermediate}/interfeature_similarity.parquet"
+    parameters:
+      top_n_decoder_similar: 10
+      top_n_semantic_similar: 20
+      # Window sizes
+      embedding_window_size: 32
+      char_ngram_window_size: 3
+      word_ngram_window_size: 11
+      # N-gram settings
+      char_ngram_sizes: [2, 3, 4, 5]
+      word_ngram_sizes: [1, 2, 3]
+
+  # Step 10: Create activation display (frontend-optimized)
+  step_10_activation_display:
+    enabled: true
+    inputs:
+      activation_examples: "${intermediate}/activation_examples.parquet"
+      activation_similarity: "${intermediate}/activation_example_similarity.parquet"
+    outputs:
+      main: "${output}/activation_display.parquet"
+    parameters:
+      semantic_threshold: 0.6
+      lexical_threshold: 0.3
+
+  # Step 11: Process interfeature display data
+  step_11_interfeature_display:
+    enabled: true
+    inputs:
+      raw_similarity: "${intermediate}/interfeature_similarity.parquet"
+    outputs:
+      main: "${output}/interfeature_similarity.parquet"
+    parameters:
+      # Similarity thresholds for pattern classification
+      semantic_threshold: 0.6
+      lexical_threshold: 0.3
+
+  # Step 12: Explanation alignment (phrase matching)
+  step_12_explanation_alignment:
+    enabled: true
+    inputs:
+      features: "${output}/features.parquet"
+    outputs:
+      main: "${output}/explanation_alignment.parquet"
+    parameters: {}
+
+  # Step 13: Pre-aggregate SVM metrics for feature and pair classification
+  step_13_svm_metrics:
+    enabled: true
+    inputs:
+      features: "${output}/features.parquet"
+      activation_display: "${output}/activation_display.parquet"
+      interfeature_similarity: "${output}/interfeature_similarity.parquet"
+    outputs:
+      feature_metrics: "${output}/svm_feature_metrics.parquet"
+      pair_metrics: "${output}/svm_pair_metrics.parquet"
+    parameters: {}  # No parameters needed - simple aggregation
+
+# Dependency graph - defines execution order
+# Format: step_name: [list of dependencies]
+dependencies:
+  step_01_activations: []
+  step_02_decoder_similarity: []
+  step_03_scores: []
+  step_04_explanation_embeddings: []
+  step_05_clustering: [step_02_decoder_similarity]
+  step_06_features: [step_03_scores, step_04_explanation_embeddings, step_05_clustering]
+  step_07_activation_embeddings: [step_01_activations]
+  step_08_activation_similarity: [step_01_activations, step_07_activation_embeddings]
+  step_09_interfeature_similarity: [step_02_decoder_similarity, step_07_activation_embeddings]
+  step_10_activation_display: [step_01_activations, step_08_activation_similarity]
+  step_11_interfeature_display: [step_09_interfeature_similarity]
+  step_12_explanation_alignment: [step_06_features]
+  step_13_svm_metrics: [step_06_features, step_10_activation_display, step_11_interfeature_display]
+
+# Output files required by backend (for verification)
+backend_required:
+  - features.parquet
+  - activation_display.parquet
+  - interfeature_similarity.parquet
+  - svm_feature_metrics.parquet
+  - svm_pair_metrics.parquet
+  - explanation_alignment.parquet
+  - clustering_linkage.npy

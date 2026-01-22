@@ -12,7 +12,7 @@ import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/co
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
-import type { CauseCategory } from '../lib/umap-utils'
+import type { CauseCategory } from '../lib/cause-visualization-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useListNavigation, useMainListScroll } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import {
@@ -96,7 +96,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const causeFlipTracking = useVisualizationStore(state => state.causeFlipTracking)
   const causeCommitteeVotes = useVisualizationStore(state => state.causeCommitteeVotes)
-  const umapLoading = useVisualizationStore(state => state.umapLoading)
   const isDraggingThreshold = useVisualizationStore(state => state.isDraggingThreshold)
 
   // Stage navigation
@@ -1242,21 +1241,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   // ============================================================================
   // RENDER
   // ============================================================================
-
-  // Block UI ONLY for initial UMAP data load
-  // SVM classification only runs after user provides manual tags, so don't wait for it
-  const isInitialLoad = umapLoading
-
-  if (isInitialLoad) {
-    return (
-      <div className={`cause-view cause-view--loading ${className}`}>
-        <div className="cause-view__loading-overlay">
-          <div className="spinner" />
-          <span>{umapLoading ? 'Loading UMAP projection...' : 'Initializing cause analysis...'}</span>
-        </div>
-      </div>
-    )
-  }
 
   return (
     <div className={`cause-view ${className} ${causeClassificationLoading ? 'cause-view--svm-loading' : ''}`}>

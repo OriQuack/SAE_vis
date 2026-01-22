@@ -6,9 +6,10 @@ weight similarities to intelligently select diverse candidate features.
 """
 
 import numpy as np
+import polars as pl
 from scipy.cluster.hierarchy import fcluster
 from pathlib import Path
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set, Tuple
 import random
 import logging
 
@@ -36,15 +37,13 @@ class HierarchicalClusterCandidateService:
         Raises:
             FileNotFoundError: If linkage matrix file not found
         """
-        linkage_path = (
-            project_root /
-            "data/feature_similarity/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/clustering_linkage.npy"
-        )
+        # Load linkage matrix from output directory
+        linkage_path = project_root / "data" / "output" / "clustering_linkage.npy"
 
         if not linkage_path.exists():
             raise FileNotFoundError(
                 f"Linkage matrix not found at {linkage_path}. "
-                f"Please run the agglomerative clustering preprocessing script."
+                f"Please run the preprocessing pipeline."
             )
 
         logger.info(f"Loading linkage matrix from {linkage_path}")
@@ -53,29 +52,17 @@ class HierarchicalClusterCandidateService:
         # Linkage matrix has n-1 rows for n features
         self.n_features = self.linkage_matrix.shape[0] + 1
 
-        # Load feature_id to matrix_index mapping from first_merge_clustering.parquet
-        import polars as pl
-        first_merge_path = (
-            project_root /
-            "data/feature_similarity/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120/first_merge_clustering.parquet"
-        )
-        if first_merge_path.exists():
-            df = pl.read_parquet(first_merge_path)
-            # feature_ids in parquet are the actual feature IDs, indices are the matrix positions
-            self.valid_feature_ids = df["feature_id"].to_list()
-            self.feature_id_to_index = {fid: idx for idx, fid in enumerate(self.valid_feature_ids)}
-            self.index_to_feature_id = {idx: fid for idx, fid in enumerate(self.valid_feature_ids)}
-            logger.info(f"Loaded feature_id mapping: {len(self.valid_feature_ids)} features")
-            logger.info(f"Feature ID range: {min(self.valid_feature_ids)} to {max(self.valid_feature_ids)}")
-        else:
-            # Fallback: assume feature_id == matrix_index
-            self.valid_feature_ids = list(range(self.n_features))
-            self.feature_id_to_index = {i: i for i in range(self.n_features)}
-            self.index_to_feature_id = {i: i for i in range(self.n_features)}
-            logger.warning(f"First merge parquet not found, using identity mapping")
+        # Feature IDs are 0 to n_features-1, matching matrix indices (identity mapping)
+        self.valid_feature_ids = list(range(self.n_features))
+        self.feature_id_to_index = {i: i for i in range(self.n_features)}
+        self.index_to_feature_id = {i: i for i in range(self.n_features)}
 
         # Fixed random seed for deterministic cluster selection
         self.random_seed = 42
+
+        # Load interfeature similarity data for filtered pair generation
+        interfeature_path = project_root / "data" / "output" / "interfeature_similarity.parquet"
+        self._load_interfeature_data(interfeature_path)
 
         logger.info(
             f"Hierarchical cluster candidate service initialized "
@@ -381,4 +368,325 @@ class HierarchicalClusterCandidateService:
             "total_pairs": total_pairs,
             "threshold_used": threshold,
             "truncated": pair_limit_reached          # True if pair limit was reached
+        }
+
+    def _load_interfeature_data(self, path: Path) -> None:
+        """
+        Load interfeature_similarity.parquet and build lookup structures.
+
+        Builds three data structures:
+        1. pair_data: {f1: {f2: {decoder_sim, semantic_sim}}} - similarity values for all pairs
+        2. top_decoder: {f1: set(f2, f3, ...)} - top 10 decoder-similar features per feature
+        3. top_semantic: {f1: set(f2, f3, ...)} - top 20 semantic-similar features per feature
+
+        Args:
+            path: Path to interfeature_similarity.parquet file
+        """
+        if not path.exists():
+            logger.warning(
+                f"Interfeature similarity data not found at {path}. "
+                f"Filtered pair generation will not be available."
+            )
+            self.pair_data: Dict[int, Dict[int, Dict[str, Optional[float]]]] = {}
+            self.top_decoder: Dict[int, Set[int]] = {}
+            self.top_semantic: Dict[int, Set[int]] = {}
+            self._interfeature_loaded = False
+            return
+
+        logger.info(f"Loading interfeature similarity data from {path}")
+
+        df = pl.read_parquet(path)
+        logger.info(f"Loaded {len(df)} interfeature similarity rows")
+
+        # Initialize data structures
+        self.pair_data = {}
+        self.top_decoder = {}
+        self.top_semantic = {}
+
+        # Process data: group by main_feature_id for efficient processing
+        for row in df.iter_rows(named=True):
+            main_fid = row['main_feature_id']
+            similar_fid = row['similar_feature_id']
+            source_type = row['source_type']
+            decoder_sim = row['decoder_similarity_score']
+            semantic_sim = row['semantic_similarity']
+
+            # Skip rows with null values in required fields
+            if main_fid is None or similar_fid is None:
+                continue
+
+            main_fid = int(main_fid)
+            similar_fid = int(similar_fid)
+
+            # Initialize nested dicts if needed
+            if main_fid not in self.pair_data:
+                self.pair_data[main_fid] = {}
+                self.top_decoder[main_fid] = set()
+                self.top_semantic[main_fid] = set()
+
+            # Store pair similarity data
+            self.pair_data[main_fid][similar_fid] = {
+                'decoder_sim': float(decoder_sim) if decoder_sim is not None else None,
+                'semantic_sim': float(semantic_sim) if semantic_sim is not None else None
+            }
+
+            # Track top decoder features (source_type = 'decoder' or 'both')
+            if source_type in ('decoder', 'both'):
+                self.top_decoder[main_fid].add(similar_fid)
+
+            # Track top semantic features (source_type = 'semantic' or 'both')
+            if source_type in ('semantic', 'both'):
+                self.top_semantic[main_fid].add(similar_fid)
+
+        self._interfeature_loaded = True
+        logger.info(
+            f"Interfeature data loaded: {len(self.pair_data)} features with similarity data"
+        )
+
+    def _get_decoder_sim(self, f1: int, f2: int) -> Optional[float]:
+        """
+        Get decoder similarity for a pair from interfeature data.
+
+        Checks both directions since similarity is symmetric.
+
+        Args:
+            f1: First feature ID
+            f2: Second feature ID
+
+        Returns:
+            Decoder similarity value if found, None otherwise
+        """
+        if f1 in self.pair_data and f2 in self.pair_data[f1]:
+            return self.pair_data[f1][f2]['decoder_sim']
+        if f2 in self.pair_data and f1 in self.pair_data[f2]:
+            return self.pair_data[f2][f1]['decoder_sim']
+        return None
+
+    def _get_semantic_sim(self, f1: int, f2: int) -> Optional[float]:
+        """
+        Get semantic similarity for a pair from interfeature data.
+
+        Checks both directions since similarity is symmetric.
+
+        Args:
+            f1: First feature ID
+            f2: Second feature ID
+
+        Returns:
+            Semantic similarity value if found, None otherwise
+        """
+        if f1 in self.pair_data and f2 in self.pair_data[f1]:
+            return self.pair_data[f1][f2]['semantic_sim']
+        if f2 in self.pair_data and f1 in self.pair_data[f2]:
+            return self.pair_data[f2][f1]['semantic_sim']
+        return None
+
+    def _in_top_decoder(self, f1: int, f2: int) -> bool:
+        """
+        Check if f1 is in f2's top-10 decoder OR f2 is in f1's top-10 decoder.
+
+        Args:
+            f1: First feature ID
+            f2: Second feature ID
+
+        Returns:
+            True if either feature is in the other's top-10 decoder list
+        """
+        return (
+            f2 in self.top_decoder.get(f1, set()) or
+            f1 in self.top_decoder.get(f2, set())
+        )
+
+    def _in_top_semantic(self, f1: int, f2: int) -> bool:
+        """
+        Check if f1 is in f2's top-20 semantic OR f2 is in f1's top-20 semantic.
+
+        Args:
+            f1: First feature ID
+            f2: Second feature ID
+
+        Returns:
+            True if either feature is in the other's top-20 semantic list
+        """
+        return (
+            f2 in self.top_semantic.get(f1, set()) or
+            f1 in self.top_semantic.get(f2, set())
+        )
+
+    async def get_filtered_cluster_pairs(
+        self,
+        feature_ids: List[int],
+        threshold: float = 0.5
+    ) -> Dict:
+        """
+        Get cluster-based pairs filtered by decoder similarity and ranking criteria.
+
+        Algorithm:
+        For each cluster at threshold T:
+          1. Generate all pairwise combinations within cluster
+          2. Filter by Condition 1 (REQUIRED): decoder_similarity > (1 - T)
+          3. From remaining, keep those meeting Condition 2 OR 3:
+             - Condition 2: A in B's Top 20 semantic OR B in A's Top 20 semantic
+             - Condition 3: A in B's Top 10 decoder OR B in A's Top 10 decoder
+          4. Fallback (if no pairs remain after filtering):
+             - Add pair with greatest decoder_similarity (ignores Condition 1)
+             - Add pair with greatest semantic_similarity (ignores Condition 1)
+             - May be same pair (allowed)
+
+        Args:
+            feature_ids: Feature IDs to process
+            threshold: Distance threshold for cutting dendrogram (0-1)
+
+        Returns:
+            Dictionary with:
+                - pairs: List of pair objects {main_id, similar_id, pair_key, cluster_id}
+                - pair_keys: List of all pair keys for backward compatibility
+                - clusters: Cluster metadata
+                - stats: Filtering statistics
+                - feature_to_cluster: Mapping of ALL feature IDs to cluster IDs
+                - total_clusters: Total number of clusters
+                - total_pairs: Total pairs after filtering
+                - threshold_used: The threshold value used
+
+        Raises:
+            ValueError: If inputs are invalid or interfeature data not loaded
+        """
+        if not self._interfeature_loaded:
+            raise ValueError(
+                "Interfeature similarity data not loaded. "
+                "Cannot use filtered pair generation."
+            )
+
+        logger.info(
+            f"Getting filtered cluster pairs: "
+            f"n_features={len(feature_ids)}, threshold={threshold}"
+        )
+
+        # Use shared clustering logic
+        feature_to_cluster, valid_clusters, total_clusters = self._cluster_features_at_threshold(
+            feature_ids, threshold
+        )
+
+        # Similarity threshold: distance threshold T means similarity > (1 - T)
+        similarity_threshold = 1.0 - threshold
+
+        all_pairs = []
+        pair_keys = []
+        cluster_details = []
+        stats = {
+            "pairs_before_filtering": 0,
+            "pairs_after_filtering": 0,
+            "fallback_clusters": 0,
+            "clusters_processed": 0
+        }
+
+        MAX_TOTAL_PAIRS = 16384 * 2  # 32,768 pairs max
+        pair_limit_reached = False
+
+        for cluster_id, cluster_features in valid_clusters.items():
+            if pair_limit_reached:
+                break
+
+            stats["clusters_processed"] += 1
+            sorted_features = sorted(cluster_features)
+
+            # Step 1: Generate all pairs within cluster that exist in interfeature data
+            cluster_pairs: List[Tuple[int, int, Optional[float], Optional[float]]] = []
+            for i in range(len(sorted_features)):
+                for j in range(i + 1, len(sorted_features)):
+                    f1, f2 = sorted_features[i], sorted_features[j]
+
+                    # Get similarity values from interfeature data
+                    decoder_sim = self._get_decoder_sim(f1, f2)
+                    semantic_sim = self._get_semantic_sim(f1, f2)
+
+                    # Only include pairs that exist in interfeature data
+                    if decoder_sim is not None or semantic_sim is not None:
+                        cluster_pairs.append((f1, f2, decoder_sim, semantic_sim))
+
+            stats["pairs_before_filtering"] += len(cluster_pairs)
+
+            # Step 2: Filter by Condition 1 (decoder_sim > similarity_threshold)
+            passed_c1 = [
+                (f1, f2, d, s) for f1, f2, d, s in cluster_pairs
+                if d is not None and d > similarity_threshold
+            ]
+
+            # Step 3: Filter by Condition 2 OR 3 (ranking criteria)
+            filtered = []
+            for f1, f2, decoder_sim, semantic_sim in passed_c1:
+                in_top20_semantic = self._in_top_semantic(f1, f2)
+                in_top10_decoder = self._in_top_decoder(f1, f2)
+                if in_top20_semantic or in_top10_decoder:
+                    filtered.append((f1, f2, decoder_sim, semantic_sim, cluster_id))
+
+            # Step 4: Fallback if no pairs remain
+            if not filtered and cluster_pairs:
+                stats["fallback_clusters"] += 1
+
+                # Best decoder pair (ignore C1)
+                pairs_with_decoder = [(f1, f2, d, s) for f1, f2, d, s in cluster_pairs if d is not None]
+                if pairs_with_decoder:
+                    best_decoder = max(pairs_with_decoder, key=lambda x: x[2])
+                    filtered.append((*best_decoder, cluster_id))
+
+                    # Best semantic pair (may be same as best_decoder)
+                    pairs_with_semantic = [(f1, f2, d, s) for f1, f2, d, s in cluster_pairs if s is not None]
+                    if pairs_with_semantic:
+                        best_semantic = max(pairs_with_semantic, key=lambda x: x[3])
+                        # Only add if different from best_decoder
+                        if (best_semantic[0], best_semantic[1]) != (best_decoder[0], best_decoder[1]):
+                            filtered.append((*best_semantic, cluster_id))
+
+            # Build pair objects and add to results
+            cluster_pair_keys = []
+            for f1, f2, decoder_sim, semantic_sim, c_id in filtered:
+                main_id = min(f1, f2)
+                similar_id = max(f1, f2)
+                pair_key = f"{main_id}-{similar_id}"
+
+                pair_obj = {
+                    "main_id": main_id,
+                    "similar_id": similar_id,
+                    "pair_key": pair_key,
+                    "cluster_id": c_id
+                }
+
+                all_pairs.append(pair_obj)
+                pair_keys.append(pair_key)
+                cluster_pair_keys.append(pair_key)
+
+                # Check global pair limit
+                if len(all_pairs) >= MAX_TOTAL_PAIRS:
+                    pair_limit_reached = True
+                    logger.warning(
+                        f"Pair limit reached ({MAX_TOTAL_PAIRS}), stopping pair generation"
+                    )
+                    break
+
+            stats["pairs_after_filtering"] += len(cluster_pair_keys)
+
+            cluster_details.append({
+                "cluster_id": cluster_id,
+                "feature_ids": sorted_features,
+                "pair_count": len(cluster_pair_keys)
+            })
+
+        total_pairs = len(all_pairs)
+        logger.info(
+            f"Filtered pair generation complete: "
+            f"{stats['pairs_before_filtering']} → {total_pairs} pairs "
+            f"({stats['fallback_clusters']} clusters used fallback)"
+        )
+
+        return {
+            "pairs": all_pairs,
+            "pair_keys": pair_keys,
+            "clusters": cluster_details,
+            "feature_to_cluster": feature_to_cluster,
+            "total_clusters": total_clusters,
+            "total_pairs": total_pairs,
+            "threshold_used": threshold,
+            "truncated": pair_limit_reached,
+            "stats": stats
         }

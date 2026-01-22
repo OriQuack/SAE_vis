@@ -723,50 +723,6 @@ export interface PairSimilarityHistogramRequest {
 // ============================================================================
 // CAUSE SIMILARITY TYPES (Multi-class One-vs-Rest SVM)
 // ============================================================================
-
-/**
- * Cause Similarity Sort Request - Multi-class classification request
- */
-export interface CauseSimilaritySortRequest {
-  cause_selections: Record<number, CauseSelectionItem>  // Map of feature_id to cause selection with source
-  feature_ids: number[]                                 // All feature IDs in current table view
-}
-
-/**
- * Cause Feature Score - Feature ID with per-category decision margin scores
- */
-export interface CauseFeatureScore {
-  feature_id: number
-  category_decision_margins: Record<string, number>  // Map of category to decision margin score
-}
-
-/**
- * Cause Similarity Sort Response - Per-category decision margin scores
- */
-export interface CauseSimilaritySortResponse {
-  sorted_features: CauseFeatureScore[]
-  total_features: number
-}
-
-/**
- * Cause Similarity Histogram Request - Multi-class histogram request
- */
-export interface CauseSimilarityHistogramRequest {
-  cause_selections: Record<number, CauseSelectionItem>  // Map of feature_id to cause selection with source
-  feature_ids: number[]                                 // All feature IDs to compute scores for
-}
-
-/**
- * Cause Similarity Histogram Response - Per-category histograms
- */
-export interface CauseSimilarityHistogramResponse {
-  scores: Record<string, Record<string, number>>  // Map of feature_id to {category: decision_margin}
-  histograms: Record<string, SimilarityHistogramData>  // Histogram per category
-  statistics: Record<string, SimilarityHistogramStatistics>  // Statistics per category
-  total_items: number
-}
-
-// ============================================================================
 // SANKEY TO SELECTION FLOW TYPES (Flow visualization from Sankey segments to SelectionBar)
 // ============================================================================
 
@@ -845,15 +801,6 @@ export interface UmapPoint {
   decision_margin?: number  // Min distance to decision boundary (only for SVM classification)
   nearest_anchor?: string   // Nearest anchor of best explainer
   explainer_positions?: ExplainerPosition[]  // All explainer positions (for detail view)
-}
-
-/**
- * UMAP Projection Response - 2D coordinates for features
- */
-export interface UmapProjectionResponse {
-  points: UmapPoint[]
-  total_features: number
-  params_used: Record<string, number>
 }
 
 /**

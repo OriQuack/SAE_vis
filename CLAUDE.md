@@ -82,7 +82,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • activation_embeddings.parquet (pre-computed embeddings)                │
 │  • explanation_alignment.parquet (cross-explainer phrase matching)        │
 │  • interfeature_activation_similarity.parquet (cross-feature analysis)    │
-│  • explanation_barycentric.parquet (Stage 3 UMAP positions)               │
+│  • explanation_barycentric.parquet (Stage 3 barycentric positions)        │
 │  • thematic_codes.parquet (Thematic-LM analysis output)                   │
 │  • Pre-computed statistics (JSON)                                         │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -281,7 +281,6 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 | POST /api/pair-similarity-sort | Sort pairs by SVM similarity |
 | POST /api/similarity-score-histogram | Feature similarity histogram with bimodality |
 | POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
-| POST /api/umap-projection | Barycentric 2D positions for features (Stage 3) |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/cold-start/representative | Get representative features for cold start |
 | POST /api/activation-examples | Activation data (on-demand) |
@@ -313,7 +312,7 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 - **Master Data**: `/data/master/features.parquet` (required)
 - **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
 - **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
-- **Barycentric Positions**: `/data/master/explanation_barycentric.parquet` (Stage 3 UMAP positions)
+- **Barycentric Positions**: `/data/master/explanation_barycentric.parquet` (Stage 3 barycentric positions)
 - **Interfeature Similarity**: `/data/master/interfeature_activation_similarity.parquet` (cross-feature analysis)
 - **Interfeature Raw**: `/data/master/interfeature_activation_similarity_raw.parquet` (raw similarity data)
 - **Thematic Codes**: `/data/master/thematic_codes.parquet` (Thematic-LM output)

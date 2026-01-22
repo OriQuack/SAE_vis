@@ -10,7 +10,6 @@ import type {
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData,
-  UmapPoint,
   MultiModalityInfo,
   SimilarityScoreHistogramResponse,
   FlipTrackingInfo,
@@ -192,7 +191,6 @@ interface AppState {
   getFeatureSplittingCounts: () => { fragmented: number; monosemantic: number; unsure: number; total: number; fragmentedManual: number; fragmentedAuto: number; monosematicManual: number; monosematicAuto: number }
   getQualityCounts: () => { wellExplained: number; needRevision: number; unsure: number; total: number; wellExplainedManual: number; wellExplainedAuto: number; needRevisionManual: number; needRevisionAuto: number }
   getCauseCounts: () => { noisyActivation: number; missedNgram: number; missedContext: number; wellExplained: number; unsure: number; total: number; noisyActivationManual: number; noisyActivationAuto: number; missedNgramManual: number; missedNgramAuto: number; missedContextManual: number; missedContextAuto: number; wellExplainedManual: number; wellExplainedAuto: number }
-  sortCauseBySimilarity: () => Promise<void>
   fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
@@ -259,7 +257,6 @@ interface AppState {
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeCategoryDecisionMargins: Map<number, Record<string, number>>  // Per-category decision margins
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-N-gram', 'missed-context', or null for max)
-  isCauseSimilaritySortLoading: boolean
   // Cause margin threshold for effective category calculation (shared across components)
   causeMarginThreshold: number
   setCauseMarginThreshold: (threshold: number) => void
@@ -350,21 +347,13 @@ interface AppState {
   restoreStage3Commit: (index: number) => void
   clearStage3Commits: () => void
 
-  // UMAP projection state (for Stage 3 CauseView scatter plot)
-  umapProjection: UmapPoint[] | null
-  umapFeatureSignature: string | null  // Signature of last-fetched feature IDs (prevents redundant API calls)
-  umapLoading: boolean
-  umapError: string | null
-  umapBrushedFeatureIds: Set<number>
-  fetchUmapProjection: (featureIds: number[], options?: { nNeighbors?: number; minDist?: number }) => Promise<void>
+  // Cause classification state (for Stage 3 CauseView)
   fetchCauseClassification: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
   causeClassificationLoading: boolean
   causeClassificationError: string | null
   causeCommitteeVotes: Map<number, { svm_category: string; rf_category: string; mlp_category: string }> | null
   causeFlipTracking: FlipTrackingInfo | null
   clearCauseFlipTracking: () => void
-  setUmapBrushedFeatureIds: (featureIds: Set<number>) => void
-  clearUmapProjection: () => void
 
   // Multi-modality state (for Stage 3 CauseView modality indicator)
   causeMultiModality: MultiModalityInfo | null
@@ -472,7 +461,6 @@ const initialState = {
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),
   causeSortCategory: null,  // Sort by max decision margin by default
-  isCauseSimilaritySortLoading: false,
   // Cause margin threshold for effective category calculation
   causeMarginThreshold: 0.15,
 
@@ -519,13 +507,6 @@ const initialState = {
   stage3CommitHistory: [{id: 0, type: 'initial' as const}],
   stage3CurrentCommitIndex: 0,
   stage3CommitData: new Map(),
-
-  // UMAP projection state
-  umapProjection: null,
-  umapFeatureSignature: null,
-  umapLoading: false,
-  umapError: null,
-  umapBrushedFeatureIds: new Set<number>(),
 
   // Cause classification state
   causeClassificationLoading: false,
@@ -668,14 +649,8 @@ export const useStore = create<AppState>((set, get) => {
   setTagAutomaticHistogramData: qualityActions.setTagAutomaticHistogramData,
 
   // Compose Cause actions (Stage 3 - Multi-class)
-  sortCauseBySimilarity: causeActions.sortCauseBySimilarity,
   getCauseCounts: causeActions.getCauseCounts,
-
-  // Compose UMAP actions (Stage 3 - Scatter plot)
-  fetchUmapProjection: causeActions.fetchUmapProjection,
   fetchCauseClassification: causeActions.fetchCauseClassification,
-  setUmapBrushedFeatureIds: causeActions.setUmapBrushedFeatureIds,
-  clearUmapProjection: causeActions.clearUmapProjection,
   clearCauseFlipTracking: causeActions.clearCauseFlipTracking,
 
   // Compose Multi-modality action (Stage 3)

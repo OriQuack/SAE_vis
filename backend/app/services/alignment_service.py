@@ -80,7 +80,7 @@ class AlignmentService:
             data_service: DataService instance for fetching full explanation text
         """
         self.data_path = Path(data_path)
-        self.alignment_file = self.data_path / "master" / "explanation_alignment.parquet"
+        self.alignment_file = self.data_path / "output" / "explanation_alignment.parquet"
         self.data_service = data_service
 
         # 3-Level Cache System for Performance

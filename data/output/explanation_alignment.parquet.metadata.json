@@ -1,0 +1,71 @@
+{
+  "created_at": "2026-01-22T20:55:50.079703",
+  "step_name": "Step 12: Explanation Alignment",
+  "script_version": "2.0",
+  "total_rows": 16384,
+  "schema": {
+    "feature_id": "UInt32",
+    "sae_id": "Categorical",
+    "llm_explainers": "List(Utf8)",
+    "num_aligned_groups": "UInt16",
+    "aligned_groups": "List(Struct([Field('aligned_group_id', Int64), Field('similarity_score', Float64), Field('phrases', List(Struct([Field('explainer_name', Utf8), Field('text', Utf8), Field('chunk_index', Int64)])))]))"
+  },
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "processing_stats": {
+    "features_processed": 16384,
+    "features_with_alignments": 5232,
+    "total_aligned_groups": 6089,
+    "features_with_single_explanation": 0,
+    "features_with_no_alignments": 11152
+  },
+  "result_stats": {
+    "unique_feature_ids": 16384,
+    "unique_sae_ids": 1
+  },
+  "config_used": {
+    "enabled": true,
+    "inputs": {
+      "features": "data/output/features.parquet"
+    },
+    "outputs": {
+      "main": "data/output/explanation_alignment.parquet"
+    },
+    "parameters": {},
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "global": {
+      "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+      "sae_id_sanitized": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+      "paths": {
+        "input": "data/input",
+        "intermediate": "data/intermediate",
+        "output": "data/output",
+        "master": "data/master",
+        "feature_similarity": "data/feature_similarity",
+        "scores": "data/scores"
+      },
+      "processing": {
+        "num_features": 16384,
+        "feature_range": {
+          "start": 0,
+          "end": 16384
+        },
+        "embedding": {
+          "model": "google/embeddinggemma-300m",
+          "dimension": 768,
+          "device": "cuda",
+          "batch_size": 256
+        }
+      },
+      "data_sources": [
+        "llama_e-llama_s-16k-v2",
+        "gemini_e-llama_s-16k-v2",
+        "openai_e-llama_s-16k-v2"
+      ],
+      "llm_explainer_mapping": {
+        "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+        "gemini_e": "google/gemini-flash-2.5",
+        "openai_e": "openai/gpt-4o-mini"
+      }
+    }
+  }
+}

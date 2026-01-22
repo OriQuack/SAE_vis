@@ -3,7 +3,7 @@
 // ============================================================================
 
 import type { UmapPoint } from '../types'
-import { BARYCENTRIC_TRIANGLE } from './umap-utils'
+import { BARYCENTRIC_TRIANGLE } from './cause-visualization-utils'
 
 // ============================================================================
 // CONSTANTS

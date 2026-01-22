@@ -181,11 +181,11 @@ async def get_cached_activation_blob():
     # ~15-25s load vs ~100s for chunked JSON
 ```
 
-### 8. UMAP Service (Stage 3)
-Barycentric projections, SVM-based cause classification, and flip rate tracking:
+### 8. Cause Service (Stage 3)
+SVM-based cause classification and flip rate tracking:
 
 ```python
-# services/umap_service.py
+# services/cause_service.py
 # Metrics used for SVM (6D feature space):
 METRICS_FOR_SVM = [
     'intra_feature_sim',
@@ -195,12 +195,6 @@ METRICS_FOR_SVM = [
     'explanation_semantic_sim',
     'frac_nonzero',  # Fraction of non-zero activations
 ]
-
-async def get_umap_projection(feature_ids):
-    # Returns precomputed 2D positions from explanation_barycentric.parquet
-    # Mean position across 3 explainers per feature
-    # Includes explainer_positions for detail view
-    # Includes HDBSCAN cluster_id assignments
 
 async def get_cause_classification(feature_ids, cause_selections, prev_predictions=None):
     # Trains One-vs-Rest SVMs for each cause category
@@ -239,7 +233,7 @@ backend/
 │   │   ├── histogram.py          # Histogram data
 │   │   ├── table.py              # Table data
 │   │   ├── activation_examples.py # Activation data
-│   │   ├── umap.py               # UMAP projections
+│   │   ├── cause.py              # Cause classification
 │   │   └── cold_start.py         # Cold start representative sampling
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
@@ -257,7 +251,7 @@ backend/
 │       ├── table_data_service.py     # Table processing
 │       ├── alignment_service.py      # Explanation alignment
 │       ├── activation_cache_service.py # Cached activation data
-│       ├── umap_service.py           # Barycentric projection + SVM classification
+│       ├── cause_service.py          # SVM-based cause classification
 │       ├── consistency_service.py    # Consistency metrics
 │       ├── pair_similarity_service.py # Pair SVM scoring (19-dimensional vectors)
 │       └── cold_start_service.py     # Diversity-based representative sampling
@@ -414,37 +408,6 @@ Get pair similarity histogram (simplified flow)
 }
 ```
 
-#### POST /api/umap-projection
-Get barycentric 2D positions for features (Stage 3 UMAP)
-
-**Request**:
-```json
-{
-  "feature_ids": [1, 2, 3, 4, 5]
-}
-```
-
-**Response**:
-```json
-{
-  "points": [
-    {
-      "feature_id": 1,
-      "x": 0.45,
-      "y": 0.32,
-      "nearest_anchor": "noisy-activation",
-      "explainer_positions": [
-        {"explainer": "llama", "x": 0.44, "y": 0.31, "nearest_anchor": "noisy-activation"},
-        {"explainer": "qwen", "x": 0.46, "y": 0.33, "nearest_anchor": "noisy-activation"},
-        {"explainer": "openai", "x": 0.45, "y": 0.32, "nearest_anchor": "missed-context"}
-      ]
-    }
-  ],
-  "total_features": 5,
-  "params_used": {"source": "barycentric_precomputed", "aggregation": "mean"}
-}
-```
-
 #### POST /api/cause-classification
 SVM cause classification for features (Stage 3) with QBC and flip rate tracking
 
@@ -545,7 +508,7 @@ Get representative features for cold start initialization using diversity sampli
 
 #### explanation_barycentric.parquet
 - **Location**: `/data/master/explanation_barycentric.parquet`
-- **Purpose**: Precomputed 2D positions for Stage 3 UMAP
+- **Purpose**: Precomputed 2D positions for Stage 3 cause visualization
 - **Key Columns**:
   - feature_id, llm_explainer
   - position_x, position_y (barycentric 2D coordinates)

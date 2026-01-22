@@ -540,83 +540,53 @@ class SimilaritySortService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 6 metrics for the specified features.
+        Extract all 12 metrics for the specified features.
 
-        Uses pre-aggregated barycentric parquet for fast extraction (same as CauseView).
-        Falls back to legacy extraction if barycentric data not available.
+        Uses pre-aggregated cause_metrics parquet for fast extraction.
+        Falls back to legacy extraction if cause_metrics data not available.
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 6 metrics
+            DataFrame with feature_id and all 12 metrics
         """
-        # Try fast path: barycentric parquet (pre-aggregated)
-        if self.data_service._barycentric_lazy is not None:
-            result = await self._extract_metrics_from_barycentric(feature_ids)
+        # Try fast path: svm_feature_metrics parquet (pre-aggregated)
+        if self.data_service._svm_feature_metrics_lazy is not None:
+            result = await self._extract_metrics_from_svm_metrics(feature_ids)
             if result is not None and len(result) > 0:
                 return result
-            logger.warning("[_extract_metrics_legacy] Barycentric extraction failed, falling back to legacy")
+            logger.warning("[_extract_metrics] SVM feature metrics extraction failed, falling back to legacy")
 
         # Fallback to legacy extraction
         return await self._extract_metrics_legacy(feature_ids)
 
-    async def _extract_metrics_from_barycentric(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
+    async def _extract_metrics_from_svm_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract metrics from pre-aggregated barycentric parquet (fast path).
+        Extract pre-aggregated metrics from svm_feature_metrics.parquet (fast path).
 
-        This mirrors umap_service._extract_metrics_from_barycentric() for consistent
-        performance with CauseView.
+        The svm_feature_metrics.parquet already contains 1 row per feature with
+        pre-aggregated metrics (mean/std across explainers) and activation-level
+        metrics (intra_ngram_jaccard, intra_semantic_sim, etc).
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 12 metrics (mean across explainers)
+            DataFrame with feature_id and all 12 metrics
         """
         try:
-            logger.info(f"[_extract_metrics_from_barycentric] Extracting metrics for {len(feature_ids)} features")
+            logger.info(f"[_extract_metrics_from_svm_metrics] Extracting metrics for {len(feature_ids)} features")
 
-            # Compute mean and std across 3 explainers for each feature from barycentric data
-            df = self.data_service._barycentric_lazy.filter(
+            # Simply filter - data is already pre-aggregated (1 row per feature)
+            df = self.data_service._svm_feature_metrics_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
-            ).group_by("feature_id").agg([
-                # Score metrics (mean across explainers)
-                pl.col("score_embedding").mean().alias("score_embedding"),
-                pl.col("score_fuzz").mean().alias("score_fuzz"),
-                pl.col("score_detection").mean().alias("score_detection"),
-                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
-                pl.col("frac_nonzero").mean().alias("frac_nonzero"),
-                # Std metrics - captures cross-explainer disagreement
-                pl.col("explanation_semantic_sim_std").mean().alias("explanation_semantic_sim_std"),
-                pl.col("score_embedding_std").mean().alias("score_embedding_std"),
-                pl.col("score_fuzz_std").mean().alias("score_fuzz_std"),
-                pl.col("score_detection_std").mean().alias("score_detection_std"),
-            ]).collect()
+            ).collect()
 
-            # Compute log_frac_nonzero from frac_nonzero
+            # Compute log_frac_nonzero from frac_nonzero (computed at runtime)
             df = df.with_columns([
                 (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
             ])
-
-            # Load activation-level metrics from activation_display.parquet
-            if self.data_service._activation_display_lazy is not None:
-                act_df = self.data_service._activation_display_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).select([
-                    pl.col("feature_id").cast(pl.Int64),
-                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                        .fill_null(0.0).alias("intra_ngram_jaccard"),
-                    # intra_semantic_sim (activation-level semantic similarity)
-                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
-                    # intra_semantic_sim_std
-                    pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
-                ]).unique(subset=["feature_id"]).collect()
-
-                # Join activation metrics to the main metrics
-                df = df.join(act_df, on="feature_id", how="left")
-                logger.info(f"[_extract_metrics_from_barycentric] Joined activation metrics")
 
             # Fill null values for all metrics
             for metric in self.METRICS:
@@ -625,11 +595,11 @@ class SimilaritySortService:
                 else:
                     df = df.with_columns(pl.lit(0.0).alias(metric))
 
-            logger.info(f"[_extract_metrics_from_barycentric] Extracted {len(self.METRICS)} metrics for {len(df)} features")
+            logger.info(f"[_extract_metrics_from_svm_metrics] Extracted {len(self.METRICS)} metrics for {len(df)} features")
             return df
 
         except Exception as e:
-            logger.error(f"[_extract_metrics_from_barycentric] Failed: {e}", exc_info=True)
+            logger.error(f"[_extract_metrics_from_svm_metrics] Failed: {e}", exc_info=True)
             return None
 
     async def _extract_metrics_legacy(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
@@ -737,54 +707,30 @@ class SimilaritySortService:
             DataFrame with feature_id and activation-level metrics
         """
         try:
-            # Try optimized activation_display file first
-            if self.data_service._activation_display_lazy is not None:
-                df = self.data_service._activation_display_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).collect()
-
-                # Extract split activation metrics
-                df = df.select([
-                    "feature_id",
-                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
-                    pl.max_horizontal(
-                        "char_ngram_max_jaccard",
-                        "word_ngram_max_jaccard"
-                    ).fill_null(0.0).alias("intra_ngram_jaccard"),
-                    # intra_semantic_sim (activation-level semantic similarity)
-                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
-                    # intra_semantic_sim_std
-                    pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
-                ]).unique(subset=["feature_id"])
-
-                logger.info(f"Extracted activation metrics from optimized file for {len(df)} features")
-                return df
-
-            # Fallback to legacy files
-            elif self.data_service._activation_similarity_lazy is not None:
-                df = self.data_service._activation_similarity_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).collect()
-
-                df = df.select([
-                    "feature_id",
-                    # intra_ngram_jaccard = max(char_ngram, word_ngram)
-                    pl.max_horizontal(
-                        "char_ngram_max_jaccard",
-                        "word_ngram_max_jaccard"
-                    ).fill_null(0.0).alias("intra_ngram_jaccard"),
-                    # intra_semantic_sim (activation-level semantic similarity)
-                    pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
-                    # intra_semantic_sim_std - may not exist in legacy, fill with 0
-                    pl.lit(0.0).alias("intra_semantic_sim_std"),
-                ]).unique(subset=["feature_id"])
-
-                logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
-                return df
-
-            else:
-                logger.warning("No activation data available")
+            if self.data_service._activation_display_lazy is None:
+                logger.warning("No activation display data available")
                 return None
+
+            df = self.data_service._activation_display_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).collect()
+
+            # Extract split activation metrics
+            df = df.select([
+                "feature_id",
+                # intra_ngram_jaccard = max(char_ngram, word_ngram)
+                pl.max_horizontal(
+                    "char_ngram_max_jaccard",
+                    "word_ngram_max_jaccard"
+                ).fill_null(0.0).alias("intra_ngram_jaccard"),
+                # intra_semantic_sim (activation-level semantic similarity)
+                pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
+                # intra_semantic_sim_std
+                pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
+            ]).unique(subset=["feature_id"])
+
+            logger.info(f"Extracted activation metrics for {len(df)} features")
+            return df
 
         except Exception as e:
             logger.warning(f"Failed to extract activation metrics: {e}")

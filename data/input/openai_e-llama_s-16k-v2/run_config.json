@@ -1,0 +1,63 @@
+{
+    "cache_cfg": {
+        "dataset_repo": "NeelNanda/pile-10k",
+        "dataset_split": "train",
+        "dataset_name": "",
+        "dataset_column": "text",
+        "preprocessed_prompts_path": "/home/dohyun/delphi/dataset/Neuronpedia/30-gemmascope-res-16k/activations/v2/prompts.json",
+        "batch_size": 8,
+        "cache_ctx_len": 128,
+        "n_tokens": 3145088,
+        "n_splits": 5
+    },
+    "constructor_cfg": {
+        "faiss_embedding_model": "google/embeddinggemma-300m",
+        "faiss_embedding_cache_dir": ".embedding_cache",
+        "faiss_embedding_cache_enabled": true,
+        "faiss_embedding_cache_read_only": true,
+        "example_ctx_len": 32,
+        "min_examples": 20,
+        "n_non_activating": 20,
+        "center_examples": true,
+        "non_activating_source": "FAISS",
+        "neighbours_type": "co-occurrence"
+    },
+    "sampler_cfg": {
+        "n_examples_train": 40,
+        "n_examples_test": 20,
+        "n_quantiles": 4,
+        "train_type": "quantiles",
+        "test_type": "quantiles",
+        "ratio_top": 0.2
+    },
+    "model": "google/gemma-2-9b",
+    "sparse_model": "google/gemma-scope-9b-pt-res",
+    "hookpoints": [
+        "layer_30/width_16k/average_l0_120"
+    ],
+    "explainer_model": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+    "quantization": null,
+    "explainer_model_max_len": 5120,
+    "explainer_provider": "embedder",
+    "explainer": "none",
+    "explanations_path": "none",
+    "embedding_model": "google/embeddinggemma-300m",
+    "scorers": [
+        "embedding"
+    ],
+    "name": "v2-n-oex-gpt4o-mini",
+    "start_latent": 0,
+    "max_latents": 16384,
+    "filter_bos": true,
+    "log_probs": false,
+    "load_in_8bit": false,
+    "hf_token": null,
+    "pipeline_num_proc": 1,
+    "num_gpus": 1,
+    "seed": 22,
+    "verbose": false,
+    "num_examples_per_scorer_prompt": 5,
+    "overwrite": [
+        "scores"
+    ]
+}

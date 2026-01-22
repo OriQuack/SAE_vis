@@ -84,3 +84,17 @@ class SegmentClusterPairsRequest(BaseModel):
         le=1.0,
         description="Distance threshold for cutting dendrogram (0-1, higher=fewer clusters)"
     )
+
+
+class FilteredClusterPairsRequest(BaseModel):
+    """Request model for getting filtered cluster-based pairs"""
+    feature_ids: List[int] = Field(
+        ...,
+        description="List of feature IDs from selected segment"
+    )
+    threshold: Optional[float] = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Distance threshold for cutting dendrogram (0-1, higher=fewer clusters)"
+    )

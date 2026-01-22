@@ -1,0 +1,23 @@
+{
+  "step_name": "Step 13: SVM Metrics",
+  "version": "4.0",
+  "created_at": "2026-01-22T20:55:52.857184",
+  "row_count": 390048,
+  "columns": [
+    "feature_a",
+    "feature_b",
+    "inter_ngram_jaccard",
+    "inter_semantic_sim",
+    "decoder_sim"
+  ],
+  "schema": {
+    "feature_a": "UInt32",
+    "feature_b": "UInt32",
+    "inter_ngram_jaccard": "Float32",
+    "inter_semantic_sim": "Float32",
+    "decoder_sim": "Float32"
+  },
+  "stats": {
+    "pairs_processed": 390048
+  }
+}

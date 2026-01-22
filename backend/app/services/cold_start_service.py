@@ -317,35 +317,29 @@ class ColdStartService:
         return selected
 
     async def _extract_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """Extract 6D metrics from barycentric parquet (same as SimilaritySortService)."""
-        if self.data_service._barycentric_lazy is None:
-            logger.warning("[ColdStart] Barycentric lazy not available")
+        """Extract 6D metrics from svm_feature_metrics parquet (pre-aggregated)."""
+        if self.data_service._svm_feature_metrics_lazy is None:
+            logger.warning("[ColdStart] SVM feature metrics lazy not available")
             return None
 
         try:
             logger.info(f"[ColdStart] Extracting metrics for {len(feature_ids)} features")
 
-            # Compute mean across 3 explainers for each feature
-            df = self.data_service._barycentric_lazy.filter(
+            # Load pre-aggregated metrics (already 1 row per feature)
+            df = self.data_service._svm_feature_metrics_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
-            ).group_by("feature_id").agg([
-                pl.col("intra_feature_sim").mean().alias("intra_feature_sim"),
-                pl.col("score_embedding").mean().alias("score_embedding"),
-                pl.col("score_fuzz").mean().alias("score_fuzz"),
-                pl.col("score_detection").mean().alias("score_detection"),
-                pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim")
+            ).select([
+                "feature_id",
+                "intra_semantic_sim",  # Use as intra_feature_sim
+                "score_embedding",
+                "score_fuzz",
+                "score_detection",
+                "explanation_semantic_sim",
+                "frac_nonzero"
             ]).collect()
 
-            # Load frac_nonzero from features.parquet (per-feature, not per-explainer)
-            if self.data_service._df_lazy is not None:
-                frac_df = self.data_service._df_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).select([
-                    "feature_id",
-                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero")
-                ]).unique(subset=["feature_id"]).collect()
-
-                df = df.join(frac_df, on="feature_id", how="left")
+            # Rename intra_semantic_sim to intra_feature_sim for compatibility
+            df = df.rename({"intra_semantic_sim": "intra_feature_sim"})
 
             # Fill null values
             for metric in self.FEATURE_METRICS:

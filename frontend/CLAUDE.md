@@ -126,7 +126,6 @@ frontend/src/
 │   ├── CauseView.tsx             # Stage 3: Root cause analysis
 │   ├── CauseRadViz.tsx           # RadViz scatter plot for cause categories (Stage 3)
 │   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
-│   ├── UMAPScatter.tsx           # UMAP scatter plot (legacy, replaced by RadViz)
 │   ├── StageAccordionList.tsx    # Bootstrap → Learn → Apply workflow
 │   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
 │   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
@@ -168,7 +167,7 @@ frontend/src/
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
 │   ├── cause-tagging-utils.ts    # Cause category metric calculations
-│   ├── umap-utils.ts             # UMAP scales, contours, colors
+│   ├── cause-visualization-utils.ts  # Cause scales, contours, colors
 │   ├── radviz-utils.ts           # RadViz positioning, anchors, scales
 │   ├── color-utils.tsx           # Color manipulation utilities
 │   ├── triangle-grid.ts          # Triangle grid layout utilities
@@ -205,7 +204,6 @@ frontend/src/
 │   ├── CauseView.css             # Stage 3 styles
 │   ├── CauseRadViz.css           # RadViz scatter styles (Stage 3)
 │   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
-│   ├── UMAPScatter.css           # UMAP scatter styles (legacy)
 │   ├── StageAccordionList.css    # Bootstrap/Learn/Apply workflow styles
 │   ├── BatchTaggingPanel.css     # Batch tagging panel styles
 │   ├── Tooltip.css               # Unified tooltip styles

@@ -479,3 +479,63 @@ class SegmentClusterPairsResponse(BaseModel):
         ...,
         description="Distance threshold used for clustering"
     )
+
+
+class FilteringStats(BaseModel):
+    """Statistics from the pair filtering process"""
+    pairs_before_filtering: int = Field(
+        ...,
+        description="Number of pairs before filtering was applied"
+    )
+    pairs_after_filtering: int = Field(
+        ...,
+        description="Number of pairs after filtering was applied"
+    )
+    fallback_clusters: int = Field(
+        ...,
+        description="Number of clusters that used fallback (no pairs passed filters)"
+    )
+    clusters_processed: int = Field(
+        ...,
+        description="Total number of clusters processed"
+    )
+
+
+class FilteredClusterPairsResponse(BaseModel):
+    """Response model for filtered cluster pairs endpoint"""
+    pairs: List[ClusterPair] = Field(
+        ...,
+        description="Filtered pair objects with metadata"
+    )
+    pair_keys: List[str] = Field(
+        ...,
+        description="List of filtered pair keys for backward compatibility"
+    )
+    clusters: List[ClusterInfo] = Field(
+        ...,
+        description="Cluster information with feature members and pair counts"
+    )
+    feature_to_cluster: Dict[int, int] = Field(
+        ...,
+        description="Mapping of ALL feature IDs to their cluster IDs"
+    )
+    total_clusters: int = Field(
+        ...,
+        description="Total number of clusters with 2+ features"
+    )
+    total_pairs: int = Field(
+        ...,
+        description="Total number of pairs after filtering"
+    )
+    threshold_used: float = Field(
+        ...,
+        description="Distance threshold used for clustering"
+    )
+    truncated: bool = Field(
+        default=False,
+        description="Whether pair generation was truncated due to limit"
+    )
+    stats: FilteringStats = Field(
+        ...,
+        description="Filtering statistics"
+    )

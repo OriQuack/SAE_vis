@@ -27,7 +27,7 @@ class ActivationCacheService:
 
     def __init__(self, data_path: str = "../data"):
         self.data_path = Path(data_path)
-        self.activation_display_file = self.data_path / "master" / "activation_display.parquet"
+        self.activation_display_file = self.data_path / "output" / "activation_display.parquet"
 
         # Pre-computed cache (msgpack + gzip compressed)
         self._cache: Optional[bytes] = None

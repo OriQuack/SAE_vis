@@ -6,7 +6,7 @@
 // Reference: https://www.mdpi.com/2227-9709/6/2/16
 
 import { scaleLinear, type ScaleLinear } from 'd3-scale'
-import type { CauseCategory } from './umap-utils'
+import type { CauseCategory } from './cause-visualization-utils'
 
 // ============================================================================
 // CIRCULAR ANCHOR CONFIGURATION

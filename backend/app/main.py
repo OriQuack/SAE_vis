@@ -13,9 +13,9 @@ from .services.similarity_sort_service import SimilaritySortService
 from .services.pair_similarity_service import PairSimilarityService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .services.activation_cache_service import activation_cache_service
-from .services.umap_service import UMAPService
+from .services.cause_service import CauseService
 from .services.cold_start_service import ColdStartService
-from .api import feature_groups, similarity_sort, cluster_candidates, umap, cold_start
+from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -45,12 +45,12 @@ alignment_service = None
 similarity_sort_service = None
 pair_similarity_service = None
 cluster_candidate_service = None
-umap_service = None
+cause_service = None
 cold_start_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, umap_service, cold_start_service
+    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -90,10 +90,10 @@ async def lifespan(app: FastAPI):
         similarity_sort.set_similarity_sort_service(similarity_sort_service)
         similarity_sort.set_pair_similarity_service(pair_similarity_service)
 
-        # Initialize UMAP service for cause view projections
-        umap_service = UMAPService(data_service=data_service)
-        umap.set_umap_service(umap_service)
-        logger.info("UMAP service initialized successfully")
+        # Initialize Cause service for Stage 3 cause classification
+        cause_service = CauseService(data_service=data_service)
+        cause.set_cause_service(cause_service)
+        logger.info("Cause service initialized successfully")
 
         # Initialize cold-start suggestions service
         cold_start_service = ColdStartService(

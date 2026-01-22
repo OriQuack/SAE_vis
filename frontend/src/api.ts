@@ -16,11 +16,6 @@ import type {
   SimilarityHistogramRequest,
   SimilarityScoreHistogramResponse,
   PairSimilarityHistogramRequest,
-  CauseSimilaritySortRequest,
-  CauseSimilaritySortResponse,
-  CauseSimilarityHistogramRequest,
-  CauseSimilarityHistogramResponse,
-  UmapProjectionResponse,
   MultiModalityResponse,
   CauseClassificationResponse,
   Stage3QualityScoresRequest,
@@ -66,11 +61,8 @@ const API_ENDPOINTS = {
   PAIR_SIMILARITY_SORT: "/pair-similarity-sort",
   SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
-  CAUSE_SIMILARITY_SORT: "/cause-similarity-sort",
-  CAUSE_SIMILARITY_SCORE_HISTOGRAM: "/cause-similarity-score-histogram",
   CLUSTER_CANDIDATES: "/cluster-candidates",
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
-  UMAP_PROJECTION: "/umap-projection",
   CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test",
   STAGE3_QUALITY_SCORES: "/stage3-quality-scores",
@@ -454,85 +446,6 @@ export async function getPairSimilarityScoreHistogram(
 }
 
 // ============================================================================
-// CAUSE SIMILARITY API (Multi-class One-vs-Rest SVM)
-// ============================================================================
-
-export async function getCauseSimilaritySort(
-  causeSelections: Record<number, CauseSelectionItem>,
-  featureIds: number[]
-): Promise<CauseSimilaritySortResponse> {
-  console.log('[API] getCauseSimilaritySort called with:', {
-    taggedCount: Object.keys(causeSelections).length,
-    totalFeatures: featureIds.length
-  })
-
-  const requestBody: CauseSimilaritySortRequest = {
-    cause_selections: causeSelections,
-    feature_ids: featureIds
-  }
-
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CAUSE_SIMILARITY_SORT}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody)
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('[API] Cause similarity sort error:', response.status, errorText)
-    throw new Error(`Failed to calculate cause similarity sort: ${response.status} - ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log('[API] getCauseSimilaritySort response:', {
-    sortedCount: data.sorted_features?.length || 0,
-    totalFeatures: data.total_features
-  })
-
-  return data
-}
-
-export async function getCauseSimilarityScoreHistogram(
-  causeSelections: Record<number, CauseSelectionItem>,
-  featureIds: number[]
-): Promise<CauseSimilarityHistogramResponse> {
-  console.log('[API] getCauseSimilarityScoreHistogram called with:', {
-    taggedCount: Object.keys(causeSelections).length,
-    totalFeatures: featureIds.length
-  })
-
-  const requestBody: CauseSimilarityHistogramRequest = {
-    cause_selections: causeSelections,
-    feature_ids: featureIds
-  }
-
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.CAUSE_SIMILARITY_SCORE_HISTOGRAM}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody)
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('[API] Cause similarity score histogram error:', response.status, errorText)
-    throw new Error(`Failed to fetch cause similarity score histogram: ${response.status} - ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log('[API] getCauseSimilarityScoreHistogram response:', {
-    totalItems: data.total_items,
-    scoresCount: data.scores ? Object.keys(data.scores).length : 0,
-    histogramsCount: data.histograms ? Object.keys(data.histograms).length : 0
-  })
-
-  return data
-}
-
-// ============================================================================
 // MULTI-MODALITY TEST
 // ============================================================================
 
@@ -637,66 +550,6 @@ export async function getAllClusterPairs(
 
   const data = await response.json()
   console.log(`[API.getAllClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
-  return data
-}
-
-// ============================================================================
-// UMAP PROJECTION API (for Stage 3 Cause View)
-// ============================================================================
-
-/**
- * Get UMAP 2D projection for features.
- *
- * Projects features into 2D space using cause-related metrics:
- * - semantic_similarity (semsim_mean)
- * - score_detection
- * - score_embedding
- * - score_fuzz
- *
- * Used in Stage 3 (CauseView) to visualize "Need Revision" features
- * in a scatter plot for cause analysis.
- *
- * @param featureIds - Feature IDs to project (minimum 3)
- * @param options - Optional UMAP parameters
- * @returns 2D coordinates for each feature
- */
-export async function getUmapProjection(
-  featureIds: number[],
-  options?: { nNeighbors?: number; minDist?: number; randomState?: number }
-): Promise<UmapProjectionResponse> {
-  console.log('[API] getUmapProjection called with:', {
-    featureCount: featureIds.length,
-    options
-  })
-
-  const requestBody = {
-    feature_ids: featureIds,
-    n_neighbors: options?.nNeighbors,
-    min_dist: options?.minDist,
-    random_state: options?.randomState
-  }
-
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.UMAP_PROJECTION}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(requestBody)
-  })
-
-  if (!response.ok) {
-    const errorText = await response.text()
-    console.error('[API] UMAP projection error:', response.status, errorText)
-    throw new Error(`Failed to fetch UMAP projection: ${response.status} - ${errorText}`)
-  }
-
-  const data = await response.json()
-  console.log('[API] getUmapProjection response:', {
-    pointCount: data.points?.length || 0,
-    totalFeatures: data.total_features,
-    paramsUsed: data.params_used
-  })
-
   return data
 }
 

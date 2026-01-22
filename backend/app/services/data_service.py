@@ -27,25 +27,40 @@ class DataService:
 
     def __init__(self, data_path: str = "../data"):
         self.data_path = Path(data_path)
-        self.master_file = self.data_path / "master" / "features.parquet"
         self.detailed_json_dir = self.data_path / "detailed_json"
 
-        # NEW: Activation data files
-        self.activation_examples_file = self.data_path / "master" / "activation_examples.parquet"
-        self.activation_similarity_file = self.data_path / "master" / "activation_example_similarity.parquet"
-        self.activation_display_file = self.data_path / "master" / "activation_display.parquet"
-        self.interfeature_similarity_file = self.data_path / "master" / "interfeature_activation_similarity.parquet"
-        self.barycentric_file = self.data_path / "master" / "explanation_barycentric.parquet"
+        # Path configuration: all files from data/output/ directory
+        self.master_file = self._resolve_data_path("features.parquet")
+        self.activation_display_file = self._resolve_data_path("activation_display.parquet")
+        self.interfeature_similarity_file = self._resolve_data_path("interfeature_similarity.parquet")
+        self.svm_feature_metrics_file = self._resolve_data_path("svm_feature_metrics.parquet")
+        self.svm_pair_metrics_file = self._resolve_data_path("svm_pair_metrics.parquet")
 
         # Cache for frequently accessed data
         self._filter_options_cache: Optional[Dict[str, List[str]]] = None
         self._df_lazy: Optional[pl.LazyFrame] = None
-        self._activation_examples_lazy: Optional[pl.LazyFrame] = None
-        self._activation_similarity_lazy: Optional[pl.LazyFrame] = None
         self._activation_display_lazy: Optional[pl.LazyFrame] = None
         self._interfeature_similarity_lazy: Optional[pl.LazyFrame] = None
-        self._barycentric_lazy: Optional[pl.LazyFrame] = None
+        self._svm_feature_metrics_lazy: Optional[pl.LazyFrame] = None
+        self._svm_pair_metrics_lazy: Optional[pl.LazyFrame] = None
         self._ready = False
+
+    def _resolve_data_path(self, filename: str) -> Path:
+        """Resolve data file path (output directory only).
+
+        Args:
+            filename: Name of the file to find
+
+        Returns:
+            Path to the file in output directory
+
+        Raises:
+            FileNotFoundError: If file does not exist
+        """
+        path = self.data_path / "output" / filename
+        if not path.exists():
+            raise FileNotFoundError(f"Required data file not found: {path}")
+        return path
 
     async def initialize(self):
         """Initialize the data service with lazy loading."""
@@ -60,39 +75,21 @@ class DataService:
             # Transform nested schema to flat schema expected by backend
             self._df_lazy = self._transform_to_flat_schema(self._df_lazy)
 
-            # NEW: Load activation data files (lazy scan for performance)
-            # Prioritize optimized activation_display file if it exists
-            if self.activation_display_file.exists():
-                self._activation_display_lazy = pl.scan_parquet(self.activation_display_file)
-                logger.info(f"Optimized activation display loaded: {self.activation_display_file}")
-            else:
-                logger.warning(f"Optimized activation display file not found, will use legacy files: {self.activation_display_file}")
-                # Fallback to legacy files
-                if self.activation_examples_file.exists():
-                    self._activation_examples_lazy = pl.scan_parquet(self.activation_examples_file)
-                    logger.info(f"Activation examples loaded: {self.activation_examples_file}")
-                else:
-                    logger.warning(f"Activation examples file not found: {self.activation_examples_file}")
+            # Load activation display data (required)
+            self._activation_display_lazy = pl.scan_parquet(self.activation_display_file)
+            logger.info(f"Activation display loaded: {self.activation_display_file}")
 
-                if self.activation_similarity_file.exists():
-                    self._activation_similarity_lazy = pl.scan_parquet(self.activation_similarity_file)
-                    logger.info(f"Activation similarity loaded: {self.activation_similarity_file}")
-                else:
-                    logger.warning(f"Activation similarity file not found: {self.activation_similarity_file}")
+            # Load inter-feature activation similarity (required)
+            self._interfeature_similarity_lazy = pl.scan_parquet(self.interfeature_similarity_file)
+            logger.info(f"Inter-feature similarity loaded: {self.interfeature_similarity_file}")
 
-            # NEW: Load inter-feature activation similarity
-            if self.interfeature_similarity_file.exists():
-                self._interfeature_similarity_lazy = pl.scan_parquet(self.interfeature_similarity_file)
-                logger.info(f"Inter-feature similarity loaded: {self.interfeature_similarity_file}")
-            else:
-                logger.warning(f"Inter-feature similarity file not found: {self.interfeature_similarity_file}")
+            # Load SVM feature metrics (required for feature classification)
+            self._svm_feature_metrics_lazy = pl.scan_parquet(self.svm_feature_metrics_file)
+            logger.info(f"SVM feature metrics loaded: {self.svm_feature_metrics_file}")
 
-            # Load barycentric positions (pre-computed 2D projections)
-            if self.barycentric_file.exists():
-                self._barycentric_lazy = pl.scan_parquet(self.barycentric_file)
-                logger.info(f"Barycentric positions loaded: {self.barycentric_file}")
-            else:
-                logger.warning(f"Barycentric positions file not found: {self.barycentric_file}")
+            # Load SVM pair metrics (required for pair classification)
+            self._svm_pair_metrics_lazy = pl.scan_parquet(self.svm_pair_metrics_file)
+            logger.info(f"SVM pair metrics loaded: {self.svm_pair_metrics_file}")
 
             await self._cache_filter_options()
             self._ready = True
@@ -312,113 +309,6 @@ class DataService:
             logger.error(f"Error batch fetching explanation texts: {e}")
             return {}
 
-    def _compute_pattern_type(self, semantic_sim: float, max_jaccard: float) -> str:
-        """
-        Categorize activation pattern based on 0.3 threshold.
-
-        Args:
-            semantic_sim: Average pairwise semantic similarity (0-1)
-            max_jaccard: Maximum Jaccard similarity across n-grams (0-1)
-
-        Returns:
-            Pattern type: "Semantic", "Lexical", or "None"
-        """
-        has_semantic = semantic_sim > 0.3
-        has_lexical = max_jaccard > 0.3
-
-        if has_semantic and has_lexical:
-            # Use higher value to determine type
-            return "Semantic" if semantic_sim > max_jaccard else "Lexical"
-        elif has_semantic:
-            return "Semantic"
-        elif has_lexical:
-            return "Lexical"
-        else:
-            return "None"
-
-    def _organize_by_quantile(
-        self,
-        examples_df: pl.DataFrame,
-        quantile_boundaries: List[float]
-    ) -> List[Dict]:
-        """
-        Organize activation examples into 4 quantiles and return first from each.
-
-        Uses vectorized Polars operations for performance (10x faster than loops).
-
-        Args:
-            examples_df: DataFrame with activation examples for a feature
-            quantile_boundaries: [q1, q2, q3] boundaries for quantile splits
-
-        Returns:
-            List of 4 quantile examples (one per quantile)
-        """
-        if len(examples_df) == 0:
-            return []
-
-        # Check if we have valid quantile boundaries
-        has_valid_boundaries = quantile_boundaries and len(quantile_boundaries) == 3
-
-        if not has_valid_boundaries:
-            # Assign all examples to quantile 0 when boundaries unavailable
-            logger.debug(f"[_organize_by_quantile] Empty/invalid boundaries, assigning all to quantile 0")
-            result = []
-            for row in examples_df.to_dicts():
-                max_act = row["max_activation"]
-                if max_act is None or not row["activation_pairs"] or len(row["activation_pairs"]) == 0:
-                    continue
-                max_pair = max(row["activation_pairs"], key=lambda p: p["activation_value"])
-                result.append({
-                    "quantile_index": 0,
-                    "prompt_id": row["prompt_id"],
-                    "prompt_tokens": row["prompt_tokens"],
-                    "activation_pairs": row["activation_pairs"],
-                    "max_activation": float(max_act),
-                    "max_activation_position": int(max_pair["token_position"])
-                })
-            return result
-
-        # Add quantile label using when().then() expressions (vectorized)
-        df = examples_df.with_columns([
-            pl.when(pl.col("max_activation") <= quantile_boundaries[0])
-              .then(pl.lit(0))
-              .when(pl.col("max_activation") <= quantile_boundaries[1])
-              .then(pl.lit(1))
-              .when(pl.col("max_activation") <= quantile_boundaries[2])
-              .then(pl.lit(2))
-              .otherwise(pl.lit(3))
-              .alias("quantile")
-        ])
-
-        # Take first example from each quantile
-        result = []
-        for q in range(4):
-            quantile_df = df.filter(pl.col("quantile") == q).head(1)
-            if len(quantile_df) > 0:
-                row = quantile_df.to_dicts()[0]
-                # Find max activation value and position
-                max_act = row["max_activation"]
-                max_pos = 0
-
-                # Skip if no activation data
-                if max_act is None or not row["activation_pairs"] or len(row["activation_pairs"]) == 0:
-                    continue
-
-                # Find the position with maximum activation value from pairs
-                max_pair = max(row["activation_pairs"], key=lambda p: p["activation_value"])
-                max_pos = max_pair["token_position"]
-
-                result.append({
-                    "quantile_index": q,
-                    "prompt_id": row["prompt_id"],
-                    "prompt_tokens": row["prompt_tokens"],
-                    "activation_pairs": row["activation_pairs"],
-                    "max_activation": float(max_act),
-                    "max_activation_position": int(max_pos)
-                })
-
-        return result
-
     def get_activation_examples(self, feature_ids: List[int]) -> Dict[int, Dict]:
         """
         Fetch activation examples with similarity metrics for features.
@@ -450,12 +340,12 @@ class DataService:
             logger.warning("[get_activation_examples] Empty feature_ids list, returning empty dict")
             return {}
 
-        # Use optimized file if available
-        if self._activation_display_lazy is not None:
-            return self._get_activation_examples_optimized(feature_ids)
-        else:
-            # Fallback to legacy implementation
-            return self._get_activation_examples_legacy(feature_ids)
+        # Require activation_display data
+        if self._activation_display_lazy is None:
+            logger.warning("[get_activation_examples] activation_display data not loaded")
+            return {}
+
+        return self._get_activation_examples_optimized(feature_ids)
 
     def _get_activation_examples_optimized(self, feature_ids: List[int]) -> Dict[int, Dict]:
         """Fast path using pre-processed activation_display.parquet."""
@@ -496,96 +386,4 @@ class DataService:
 
         except Exception as e:
             logger.error(f"[get_activation_examples] Error in optimized path: {e}", exc_info=True)
-            return {}
-
-    def _get_activation_examples_legacy(self, feature_ids: List[int]) -> Dict[int, Dict]:
-        """Legacy path using activation_examples + activation_similarity join."""
-        logger.warning("[get_activation_examples] Using legacy path (slower, ~5 seconds)")
-
-        if self._activation_similarity_lazy is None or self._activation_examples_lazy is None:
-            logger.warning(f"[get_activation_examples] Legacy activation data not loaded")
-            return {}
-
-        try:
-            # Load similarity metrics (2.2 MB file, 16K rows - small and fast)
-            similarity_df = self._activation_similarity_lazy.filter(
-                pl.col("feature_id").is_in(feature_ids)
-            ).collect()
-
-            logger.info(f"[get_activation_examples] Requested {len(feature_ids)} features, found similarity data for {len(similarity_df)} features")
-            if len(similarity_df) == 0:
-                logger.warning(f"[get_activation_examples] No similarity data found for any of the requested feature IDs: {feature_ids[:20]}")
-                return {}
-
-            # Extract sampled prompt_ids per feature (8 per feature, 2 per quantile)
-            prompt_ids_by_feature = {}
-            for row in similarity_df.iter_rows(named=True):
-                fid = row["feature_id"]
-                prompt_ids_by_feature[fid] = {
-                    "prompt_ids": row["prompt_ids_analyzed"],  # List[8]
-                    "semantic_sim": row["avg_pairwise_semantic_similarity"],
-                    "jaccard_sims": row["ngram_jaccard_similarity"],  # [2g, 3g, 4g]
-                    "quantile_boundaries": row["quantile_boundaries"]  # [q1, q2, q3]
-                }
-
-            # Batch fetch activation examples (avoids N individual queries)
-            all_prompt_ids = set()
-            for data in prompt_ids_by_feature.values():
-                all_prompt_ids.update(data["prompt_ids"])
-
-            logger.info(f"Fetching {len(all_prompt_ids)} activation examples")
-
-            examples_df = self._activation_examples_lazy.filter(
-                pl.col("prompt_id").is_in(list(all_prompt_ids))
-            ).collect()
-
-            logger.info(f"Loaded {len(examples_df)} activation examples")
-
-            # Organize by feature_id → quantile → example
-            result = {}
-            for feature_id, data in prompt_ids_by_feature.items():
-                # Get quantile_boundaries (may be empty for features with 1-3 activations)
-                quantile_boundaries = data["quantile_boundaries"]
-                # Note: _organize_by_quantile now handles empty boundaries by assigning all to Q0
-
-                # Filter examples for this feature
-                feature_examples = examples_df.filter(
-                    pl.col("feature_id") == feature_id
-                )
-
-                # Skip if no examples found
-                if len(feature_examples) == 0:
-                    logger.debug(f"[get_activation_examples] Skipping feature {feature_id}: no examples found")
-                    continue
-
-                # Group 8 prompts into 4 quantiles (2 per quantile)
-                quantile_examples = self._organize_by_quantile(
-                    feature_examples,
-                    quantile_boundaries
-                )
-
-                # Skip if no quantile examples generated
-                if not quantile_examples:
-                    logger.debug(f"[get_activation_examples] Skipping feature {feature_id}: no quantile examples generated")
-                    continue
-
-                # Compute pattern type
-                max_jaccard = max(data["jaccard_sims"]) if data["jaccard_sims"] else 0.0
-                pattern_type = self._compute_pattern_type(
-                    data["semantic_sim"],
-                    max_jaccard
-                )
-
-                result[feature_id] = {
-                    "quantile_examples": quantile_examples,
-                    "semantic_similarity": float(data["semantic_sim"]),
-                    "max_jaccard": float(max_jaccard),
-                    "pattern_type": pattern_type
-                }
-
-            logger.info(f"[get_activation_examples] Successfully organized activation examples for {len(result)} features (legacy path)")
-            return result
-
-        except Exception as e:
-            logger.error(f"[get_activation_examples] Error in legacy path: {e}", exc_info=True)
             return {}

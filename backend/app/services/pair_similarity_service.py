@@ -409,12 +409,14 @@ class PairSimilarityService:
         Extract the 3 PAIR_METRICS (intra-feature) for pair SVM calculations.
 
         Uses in-memory caching to avoid repeated queries.
+        Fast path: Uses svm_feature_metrics.parquet if available.
+        Fallback: Extracts from activation_display.parquet.
 
         Metrics extracted:
-        - From activation_display: intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
+        - intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
 
         Note: Inter-feature metrics (inter_ngram_jaccard, inter_semantic_sim) are now
-        extracted at the pair level via _extract_pair_specific_interfeature_metrics().
+        extracted at the pair level via _extract_pair_metrics_from_svm().
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
@@ -430,6 +432,36 @@ class PairSimilarityService:
 
         try:
             logger.info(f"[_extract_pair_feature_metrics] Starting extraction for {len(feature_ids)} features")
+
+            # Fast path: Use pre-computed svm_feature_metrics if available
+            if self.data_service._svm_feature_metrics_lazy is not None:
+                result_df = self.data_service._svm_feature_metrics_lazy.filter(
+                    pl.col("feature_id").is_in(feature_ids)
+                ).select([
+                    "feature_id",
+                    "intra_ngram_jaccard",
+                    "intra_semantic_sim",
+                    "intra_semantic_sim_std",
+                ]).collect()
+
+                # Fill nulls with 0 for missing metrics
+                for metric in self.PAIR_METRICS:
+                    if metric in result_df.columns:
+                        result_df = result_df.with_columns(pl.col(metric).fill_null(0.0))
+                    else:
+                        result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
+
+                logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features from svm_feature_metrics (fast path)")
+
+                # Cache result
+                if len(self._metrics_cache) >= self._max_metrics_cache_size:
+                    oldest_key = next(iter(self._metrics_cache))
+                    self._metrics_cache.pop(oldest_key)
+                self._metrics_cache[cache_key] = result_df
+                return result_df
+
+            # Fallback: Legacy extraction from activation_display
+            logger.info("[_extract_pair_feature_metrics] Falling back to legacy extraction")
 
             # Get the main dataframe for base feature IDs
             lf = self.data_service._df_lazy
@@ -464,7 +496,7 @@ class PairSimilarityService:
                         pl.col(metric).fill_null(0.0)
                     )
 
-            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with 3 intra-feature metrics")
+            logger.info(f"[_extract_pair_feature_metrics] Extracted {len(result_df)} features with 3 intra-feature metrics (legacy path)")
 
             # Cache result for subsequent calls with same features
             if len(self._metrics_cache) >= self._max_metrics_cache_size:
@@ -491,82 +523,108 @@ class PairSimilarityService:
             DataFrame with feature_id, intra_ngram_jaccard, intra_semantic_sim, intra_semantic_sim_std
         """
         try:
-            # Try optimized activation_display file first
-            if self.data_service._activation_display_lazy is not None:
-                df = self.data_service._activation_display_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).collect()
-
-                # Build select columns
-                select_cols = [
-                    "feature_id",
-                    # Max of char and word ngram jaccard
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    # Semantic similarity (mean)
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim"),
-                ]
-
-                # Add semantic_similarity_std if available
-                if "semantic_similarity_std" in df.columns:
-                    select_cols.append(
-                        pl.col("semantic_similarity_std")
-                          .fill_null(0.0)
-                          .alias("intra_semantic_sim_std")
-                    )
-
-                df = df.select(select_cols).unique(subset=["feature_id"])
-
-                # Add column with 0.0 if not present
-                if "intra_semantic_sim_std" not in df.columns:
-                    df = df.with_columns(pl.lit(0.0).alias("intra_semantic_sim_std"))
-
-                logger.info(f"Extracted activation metrics from optimized file for {len(df)} features")
-                return df
-
-            # Fallback to legacy files
-            elif self.data_service._activation_similarity_lazy is not None:
-                df = self.data_service._activation_similarity_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
-                ).collect()
-
-                # Build select columns
-                select_cols = [
-                    "feature_id",
-                    pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-                      .fill_null(0.0)
-                      .alias("intra_ngram_jaccard"),
-                    pl.col("semantic_similarity")
-                      .fill_null(0.0)
-                      .alias("intra_semantic_sim"),
-                ]
-
-                # Add semantic_similarity_std if available
-                if "semantic_similarity_std" in df.columns:
-                    select_cols.append(
-                        pl.col("semantic_similarity_std")
-                          .fill_null(0.0)
-                          .alias("intra_semantic_sim_std")
-                    )
-
-                df = df.select(select_cols).unique(subset=["feature_id"])
-
-                # Add column with 0.0 if not present
-                if "intra_semantic_sim_std" not in df.columns:
-                    df = df.with_columns(pl.lit(0.0).alias("intra_semantic_sim_std"))
-
-                logger.info(f"Extracted activation metrics from legacy file for {len(df)} features")
-                return df
-
-            else:
-                logger.warning("No activation data available")
+            if self.data_service._activation_display_lazy is None:
+                logger.warning("No activation display data available")
                 return None
+
+            df = self.data_service._activation_display_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).collect()
+
+            # Build select columns
+            select_cols = [
+                "feature_id",
+                # Max of char and word ngram jaccard
+                pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                  .fill_null(0.0)
+                  .alias("intra_ngram_jaccard"),
+                # Semantic similarity (mean)
+                pl.col("semantic_similarity")
+                  .fill_null(0.0)
+                  .alias("intra_semantic_sim"),
+            ]
+
+            # Add semantic_similarity_std if available
+            if "semantic_similarity_std" in df.columns:
+                select_cols.append(
+                    pl.col("semantic_similarity_std")
+                      .fill_null(0.0)
+                      .alias("intra_semantic_sim_std")
+                )
+
+            df = df.select(select_cols).unique(subset=["feature_id"])
+
+            # Add column with 0.0 if not present
+            if "intra_semantic_sim_std" not in df.columns:
+                df = df.with_columns(pl.lit(0.0).alias("intra_semantic_sim_std"))
+
+            logger.info(f"Extracted activation metrics for {len(df)} features")
+            return df
 
         except Exception as e:
             logger.warning(f"Failed to extract activation metrics: {e}")
+            return None
+
+    async def _extract_all_pair_metrics_from_svm(
+        self,
+        pair_ids: List[Tuple[int, int]]
+    ) -> Optional[Dict[str, Tuple[float, float, float]]]:
+        """
+        Extract all pair-specific metrics from svm_pair_metrics.parquet (fast path).
+
+        The svm_pair_metrics.parquet contains pre-computed pair-level metrics:
+        - inter_ngram_jaccard: max(char_jaccard, word_jaccard) for the pair
+        - inter_semantic_sim: semantic similarity between feature activations
+        - decoder_sim: cosine similarity from decoder weights
+
+        Args:
+            pair_ids: List of (main_id, similar_id) tuples
+
+        Returns:
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim)
+            or None if svm_pair_metrics not available
+        """
+        if self.data_service._svm_pair_metrics_lazy is None:
+            return None
+
+        try:
+            # Build list of canonical pair keys for filtering
+            pair_keys_set = set()
+            pair_keys_lookup = {}  # (min_id, max_id) -> pair_key
+            for main_id, similar_id in pair_ids:
+                min_id, max_id = min(main_id, similar_id), max(main_id, similar_id)
+                pair_key = f"{min_id}-{max_id}"
+                pair_keys_set.add(pair_key)
+                pair_keys_lookup[(min_id, max_id)] = pair_key
+
+            # Filter using feature_a and feature_b columns
+            all_feature_ids = list(set(fid for a, b in pair_ids for fid in (a, b)))
+
+            df = self.data_service._svm_pair_metrics_lazy.filter(
+                (pl.col("feature_a").is_in(all_feature_ids)) &
+                (pl.col("feature_b").is_in(all_feature_ids))
+            ).collect()
+
+            if len(df) == 0:
+                logger.warning("No SVM pair metrics found for requested pairs")
+                return None
+
+            # Build result dict
+            result: Dict[str, Tuple[float, float, float]] = {}
+            for row in df.iter_rows(named=True):
+                pair_key = f"{row['feature_a']}-{row['feature_b']}"
+                if pair_key in pair_keys_set:
+                    result[pair_key] = (
+                        float(row.get('inter_ngram_jaccard', 0.0) or 0.0),
+                        float(row.get('inter_semantic_sim', 0.0) or 0.0),
+                        float(row.get('decoder_sim', 0.0) or 0.0),
+                    )
+
+            logger.info(f"[_extract_all_pair_metrics_from_svm] Extracted {len(result)}/{len(pair_ids)} pairs from svm_pair_metrics")
+            return result
+
+        except Exception as e:
+            logger.error(f"Failed to extract pair metrics from SVM: {e}", exc_info=True)
             return None
 
     async def _extract_pair_metrics(
@@ -576,14 +634,24 @@ class PairSimilarityService:
         """
         Extract pair-specific metrics (cosine similarity from decoder_similarity).
 
-        Optimized: Single filter + dict lookup instead of filtering per pair.
+        Fast path: Uses svm_pair_metrics.parquet if available.
+        Fallback: Extracts from features.parquet decoder_similarity.
 
         Args:
             pair_ids: List of (main_id, similar_id) tuples
 
         Returns:
-            Dictionary mapping pair_key to cosine_similarity
+            Dictionary mapping pair_key to cosine_similarity (decoder_sim)
         """
+        # Fast path: Try pre-computed svm_pair_metrics
+        svm_pair_metrics = await self._extract_all_pair_metrics_from_svm(pair_ids)
+        if svm_pair_metrics is not None:
+            # Extract just the decoder_sim (3rd element of tuple)
+            return {pk: metrics[2] for pk, metrics in svm_pair_metrics.items()}
+
+        # Fallback: Legacy extraction from features.parquet
+        logger.info("Falling back to legacy pair metrics extraction")
+
         # Access the main dataframe through data_service
         lf = self.data_service._df_lazy
         if lf is None:
@@ -657,8 +725,8 @@ class PairSimilarityService:
         """
         Extract inter-feature metrics for SPECIFIC pairs (A, B).
 
-        Unlike _extract_interfeature_metrics which extracts MAX across all similar features,
-        this method looks up the exact pair (A, B) in the all_pairs list.
+        Fast path: Uses svm_pair_metrics.parquet if available.
+        Fallback: Extracts from interfeature_similarity.parquet.
 
         Args:
             pair_ids: List of (main_id, similar_id) tuples
@@ -666,6 +734,15 @@ class PairSimilarityService:
         Returns:
             Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim)
         """
+        # Fast path: Try pre-computed svm_pair_metrics
+        svm_pair_metrics = await self._extract_all_pair_metrics_from_svm(pair_ids)
+        if svm_pair_metrics is not None:
+            # Extract inter_ngram_jaccard (0th) and inter_semantic_sim (1st) from tuple
+            return {pk: (metrics[0], metrics[1]) for pk, metrics in svm_pair_metrics.items()}
+
+        # Fallback: Legacy extraction from interfeature_similarity
+        logger.info("Falling back to legacy interfeature metrics extraction")
+
         if self.data_service._interfeature_similarity_lazy is None:
             logger.warning("No inter-feature similarity data available for pair-specific metrics")
             return {}
@@ -728,7 +805,7 @@ class PairSimilarityService:
             inter_ngram = max(char_j, word_j)
             result[pair_key] = (inter_ngram, sem_sim)
 
-        logger.info(f"Extracted pair-specific inter-feature metrics for {len(result)} pairs")
+        logger.info(f"Extracted pair-specific inter-feature metrics for {len(result)} pairs (legacy path)")
         if missing_count > 0:
             logger.warning(
                 f"⚠️  {missing_count}/{len(pair_ids)} pairs ({100*missing_count/len(pair_ids):.1f}%) "

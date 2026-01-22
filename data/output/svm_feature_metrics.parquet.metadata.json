@@ -1,0 +1,40 @@
+{
+  "step_name": "Step 13: SVM Metrics",
+  "version": "4.0",
+  "created_at": "2026-01-22T20:55:52.856690",
+  "row_count": 16384,
+  "columns": [
+    "feature_id",
+    "score_embedding",
+    "score_fuzz",
+    "score_detection",
+    "explanation_semantic_sim",
+    "frac_nonzero",
+    "score_embedding_std",
+    "score_fuzz_std",
+    "score_detection_std",
+    "explanation_semantic_sim_std",
+    "intra_ngram_jaccard",
+    "intra_semantic_sim",
+    "intra_semantic_sim_std"
+  ],
+  "schema": {
+    "feature_id": "UInt32",
+    "score_embedding": "Float32",
+    "score_fuzz": "Float32",
+    "score_detection": "Float32",
+    "explanation_semantic_sim": "Float32",
+    "frac_nonzero": "Float32",
+    "score_embedding_std": "Float32",
+    "score_fuzz_std": "Float32",
+    "score_detection_std": "Float32",
+    "explanation_semantic_sim_std": "Float32",
+    "intra_ngram_jaccard": "Float32",
+    "intra_semantic_sim": "Float32",
+    "intra_semantic_sim_std": "Float32"
+  },
+  "stats": {
+    "features_processed": 16384,
+    "missing_values_filled": 7
+  }
+}

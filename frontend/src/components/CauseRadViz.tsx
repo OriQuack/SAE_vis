@@ -9,7 +9,7 @@ import {
   RADVIZ_ANCHORS,
   type RadVizPoint
 } from '../lib/radviz-utils'
-import { getCauseColor, computeCategoryContours, type CauseCategory, type CategoryContour } from '../lib/umap-utils'
+import { getCauseColor, computeCategoryContours, type CauseCategory, type CategoryContour } from '../lib/cause-visualization-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import {

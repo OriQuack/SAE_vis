@@ -1,0 +1,81 @@
+{
+  "created_at": "2026-01-22T19:09:56.603473",
+  "step_name": "Step 6: Features Parquet",
+  "script_version": "2.1",
+  "total_rows": 49152,
+  "schema": {
+    "feature_id": "Int64",
+    "sae_id": "Categorical",
+    "explanation_method": "Categorical",
+    "llm_explainer": "Categorical",
+    "explanation_text": "Utf8",
+    "decoder_similarity": "List(Struct([Field('feature_id', UInt32), Field('cosine_similarity', Float32)]))",
+    "decoder_similarity_merge_threshold": "Float64",
+    "frac_nonzero": "Float64",
+    "semantic_similarity": "List(Struct([Field('explainer', Categorical), Field('cosine_similarity', Float32)]))",
+    "scores": "List(Struct([Field('scorer', Utf8), Field('fuzz', Float64), Field('simulation', Null), Field('detection', Float64), Field('embedding', Float64)]))"
+  },
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "processing_stats": {
+    "features_processed": 16384,
+    "rows_created": 49152,
+    "missing_scores": 0,
+    "missing_embeddings": 0
+  },
+  "result_stats": {
+    "unique_feature_ids": 16384,
+    "unique_sae_ids": 1
+  },
+  "config_used": {
+    "enabled": true,
+    "inputs": {
+      "explanation_embeddings": "data/intermediate/explanation_embeddings.parquet",
+      "aggregated_scores": "data/intermediate/aggregated_scores.parquet",
+      "decoder_similarity_matrix": "data/intermediate/decoder_similarity_matrix.npz",
+      "clustering_linkage": "data/output/clustering_linkage.npy",
+      "frac_nonzero": "data/input/neuronpedia_frac_nonzero/frac_nonzero.json"
+    },
+    "outputs": {
+      "main": "data/output/features.parquet"
+    },
+    "parameters": {
+      "top_k_decoder_sim": 10
+    },
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "global": {
+      "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+      "sae_id_sanitized": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+      "paths": {
+        "input": "data/input",
+        "intermediate": "data/intermediate",
+        "output": "data/output",
+        "master": "data/master",
+        "feature_similarity": "data/feature_similarity",
+        "scores": "data/scores"
+      },
+      "processing": {
+        "num_features": 16384,
+        "feature_range": {
+          "start": 0,
+          "end": 16384
+        },
+        "embedding": {
+          "model": "google/embeddinggemma-300m",
+          "dimension": 768,
+          "device": "cuda",
+          "batch_size": 256
+        }
+      },
+      "data_sources": [
+        "llama_e-llama_s-16k-v2",
+        "gemini_e-llama_s-16k-v2",
+        "openai_e-llama_s-16k-v2"
+      ],
+      "llm_explainer_mapping": {
+        "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+        "gemini_e": "google/gemini-flash-2.5",
+        "openai_e": "openai/gpt-4o-mini"
+      }
+    }
+  }
+}

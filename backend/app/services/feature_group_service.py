@@ -25,7 +25,7 @@ from .data_constants import (
 logger = logging.getLogger(__name__)
 
 # Data file paths
-FEATURES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "master" / "features.parquet"
+FEATURES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "output" / "features.parquet"
 
 
 class FeatureGroupService:
