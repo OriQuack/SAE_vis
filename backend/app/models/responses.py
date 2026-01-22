@@ -365,8 +365,8 @@ class ActivationExampleData(BaseModel):
         ...,
         description="Pre-organized activation examples (8 total, 2 per quantile)"
     )
-    semantic_similarity: float = Field(
-        ...,
+    semantic_similarity: Optional[float] = Field(
+        default=0.0,
         description="Average pairwise semantic similarity"
     )
     char_ngram_max_jaccard: float = Field(

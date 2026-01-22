@@ -79,12 +79,11 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │                              DATA STORAGE                                 │
 │  • features.parquet (16k+ features with nested structure)                 │
 │  • activation_display.parquet (frontend-optimized)                        │
-│  • activation_embeddings.parquet (pre-computed embeddings)                │
+│  • interfeature_similarity.parquet (cross-feature analysis)               │
 │  • explanation_alignment.parquet (cross-explainer phrase matching)        │
-│  • interfeature_activation_similarity.parquet (cross-feature analysis)    │
-│  • explanation_barycentric.parquet (Stage 3 barycentric positions)        │
-│  • thematic_codes.parquet (Thematic-LM analysis output)                   │
-│  • Pre-computed statistics (JSON)                                         │
+│  • svm_feature_metrics.parquet (pre-aggregated feature SVM metrics)       │
+│  • svm_pair_metrics.parquet (pre-computed pair SVM metrics)               │
+│  • clustering_linkage.npy (hierarchical clustering)                       │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -160,7 +159,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (33 files)
+│   │   ├── components/    # UI components (32 files)
 │   │   ├── lib/          # D3 utilities, helpers (22 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
 │   │   ├── styles/       # CSS files (30 files)
@@ -169,13 +168,15 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (10 files)
+│   │   ├── api/          # Endpoints (9 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (15 files)
+│   │   └── services/     # Business logic (13 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
-│   ├── master/           # Primary parquet files (13 files)
-│   ├── preprocessing/    # Processing scripts + config files
+│   ├── input/            # Raw input data (run configs, activation examples)
+│   ├── output/           # Backend-required parquet files (7 files)
+│   ├── pipeline/         # Refactored preprocessing pipeline (13 steps)
+│   ├── diagnostics/      # Analysis and diagnostic scripts
 │   ├── Thematic-LM/      # Thematic analysis (WWW '25 paper impl.)
 │   └── CLAUDE.md         # Data docs
 └── CLAUDE.md          # This file
@@ -309,13 +310,14 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 ## Important Notes
 
 ### Data Dependencies
-- **Master Data**: `/data/master/features.parquet` (required)
-- **Activation Display**: `/data/master/activation_display.parquet` (frontend-optimized)
-- **Activation Embeddings**: `/data/master/activation_embeddings.parquet` (similarity calculations)
-- **Barycentric Positions**: `/data/master/explanation_barycentric.parquet` (Stage 3 barycentric positions)
-- **Interfeature Similarity**: `/data/master/interfeature_activation_similarity.parquet` (cross-feature analysis)
-- **Interfeature Raw**: `/data/master/interfeature_activation_similarity_raw.parquet` (raw similarity data)
-- **Thematic Codes**: `/data/master/thematic_codes.parquet` (Thematic-LM output)
+All backend-required files are in `/data/output/`:
+- **Features**: `features.parquet` (main dataset, required)
+- **Activation Display**: `activation_display.parquet` (frontend-optimized)
+- **Interfeature Similarity**: `interfeature_similarity.parquet` (cross-feature analysis)
+- **Explanation Alignment**: `explanation_alignment.parquet` (phrase matching)
+- **SVM Feature Metrics**: `svm_feature_metrics.parquet` (pre-aggregated for Stage 2/3)
+- **SVM Pair Metrics**: `svm_pair_metrics.parquet` (pre-computed for Stage 1)
+- **Clustering**: `clustering_linkage.npy` (hierarchical clustering)
 
 ### Thematic-LM (Separate Tool)
 Implementation of the WWW '25 paper "Thematic-LM: A LLM-based Multi-agent System for Large-scale Thematic Analysis" for analyzing SAE feature explanations.

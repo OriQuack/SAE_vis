@@ -495,9 +495,9 @@ curl -X GET "http://localhost:8000/api/filter-options"
 ```
 
 ### Data Requirements
-- Master Parquet file: `/data/master/features.parquet`
-- Detailed JSON directory: `/data/detailed_json/`
-- Metadata file: `/data/master/feature_analysis.metadata.json`
+- Features Parquet file: `/data/output/features.parquet`
+- Activation display: `/data/output/activation_display.parquet`
+- SVM metrics: `/data/output/svm_feature_metrics.parquet`, `/data/output/svm_pair_metrics.parquet`
 
 ---
 

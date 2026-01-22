@@ -224,36 +224,37 @@ async def get_representative_features(feature_ids, n_samples, method):
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (10 files)
+│   ├── api/                       # API endpoints (9 files)
 │   │   ├── __init__.py           # Router aggregation
 │   │   ├── feature_groups.py     # Feature grouping
 │   │   ├── cluster_candidates.py # Clustering endpoint
-│   │   ├── similarity_sort.py    # SVM similarity sorting
+│   │   ├── similarity_sort.py    # SVM similarity sorting (features, pairs, histograms)
 │   │   ├── filters.py            # Filter options
 │   │   ├── histogram.py          # Histogram data
 │   │   ├── table.py              # Table data
 │   │   ├── activation_examples.py # Activation data
-│   │   ├── cause.py              # Cause classification
+│   │   ├── cause.py              # Cause classification (Stage 3)
 │   │   └── cold_start.py         # Cold start representative sampling
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
 │   │   ├── responses.py          # Response models
 │   │   └── cold_start.py         # Cold start models
-│   └── services/                  # Business logic (15 files)
+│   └── services/                  # Business logic (13 files)
 │       ├── data_service.py           # Data loading + initialization
 │       ├── data_constants.py         # Metric definitions
 │       ├── feature_group_service.py  # Feature grouping
 │       ├── hierarchical_cluster_candidate_service.py # Clustering
-│       ├── similarity_sort_service.py # SVM scoring
+│       ├── similarity_sort_service.py # SVM scoring for features
+│       ├── pair_similarity_service.py # SVM scoring for pairs
 │       ├── committee_service.py      # QBC: RF + MLP committee
+│       ├── pytorch_mlp.py            # PyTorch MLP with sample weighting
 │       ├── bimodality_service.py     # Bimodality detection
 │       ├── histogram_service.py      # Histogram generation
 │       ├── table_data_service.py     # Table processing
 │       ├── alignment_service.py      # Explanation alignment
 │       ├── activation_cache_service.py # Cached activation data
-│       ├── cause_service.py          # SVM-based cause classification
+│       ├── cause_service.py          # SVM-based cause classification (Stage 3)
 │       ├── consistency_service.py    # Consistency metrics
-│       ├── pair_similarity_service.py # Pair SVM scoring (19-dimensional vectors)
 │       └── cold_start_service.py     # Diversity-based representative sampling
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
@@ -481,11 +482,11 @@ Get representative features for cold start initialization using diversity sampli
 
 ## Data Requirements
 
-### Primary Data Files
+### Primary Data Files (in `/data/output/`)
 
 #### features.parquet
-- **Location**: `/data/master/features.parquet`
-- **Size**: 16,000+ features
+- **Location**: `/data/output/features.parquet`
+- **Size**: 16,000+ features (~4.7MB)
 - **Key Columns**:
   - feature_id (int)
   - sae_id (str)
@@ -496,37 +497,41 @@ Get representative features for cold start initialization using diversity sampli
   - Various score columns (embedding, fuzz, detection)
   - decoder_similarity (nested)
   - semantic_similarity (nested)
+  - frac_nonzero (fraction of non-zero activations)
 
 #### activation_display.parquet
-- **Location**: `/data/master/activation_display.parquet`
+- **Location**: `/data/output/activation_display.parquet`
 - **Purpose**: Frontend-optimized activation data
-- **Size**: 64MB (pre-aggregated from 246MB raw)
+- **Size**: ~128MB (pre-aggregated)
 
 #### explanation_alignment.parquet
-- **Location**: `/data/master/explanation_alignment.parquet`
+- **Location**: `/data/output/explanation_alignment.parquet`
 - **Purpose**: Cross-explainer phrase alignments for highlighting
 
-#### explanation_barycentric.parquet
-- **Location**: `/data/master/explanation_barycentric.parquet`
-- **Purpose**: Precomputed 2D positions for Stage 3 cause visualization
-- **Key Columns**:
-  - feature_id, llm_explainer
-  - position_x, position_y (barycentric 2D coordinates)
-  - nearest_anchor (closest cause category anchor)
-  - cluster_id (HDBSCAN cluster assignment)
-  - Metric scores: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
-
-#### interfeature_activation_similarity.parquet
-- **Location**: `/data/master/interfeature_activation_similarity.parquet`
+#### interfeature_similarity.parquet
+- **Location**: `/data/output/interfeature_similarity.parquet`
 - **Purpose**: Cross-feature activation pattern similarity for diversity sampling
-- **Key Columns**:
-  - feature_id, similar_feature_id
-  - similarity_score (Jaccard-based)
+- **Size**: ~8MB
 - **Used by**: Cold start service for representative sampling
 
-#### interfeature_activation_similarity_raw.parquet
-- **Location**: `/data/master/interfeature_activation_similarity_raw.parquet`
-- **Purpose**: Raw interfeature similarity data before aggregation
+#### svm_feature_metrics.parquet
+- **Location**: `/data/output/svm_feature_metrics.parquet`
+- **Purpose**: Pre-aggregated feature-level metrics for SVM (Stage 2/3)
+- **Size**: ~569KB
+- **Key Columns**: Mean metrics across explainers (score_embedding, score_fuzz, score_detection, etc.)
+- **Used by**: cause_service.py, similarity_sort_service.py
+
+#### svm_pair_metrics.parquet
+- **Location**: `/data/output/svm_pair_metrics.parquet`
+- **Purpose**: Pre-computed pair-level metrics for SVM (Stage 1)
+- **Size**: ~4.9MB
+- **Key Columns**: feature_a, feature_b, inter_ngram_jaccard, inter_semantic_sim, decoder_sim
+- **Used by**: pair_similarity_service.py
+
+#### clustering_linkage.npy
+- **Location**: `/data/output/clustering_linkage.npy`
+- **Purpose**: Hierarchical clustering linkage matrix for decoder similarity
+- **Size**: ~512KB
 
 ## Development Workflow
 

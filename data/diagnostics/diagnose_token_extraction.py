@@ -28,8 +28,8 @@ import polars as pl
 # Add pipeline to path for core utilities
 sys.path.insert(0, str(Path(__file__).parent.parent / "pipeline"))
 
-from core.tokens import normalize_token, reconstruct_words_with_positions
-from core.paths import find_project_root
+from core.tokens import normalize_token, reconstruct_words_with_positions  # type: ignore
+from core.paths import find_project_root  # type: ignore
 
 
 def analyze_token(token: str) -> Dict[str, Any]:
@@ -81,10 +81,10 @@ def main():
 
     project_root = find_project_root()
 
-    # Try output first, fall back to master
+    # Try intermediate first, fall back to output
     activation_path = project_root / "data/intermediate/activation_examples.parquet"
     if not activation_path.exists():
-        activation_path = project_root / "data/master/activation_examples.parquet"
+        activation_path = project_root / "data/output/activation_examples.parquet"
 
     print(f"Loading activation examples from {activation_path}")
     df = pl.read_parquet(activation_path)

@@ -22,9 +22,9 @@ pip install -r requirements.txt
 
 ### 2. Verify Data Files
 
-Ensure your data preprocessing is complete and the master Parquet file exists:
+Ensure your data preprocessing is complete and the output Parquet file exists:
 ```bash
-ls -la ./data/master/features.parquet
+ls -la ../data/output/features.parquet
 ```
 
 ### 3. Start the Server
@@ -197,15 +197,18 @@ All endpoints return consistent error responses:
 
 ## Data Requirements
 
-The API expects the following data structure:
+The API expects the following data structure in `interface/data/output/`:
 
-### Master Parquet File
-- **Location**: `interface/data/master/features.parquet`
-- **Schema**: See `docs/api_specification.md` for complete schema
+### Core Parquet Files
+- **features.parquet**: Main dataset with feature metadata and scores
+- **activation_display.parquet**: Frontend-optimized activation data
+- **svm_feature_metrics.parquet**: Pre-aggregated feature-level SVM metrics
+- **svm_pair_metrics.parquet**: Pre-computed pair-level SVM metrics
+- **interfeature_similarity.parquet**: Cross-feature similarity data
+- **explanation_alignment.parquet**: Cross-explainer phrase alignments
+- **clustering_linkage.npy**: Hierarchical clustering linkage matrix
 
-### Detailed JSON Files
-- **Location**: `interface/data/detailed_json/`
-- **Format**: Individual feature detail files (referenced by `details_path`)
+See `data/CLAUDE.md` for complete pipeline documentation.
 
 ## Monitoring
 

@@ -113,7 +113,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (33 files)
+├── components/                    # React Components (32 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -515,7 +515,6 @@ const debouncedUpdate = useMemo(
 | POST /api/pair-similarity-sort | Sort pairs by SVM |
 | POST /api/similarity-score-histogram | Feature histogram + modality |
 | POST /api/pair-similarity-score-histogram | Pair histogram + modality |
-| POST /api/umap-projection | Barycentric 2D positions (Stage 3) |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/cold-start/representative | Representative features for cold start |
 | POST /api/activation-examples | On-demand activation data |

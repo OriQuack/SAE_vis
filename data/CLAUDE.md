@@ -69,16 +69,19 @@ python 5_act_similarity.py --config ../config/5_act_similarity.json
 
 ```
 data/
-├── raw/                          # Raw SAE experimental data (read-only)
-│   ├── llama_e-llama_s-16k-v2/  # Llama explainer + scorer
-│   ├── gemini_e-llama_s-16k-v2/ # Gemini explainer + scorer
-│   └── openai_e-llama_s-16k-v2/ # OpenAI explainer + scorer
+├── input/                        # Input data for pipeline
+│   ├── activation_examples/      # Raw activation data (activations.jsonl, prompts.json)
+│   ├── gemini_e-llama_s-16k-v2/  # Gemini explainer run config
+│   ├── llama_e-llama_s-16k-v2/   # Llama explainer run config
+│   ├── openai_e-llama_s-16k-v2/  # OpenAI explainer run config
+│   └── neuronpedia_frac_nonzero/ # Neuronpedia fraction nonzero data
+│
+├── raw/                          # Raw SAE experimental data (explanations, scores)
 │
 ├── pipeline/                     # Refactored preprocessing pipeline
 │   ├── config.yaml              # Single master configuration file
 │   ├── run.py                   # Master script with dependency resolution
-│   ├── core/                    # Shared utilities (~730 lines)
-│   │   ├── __init__.py          # Module exports
+│   ├── core/                    # Shared utilities
 │   │   ├── base.py              # BaseProcessor class
 │   │   ├── paths.py             # Path resolution utilities
 │   │   ├── logging.py           # Logging configuration
@@ -87,32 +90,41 @@ data/
 │   │   ├── ngrams.py            # N-gram extraction, Jaccard similarity
 │   │   ├── sampling.py          # Quantile-based sampling
 │   │   └── embeddings.py        # Embedding loading and similarity
-│   └── steps/                   # Processing step implementations
-│       ├── __init__.py          # Step registry
-│       ├── step_08_activation_similarity.py   # Refactored (uses core/)
-│       ├── step_09_interfeature_similarity.py # Refactored (uses core/)
-│       └── step_10_activation_display.py      # Refactored (uses core/)
+│   └── steps/                   # Processing step implementations (13 steps)
+│       ├── step_01_activations.py
+│       ├── step_02_decoder_similarity.py
+│       ├── step_03_scores.py
+│       ├── step_04_explanation_embeddings.py
+│       ├── step_05_clustering.py
+│       ├── step_06_features.py
+│       ├── step_07_activation_embeddings.py
+│       ├── step_08_activation_similarity.py
+│       ├── step_09_interfeature_similarity.py
+│       ├── step_10_activation_display.py
+│       ├── step_11_interfeature_display.py
+│       ├── step_12_explanation_alignment.py
+│       └── step_13_svm_metrics.py
 │
 ├── diagnostics/                 # Diagnostic and analysis scripts
-│   ├── diagnose_token_extraction.py   # Token edge case detection
-│   ├── analyze_clustering.py          # Clustering analysis
-│   └── visualize_clustering_distribution.py
+│   ├── diagnose_token_extraction.py
+│   ├── analyze_clustering.py
+│   ├── visualize_clustering_distribution.py
+│   ├── visualize_decoder_similarity_distribution.py
+│   └── visualize_similarity_distributions.py
 │
 ├── utilities/                   # Utility scripts (not part of pipeline)
 │   └── export_assembled_explanations.py
 │
-├── preprocessing/               # LEGACY: Old processing scripts
-│   ├── scripts/                 # Python processing scripts (numbered 0-10)
-│   └── config/                  # JSON configuration files
+├── intermediate/                # Intermediate processing files
 │
 ├── output/                      # BACKEND-REQUIRED FILES (used by backend)
-│   ├── features.parquet         # Main dataset (~3.9MB)
-│   ├── activation_display.parquet # Frontend-optimized (~64MB)
-│   ├── interfeature_similarity.parquet # Cross-feature (~69MB)
-│   ├── svm_feature_metrics.parquet # Feature-level SVM metrics (~1MB)
-│   ├── svm_pair_metrics.parquet # Pair-level SVM metrics (~10MB)
-│   ├── explanation_alignment.parquet # Phrase alignments (~403KB)
-│   └── clustering_linkage.npy   # Hierarchical clustering (~513KB)
+│   ├── features.parquet         # Main dataset (~4.7MB)
+│   ├── activation_display.parquet # Frontend-optimized (~128MB)
+│   ├── interfeature_similarity.parquet # Cross-feature (~8MB)
+│   ├── svm_feature_metrics.parquet # Feature-level SVM metrics (~569KB)
+│   ├── svm_pair_metrics.parquet # Pair-level SVM metrics (~4.9MB)
+│   ├── explanation_alignment.parquet # Phrase alignments (~293KB)
+│   └── clustering_linkage.npy   # Hierarchical clustering (~512KB)
 │
 ├── Thematic-LM/                 # Thematic analysis (WWW '25 paper)
 │   ├── thematic_coding.py       # Main processing script
@@ -122,15 +134,14 @@ data/
 │   ├── codebook_history/        # Processing checkpoints
 │   └── CLAUDE.md                # Thematic-LM docs
 │
-├── scores/                      # Processed scoring data
-├── feature_similarity/          # Decoder weight similarities
-├── llm_comparison/              # LLM consistency stats
 └── CLAUDE.md                    # This file
 ```
 
 ## Core Data Files (Output Directory)
 
-### 1. features.parquet (PRIMARY - ~3.8MB)
+All backend-required files are in `/data/output/`.
+
+### 1. features.parquet (PRIMARY - ~4.7MB)
 **The main dataset powering all visualizations**
 
 **Key Fields**:
@@ -143,59 +154,24 @@ data/
 
 **Usage**: Feature grouping, table display, similarity calculations
 
-### 2. explanation_embeddings.parquet (~146MB)
-**Pre-computed 768-dim embeddings for all explanations**
-
-**Purpose**: Used for on-the-fly similarity calculations
-**Model**: Embedding model for semantic comparisons
-
-### 3. activation_examples.parquet (~258MB)
-**Raw activation data with token windows**
-
-**Stats**: Activation examples across features with 127-token context windows
-
-### 4. activation_embeddings.parquet (~848MB - largest file)
-**Pre-computed embeddings for quantile-sampled activations**
-
-**Purpose**: Semantic similarity calculations between activation contexts
-**Optimization**: Natural text reconstruction (strips '▁' prefix, joins subwords)
-
-### 5. activation_example_similarity.parquet (~5.9MB)
-**Dual n-gram analysis with pattern metrics**
-
-**Key Innovation**:
-- **Character n-grams**: Morphology (suffixes, prefixes) with `char_offset` for precise highlighting
-- **Word n-grams**: Semantics (reconstructed words) with `start_position`
-- **Dual Jaccard**: Separate scores for char and word pattern consistency
-
-### 6. activation_display.parquet (~67MB)
+### 2. activation_display.parquet (~128MB)
 **Frontend-optimized display data**
 
 **Purpose**: Reduce frontend load time (~250x faster than raw data)
 **Structure**: Feature-level rows with pre-processed tokens, pattern classification, n-gram positions
 
-### 7. interfeature_activation_similarity.parquet (~3MB)
-**Cross-feature activation pattern comparison (processed)**
+### 3. interfeature_similarity.parquet (~8MB)
+**Cross-feature activation pattern comparison**
 
 **Purpose**: Analyze pattern similarities between decoder-similar features
 **Used by**: Cold start service for diversity-based representative sampling
 
-### 7b. interfeature_activation_similarity_raw.parquet (~2MB)
-**Cross-feature activation pattern comparison (raw)**
-
-**Purpose**: Raw similarity data before aggregation and filtering
-
-### 8. explanation_alignment.parquet (~406KB)
+### 4. explanation_alignment.parquet (~293KB)
 **Semantically aligned phrases across LLM explanations**
 
 **Purpose**: Highlight shared concepts between different explainers
 
-### 9. ex_act_pattern_matching.parquet (~81KB)
-**Dual lexical + semantic pattern validation**
-
-**Purpose**: Validate explanation-activation pattern consistency
-
-### 10. svm_feature_metrics.parquet (Stage 2 & 3 SVM Metrics)
+### 5. svm_feature_metrics.parquet (~569KB)
 **Pre-aggregated feature-level SVM metrics**
 
 **Purpose**: Eliminate runtime aggregation for backend SVM-based classification (Stage 2 Quality and Stage 3 Cause)
@@ -222,7 +198,7 @@ data/
 - Backend pair_similarity_service.py uses for intra-feature metrics in pair vectors
 - No runtime aggregation needed - data is pre-aggregated to 1 row per feature
 
-### 10b. svm_pair_metrics.parquet (Stage 1 Pair SVM Metrics)
+### 6. svm_pair_metrics.parquet (~4.9MB)
 **Pre-computed pair-level SVM metrics**
 
 **Purpose**: Eliminate runtime joins for backend pair similarity scoring (Stage 1 Feature Splitting)
@@ -240,68 +216,55 @@ data/
 - Backend pair_similarity_service.py uses for pair-specific metrics in 9-dim pair vectors
 - Eliminates complex runtime joins across features.parquet and interfeature_similarity.parquet
 
-### 11. thematic_codes.parquet (~6KB)
-**Thematic-LM analysis output**
+### 7. clustering_linkage.npy (~512KB)
+**Hierarchical clustering linkage matrix**
 
-**Purpose**: Thematic codes assigned to feature explanations using multi-agent LLM system
-**Generated by**: `data/Thematic-LM/thematic_coding.py`
-**See**: `data/Thematic-LM/CLAUDE.md` for full documentation
+**Purpose**: Pre-computed hierarchical clustering for decoder weight similarity
+**Used by**: HierarchicalClusterCandidateService for feature pair clustering
 
-## Processing Pipeline (Scripts 0-10)
+## Processing Pipeline (13 Steps)
 
-### IMPORTANT: Config Files Required
+The preprocessing pipeline has been refactored with a single master config (`config.yaml`) and master script (`run.py`).
 
-**All numbered preprocessing scripts MUST be run with their corresponding config file using the `--config` flag.**
+### Running the Pipeline
 
-Config files are located in `data/preprocessing/config/` and contain:
-- Input/output paths
-- Processing parameters
-- Schema definitions
-- Documentation notes
-
-### Quick Reference
 ```bash
-cd data/preprocessing/scripts
+# Run full pipeline
+python data/pipeline/run.py
 
-# Core pipeline (run in order with --config flag):
-python 0_create_activation_examples_parquet.py --config ../config/0_activation_examples_config.json
-python 0_feature_similarities.py --config ../config/0_feature_similarity_config.json
-python 1_scores.py --config ../config/1_score_config.json
-python 2_ex_embeddings.py --config ../config/2_ex_embeddings_config.json
-python 2_feature_clustering.py --config ../config/2_feature_clustering.json
-python 3_features_parquet.py --config ../config/3_create_features_parquet.json
-python 4_act_embeddings.py --config ../config/4_act_embeddings.json
-python 5_act_similarity.py --config ../config/5_act_similarity.json
-python 5_interfeature_similarity.py --config ../config/5_interfeature_similarity.json
-python 6_activation_display.py --config ../config/6_activation_display.json
-python 6_interfeature_display.py --config ../config/6_interfeature_display.json
+# Run specific steps (automatically includes dependencies)
+python data/pipeline/run.py --steps step_06_features step_10_activation_display
 
-# Pattern validation (optional for basic demos):
-python 7_explanation_alignment.py --config ../config/7_explanation_alignment.json
-python 8_ex_act_pattern_matching.py --config ../config/8_ex_act_pattern_matching.json
-python 9_explanation_embedding_barycentric.py --config ../config/9_explanation_embedding_barycentric.json
-python 10_assembled_explanations.py --config ../config/10_assembled_explanations.json
+# Run from a specific step onwards
+python data/pipeline/run.py --from step_06_features
+
+# Dry run (show execution plan)
+python data/pipeline/run.py --dry-run
+
+# List all available steps
+python data/pipeline/run.py --list
+
+# Limit features for testing
+python data/pipeline/run.py --limit 100
 ```
 
-### Script Descriptions
+### Pipeline Steps
 
-| Script | Purpose | Output | Config |
-|--------|---------|--------|--------|
-| 0_create_activation_examples_parquet | Create activation examples parquet | activation_examples.parquet | 0_activation_examples_config.json |
-| 0_feature_similarities | Compute decoder weight similarities | feature_similarity/ | 0_feature_similarity_config.json |
-| 1_scores | Aggregate scoring metrics from LLM scorers | scores/ | 1_score_config.json |
-| 2_ex_embeddings | Generate explanation embeddings | explanation_embeddings.parquet | 2_ex_embeddings_config.json |
-| 2_feature_clustering | Cluster features by decoder similarity | clustering data | 2_feature_clustering.json |
-| 3_features_parquet | Create main features parquet with nested structure | features.parquet | 3_create_features_parquet.json |
-| 4_act_embeddings | Pre-compute activation embeddings | activation_embeddings.parquet | 4_act_embeddings.json |
-| 5_act_similarity | Calculate dual n-gram similarity | activation_example_similarity.parquet | 5_act_similarity.json |
-| 5_interfeature_similarity | Cross-feature activation similarity | interfeature_activation_similarity.parquet | 5_interfeature_similarity.json |
-| 6_activation_display | Create frontend-optimized display data | activation_display.parquet | 6_activation_display.json |
-| 6_interfeature_display | Process interfeature data for display | interfeature display data | 6_interfeature_display.json |
-| 7_explanation_alignment | Find aligned phrases across LLM explanations | explanation_alignment.parquet | 7_explanation_alignment.json |
-| 8_ex_act_pattern_matching | Dual lexical + semantic pattern validation | ex_act_pattern_matching.parquet | 8_ex_act_pattern_matching.json |
-| 9_explanation_embedding_barycentric | Compute barycentric UMAP positions | explanation_barycentric.parquet | 9_explanation_embedding_barycentric.json |
-| 10_assembled_explanations | Assemble explanations | assembled explanations | 10_assembled_explanations.json |
+| Step | Purpose | Output |
+|------|---------|--------|
+| step_01_activations | Create activation examples | activation_examples.parquet |
+| step_02_decoder_similarity | Compute decoder weight similarities | decoder_similarity/ |
+| step_03_scores | Aggregate scoring metrics | scores/ |
+| step_04_explanation_embeddings | Generate explanation embeddings | explanation_embeddings.parquet |
+| step_05_clustering | Hierarchical clustering | clustering_linkage.npy |
+| step_06_features | Create main features parquet | features.parquet |
+| step_07_activation_embeddings | Pre-compute activation embeddings | activation_embeddings.parquet |
+| step_08_activation_similarity | Dual n-gram similarity | activation_similarity.parquet |
+| step_09_interfeature_similarity | Cross-feature similarity | interfeature_similarity.parquet |
+| step_10_activation_display | Frontend-optimized display | activation_display.parquet |
+| step_11_interfeature_display | Interfeature display data | (processed interfeature) |
+| step_12_explanation_alignment | Cross-explainer phrase alignment | explanation_alignment.parquet |
+| step_13_svm_metrics | Pre-compute SVM metrics | svm_feature_metrics.parquet, svm_pair_metrics.parquet |
 
 ### Key Processing Patterns
 
@@ -387,18 +350,6 @@ mean_sim, std_sim = compute_intra_feature_semantic_similarity(
 )
 ```
 
-## Refactored Steps
-
-The following steps have been refactored to use core utilities:
-- **step_08_activation_similarity.py**: ~500 lines (from 1147)
-- **step_09_interfeature_similarity.py**: ~600 lines (from 1358)
-- **step_10_activation_display.py**: ~430 lines (from legacy)
-
-Run refactored steps with:
-```bash
-python data/pipeline/run.py --no-legacy --steps step_08_activation_similarity
-```
-
 ## Backend Integration
 
 ### Basic Data Loading
@@ -408,13 +359,17 @@ import polars as pl
 # Lazy loading for efficiency
 df = pl.scan_parquet("data/output/features.parquet")
 df = df.filter(filters).collect()
+
+# Load SVM metrics (pre-aggregated)
+svm_features = pl.read_parquet("data/output/svm_feature_metrics.parquet")
+svm_pairs = pl.read_parquet("data/output/svm_pair_metrics.parquet")
 ```
 
 ### Common Patterns
 ```python
 # Join multiple files on feature_id
-features = pl.read_parquet("features.parquet")
-display = pl.read_parquet("activation_display.parquet")
+features = pl.read_parquet("data/output/features.parquet")
+display = pl.read_parquet("data/output/activation_display.parquet")
 full = features.join(display, on=["feature_id", "sae_id"])
 
 # Access nested fields
@@ -425,29 +380,29 @@ scores = row["scores"]  # Nested scoring data
 ### Performance
 - Feature grouping: ~50ms
 - Table load: ~100ms
-- Activation display: ~20ms (thanks to Script 6 optimization)
+- Activation display: ~20ms (thanks to step_10 optimization)
 - Cached activation blob: ~15-25s (vs ~100s for chunked JSON)
+- SVM scoring: Fast (no runtime aggregation due to pre-computed metrics)
 
 ## Dataset Statistics
 
 - **Unique Features**: ~16,000+
-- **Explainers**: 3 (Llama, Qwen, OpenAI)
+- **Explainers**: 3 (Llama, Gemini, OpenAI)
 - **Embedding Dimensions**: 768
-- **Total Output Storage**: ~150MB compressed
+- **Total Output Storage**: ~147MB
 - **Output Files**: 7 parquet/npy files
-- **Processing Scripts**: 15 numbered scripts (0-10) with corresponding config files
-- **Config Files**: 15 JSON configuration files
+- **Pipeline Steps**: 13 steps with single config.yaml
 
 ### File Size Breakdown (output/ directory):
 | File | Size | Purpose |
 |------|------|---------|
-| interfeature_similarity.parquet | ~69MB | Cross-feature analysis |
-| activation_display.parquet | ~64MB | Frontend-optimized |
-| svm_pair_metrics.parquet | ~10MB | Pre-computed pair-level SVM metrics |
-| features.parquet | ~3.8MB | Main dataset |
-| svm_feature_metrics.parquet | ~1MB | Pre-aggregated feature SVM metrics |
-| clustering_linkage.npy | ~513KB | Hierarchical clustering |
-| explanation_alignment.parquet | ~406KB | Phrase alignments |
+| activation_display.parquet | ~128MB | Frontend-optimized |
+| interfeature_similarity.parquet | ~8MB | Cross-feature analysis |
+| svm_pair_metrics.parquet | ~4.9MB | Pre-computed pair-level SVM metrics |
+| features.parquet | ~4.7MB | Main dataset |
+| svm_feature_metrics.parquet | ~569KB | Pre-aggregated feature SVM metrics |
+| clustering_linkage.npy | ~512KB | Hierarchical clustering |
+| explanation_alignment.parquet | ~293KB | Phrase alignments |
 
 ## Key Design Decisions
 

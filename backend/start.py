@@ -44,17 +44,20 @@ def setup_logging(log_level: str = "info", log_file: str = None):
     )
 
 def check_data_files():
-    """Check if required data files exist"""
-    data_path = Path("../data")
-    master_file = data_path / "master" / "features.parquet"
+    """Check if required data files exist.
 
-    if not master_file.exists():
-        print(f"⚠️  Warning: Master data file not found at {master_file}")
+    Uses ../data/output/ to match DataService path configuration.
+    """
+    data_path = Path("../data")
+    output_file = data_path / "output" / "features.parquet"
+
+    if not output_file.exists():
+        print(f"⚠️  Warning: Features data file not found at {output_file}")
         print("   The API will not function properly without this file.")
         print("   Please ensure your data preprocessing is complete.")
         return False
     else:
-        print(f"✅ Found master data file: {master_file}")
+        print(f"✅ Found features data file: {output_file}")
         return True
 
 def main():
