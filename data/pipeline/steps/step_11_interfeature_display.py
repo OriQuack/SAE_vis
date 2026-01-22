@@ -150,15 +150,13 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 pl.col("all_pairs").struct.field("decoder_similarity").alias("decoder_similarity_score"),
                 pl.col("all_pairs").struct.field("similarity_source").alias("source_type"),
                 pl.col("all_pairs").struct.field("semantic_similarity"),
-                pl.col("all_pairs").struct.field("char_jaccard"),
-                pl.col("all_pairs").struct.field("word_jaccard"),
+                pl.col("all_pairs").struct.field("char_ngram_max_jaccard"),
+                pl.col("all_pairs").struct.field("word_ngram_max_jaccard"),
                 pl.col("all_pairs").struct.field("main_prompt_ids"),
                 pl.col("all_pairs").struct.field("similar_prompt_ids"),
                 pl.col("all_pairs").struct.field("num_comparisons"),
                 pl.col("all_pairs").struct.field("max_char_ngram"),
-                pl.col("all_pairs").struct.field("max_char_ngram_jaccard"),
                 pl.col("all_pairs").struct.field("max_word_ngram"),
-                pl.col("all_pairs").struct.field("max_word_ngram_jaccard"),
             ])
             logger.info(f"Flattened to {len(self.raw_df):,} pair rows")
         else:
@@ -196,29 +194,20 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             # Try to proceed with available columns
             pass
 
-        # Check what similarity columns we have
+        # Check what similarity columns we have (Step 9 now outputs consistent names)
         cols = self.raw_df.columns
         similarity_columns = {
-            "char_jaccard": any(c in cols for c in ["char_jaccard", "char_ngram_max_jaccard", "char_jaccard_mean"]),
-            "word_jaccard": any(c in cols for c in ["word_jaccard", "word_ngram_max_jaccard", "word_jaccard_mean"]),
-            "semantic_sim": any(c in cols for c in ["semantic_similarity", "semantic_similarity_mean"])
+            "char_ngram_max_jaccard": "char_ngram_max_jaccard" in cols,
+            "word_ngram_max_jaccard": "word_ngram_max_jaccard" in cols,
+            "semantic_similarity": "semantic_similarity" in cols
         }
 
         logger.info(f"Available similarity columns: {similarity_columns}")
 
-        # Map column names for consistency
-        char_col = next(
-            (c for c in ["char_jaccard", "char_ngram_max_jaccard", "char_jaccard_mean"] if c in cols),
-            None
-        )
-        word_col = next(
-            (c for c in ["word_jaccard", "word_ngram_max_jaccard", "word_jaccard_mean"] if c in cols),
-            None
-        )
-        semantic_col = next(
-            (c for c in ["semantic_similarity", "semantic_similarity_mean"] if c in cols),
-            None
-        )
+        # Column names are now consistent from Step 9
+        char_col = "char_ngram_max_jaccard" if "char_ngram_max_jaccard" in cols else None
+        word_col = "word_ngram_max_jaccard" if "word_ngram_max_jaccard" in cols else None
+        semantic_col = "semantic_similarity" if "semantic_similarity" in cols else None
 
         # Classify pattern types
         logger.info("Classifying pattern types...")
@@ -248,17 +237,8 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             pl.Series("pattern_type", pattern_types).cast(pl.Categorical)
         ])
 
-        # Normalize column names for output
-        rename_map = {}
-        if char_col and char_col != "char_ngram_max_jaccard":
-            rename_map[char_col] = "char_ngram_max_jaccard"
-        if word_col and word_col != "word_ngram_max_jaccard":
-            rename_map[word_col] = "word_ngram_max_jaccard"
-        if semantic_col and semantic_col != "semantic_similarity":
-            rename_map[semantic_col] = "semantic_similarity"
-
-        if rename_map:
-            result_df = result_df.rename(rename_map)
+        # Column names are already consistent from Step 9, no renaming needed
+        result_df = result_df
 
         # Select output columns
         output_columns = [

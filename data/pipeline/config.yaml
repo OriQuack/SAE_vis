@@ -98,32 +98,8 @@ steps:
     parameters:
       file_pattern: "layers.30_latent*.txt"
 
-  # Step 5: Feature clustering (agglomerative)
-  step_05_clustering:
-    enabled: true
-    inputs:
-      similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
-    outputs:
-      linkage_matrix: "${output}/clustering_linkage.npy"
-    parameters:
-      linkage_method: "average"
-
-  # Step 6: Create main features parquet
-  step_06_features:
-    enabled: true
-    inputs:
-      explanation_embeddings: "${intermediate}/explanation_embeddings.parquet"
-      aggregated_scores: "${intermediate}/aggregated_scores.parquet"
-      decoder_similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
-      clustering_linkage: "${output}/clustering_linkage.npy"
-      frac_nonzero: "${input}/neuronpedia_frac_nonzero/frac_nonzero.json"
-    outputs:
-      main: "${output}/features.parquet"
-    parameters:
-      top_k_decoder_sim: 10  # Number of top decoder similarity values per feature
-
-  # Step 7: Pre-compute activation embeddings
-  step_07_activation_embeddings:
+  # Step 5: Pre-compute activation embeddings
+  step_05_activation_embeddings:
     enabled: true
     inputs:
       activation_examples: "${intermediate}/activation_examples.parquet"
@@ -139,6 +115,30 @@ steps:
       target_examples_per_feature: 16
       # Window size
       embedding_window_size: 32
+
+  # Step 6: Feature clustering (agglomerative)
+  step_06_clustering:
+    enabled: true
+    inputs:
+      similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+    outputs:
+      linkage_matrix: "${output}/clustering_linkage.npy"
+    parameters:
+      linkage_method: "average"
+
+  # Step 7: Create main features parquet
+  step_07_features:
+    enabled: true
+    inputs:
+      explanation_embeddings: "${intermediate}/explanation_embeddings.parquet"
+      aggregated_scores: "${intermediate}/aggregated_scores.parquet"
+      decoder_similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
+      clustering_linkage: "${output}/clustering_linkage.npy"
+      frac_nonzero: "${input}/neuronpedia_frac_nonzero/frac_nonzero.json"
+    outputs:
+      main: "${output}/features.parquet"
+    parameters:
+      top_k_decoder_sim: 10  # Number of top decoder similarity values per feature
 
   # Step 8: Calculate activation similarity metrics
   step_08_activation_similarity:
@@ -229,15 +229,15 @@ dependencies:
   step_02_decoder_similarity: []
   step_03_scores: []
   step_04_explanation_embeddings: []
-  step_05_clustering: [step_02_decoder_similarity]
-  step_06_features: [step_03_scores, step_04_explanation_embeddings, step_05_clustering]
-  step_07_activation_embeddings: [step_01_activations]
-  step_08_activation_similarity: [step_01_activations, step_07_activation_embeddings]
-  step_09_interfeature_similarity: [step_02_decoder_similarity, step_07_activation_embeddings]
+  step_05_activation_embeddings: [step_01_activations]
+  step_06_clustering: [step_02_decoder_similarity]
+  step_07_features: [step_03_scores, step_04_explanation_embeddings, step_06_clustering]
+  step_08_activation_similarity: [step_01_activations, step_05_activation_embeddings]
+  step_09_interfeature_similarity: [step_02_decoder_similarity, step_05_activation_embeddings]
   step_10_activation_display: [step_01_activations, step_08_activation_similarity]
   step_11_interfeature_display: [step_09_interfeature_similarity]
-  step_12_explanation_alignment: [step_06_features]
-  step_13_svm_metrics: [step_06_features, step_10_activation_display, step_11_interfeature_display]
+  step_12_explanation_alignment: [step_07_features]
+  step_13_svm_metrics: [step_07_features, step_10_activation_display, step_11_interfeature_display]
 
 # Output files required by backend (for verification)
 backend_required:

@@ -26,10 +26,10 @@ The preprocessing pipeline has been refactored with a single master config and m
 python data/pipeline/run.py
 
 # Run specific steps (automatically includes dependencies)
-python data/pipeline/run.py --steps step_06_features step_10_activation_display
+python data/pipeline/run.py --steps step_07_features step_10_activation_display
 
 # Run from a specific step onwards
-python data/pipeline/run.py --from step_06_features
+python data/pipeline/run.py --from step_07_features
 
 # Dry run (show execution plan)
 python data/pipeline/run.py --dry-run
@@ -95,9 +95,9 @@ data/
 │       ├── step_02_decoder_similarity.py
 │       ├── step_03_scores.py
 │       ├── step_04_explanation_embeddings.py
-│       ├── step_05_clustering.py
-│       ├── step_06_features.py
-│       ├── step_07_activation_embeddings.py
+│       ├── step_05_activation_embeddings.py
+│       ├── step_06_clustering.py
+│       ├── step_07_features.py
 │       ├── step_08_activation_similarity.py
 │       ├── step_09_interfeature_similarity.py
 │       ├── step_10_activation_display.py
@@ -233,10 +233,10 @@ The preprocessing pipeline has been refactored with a single master config (`con
 python data/pipeline/run.py
 
 # Run specific steps (automatically includes dependencies)
-python data/pipeline/run.py --steps step_06_features step_10_activation_display
+python data/pipeline/run.py --steps step_07_features step_10_activation_display
 
 # Run from a specific step onwards
-python data/pipeline/run.py --from step_06_features
+python data/pipeline/run.py --from step_07_features
 
 # Dry run (show execution plan)
 python data/pipeline/run.py --dry-run
@@ -256,9 +256,9 @@ python data/pipeline/run.py --limit 100
 | step_02_decoder_similarity | Compute decoder weight similarities | decoder_similarity/ |
 | step_03_scores | Aggregate scoring metrics | scores/ |
 | step_04_explanation_embeddings | Generate explanation embeddings | explanation_embeddings.parquet |
-| step_05_clustering | Hierarchical clustering | clustering_linkage.npy |
-| step_06_features | Create main features parquet | features.parquet |
-| step_07_activation_embeddings | Pre-compute activation embeddings | activation_embeddings.parquet |
+| step_05_activation_embeddings | Pre-compute activation embeddings | activation_embeddings.parquet |
+| step_06_clustering | Hierarchical clustering (Ward's) | clustering_linkage.npy |
+| step_07_features | Create main features parquet | features.parquet |
 | step_08_activation_similarity | Dual n-gram similarity | activation_similarity.parquet |
 | step_09_interfeature_similarity | Cross-feature similarity | interfeature_similarity.parquet |
 | step_10_activation_display | Frontend-optimized display | activation_display.parquet |

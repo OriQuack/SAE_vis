@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 7: Pre-compute Activation Example Embeddings
+Step 5: Pre-compute Activation Example Embeddings
 
 This step pre-computes embeddings for quantile-sampled activation examples to
 optimize downstream similarity analysis. It extracts token windows around max
@@ -66,7 +66,7 @@ class ActivationEmbeddingProcessor(BaseProcessor):
 
     @property
     def step_name(self) -> str:
-        return "Step 7: Activation Embeddings"
+        return "Step 5: Activation Embeddings"
 
     @property
     def version(self) -> str:
@@ -594,7 +594,7 @@ def main():
     if args.config:
         full_config = load_yaml_config(args.config)
         # Extract step-specific config if present
-        config = full_config.get("steps", {}).get("step_07_activation_embeddings", {})
+        config = full_config.get("steps", {}).get("step_05_activation_embeddings", {})
         if not config:
             # Fallback: treat entire config as step config (legacy format)
             config = full_config
@@ -604,7 +604,7 @@ def main():
         config_path = Path(__file__).parent.parent / "config.yaml"
         if config_path.exists():
             full_config = load_yaml_config(config_path)
-            config = full_config.get("steps", {}).get("step_07_activation_embeddings", {})
+            config = full_config.get("steps", {}).get("step_05_activation_embeddings", {})
             config["sae_id"] = full_config.get("global", {}).get("sae_id_sanitized", "")
             config["global"] = full_config.get("global", {})
         else:

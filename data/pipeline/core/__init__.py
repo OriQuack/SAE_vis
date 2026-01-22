@@ -35,9 +35,7 @@ from .ngrams import (
     extract_token_char_ngrams_simple,
     extract_word_ngrams,
     compute_jaccard_similarity,
-    compute_pairwise_jaccard,
-    compute_specific_ngram_jaccard,
-    compute_cross_feature_specific_ngram_jaccard,
+    compute_per_k_max_jaccard,
     find_top_ngram,
 )
 
@@ -91,9 +89,7 @@ __all__ = [
     'extract_token_char_ngrams_simple',
     'extract_word_ngrams',
     'compute_jaccard_similarity',
-    'compute_pairwise_jaccard',
-    'compute_specific_ngram_jaccard',
-    'compute_cross_feature_specific_ngram_jaccard',
+    'compute_per_k_max_jaccard',
     'find_top_ngram',
     # Sampling
     'select_top_k_per_quantile',

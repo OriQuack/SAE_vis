@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-01-22T19:09:56.603473",
-  "step_name": "Step 6: Features Parquet",
+  "created_at": "2026-01-23T02:18:16.890050",
+  "step_name": "Step 7: Features Parquet",
   "script_version": "2.1",
   "total_rows": 49152,
   "schema": {

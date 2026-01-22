@@ -11,7 +11,8 @@ assignments at various threshold values, showing:
 Usage:
     python analyze_clustering.py
     python analyze_clustering.py --thresholds 0.1 0.2 0.3 0.4 0.5
-    python analyze_clustering.py --detailed --threshold 0.3
+    python analyze_clustering.py --detailed --thresholds 0.3
+    python analyze_clustering.py --plot clustering_analysis.png
 """
 
 import argparse
@@ -19,6 +20,7 @@ import json
 import logging
 import numpy as np
 import polars as pl
+import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, List, Tuple
 from scipy.cluster.hierarchy import fcluster
@@ -271,6 +273,80 @@ def save_cluster_assignments(
     logger.info(f"Saved cluster assignments to {output_path}")
 
 
+def plot_threshold_vs_clusters(
+    results: List[Dict],
+    output_path: Path,
+    n_features: int
+):
+    """
+    Plot threshold vs number of clusters and save as PNG.
+
+    Args:
+        results: List of result dictionaries from analyze_clusters_at_threshold
+        output_path: Path to save PNG file
+        n_features: Total number of features
+    """
+    thresholds = [r['threshold'] for r in results]
+    n_clusters = [r['n_clusters'] for r in results]
+    n_singletons = [r['n_singletons'] for r in results]
+    n_merged = [r['n_merged_clusters'] for r in results]
+
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle('Hierarchical Clustering Analysis (Ward\'s Linkage)', fontsize=14, fontweight='bold')
+
+    # Plot 1: Number of clusters vs threshold
+    ax1 = axes[0, 0]
+    ax1.plot(thresholds, n_clusters, 'b-o', linewidth=2, markersize=6)
+    ax1.set_xlabel('Distance Threshold (Euclidean)')
+    ax1.set_ylabel('Number of Clusters')
+    ax1.set_title('Total Clusters vs Threshold')
+    ax1.grid(True, alpha=0.3)
+    ax1.axhline(y=n_features, color='r', linestyle='--', alpha=0.5, label=f'Max ({n_features:,})')
+    ax1.legend()
+
+    # Plot 2: Singletons vs merged clusters
+    ax2 = axes[0, 1]
+    ax2.plot(thresholds, n_singletons, 'g-s', linewidth=2, markersize=6, label='Singletons')
+    ax2.plot(thresholds, n_merged, 'r-^', linewidth=2, markersize=6, label='Merged Clusters')
+    ax2.set_xlabel('Distance Threshold (Euclidean)')
+    ax2.set_ylabel('Count')
+    ax2.set_title('Singleton vs Merged Clusters')
+    ax2.legend()
+    ax2.grid(True, alpha=0.3)
+
+    # Plot 3: Percentage of features in singletons
+    pct_singleton_features = [100.0 * s / n_features for s in n_singletons]
+    ax3 = axes[1, 0]
+    ax3.plot(thresholds, pct_singleton_features, 'm-d', linewidth=2, markersize=6)
+    ax3.set_xlabel('Distance Threshold (Euclidean)')
+    ax3.set_ylabel('% Features in Singletons')
+    ax3.set_title('Feature Isolation Rate')
+    ax3.grid(True, alpha=0.3)
+    ax3.set_ylim(0, 105)
+
+    # Plot 4: Average cluster size (excluding singletons)
+    avg_merged_size = []
+    for r in results:
+        merged_sizes = [s for s in r['cluster_sizes'] if s > 1]
+        if merged_sizes:
+            avg_merged_size.append(np.mean(merged_sizes))
+        else:
+            avg_merged_size.append(0)
+
+    ax4 = axes[1, 1]
+    ax4.plot(thresholds, avg_merged_size, 'c-o', linewidth=2, markersize=6)
+    ax4.set_xlabel('Distance Threshold (Euclidean)')
+    ax4.set_ylabel('Average Size')
+    ax4.set_title('Average Merged Cluster Size')
+    ax4.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches='tight')
+    plt.close()
+
+    logger.info(f"Saved threshold vs clusters plot to {output_path}")
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -298,6 +374,11 @@ def main():
         type=str,
         default="data/feature_similarity/google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
         help="Directory containing clustering outputs"
+    )
+    parser.add_argument(
+        "--plot",
+        type=str,
+        help="Save threshold vs clusters plot to PNG file (e.g., --plot clustering_analysis.png)"
     )
 
     args = parser.parse_args()
@@ -331,6 +412,13 @@ def main():
         if args.save and len(args.thresholds) == 1:
             output_path = data_dir / args.save
             save_cluster_assignments(results[0], output_path, n_features)
+
+        # Save plot if requested
+        if args.plot:
+            plot_path = Path(args.plot)
+            if not plot_path.is_absolute():
+                plot_path = data_dir / plot_path
+            plot_threshold_vs_clusters(results, plot_path, n_features)
 
         logger.info("\nAnalysis complete!")
 

@@ -46,8 +46,7 @@ from core.tokens import extract_token_window, normalize_token, calculate_window_
 from core.ngrams import (
     extract_token_char_ngrams_simple,
     extract_word_ngrams,
-    compute_jaccard_similarity,
-    compute_cross_feature_specific_ngram_jaccard,
+    compute_per_k_max_jaccard,
     find_top_ngram,
 )
 
@@ -119,6 +118,10 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         self.mean_embeddings: Optional[np.ndarray] = None  # Computed from activation_embeddings
         self.num_features: int = 0
 
+        # Pre-built lookup indices for performance
+        self._embedding_prompt_ids: Dict[int, List[int]] = {}
+        self._activation_index: Dict[int, Dict[int, Dict]] = {}
+
     def _load_decoder_similarity_matrix(self) -> None:
         """Load precomputed decoder similarity matrix."""
         if not self.decoder_sim_path.exists():
@@ -148,14 +151,16 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         # Initialize array
         self.mean_embeddings = np.zeros((self.num_features, embedding_dim), dtype=np.float32)
 
-        # Aggregate embeddings per feature
-        for row in self.embeddings_df.iter_rows(named=True):
-            feature_id = row["feature_id"]
-            embs = row["embeddings"]
-            if embs and len(embs) > 0:
-                self.mean_embeddings[feature_id] = np.mean(embs, axis=0)
+        # Vectorized: extract feature_ids and embeddings as arrays
+        feature_ids = self.embeddings_df["feature_id"].to_numpy()
+        embeddings_col = self.embeddings_df["embeddings"].to_list()
 
-        # L2 normalize (handle zero vectors)
+        # Compute mean for each feature (still need loop but optimized extraction)
+        for fid, embs in zip(feature_ids, embeddings_col):
+            if embs and len(embs) > 0:
+                self.mean_embeddings[fid] = np.mean(embs, axis=0)
+
+        # L2 normalize (handle zero vectors) - already vectorized
         norms = np.linalg.norm(self.mean_embeddings, axis=1, keepdims=True)
         norms[norms == 0] = 1.0  # Avoid division by zero
         self.mean_embeddings = self.mean_embeddings / norms
@@ -179,8 +184,41 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         self.embeddings_df = pl.read_parquet(self.embeddings_path)
         logger.info(f"Loaded embeddings for {len(self.embeddings_df):,} features")
 
+        # Build lookup indices for fast O(1) access
+        self._build_lookup_indices()
+
         # Compute mean embeddings for semantic similarity (on-the-fly)
         self._compute_mean_embeddings()
+
+    def _build_lookup_indices(self) -> None:
+        """Build pre-computed lookup indices for fast O(1) access.
+
+        Creates:
+        - _embedding_prompt_ids: feature_id → list of prompt_ids
+        - _activation_index: feature_id → {prompt_id → row_dict}
+
+        This eliminates expensive DataFrame.filter() operations in _get_examples_from_embeddings().
+        """
+        logger.info("Building lookup indices for fast access...")
+
+        # Build embedding prompt_ids lookup
+        for row in self.embeddings_df.iter_rows(named=True):
+            feature_id = row["feature_id"]
+            prompt_ids = row["prompt_ids"]
+            if hasattr(prompt_ids, 'to_list'):
+                prompt_ids = prompt_ids.to_list()
+            self._embedding_prompt_ids[feature_id] = prompt_ids or []
+
+        # Build activation data lookup (nested dict: feature_id -> prompt_id -> row)
+        for row in self.activation_df.iter_rows(named=True):
+            fid = row["feature_id"]
+            pid = row["prompt_id"]
+            if fid not in self._activation_index:
+                self._activation_index[fid] = {}
+            self._activation_index[fid][pid] = row
+
+        logger.info(f"Built indices: {len(self._embedding_prompt_ids):,} embedding lookups, "
+                   f"{len(self._activation_index):,} activation lookups")
 
     def _get_top_decoder_similar_from_matrix(self, feature_id: int) -> List[Tuple[int, float]]:
         """Get top N decoder-similar features directly from precomputed matrix."""
@@ -225,30 +263,25 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         return [(int(idx), float(similarities[idx])) for idx in top_indices]
 
     def _get_examples_from_embeddings(self, feature_id: int) -> List[Tuple]:
-        """Get activation examples using prompt IDs from pre-computed embeddings."""
-        feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
+        """Get activation examples using pre-built lookup indices.
 
-        if len(feature_embeddings) == 0:
-            return []
-
-        stored_prompt_ids = feature_embeddings["prompt_ids"][0]
-        if hasattr(stored_prompt_ids, 'to_list'):
-            stored_prompt_ids = stored_prompt_ids.to_list()
-
+        Uses O(1) dictionary lookups instead of O(n) DataFrame.filter() operations.
+        """
+        # O(1) lookup instead of O(n) filter
+        stored_prompt_ids = self._embedding_prompt_ids.get(feature_id, [])
         if not stored_prompt_ids:
             return []
 
-        feature_df = self.activation_df.filter(
-            (pl.col("feature_id") == feature_id) &
-            (pl.col("prompt_id").is_in(stored_prompt_ids))
-        )
-
-        if len(feature_df) == 0:
+        activation_data = self._activation_index.get(feature_id, {})
+        if not activation_data:
             return []
 
         examples = []
-        for row in feature_df.to_dicts():
-            prompt_id = row["prompt_id"]
+        for prompt_id in stored_prompt_ids:
+            row = activation_data.get(prompt_id)
+            if row is None:
+                continue
+
             max_activation = row.get("max_activation", 0.0)
             prompt_tokens = row.get("prompt_tokens", [])
             activation_pairs = row.get("activation_pairs", [])
@@ -329,33 +362,43 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         main_examples: List[Tuple],
         selected_examples: List[Tuple]
     ) -> Tuple:
-        """Compute character and word Jaccard similarities with position tracking."""
+        """Compute character and word Jaccard similarities with position tracking.
+
+        Uses per-k-size max Jaccard: computes Jaccard separately for each n-gram size,
+        then takes the maximum. This avoids set cardinality explosion from pooling all
+        sizes together, resulting in more meaningful similarity scores.
+        """
         if len(main_examples) < 1 or len(selected_examples) < 1:
-            return None, None, None, None, None, None, [], [], [], []
+            return None, None, None, None, [], [], [], []
 
         char_window_size = self.proc_params["char_ngram_window_size"]
         word_window_size = self.proc_params["word_ngram_window_size"]
         char_ngram_sizes = self.proc_params["char_ngram_sizes"]
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
-        # Extract character n-grams from all examples
-        all_char_ngrams = []
-        main_char_ngram_sets = []
-        selected_char_ngram_sets = []
+        # Compute per-k-max Jaccard for character n-grams
+        char_ngram_max_jaccard = compute_per_k_max_jaccard(
+            main_examples, selected_examples,
+            char_ngram_sizes, char_window_size, is_word=False
+        )
 
+        # Compute per-k-max Jaccard for word n-grams
+        word_ngram_max_jaccard = compute_per_k_max_jaccard(
+            main_examples, selected_examples,
+            word_ngram_sizes, word_window_size, is_word=True
+        )
+
+        # Extract n-grams for finding top n-gram (used for position highlighting)
+        all_char_ngrams = []
         for _, _, tokens, max_pos in main_examples:
             window_tokens = extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = extract_token_char_ngrams_simple(window_tokens, char_ngram_sizes)
-            ngram_set = set(char_ngram_map.keys())
-            main_char_ngram_sets.append(ngram_set)
-            all_char_ngrams.extend(list(ngram_set))
+            all_char_ngrams.extend(list(char_ngram_map.keys()))
 
         for _, _, tokens, max_pos in selected_examples:
             window_tokens = extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = extract_token_char_ngrams_simple(window_tokens, char_ngram_sizes)
-            ngram_set = set(char_ngram_map.keys())
-            selected_char_ngram_sets.append(ngram_set)
-            all_char_ngrams.extend(list(ngram_set))
+            all_char_ngrams.extend(list(char_ngram_map.keys()))
 
         # Find most frequent char n-gram
         max_char_ngram = None
@@ -363,33 +406,17 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             char_counter = Counter(all_char_ngrams)
             max_char_ngram = find_top_ngram(dict(char_counter))
 
-        # Compute pairwise Jaccard for char n-grams
-        char_pairwise_jaccards = []
-        for main_set in main_char_ngram_sets:
-            for selected_set in selected_char_ngram_sets:
-                jaccard = compute_jaccard_similarity(main_set, selected_set)
-                char_pairwise_jaccards.append(jaccard)
-
-        char_jaccard = float(np.mean(char_pairwise_jaccards)) if char_pairwise_jaccards else None
-
-        # Extract word n-grams from all examples
+        # Extract word n-grams for finding top n-gram
         all_word_ngrams = []
-        main_word_ngram_sets = []
-        selected_word_ngram_sets = []
-
         for _, _, tokens, max_pos in main_examples:
             window_tokens = extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = extract_word_ngrams(window_tokens, word_ngram_sizes)
-            ngram_set = set(word_ngram_map.keys())
-            main_word_ngram_sets.append(ngram_set)
-            all_word_ngrams.extend(list(ngram_set))
+            all_word_ngrams.extend(list(word_ngram_map.keys()))
 
         for _, _, tokens, max_pos in selected_examples:
             window_tokens = extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = extract_word_ngrams(window_tokens, word_ngram_sizes)
-            ngram_set = set(word_ngram_map.keys())
-            selected_word_ngram_sets.append(ngram_set)
-            all_word_ngrams.extend(list(ngram_set))
+            all_word_ngrams.extend(list(word_ngram_map.keys()))
 
         # Find most frequent word n-gram
         max_word_ngram = None
@@ -397,16 +424,7 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             word_counter = Counter(all_word_ngrams)
             max_word_ngram = find_top_ngram(dict(word_counter))
 
-        # Compute pairwise Jaccard for word n-grams
-        word_pairwise_jaccards = []
-        for main_set in main_word_ngram_sets:
-            for selected_set in selected_word_ngram_sets:
-                jaccard = compute_jaccard_similarity(main_set, selected_set)
-                word_pairwise_jaccards.append(jaccard)
-
-        word_jaccard = float(np.mean(word_pairwise_jaccards)) if word_pairwise_jaccards else None
-
-        # Extract position data for all examples
+        # Extract position data for all examples (for visualization highlighting)
         main_char_positions = self._find_char_ngram_positions_in_examples(
             main_examples, max_char_ngram, char_window_size
         ) if max_char_ngram else []
@@ -423,19 +441,7 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             selected_examples, max_word_ngram, word_window_size
         ) if max_word_ngram else []
 
-        # Compute specific Jaccard for max n-grams
-        max_char_ngram_jaccard = compute_cross_feature_specific_ngram_jaccard(
-            main_examples, selected_examples, max_char_ngram,
-            char_window_size, is_word=False
-        ) if max_char_ngram else None
-
-        max_word_ngram_jaccard = compute_cross_feature_specific_ngram_jaccard(
-            main_examples, selected_examples, max_word_ngram,
-            word_window_size, is_word=True
-        ) if max_word_ngram else None
-
-        return (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
-                max_char_ngram_jaccard, max_word_ngram_jaccard,
+        return (char_ngram_max_jaccard, word_ngram_max_jaccard, max_char_ngram, max_word_ngram,
                 main_char_positions, similar_char_positions,
                 main_word_positions, similar_word_positions)
 
@@ -491,9 +497,8 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             else:
                 semantic_sim = None
 
-            # Compute dual Jaccard similarity
-            (char_jaccard, word_jaccard, max_char_ngram, max_word_ngram,
-             max_char_ngram_jaccard, max_word_ngram_jaccard,
+            # Compute dual Jaccard similarity (per-k-max approach)
+            (char_ngram_max_jaccard, word_ngram_max_jaccard, max_char_ngram, max_word_ngram,
              main_char_pos, similar_char_pos, main_word_pos, similar_word_pos
             ) = self._compute_dual_jaccard_similarity(main_examples, selected_examples)
 
@@ -519,17 +524,13 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
                 "decoder_similarity": decoder_sim,
                 "similarity_source": source,
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
-                "char_jaccard": float(char_jaccard) if char_jaccard is not None else None,
-                "word_jaccard": float(word_jaccard) if word_jaccard is not None else None,
+                "char_ngram_max_jaccard": float(char_ngram_max_jaccard) if char_ngram_max_jaccard is not None else None,
+                "word_ngram_max_jaccard": float(word_ngram_max_jaccard) if word_ngram_max_jaccard is not None else None,
                 "main_prompt_ids": [int(pid) for pid in main_prompt_ids],
                 "similar_prompt_ids": [int(pid) for pid in selected_prompt_ids],
                 "num_comparisons": int(len(main_examples) * len(selected_examples)),
                 "max_char_ngram": max_char_ngram,
-                "max_char_ngram_size": int(len(max_char_ngram)) if max_char_ngram else None,
-                "max_char_ngram_jaccard": float(max_char_ngram_jaccard) if max_char_ngram_jaccard is not None else None,
                 "max_word_ngram": max_word_ngram,
-                "max_word_ngram_size": int(len(max_word_ngram.split())) if max_word_ngram else None,
-                "max_word_ngram_jaccard": float(max_word_ngram_jaccard) if max_word_ngram_jaccard is not None else None,
                 "main_char_ngram_positions": main_char_pos,
                 "similar_char_ngram_positions": similar_char_pos,
                 "main_word_ngram_positions": main_word_pos,
@@ -613,17 +614,13 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             pl.Field("decoder_similarity", pl.Float32),
             pl.Field("similarity_source", pl.Utf8),
             pl.Field("semantic_similarity", pl.Float32),
-            pl.Field("char_jaccard", pl.Float32),
-            pl.Field("word_jaccard", pl.Float32),
+            pl.Field("char_ngram_max_jaccard", pl.Float32),
+            pl.Field("word_ngram_max_jaccard", pl.Float32),
             pl.Field("main_prompt_ids", pl.List(pl.UInt32)),
             pl.Field("similar_prompt_ids", pl.List(pl.UInt32)),
             pl.Field("num_comparisons", pl.UInt32),
             pl.Field("max_char_ngram", pl.Utf8),
-            pl.Field("max_char_ngram_size", pl.UInt8),
-            pl.Field("max_char_ngram_jaccard", pl.Float32),
             pl.Field("max_word_ngram", pl.Utf8),
-            pl.Field("max_word_ngram_size", pl.UInt8),
-            pl.Field("max_word_ngram_jaccard", pl.Float32),
             pl.Field("main_char_ngram_positions", pl.List(char_ngram_positions_struct)),
             pl.Field("similar_char_ngram_positions", pl.List(char_ngram_positions_struct)),
             pl.Field("main_word_ngram_positions", pl.List(word_ngram_positions_struct)),

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 6: Create Main Features Parquet
+Step 7: Create Main Features Parquet
 
 This step creates the main features.parquet file with nested structure by
 combining data from explanation embeddings, aggregated scores, and decoder similarities.
@@ -10,7 +10,7 @@ Input:
 - explanation_embeddings.parquet: Pre-computed embeddings from Step 4
 - aggregated_scores.parquet: Scores from Step 3
 - decoder_similarity_matrix.npz: Decoder similarities from Step 2
-- clustering_linkage.npy: Linkage matrix from Step 5
+- clustering_linkage.npy: Linkage matrix from Step 6
 
 Output:
 - features.parquet: Main dataset with nested structure
@@ -49,7 +49,7 @@ class FeaturesProcessor(BaseProcessor):
 
     @property
     def step_name(self) -> str:
-        return "Step 6: Features Parquet"
+        return "Step 7: Features Parquet"
 
     @property
     def version(self) -> str:
@@ -498,7 +498,7 @@ def main():
     if args.config:
         full_config = load_yaml_config(args.config)
         # Extract step-specific config if present
-        config = full_config.get("steps", {}).get("step_06_features", {})
+        config = full_config.get("steps", {}).get("step_07_features", {})
         if not config:
             # Fallback: treat entire config as step config (legacy format)
             config = full_config
@@ -508,7 +508,7 @@ def main():
         config_path = Path(__file__).parent.parent / "config.yaml"
         if config_path.exists():
             full_config = load_yaml_config(config_path)
-            config = full_config.get("steps", {}).get("step_06_features", {})
+            config = full_config.get("steps", {}).get("step_07_features", {})
             config["sae_id"] = full_config.get("global", {}).get("sae_id_sanitized", "")
             config["global"] = full_config.get("global", {})
         else:

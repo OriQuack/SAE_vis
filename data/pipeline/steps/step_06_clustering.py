@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 5: Feature Clustering (Agglomerative)
+Step 6: Feature Clustering (Agglomerative)
 
 This step performs hierarchical clustering on SAE features using decoder
 weight similarities to identify feature groupings.
@@ -13,6 +13,7 @@ Output:
 
 Features:
 - Loads full similarity matrix from NPZ
+- Converts cosine similarity to cosine distance (1 - similarity)
 - Average linkage agglomerative clustering
 - Outputs scipy-compatible linkage matrix
 """
@@ -40,7 +41,7 @@ class ClusteringProcessor(BaseProcessor):
 
     @property
     def step_name(self) -> str:
-        return "Step 5: Feature Clustering"
+        return "Step 6: Feature Clustering"
 
     @property
     def version(self) -> str:
@@ -82,7 +83,8 @@ class ClusteringProcessor(BaseProcessor):
         """Load similarity matrix from NPZ and convert to distance matrix.
 
         Returns:
-            Distance matrix (1 - cosine_similarity)
+            Cosine distance matrix: 1 - cosine_similarity
+            Range is 0 (identical) to 2 (opposite), but typically 0-1 for similar features.
         """
         logger.info(f"Loading similarity data from {self.similarities_path}")
 
@@ -96,7 +98,8 @@ class ClusteringProcessor(BaseProcessor):
         self.stats["n_features"] = n_features
         logger.info(f"Loaded {n_features:,} × {n_features:,} similarity matrix")
 
-        # Convert similarity to distance
+        # Convert cosine similarity to cosine distance
+        # Range: 0 (identical, sim=1) to 2 (opposite, sim=-1)
         distance_matrix = 1.0 - similarity_matrix
 
         # Track memory
@@ -171,7 +174,7 @@ def main():
     if args.config:
         full_config = load_yaml_config(args.config)
         # Extract step-specific config if present
-        config = full_config.get("steps", {}).get("step_05_clustering", {})
+        config = full_config.get("steps", {}).get("step_06_clustering", {})
         if not config:
             # Fallback: treat entire config as step config (legacy format)
             config = full_config
@@ -181,7 +184,7 @@ def main():
         config_path = Path(__file__).parent.parent / "config.yaml"
         if config_path.exists():
             full_config = load_yaml_config(config_path)
-            config = full_config.get("steps", {}).get("step_05_clustering", {})
+            config = full_config.get("steps", {}).get("step_06_clustering", {})
             config["sae_id"] = full_config.get("global", {}).get("sae_id_sanitized", "")
             config["global"] = full_config.get("global", {})
         else:

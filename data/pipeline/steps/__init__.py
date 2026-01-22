@@ -17,14 +17,14 @@ from .step_03_scores import ScoresProcessor
 # Step 4: Generate explanation embeddings
 from .step_04_explanation_embeddings import ExplanationEmbeddingsProcessor
 
-# Step 5: Feature clustering (agglomerative)
-from .step_05_clustering import ClusteringProcessor
+# Step 5: Pre-compute activation embeddings
+from .step_05_activation_embeddings import ActivationEmbeddingProcessor
 
-# Step 6: Create main features parquet
-from .step_06_features import FeaturesProcessor
+# Step 6: Feature clustering (agglomerative)
+from .step_06_clustering import ClusteringProcessor
 
-# Step 7: Pre-compute activation embeddings
-from .step_07_activation_embeddings import ActivationEmbeddingProcessor
+# Step 7: Create main features parquet
+from .step_07_features import FeaturesProcessor
 
 # Step 8: Calculate activation similarity metrics
 from .step_08_activation_similarity import ActivationSimilarityProcessor
@@ -51,9 +51,9 @@ STEP_PROCESSORS = {
     "step_02_decoder_similarity": DecoderSimilarityProcessor,
     "step_03_scores": ScoresProcessor,
     "step_04_explanation_embeddings": ExplanationEmbeddingsProcessor,
-    "step_05_clustering": ClusteringProcessor,
-    "step_06_features": FeaturesProcessor,
-    "step_07_activation_embeddings": ActivationEmbeddingProcessor,
+    "step_05_activation_embeddings": ActivationEmbeddingProcessor,
+    "step_06_clustering": ClusteringProcessor,
+    "step_07_features": FeaturesProcessor,
     "step_08_activation_similarity": ActivationSimilarityProcessor,
     "step_09_interfeature_similarity": InterFeatureSimilarityProcessor,
     "step_10_activation_display": ActivationDisplayProcessor,

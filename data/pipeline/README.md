@@ -9,10 +9,10 @@ This pipeline transforms raw SAE experimental data into analysis-ready parquet f
 python data/pipeline/run.py
 
 # Run specific steps (automatically includes dependencies)
-python data/pipeline/run.py --steps step_06_features step_10_activation_display
+python data/pipeline/run.py --steps step_06_clustering step_10_activation_display
 
 # Run from a specific step onwards
-python data/pipeline/run.py --from step_06_features
+python data/pipeline/run.py --from step_06_clustering
 
 # Dry run (show execution plan without running)
 python data/pipeline/run.py --dry-run
@@ -56,9 +56,9 @@ pipeline/
 | 02 | Compute decoder weight cosine similarities | `intermediate/decoder_similarity_matrix.npz` |
 | 03 | Aggregate scoring metrics from LLM scorers | `intermediate/aggregated_scores.parquet` |
 | 04 | Generate explanation embeddings | `intermediate/explanation_embeddings.parquet` |
-| 05 | Hierarchical clustering of features | `output/clustering_linkage.npy` |
-| 06 | Create main features parquet | `output/features.parquet` |
-| 07 | Pre-compute activation embeddings | `intermediate/activation_embeddings.parquet` |
+| 05 | Pre-compute activation embeddings | `intermediate/activation_embeddings.parquet` |
+| 06 | Hierarchical clustering of features (Ward's linkage) | `output/clustering_linkage.npy` |
+| 07 | Create main features parquet | `output/features.parquet` |
 | 08 | Calculate intra-feature activation similarity | `intermediate/activation_example_similarity.parquet` |
 | 09 | Calculate inter-feature activation similarity | `intermediate/interfeature_similarity.parquet` |
 | 10 | Create frontend-optimized activation display | `output/activation_display.parquet` |
@@ -83,12 +83,12 @@ These files in `data/output/` are required by the backend:
 ## Dependency Graph
 
 ```
-step_01_activations ──────────────────────┬──► step_07_activation_embeddings
+step_01_activations ──────────────────────┬──► step_05_activation_embeddings
                                           │            │
-step_02_decoder_similarity ──┬──► step_05_clustering   ├──► step_08_activation_similarity
+step_02_decoder_similarity ──┬──► step_06_clustering   ├──► step_08_activation_similarity
                              │            │            │            │
                              │            ▼            │            ▼
-step_03_scores ──────────────┼──► step_06_features     └──► step_10_activation_display
+step_03_scores ──────────────┼──► step_07_features     └──► step_10_activation_display
                              │            │                         │
 step_04_explanation_embeddings            │                         │
                              │            │                         │
@@ -99,7 +99,7 @@ step_04_explanation_embeddings            │                         │
                                           │                         │
                                           └─────────┬───────────────┘
                                                     │
-                                          step_06_features
+                                          step_07_features
                                                     │
                                                     ▼
                                           step_12_explanation_alignment

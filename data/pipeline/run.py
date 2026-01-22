@@ -295,17 +295,17 @@ def get_legacy_script_mapping() -> Dict[str, tuple]:
             scripts_dir / "2_ex_embeddings.py",
             config_dir / "2_ex_embeddings_config.json"
         ),
-        "step_05_clustering": (
+        "step_05_activation_embeddings": (
+            scripts_dir / "4_act_embeddings.py",
+            config_dir / "4_act_embeddings.json"
+        ),
+        "step_06_clustering": (
             scripts_dir / "2_feature_clustering.py",
             config_dir / "2_feature_clustering.json"
         ),
-        "step_06_features": (
+        "step_07_features": (
             scripts_dir / "3_features_parquet.py",
             config_dir / "3_create_features_parquet.json"
-        ),
-        "step_07_activation_embeddings": (
-            scripts_dir / "4_act_embeddings.py",
-            config_dir / "4_act_embeddings.json"
         ),
         "step_08_activation_similarity": (
             scripts_dir / "5_act_similarity.py",
@@ -421,9 +421,9 @@ def get_refactored_steps() -> Set[str]:
         "step_02_decoder_similarity",
         "step_03_scores",
         "step_04_explanation_embeddings",
-        "step_05_clustering",
-        "step_06_features",
-        "step_07_activation_embeddings",
+        "step_05_activation_embeddings",
+        "step_06_clustering",
+        "step_07_features",
         "step_08_activation_similarity",
         "step_09_interfeature_similarity",
         "step_10_activation_display",

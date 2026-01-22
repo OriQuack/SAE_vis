@@ -26,9 +26,8 @@ Features:
 import logging
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
-import numpy as np
 import polars as pl
 from tqdm import tqdm
 
@@ -45,15 +44,11 @@ from core.tokens import extract_token_window, calculate_window_offset
 from core.ngrams import (
     extract_token_char_ngrams,
     extract_word_ngrams,
-    compute_jaccard_similarity,
-    compute_specific_ngram_jaccard,
+    compute_per_k_max_jaccard,
     find_top_ngram,
 )
 from core.sampling import get_quantile_boundaries
-from core.embeddings import (
-    create_embedding_map,
-    compute_intra_feature_semantic_similarity,
-)
+from core.embeddings import compute_intra_feature_semantic_similarity
 
 
 logger = logging.getLogger(__name__)
@@ -254,46 +249,6 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word": overall_top_word
         }
 
-    def _compute_jaccard_ngram_similarity(
-        self,
-        examples: List[Tuple],
-        ngram_size: int
-    ) -> Optional[float]:
-        """Compute average pairwise Jaccard similarity for character n-grams.
-
-        Args:
-            examples: List of (prompt_id, max_activation, prompt_tokens, max_token_pos)
-            ngram_size: Size of n-grams to compare
-
-        Returns:
-            Average Jaccard similarity or None if <2 examples
-        """
-        if len(examples) < 2:
-            return None
-
-        char_ngram_window = self.proc_params["char_ngram_window_size"]
-
-        # Extract character n-grams for each example
-        example_ngrams = []
-        for _, _, tokens, max_pos in examples:
-            window_tokens = extract_token_window(tokens, max_pos, char_ngram_window)
-            token_ngrams = extract_token_char_ngrams(window_tokens, [ngram_size])
-            ngrams = set(ng for ng in token_ngrams.keys() if len(ng) == ngram_size)
-            example_ngrams.append(ngrams)
-
-        # Compute pairwise Jaccard similarities
-        n = len(example_ngrams)
-        pairwise_jaccards = []
-        for i in range(n):
-            for j in range(i + 1, n):
-                jaccard = compute_jaccard_similarity(example_ngrams[i], example_ngrams[j])
-                pairwise_jaccards.append(jaccard)
-
-        if not pairwise_jaccards:
-            return None
-
-        return float(np.mean(pairwise_jaccards))
-
     def _process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute all similarity metrics.
 
@@ -356,17 +311,28 @@ class ActivationSimilarityProcessor(BaseProcessor):
         if semantic_sim_mean is not None:
             self.stats["semantic_similarity_computed"] += 1
 
-        # Compute Jaccard similarity for each n-gram size
-        ngram_jaccard_list = [
-            self._compute_jaccard_ngram_similarity(all_examples, 2),
-            self._compute_jaccard_ngram_similarity(all_examples, 3),
-            self._compute_jaccard_ngram_similarity(all_examples, 4),
-            self._compute_jaccard_ngram_similarity(all_examples, 5)
-        ]
-        if any(j is not None for j in ngram_jaccard_list):
+        # Compute per-k-max Jaccard similarity (avoids set cardinality explosion)
+        char_window = self.proc_params["char_ngram_window_size"]
+        word_window = self.proc_params["word_ngram_window_size"]
+        char_ngram_sizes = self.proc_params["char_ngram_sizes"]
+        word_ngram_sizes = self.proc_params["word_ngram_sizes"]
+
+        # Compute per-k-max Jaccard for character n-grams (intra-feature)
+        char_ngram_max_jaccard = compute_per_k_max_jaccard(
+            all_examples, all_examples,  # Same list = intra-feature comparison
+            char_ngram_sizes, char_window, is_word=False
+        )
+
+        # Compute per-k-max Jaccard for word n-grams (intra-feature)
+        word_ngram_max_jaccard = compute_per_k_max_jaccard(
+            all_examples, all_examples,  # Same list = intra-feature comparison
+            word_ngram_sizes, word_window, is_word=True
+        )
+
+        if char_ngram_max_jaccard is not None or word_ngram_max_jaccard is not None:
             self.stats["ngram_jaccard_computed"] += 1
 
-        # Compute n-gram analysis
+        # Compute n-gram analysis (for position tracking in frontend)
         ngram_results = self._compute_ngram_analysis(all_examples)
         top_char_ngrams = ngram_results.get("char_ngrams", [])
         top_word_ngrams = ngram_results.get("word_ngrams", [])
@@ -375,28 +341,6 @@ class ActivationSimilarityProcessor(BaseProcessor):
 
         if len(top_char_ngrams) > 0 or len(top_word_ngrams) > 0:
             self.stats["ngram_analysis_computed"] += 1
-
-        # Compute Jaccard for top n-grams
-        char_window = self.proc_params["char_ngram_window_size"]
-        word_window = self.proc_params["word_ngram_window_size"]
-
-        top_char_ngram_jaccard = None
-        if overall_top_char:
-            top_char_ngram_jaccard = compute_specific_ngram_jaccard(
-                all_examples,
-                overall_top_char["ngram"],
-                char_window,
-                is_word=False
-            )
-
-        top_word_ngram_jaccard = None
-        if overall_top_word:
-            top_word_ngram_jaccard = compute_specific_ngram_jaccard(
-                all_examples,
-                overall_top_word["ngram"],
-                word_window,
-                is_word=True
-            )
 
         # Calculate quantile boundaries (4 quantiles for display)
         activations = [ex[1] for ex in all_examples]
@@ -413,10 +357,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word_ngrams": top_word_ngrams,
             "top_char_ngram": overall_top_char,
             "top_word_ngram": overall_top_word,
-            "top_char_ngram_jaccard": top_char_ngram_jaccard,
-            "top_word_ngram_jaccard": top_word_ngram_jaccard,
             "quantile_boundaries": q_boundaries,
-            "ngram_jaccard_similarity": ngram_jaccard_list
+            "char_ngram_max_jaccard": char_ngram_max_jaccard,
+            "word_ngram_max_jaccard": word_ngram_max_jaccard,
         }
 
     def _create_empty_result(self, feature_id: int, num_total_activations: int) -> Dict[str, Any]:
@@ -432,10 +375,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word_ngrams": [],
             "top_char_ngram": None,
             "top_word_ngram": None,
-            "top_char_ngram_jaccard": None,
-            "top_word_ngram_jaccard": None,
             "quantile_boundaries": [],
-            "ngram_jaccard_similarity": [None, None, None, None]
+            "char_ngram_max_jaccard": None,
+            "word_ngram_max_jaccard": None,
         }
 
     def process(self) -> pl.DataFrame:

@@ -207,9 +207,9 @@ class ActivationDisplayProcessor(BaseProcessor):
         semantic_sim = sim_row.get("avg_pairwise_semantic_similarity")
         semantic_sim_std = sim_row.get("std_pairwise_semantic_similarity")
 
-        # Extract Jaccard values
-        char_ngram_jaccard = sim_row.get("top_char_ngram_jaccard", 0.0) or 0.0
-        word_ngram_jaccard = sim_row.get("top_word_ngram_jaccard", 0.0) or 0.0
+        # Extract per-k-max Jaccard values
+        char_ngram_jaccard = sim_row.get("char_ngram_max_jaccard") or 0.0
+        word_ngram_jaccard = sim_row.get("word_ngram_max_jaccard") or 0.0
 
         # Extract top n-grams
         top_char_ngram = sim_row.get("top_char_ngram")
