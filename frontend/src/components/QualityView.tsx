@@ -230,7 +230,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
     decisionMarginScores: similarityScores,
     diversityIds: diversityFeatureIds,
-    defaultLabel: 'Quality score',
+    defaultLabel: 'Quality Score',
     defaultDirection: 'asc',
     templateMode: 'decisionMargin',
     templateDirection: 'asc',
@@ -1028,6 +1028,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // RENDER
   // ============================================================================
 
+  // Compute loading state for content dim effect
+  const isViewLoading = isDraggingThreshold
+
   return (
     <div className={`quality-view ${className}`}>
       {/* Header - Full width */}
@@ -1049,7 +1052,7 @@ const QualityView: React.FC<QualityViewProps> = ({
         {/* Main column: Content rows */}
         <div className="quality-view__main">
           {/* Content: 2 rows */}
-          <div className="quality-view__content">
+          <div className={`quality-view__content ${isViewLoading ? 'content-loading' : ''}`}>
           {/* Top row: StageAccordionList + right panel */}
           <div className="quality-view__row-top">
             <StageAccordionList
@@ -1071,7 +1074,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{
-                label: diversityFeatureIds.size > 0 && !svmTrainingStarted
+                label: sortMode === 'diversity' && !svmTrainingStarted
                   ? 'Most Critical Features'
                   : hideTagged
                     ? 'Untagged Features'

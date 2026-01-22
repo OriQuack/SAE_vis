@@ -491,9 +491,9 @@ class FilteringStats(BaseModel):
         ...,
         description="Number of pairs after filtering was applied"
     )
-    fallback_clusters: int = Field(
+    fallback_features: int = Field(
         ...,
-        description="Number of clusters that used fallback (no pairs passed filters)"
+        description="Number of features that needed fallback pairs"
     )
     clusters_processed: int = Field(
         ...,

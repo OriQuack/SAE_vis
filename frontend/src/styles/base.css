@@ -503,6 +503,17 @@ Matches .nav__button style: white background, 11px font
 }
 
 /* ============================================================================
+   LOADING STATE - Reusable dim effect for content loading
+   ============================================================================ */
+
+.content-loading {
+  opacity: 0.5;
+  pointer-events: none;
+  cursor: wait;
+  transition: opacity 0.2s ease;
+}
+
+/* ============================================================================
    UMAP LASSO DRAWING - Disable hover effects globally during lasso selection
    ============================================================================ */
 

@@ -479,7 +479,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     getDefaultScore: (p: typeof rawPairList[0]) => p.decoderSimilarity,
     decisionMarginScores: pairSimilarityScores,
     diversityIds: diversityPairIds,
-    defaultLabel: 'Decoder sim',
+    defaultLabel: 'Decoder Similarity',
     defaultDirection: 'desc',
     templateMode: 'decisionMargin',
     templateDirection: 'asc',
@@ -1078,6 +1078,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // RENDER
   // ============================================================================
 
+  // Compute loading state for content dim effect
+  const isViewLoading = isLoadingDistributedPairs || isDraggingThreshold
+
   return (
     <div className={`feature-split-view ${className}`}>
       {/* Header - Full width */}
@@ -1100,7 +1103,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         {/* Main column: Content rows */}
         <div className="feature-split-view__main">
           {/* Content: 2 rows */}
-          <div className="feature-split-view__content">
+          <div className={`feature-split-view__content ${isViewLoading ? 'content-loading' : ''}`}>
           {/* Top row: StageAccordionList + FeatureSplitPairViewer */}
         <div className="feature-split-view__row-top">
             <StageAccordionList
@@ -1122,7 +1125,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
               badges={[{
-                label: diversityPairIds.size > 0 && !svmTrainingStarted
+                label: sortMode === 'diversity' && !svmTrainingStarted
                   ? 'Most Critical Pairs'
                   : hideTagged
                     ? 'Untagged Pairs'

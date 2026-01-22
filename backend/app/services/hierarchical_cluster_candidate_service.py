@@ -443,9 +443,9 @@ class HierarchicalClusterCandidateService:
             f"Interfeature data loaded: {len(self.pair_data)} features with similarity data"
         )
 
-    def _get_decoder_sim(self, f1: int, f2: int) -> Optional[float]:
+    def _get_pair_similarities(self, f1: int, f2: int) -> Tuple[Optional[float], Optional[float]]:
         """
-        Get decoder similarity for a pair from interfeature data.
+        Get both decoder and semantic similarity for a pair in one lookup.
 
         Checks both directions since similarity is symmetric.
 
@@ -454,32 +454,15 @@ class HierarchicalClusterCandidateService:
             f2: Second feature ID
 
         Returns:
-            Decoder similarity value if found, None otherwise
+            Tuple of (decoder_sim, semantic_sim), either may be None
         """
         if f1 in self.pair_data and f2 in self.pair_data[f1]:
-            return self.pair_data[f1][f2]['decoder_sim']
+            data = self.pair_data[f1][f2]
+            return data['decoder_sim'], data['semantic_sim']
         if f2 in self.pair_data and f1 in self.pair_data[f2]:
-            return self.pair_data[f2][f1]['decoder_sim']
-        return None
-
-    def _get_semantic_sim(self, f1: int, f2: int) -> Optional[float]:
-        """
-        Get semantic similarity for a pair from interfeature data.
-
-        Checks both directions since similarity is symmetric.
-
-        Args:
-            f1: First feature ID
-            f2: Second feature ID
-
-        Returns:
-            Semantic similarity value if found, None otherwise
-        """
-        if f1 in self.pair_data and f2 in self.pair_data[f1]:
-            return self.pair_data[f1][f2]['semantic_sim']
-        if f2 in self.pair_data and f1 in self.pair_data[f2]:
-            return self.pair_data[f2][f1]['semantic_sim']
-        return None
+            data = self.pair_data[f2][f1]
+            return data['decoder_sim'], data['semantic_sim']
+        return None, None
 
     def _in_top_decoder(self, f1: int, f2: int) -> bool:
         """
@@ -528,10 +511,9 @@ class HierarchicalClusterCandidateService:
           3. From remaining, keep those meeting Condition 2 OR 3:
              - Condition 2: A in B's Top 20 semantic OR B in A's Top 20 semantic
              - Condition 3: A in B's Top 10 decoder OR B in A's Top 10 decoder
-          4. Fallback (if no pairs remain after filtering):
-             - Add pair with greatest decoder_similarity (ignores Condition 1)
-             - Add pair with greatest semantic_similarity (ignores Condition 1)
-             - May be same pair (allowed)
+          4. Fallback (per-feature guarantee):
+             - For each feature with no pairs after filtering, add best decoder pair
+             - Ensures every feature has at least one pair
 
         Args:
             feature_ids: Feature IDs to process
@@ -576,7 +558,7 @@ class HierarchicalClusterCandidateService:
         stats = {
             "pairs_before_filtering": 0,
             "pairs_after_filtering": 0,
-            "fallback_clusters": 0,
+            "fallback_features": 0,
             "clusters_processed": 0
         }
 
@@ -588,21 +570,26 @@ class HierarchicalClusterCandidateService:
                 break
 
             stats["clusters_processed"] += 1
-            sorted_features = sorted(cluster_features)
+            sorted_features = sorted(cluster_features)  # Sort for deterministic f1 < f2
 
             # Step 1: Generate all pairs within cluster that exist in interfeature data
+            # Also build index: feature_id -> list of pairs involving that feature
             cluster_pairs: List[Tuple[int, int, Optional[float], Optional[float]]] = []
+            feature_to_pairs: Dict[int, List[int]] = {f: [] for f in sorted_features}
+
             for i in range(len(sorted_features)):
                 for j in range(i + 1, len(sorted_features)):
                     f1, f2 = sorted_features[i], sorted_features[j]
 
-                    # Get similarity values from interfeature data
-                    decoder_sim = self._get_decoder_sim(f1, f2)
-                    semantic_sim = self._get_semantic_sim(f1, f2)
+                    # Get both similarities in one lookup
+                    decoder_sim, semantic_sim = self._get_pair_similarities(f1, f2)
 
                     # Only include pairs that exist in interfeature data
                     if decoder_sim is not None or semantic_sim is not None:
+                        pair_idx = len(cluster_pairs)
                         cluster_pairs.append((f1, f2, decoder_sim, semantic_sim))
+                        feature_to_pairs[f1].append(pair_idx)
+                        feature_to_pairs[f2].append(pair_idx)
 
             stats["pairs_before_filtering"] += len(cluster_pairs)
 
@@ -613,41 +600,55 @@ class HierarchicalClusterCandidateService:
             ]
 
             # Step 3: Filter by Condition 2 OR 3 (ranking criteria)
-            filtered = []
+            filtered: List[Tuple[int, int, Optional[float], Optional[float], int]] = []
             for f1, f2, decoder_sim, semantic_sim in passed_c1:
                 in_top20_semantic = self._in_top_semantic(f1, f2)
                 in_top10_decoder = self._in_top_decoder(f1, f2)
                 if in_top20_semantic or in_top10_decoder:
                     filtered.append((f1, f2, decoder_sim, semantic_sim, cluster_id))
 
-            # Step 4: Fallback if no pairs remain
-            if not filtered and cluster_pairs:
-                stats["fallback_clusters"] += 1
+            # Step 4: Fallback - ensure every FEATURE has at least one pair
+            # Track which features already have pairs
+            features_with_pairs: Set[int] = set()
+            for f1, f2, _, _, _ in filtered:
+                features_with_pairs.add(f1)
+                features_with_pairs.add(f2)
 
-                # Best decoder pair (ignore C1)
-                pairs_with_decoder = [(f1, f2, d, s) for f1, f2, d, s in cluster_pairs if d is not None]
-                if pairs_with_decoder:
-                    best_decoder = max(pairs_with_decoder, key=lambda x: x[2])
-                    filtered.append((*best_decoder, cluster_id))
+            # Find features without pairs
+            features_without_pairs = set(sorted_features) - features_with_pairs
 
-                    # Best semantic pair (may be same as best_decoder)
-                    pairs_with_semantic = [(f1, f2, d, s) for f1, f2, d, s in cluster_pairs if s is not None]
-                    if pairs_with_semantic:
-                        best_semantic = max(pairs_with_semantic, key=lambda x: x[3])
-                        # Only add if different from best_decoder
-                        if (best_semantic[0], best_semantic[1]) != (best_decoder[0], best_decoder[1]):
-                            filtered.append((*best_semantic, cluster_id))
+            # Build set of existing pair tuples once (not per iteration)
+            existing_pairs: Set[Tuple[int, int]] = {(p[0], p[1]) for p in filtered}
+
+            # For each feature without pairs, add best available pair
+            for fid in features_without_pairs:
+                # Use index to get pairs involving this feature (O(1) lookup)
+                fid_pair_indices = feature_to_pairs[fid]
+                fid_pairs = [
+                    cluster_pairs[idx] for idx in fid_pair_indices
+                    if cluster_pairs[idx][2] is not None  # decoder_sim not None
+                ]
+
+                if fid_pairs:
+                    stats["fallback_features"] += 1
+                    # Add best decoder pair for this feature
+                    best_pair = max(fid_pairs, key=lambda x: x[2])
+                    pair_tuple = (best_pair[0], best_pair[1])
+                    # Avoid duplicates
+                    if pair_tuple not in existing_pairs:
+                        filtered.append((*best_pair, cluster_id))
+                        existing_pairs.add(pair_tuple)
 
             # Build pair objects and add to results
+            # f1 < f2 guaranteed since sorted_features is sorted and i < j
             cluster_pair_keys = []
             for f1, f2, decoder_sim, semantic_sim, c_id in filtered:
-                main_id = min(f1, f2)
-                similar_id = max(f1, f2)
-                pair_key = f"{main_id}-{similar_id}"
+                # f1 < f2 guaranteed since sorted_features is sorted and i < j
+                pair_key = f"{f1}-{f2}"
 
                 pair_obj = {
-                    "main_id": main_id,
-                    "similar_id": similar_id,
+                    "main_id": f1,
+                    "similar_id": f2,
                     "pair_key": pair_key,
                     "cluster_id": c_id
                 }
@@ -676,7 +677,7 @@ class HierarchicalClusterCandidateService:
         logger.info(
             f"Filtered pair generation complete: "
             f"{stats['pairs_before_filtering']} → {total_pairs} pairs "
-            f"({stats['fallback_clusters']} clusters used fallback)"
+            f"({stats['fallback_features']} features used fallback)"
         )
 
         return {

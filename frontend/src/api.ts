@@ -63,6 +63,7 @@ const API_ENDPOINTS = {
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
   CLUSTER_CANDIDATES: "/cluster-candidates",
   SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
+  FILTERED_CLUSTER_PAIRS: "/filtered-cluster-pairs",
   CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test",
   STAGE3_QUALITY_SCORES: "/stage3-quality-scores",
@@ -514,24 +515,24 @@ export interface AllClusterPairsResponse {
 }
 
 /**
- * Get ALL cluster-based pairs for a set of features (Simplified Flow).
+ * Get filtered cluster-based pairs for a set of features.
  *
- * This is the SINGLE endpoint for pair generation:
- * - No sampling (returns ALL pairs from ALL clusters)
- * - Frontend controls display sampling
- * - Used for both candidate display AND histogram
+ * Uses the filtered endpoint which applies:
+ * - Condition 1: decoder_similarity > (1 - threshold)
+ * - Condition 2/3: Feature in top-20 semantic OR top-10 decoder ranking
+ * - Fallback: Every feature gets at least one pair
  *
  * @param featureIds - Feature IDs to cluster
  * @param threshold - Clustering threshold (0-1)
- * @returns Complete pair information with metadata
+ * @returns Filtered pair information with metadata
  */
 export async function getAllClusterPairs(
   featureIds: number[],
   threshold: number = 0.5
 ): Promise<AllClusterPairsResponse> {
-  console.log(`[API.getAllClusterPairs] Requesting ALL pairs for ${featureIds.length} features at threshold ${threshold}`)
+  console.log(`[API.getAllClusterPairs] Requesting filtered pairs for ${featureIds.length} features at threshold ${threshold}`)
 
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.SEGMENT_CLUSTER_PAIRS}`, {
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.FILTERED_CLUSTER_PAIRS}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -544,12 +545,12 @@ export async function getAllClusterPairs(
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Get all cluster pairs error:', response.status, errorText)
-    throw new Error(`Failed to fetch all cluster pairs: ${response.status} - ${errorText}`)
+    console.error('[API] Get filtered cluster pairs error:', response.status, errorText)
+    throw new Error(`Failed to fetch filtered cluster pairs: ${response.status} - ${errorText}`)
   }
 
   const data = await response.json()
-  console.log(`[API.getAllClusterPairs] Received ${data.total_pairs} pairs from ${data.total_clusters} clusters`)
+  console.log(`[API.getAllClusterPairs] Received ${data.total_pairs} filtered pairs from ${data.total_clusters} clusters`)
   return data
 }
 
