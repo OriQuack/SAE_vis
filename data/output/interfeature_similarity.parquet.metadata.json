@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-01-23T01:38:48.650400",
+  "created_at": "2026-01-23T02:45:21.437569",
   "step_name": "Step 11: Interfeature Display",
   "script_version": "2.0",
-  "total_rows": 1453,
+  "total_rows": 476519,
   "schema": {
     "main_feature_id": "UInt32",
     "similar_feature_id": "UInt32",
@@ -15,23 +15,30 @@
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
-    "rows_processed": 1453,
-    "rows_output": 1453,
+    "rows_processed": 476519,
+    "rows_output": 476519,
     "pattern_type_distribution": {
-      "semantic": 1180,
-      "lexical": 3,
-      "both": 244,
-      "none": 26
+      "semantic": 363414,
+      "lexical": 1893,
+      "both": 95597,
+      "none": 15615
     }
   },
-  "result_stats": {},
+  "result_stats": {
+    "similar_feature_id_null_count": 1,
+    "source_type_null_count": 1,
+    "decoder_similarity_score_null_count": 1,
+    "char_ngram_max_jaccard_null_count": 1,
+    "word_ngram_max_jaccard_null_count": 1,
+    "semantic_similarity_null_count": 1
+  },
   "config_used": {
     "enabled": true,
     "inputs": {
-      "raw_similarity": "${intermediate}/interfeature_similarity.parquet"
+      "raw_similarity": "data/intermediate/interfeature_similarity.parquet"
     },
     "outputs": {
-      "main": "${output}/interfeature_similarity.parquet"
+      "main": "data/output/interfeature_similarity.parquet"
     },
     "parameters": {
       "semantic_threshold": 0.6,

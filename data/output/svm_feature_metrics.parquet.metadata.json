@@ -1,8 +1,8 @@
 {
   "step_name": "Step 13: SVM Metrics",
   "version": "4.0",
-  "created_at": "2026-01-23T01:39:12.809583",
-  "row_count": 50,
+  "created_at": "2026-01-23T02:47:44.055165",
+  "row_count": 16384,
   "columns": [
     "feature_id",
     "score_embedding",
@@ -34,7 +34,7 @@
     "intra_semantic_sim_std": "Float32"
   },
   "stats": {
-    "features_processed": 50,
-    "missing_values_filled": 0
+    "features_processed": 16384,
+    "missing_values_filled": 7
   }
 }
