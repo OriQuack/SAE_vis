@@ -110,7 +110,7 @@ class ActivationEmbeddingProcessor(BaseProcessor):
             "pooling_temperature": params.get("pooling_temperature", 40.0),
             "sentence_transformer_model": params.get(
                 "sentence_transformer_model",
-                embedding.get("model", "all-MiniLM-L6-v2")
+                embedding.get("model", "google/embeddinggemma-300m")
             ),
             # Global embedding settings
             "device": embedding.get("device", "cuda"),

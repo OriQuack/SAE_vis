@@ -1,30 +1,29 @@
 {
-  "created_at": "2026-01-23T02:45:08.324992",
+  "created_at": "2026-01-23T17:21:01.121003",
   "step_name": "Step 10: Activation Display",
   "script_version": "2.0",
   "total_rows": 16384,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
-    "pattern_type": "Categorical",
     "semantic_similarity": "Float32",
     "semantic_similarity_std": "Float32",
     "char_ngram_max_jaccard": "Float32",
     "word_ngram_max_jaccard": "Float32",
     "top_char_ngram_text": "Utf8",
     "top_word_ngram_text": "Utf8",
-    "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('char_ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)]))), Field('word_ngram_positions', List(Int64))]))"
+    "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('char_ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)]))), Field('word_ngram_positions', List(Int64))]))",
+    "char_ngram_per_k_jaccard": "Struct([Field('k2', Float64), Field('k3', Float64), Field('k4', Float64), Field('k5', Float64)])",
+    "word_ngram_per_k_jaccard": "Struct([Field('k1', Float64), Field('k2', Float64), Field('k3', Float64)])",
+    "top_char_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('token_position', Int64), Field('token_text', Utf8), Field('char_offset', Int64), Field('ngram_size', Int64)])))]))",
+    "top_word_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('start_position', Int64), Field('ngram_size', Int64)])))]))"
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "features_processed": 16384,
     "features_with_no_data": 1,
     "features_with_limited_examples": 0,
-    "total_examples_processed": 255018,
-    "semantic_patterns": 1218,
-    "lexical_patterns": 3720,
-    "both_patterns": 1762,
-    "no_patterns": 9683
+    "total_examples_processed": 255018
   },
   "result_stats": {
     "unique_feature_ids": 16384,
@@ -32,7 +31,9 @@
     "semantic_similarity_null_count": 2,
     "semantic_similarity_std_null_count": 2,
     "top_char_ngram_text_null_count": 128,
-    "top_word_ngram_text_null_count": 1
+    "top_word_ngram_text_null_count": 1,
+    "char_ngram_per_k_jaccard_null_count": 2,
+    "word_ngram_per_k_jaccard_null_count": 2
   },
   "config_used": {
     "enabled": true,
@@ -43,10 +44,7 @@
     "outputs": {
       "main": "data/output/activation_display.parquet"
     },
-    "parameters": {
-      "semantic_threshold": 0.6,
-      "lexical_threshold": 0.3
-    },
+    "parameters": {},
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "global": {
       "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",

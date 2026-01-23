@@ -178,6 +178,78 @@ def find_top_ngram(
         return min(tied_ngrams)
 
 
+def compute_per_k_jaccard_all(
+    examples_a: List[Tuple],
+    examples_b: List[Tuple],
+    ngram_sizes: List[int],
+    window_size: int,
+    is_word: bool = False
+) -> Dict[int, float]:
+    """Compute Jaccard similarity for each k-size separately.
+
+    Returns a dictionary mapping k-size to mean Jaccard similarity.
+    This enables selecting the "longest n-gram above threshold" for display.
+
+    Args:
+        examples_a: List of (prompt_id, activation, tokens, max_pos) tuples
+        examples_b: Same format, or same as examples_a for intra-feature
+        ngram_sizes: List of n-gram sizes (e.g., [2, 3, 4, 5] for char, [1, 2, 3] for word)
+        window_size: Token window size around max activation position
+        is_word: If True, extract word n-grams; if False, extract character n-grams
+
+    Returns:
+        Dict mapping k-size → mean Jaccard (e.g., {2: 0.3, 3: 0.5, 4: 0.4, 5: 0.2})
+    """
+    from .tokens import extract_token_window
+    import numpy as np
+
+    if not examples_a or not examples_b:
+        return {}
+
+    # Check if this is intra-feature (same list) comparison
+    is_intra_feature = examples_a is examples_b
+
+    per_k_results = {}
+
+    for k in ngram_sizes:
+        # Extract n-gram sets for this k only
+        sets_a = []
+        for _, _, tokens, max_pos in examples_a:
+            window = extract_token_window(tokens, max_pos, window_size)
+            if is_word:
+                ngrams = extract_word_ngrams(window, [k])
+            else:
+                ngrams = extract_token_char_ngrams_simple(window, [k])
+            sets_a.append(set(ngrams.keys()))
+
+        # For inter-feature, extract sets_b separately
+        if is_intra_feature:
+            sets_b = sets_a
+        else:
+            sets_b = []
+            for _, _, tokens, max_pos in examples_b:
+                window = extract_token_window(tokens, max_pos, window_size)
+                if is_word:
+                    ngrams = extract_word_ngrams(window, [k])
+                else:
+                    ngrams = extract_token_char_ngrams_simple(window, [k])
+                sets_b.append(set(ngrams.keys()))
+
+        # Compute pairwise Jaccard
+        pairwise = []
+        for i, set_a in enumerate(sets_a):
+            for j, set_b in enumerate(sets_b):
+                # For intra-feature, skip self-comparison (same index)
+                if is_intra_feature and i >= j:
+                    continue
+                pairwise.append(compute_jaccard_similarity(set_a, set_b))
+
+        if pairwise:
+            per_k_results[k] = float(np.mean(pairwise))
+
+    return per_k_results
+
+
 def compute_per_k_max_jaccard(
     examples_a: List[Tuple],
     examples_b: List[Tuple],

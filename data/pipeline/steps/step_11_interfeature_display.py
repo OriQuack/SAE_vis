@@ -12,18 +12,15 @@ Output:
 - interfeature_similarity.parquet: Processed display-ready data
 
 Features:
-- Pattern classification (semantic, lexical, both, none)
+- Raw similarity metrics (pattern_type computed at runtime by backend)
 - Aggregation of metrics for display
 - Filtering to keep only relevant similarity pairs
 """
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
-import numpy as np
 import polars as pl
-from tqdm import tqdm
 
 # Enable string cache for categorical operations
 pl.enable_string_cache()
@@ -36,38 +33,6 @@ from core.base import BaseProcessor, load_yaml_config
 from core.logging import setup_logging
 
 logger = logging.getLogger(__name__)
-
-
-def classify_pattern_type(
-    char_jaccard: float,
-    word_jaccard: float,
-    semantic_sim: float,
-    semantic_threshold: float = 0.3,
-    lexical_threshold: float = 0.3
-) -> str:
-    """Classify the pattern type based on similarity scores.
-
-    Args:
-        char_jaccard: Character n-gram Jaccard similarity
-        word_jaccard: Word n-gram Jaccard similarity
-        semantic_sim: Semantic embedding similarity
-        semantic_threshold: Threshold for semantic classification
-        lexical_threshold: Threshold for lexical classification
-
-    Returns:
-        Pattern type string: "semantic", "lexical", "both", or "none"
-    """
-    lexical = max(char_jaccard or 0, word_jaccard or 0) >= lexical_threshold
-    semantic = (semantic_sim or 0) >= semantic_threshold
-
-    if lexical and semantic:
-        return "both"
-    elif lexical:
-        return "lexical"
-    elif semantic:
-        return "semantic"
-    else:
-        return "none"
 
 
 class InterfeatureDisplayProcessor(BaseProcessor):
@@ -97,24 +62,10 @@ class InterfeatureDisplayProcessor(BaseProcessor):
         # Output path
         self.output_path = self._resolve_path(f"{output_dir}/interfeature_similarity.parquet")
 
-        # Processing parameters from step config
-        params = self.config.get("parameters", {})
-
-        self.proc_params = {
-            "semantic_threshold": params.get("semantic_threshold", 0.3),
-            "lexical_threshold": params.get("lexical_threshold", 0.3),
-        }
-
         # Statistics tracking
         self.stats = {
             "rows_processed": 0,
-            "rows_output": 0,
-            "pattern_type_distribution": {
-                "semantic": 0,
-                "lexical": 0,
-                "both": 0,
-                "none": 0
-            }
+            "rows_output": 0
         }
 
         # Data holders
@@ -150,13 +101,21 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 pl.col("all_pairs").struct.field("decoder_similarity").alias("decoder_similarity_score"),
                 pl.col("all_pairs").struct.field("similarity_source").alias("source_type"),
                 pl.col("all_pairs").struct.field("semantic_similarity"),
+                # EXISTING: per-k-max Jaccard
                 pl.col("all_pairs").struct.field("char_ngram_max_jaccard"),
                 pl.col("all_pairs").struct.field("word_ngram_max_jaccard"),
                 pl.col("all_pairs").struct.field("main_prompt_ids"),
                 pl.col("all_pairs").struct.field("similar_prompt_ids"),
                 pl.col("all_pairs").struct.field("num_comparisons"),
+                # EXISTING: overall top n-grams
                 pl.col("all_pairs").struct.field("max_char_ngram"),
                 pl.col("all_pairs").struct.field("max_word_ngram"),
+                # NEW: per-k Jaccard values (for longest n-gram selection)
+                pl.col("all_pairs").struct.field("char_ngram_per_k_jaccard"),
+                pl.col("all_pairs").struct.field("word_ngram_per_k_jaccard"),
+                # NEW: per-k top n-grams
+                pl.col("all_pairs").struct.field("top_char_ngrams_per_k"),
+                pl.col("all_pairs").struct.field("top_word_ngrams_per_k"),
             ])
             logger.info(f"Flattened to {len(self.raw_df):,} pair rows")
         else:
@@ -204,49 +163,16 @@ class InterfeatureDisplayProcessor(BaseProcessor):
 
         logger.info(f"Available similarity columns: {similarity_columns}")
 
-        # Column names are now consistent from Step 9
-        char_col = "char_ngram_max_jaccard" if "char_ngram_max_jaccard" in cols else None
-        word_col = "word_ngram_max_jaccard" if "word_ngram_max_jaccard" in cols else None
-        semantic_col = "semantic_similarity" if "semantic_similarity" in cols else None
+        # pattern_type is now computed at runtime by backend
+        # (allows dynamic threshold adjustment without regenerating parquet)
+        result_df = self.raw_df
 
-        # Classify pattern types
-        logger.info("Classifying pattern types...")
-
-        semantic_threshold = self.proc_params["semantic_threshold"]
-        lexical_threshold = self.proc_params["lexical_threshold"]
-
-        # Add pattern classification
-        pattern_types = []
-        for row in tqdm(self.raw_df.iter_rows(named=True), total=len(self.raw_df), desc="Classifying patterns"):
-            char_val = row.get(char_col, 0) if char_col else 0
-            word_val = row.get(word_col, 0) if word_col else 0
-            semantic_val = row.get(semantic_col, 0) if semantic_col else 0
-
-            pattern_type = classify_pattern_type(
-                char_val or 0,
-                word_val or 0,
-                semantic_val or 0,
-                semantic_threshold,
-                lexical_threshold
-            )
-            pattern_types.append(pattern_type)
-            self.stats["pattern_type_distribution"][pattern_type] += 1
-
-        # Add pattern_type column
-        result_df = self.raw_df.with_columns([
-            pl.Series("pattern_type", pattern_types).cast(pl.Categorical)
-        ])
-
-        # Column names are already consistent from Step 9, no renaming needed
-        result_df = result_df
-
-        # Select output columns
+        # Select output columns (pattern_type removed - computed at runtime)
         output_columns = [
             "main_feature_id",
             "similar_feature_id",
             "source_type",
-            "decoder_similarity_score",
-            "pattern_type"
+            "decoder_similarity_score"
         ]
 
         # Add optional columns if they exist
@@ -256,7 +182,12 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "semantic_similarity",
             "char_ngram_mean_jaccard",
             "word_ngram_mean_jaccard",
-            "semantic_similarity_std"
+            "semantic_similarity_std",
+            # NEW: per-k fields
+            "char_ngram_per_k_jaccard",
+            "word_ngram_per_k_jaccard",
+            "top_char_ngrams_per_k",
+            "top_word_ngrams_per_k",
         ]
 
         for col in optional_columns:
@@ -300,7 +231,6 @@ class InterfeatureDisplayProcessor(BaseProcessor):
         self.stats["rows_output"] = len(result_df)
 
         logger.info(f"Output {len(result_df):,} rows")
-        logger.info(f"Pattern distribution: {self.stats['pattern_type_distribution']}")
 
         return result_df
 
@@ -311,7 +241,6 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "similar_feature_id": pl.UInt32,
             "source_type": pl.Categorical,
             "decoder_similarity_score": pl.Float32,
-            "pattern_type": pl.Categorical,
             "char_ngram_max_jaccard": pl.Float32,
             "word_ngram_max_jaccard": pl.Float32,
             "semantic_similarity": pl.Float32,

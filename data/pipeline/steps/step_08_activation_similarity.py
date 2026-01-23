@@ -45,6 +45,7 @@ from core.ngrams import (
     extract_token_char_ngrams,
     extract_word_ngrams,
     compute_per_k_max_jaccard,
+    compute_per_k_jaccard_all,
     find_top_ngram,
 )
 from core.sampling import get_quantile_boundaries
@@ -329,6 +330,20 @@ class ActivationSimilarityProcessor(BaseProcessor):
             word_ngram_sizes, word_window, is_word=True
         )
 
+        # NEW: Compute per-k Jaccard values (for longest n-gram selection)
+        # Convert int keys to string keys (e.g., {2: 0.3} -> {"k2": 0.3}) for Polars compatibility
+        char_per_k_raw = compute_per_k_jaccard_all(
+            all_examples, all_examples,
+            char_ngram_sizes, char_window, is_word=False
+        )
+        char_ngram_per_k_jaccard = {f"k{k}": v for k, v in char_per_k_raw.items()}
+
+        word_per_k_raw = compute_per_k_jaccard_all(
+            all_examples, all_examples,
+            word_ngram_sizes, word_window, is_word=True
+        )
+        word_ngram_per_k_jaccard = {f"k{k}": v for k, v in word_per_k_raw.items()}
+
         if char_ngram_max_jaccard is not None or word_ngram_max_jaccard is not None:
             self.stats["ngram_jaccard_computed"] += 1
 
@@ -358,8 +373,12 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_char_ngram": overall_top_char,
             "top_word_ngram": overall_top_word,
             "quantile_boundaries": q_boundaries,
+            # EXISTING: per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": char_ngram_max_jaccard,
             "word_ngram_max_jaccard": word_ngram_max_jaccard,
+            # NEW: per-k Jaccard values (for longest n-gram selection)
+            "char_ngram_per_k_jaccard": char_ngram_per_k_jaccard,
+            "word_ngram_per_k_jaccard": word_ngram_per_k_jaccard,
         }
 
     def _create_empty_result(self, feature_id: int, num_total_activations: int) -> Dict[str, Any]:
@@ -376,8 +395,12 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_char_ngram": None,
             "top_word_ngram": None,
             "quantile_boundaries": [],
+            # EXISTING: per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": None,
             "word_ngram_max_jaccard": None,
+            # NEW: per-k Jaccard values (for longest n-gram selection)
+            "char_ngram_per_k_jaccard": {},
+            "word_ngram_per_k_jaccard": {},
         }
 
     def process(self) -> pl.DataFrame:

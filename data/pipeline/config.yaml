@@ -185,9 +185,7 @@ steps:
       activation_similarity: "${intermediate}/activation_example_similarity.parquet"
     outputs:
       main: "${output}/activation_display.parquet"
-    parameters:
-      semantic_threshold: 0.6
-      lexical_threshold: 0.3
+    parameters: {}  # pattern_type thresholds moved to backend
 
   # Step 11: Process interfeature display data
   step_11_interfeature_display:
@@ -196,10 +194,7 @@ steps:
       raw_similarity: "${intermediate}/interfeature_similarity.parquet"
     outputs:
       main: "${output}/interfeature_similarity.parquet"
-    parameters:
-      # Similarity thresholds for pattern classification
-      semantic_threshold: 0.6
-      lexical_threshold: 0.3
+    parameters: {}  # pattern_type thresholds moved to backend
 
   # Step 12: Explanation alignment (phrase matching)
   step_12_explanation_alignment:

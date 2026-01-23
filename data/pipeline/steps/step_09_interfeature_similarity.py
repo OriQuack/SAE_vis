@@ -47,6 +47,7 @@ from core.ngrams import (
     extract_token_char_ngrams_simple,
     extract_word_ngrams,
     compute_per_k_max_jaccard,
+    compute_per_k_jaccard_all,
     find_top_ngram,
 )
 
@@ -367,9 +368,12 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         Uses per-k-size max Jaccard: computes Jaccard separately for each n-gram size,
         then takes the maximum. This avoids set cardinality explosion from pooling all
         sizes together, resulting in more meaningful similarity scores.
+
+        Also returns per-k Jaccard values and per-k top n-grams for "longest above threshold"
+        selection in the frontend.
         """
         if len(main_examples) < 1 or len(selected_examples) < 1:
-            return None, None, None, None, [], [], [], []
+            return None, None, None, None, [], [], [], [], {}, {}, [], []
 
         char_window_size = self.proc_params["char_ngram_window_size"]
         word_window_size = self.proc_params["word_ngram_window_size"]
@@ -388,41 +392,84 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             word_ngram_sizes, word_window_size, is_word=True
         )
 
+        # NEW: Compute per-k Jaccard values (for longest n-gram selection)
+        # Convert int keys to string keys (e.g., {2: 0.3} -> {"k2": 0.3}) for Polars compatibility
+        char_per_k_raw = compute_per_k_jaccard_all(
+            main_examples, selected_examples,
+            char_ngram_sizes, char_window_size, is_word=False
+        )
+        char_per_k = {f"k{k}": v for k, v in char_per_k_raw.items()}
+
+        word_per_k_raw = compute_per_k_jaccard_all(
+            main_examples, selected_examples,
+            word_ngram_sizes, word_window_size, is_word=True
+        )
+        word_per_k = {f"k{k}": v for k, v in word_per_k_raw.items()}
+
         # Extract n-grams for finding top n-gram (used for position highlighting)
+        # Also track counts per k-size for per-k top n-gram selection
+        char_ngram_counts_per_k = {k: Counter() for k in char_ngram_sizes}
         all_char_ngrams = []
         for _, _, tokens, max_pos in main_examples:
             window_tokens = extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = extract_token_char_ngrams_simple(window_tokens, char_ngram_sizes)
-            all_char_ngrams.extend(list(char_ngram_map.keys()))
+            for ngram in char_ngram_map.keys():
+                all_char_ngrams.append(ngram)
+                char_ngram_counts_per_k[len(ngram)][ngram] += 1
 
         for _, _, tokens, max_pos in selected_examples:
             window_tokens = extract_token_window(tokens, max_pos, char_window_size)
             char_ngram_map = extract_token_char_ngrams_simple(window_tokens, char_ngram_sizes)
-            all_char_ngrams.extend(list(char_ngram_map.keys()))
+            for ngram in char_ngram_map.keys():
+                all_char_ngrams.append(ngram)
+                char_ngram_counts_per_k[len(ngram)][ngram] += 1
 
-        # Find most frequent char n-gram
+        # Find most frequent char n-gram overall
         max_char_ngram = None
         if all_char_ngrams:
             char_counter = Counter(all_char_ngrams)
             max_char_ngram = find_top_ngram(dict(char_counter))
 
+        # NEW: Find top char n-gram per k-size
+        top_char_ngrams_per_k = []
+        for k in char_ngram_sizes:
+            if char_ngram_counts_per_k[k]:
+                top_ng = find_top_ngram(dict(char_ngram_counts_per_k[k]))
+                if top_ng:
+                    top_char_ngrams_per_k.append({"k": k, "ngram": top_ng})
+
         # Extract word n-grams for finding top n-gram
+        word_ngram_counts_per_k = {k: Counter() for k in word_ngram_sizes}
         all_word_ngrams = []
         for _, _, tokens, max_pos in main_examples:
             window_tokens = extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = extract_word_ngrams(window_tokens, word_ngram_sizes)
-            all_word_ngrams.extend(list(word_ngram_map.keys()))
+            for ngram in word_ngram_map.keys():
+                word_count = len(ngram.split())
+                all_word_ngrams.append(ngram)
+                word_ngram_counts_per_k[word_count][ngram] += 1
 
         for _, _, tokens, max_pos in selected_examples:
             window_tokens = extract_token_window(tokens, max_pos, word_window_size)
             word_ngram_map = extract_word_ngrams(window_tokens, word_ngram_sizes)
-            all_word_ngrams.extend(list(word_ngram_map.keys()))
+            for ngram in word_ngram_map.keys():
+                word_count = len(ngram.split())
+                all_word_ngrams.append(ngram)
+                word_ngram_counts_per_k[word_count][ngram] += 1
 
-        # Find most frequent word n-gram
+        # Find most frequent word n-gram overall
         max_word_ngram = None
         if all_word_ngrams:
             word_counter = Counter(all_word_ngrams)
             max_word_ngram = find_top_ngram(dict(word_counter))
+
+        # NEW: Find top word n-gram per k-size
+        top_word_ngrams_per_k = []
+        for k in word_ngram_sizes:
+            if word_ngram_counts_per_k[k]:
+                top_ng = find_top_ngram(dict(word_ngram_counts_per_k[k]))
+                if top_ng:
+                    top_word_ngrams_per_k.append({"k": k, "ngram": top_ng})
 
         # Extract position data for all examples (for visualization highlighting)
         main_char_positions = self._find_char_ngram_positions_in_examples(
@@ -443,7 +490,8 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
 
         return (char_ngram_max_jaccard, word_ngram_max_jaccard, max_char_ngram, max_word_ngram,
                 main_char_positions, similar_char_positions,
-                main_word_positions, similar_word_positions)
+                main_word_positions, similar_word_positions,
+                char_per_k, word_per_k, top_char_ngrams_per_k, top_word_ngrams_per_k)
 
     def _process_feature(self, feature_id: int) -> Dict[str, Any]:
         """Process a single feature to compute inter-feature similarity metrics."""
@@ -497,9 +545,10 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             else:
                 semantic_sim = None
 
-            # Compute dual Jaccard similarity (per-k-max approach)
+            # Compute dual Jaccard similarity (per-k-max approach) with per-k values
             (char_ngram_max_jaccard, word_ngram_max_jaccard, max_char_ngram, max_word_ngram,
-             main_char_pos, similar_char_pos, main_word_pos, similar_word_pos
+             main_char_pos, similar_char_pos, main_word_pos, similar_word_pos,
+             char_per_k, word_per_k, top_char_ngrams_per_k, top_word_ngrams_per_k
             ) = self._compute_dual_jaccard_similarity(main_examples, selected_examples)
 
             self.stats["total_pairs_compared"] += 1
@@ -524,17 +573,25 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
                 "decoder_similarity": decoder_sim,
                 "similarity_source": source,
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
+                # EXISTING: per-k-max Jaccard (keep for SVM and backward compat)
                 "char_ngram_max_jaccard": float(char_ngram_max_jaccard) if char_ngram_max_jaccard is not None else None,
                 "word_ngram_max_jaccard": float(word_ngram_max_jaccard) if word_ngram_max_jaccard is not None else None,
                 "main_prompt_ids": [int(pid) for pid in main_prompt_ids],
                 "similar_prompt_ids": [int(pid) for pid in selected_prompt_ids],
                 "num_comparisons": int(len(main_examples) * len(selected_examples)),
+                # EXISTING: overall top n-grams
                 "max_char_ngram": max_char_ngram,
                 "max_word_ngram": max_word_ngram,
                 "main_char_ngram_positions": main_char_pos,
                 "similar_char_ngram_positions": similar_char_pos,
                 "main_word_ngram_positions": main_word_pos,
-                "similar_word_ngram_positions": similar_word_pos
+                "similar_word_ngram_positions": similar_word_pos,
+                # NEW: per-k Jaccard values (for longest n-gram selection)
+                "char_ngram_per_k_jaccard": char_per_k,
+                "word_ngram_per_k_jaccard": word_per_k,
+                # NEW: per-k top n-grams (text only, positions computed lazily)
+                "top_char_ngrams_per_k": top_char_ngrams_per_k,
+                "top_word_ngrams_per_k": top_word_ngrams_per_k,
             }
 
             all_pairs.append(pair_dict)
@@ -609,22 +666,49 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             pl.Field("positions", pl.List(pl.UInt16))
         ])
 
+        # NEW: Per-k Jaccard as struct
+        char_per_k_jaccard_struct = pl.Struct([
+            pl.Field("k2", pl.Float32),
+            pl.Field("k3", pl.Float32),
+            pl.Field("k4", pl.Float32),
+            pl.Field("k5", pl.Float32),
+        ])
+        word_per_k_jaccard_struct = pl.Struct([
+            pl.Field("k1", pl.Float32),
+            pl.Field("k2", pl.Float32),
+            pl.Field("k3", pl.Float32),
+        ])
+
+        # NEW: Per-k top n-gram struct
+        per_k_ngram_struct = pl.Struct([
+            pl.Field("k", pl.UInt8),
+            pl.Field("ngram", pl.Utf8),
+        ])
+
         pair_struct = pl.Struct([
             pl.Field("similar_feature_id", pl.UInt32),
             pl.Field("decoder_similarity", pl.Float32),
             pl.Field("similarity_source", pl.Utf8),
             pl.Field("semantic_similarity", pl.Float32),
+            # EXISTING: per-k-max Jaccard
             pl.Field("char_ngram_max_jaccard", pl.Float32),
             pl.Field("word_ngram_max_jaccard", pl.Float32),
             pl.Field("main_prompt_ids", pl.List(pl.UInt32)),
             pl.Field("similar_prompt_ids", pl.List(pl.UInt32)),
             pl.Field("num_comparisons", pl.UInt32),
+            # EXISTING: overall top n-grams
             pl.Field("max_char_ngram", pl.Utf8),
             pl.Field("max_word_ngram", pl.Utf8),
             pl.Field("main_char_ngram_positions", pl.List(char_ngram_positions_struct)),
             pl.Field("similar_char_ngram_positions", pl.List(char_ngram_positions_struct)),
             pl.Field("main_word_ngram_positions", pl.List(word_ngram_positions_struct)),
-            pl.Field("similar_word_ngram_positions", pl.List(word_ngram_positions_struct))
+            pl.Field("similar_word_ngram_positions", pl.List(word_ngram_positions_struct)),
+            # NEW: per-k Jaccard values (stored as dict, will be converted)
+            pl.Field("char_ngram_per_k_jaccard", char_per_k_jaccard_struct),
+            pl.Field("word_ngram_per_k_jaccard", word_per_k_jaccard_struct),
+            # NEW: per-k top n-grams
+            pl.Field("top_char_ngrams_per_k", pl.List(per_k_ngram_struct)),
+            pl.Field("top_word_ngrams_per_k", pl.List(per_k_ngram_struct)),
         ])
 
         return {

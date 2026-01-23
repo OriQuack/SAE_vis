@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-23T02:45:21.437569",
+  "created_at": "2026-01-23T17:21:09.319482",
   "step_name": "Step 11: Interfeature Display",
   "script_version": "2.0",
   "total_rows": 476519,
@@ -8,21 +8,18 @@
     "similar_feature_id": "UInt32",
     "source_type": "Categorical",
     "decoder_similarity_score": "Float32",
-    "pattern_type": "Categorical",
     "char_ngram_max_jaccard": "Float32",
     "word_ngram_max_jaccard": "Float32",
-    "semantic_similarity": "Float32"
+    "semantic_similarity": "Float32",
+    "char_ngram_per_k_jaccard": "Struct([Field('k2', Float32), Field('k3', Float32), Field('k4', Float32), Field('k5', Float32)])",
+    "word_ngram_per_k_jaccard": "Struct([Field('k1', Float32), Field('k2', Float32), Field('k3', Float32)])",
+    "top_char_ngrams_per_k": "List(Struct([Field('k', UInt8), Field('ngram', Utf8)]))",
+    "top_word_ngrams_per_k": "List(Struct([Field('k', UInt8), Field('ngram', Utf8)]))"
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "rows_processed": 476519,
-    "rows_output": 476519,
-    "pattern_type_distribution": {
-      "semantic": 363414,
-      "lexical": 1893,
-      "both": 95597,
-      "none": 15615
-    }
+    "rows_output": 476519
   },
   "result_stats": {
     "similar_feature_id_null_count": 1,
@@ -30,7 +27,11 @@
     "decoder_similarity_score_null_count": 1,
     "char_ngram_max_jaccard_null_count": 1,
     "word_ngram_max_jaccard_null_count": 1,
-    "semantic_similarity_null_count": 1
+    "semantic_similarity_null_count": 1,
+    "char_ngram_per_k_jaccard_null_count": 1,
+    "word_ngram_per_k_jaccard_null_count": 1,
+    "top_char_ngrams_per_k_null_count": 1,
+    "top_word_ngrams_per_k_null_count": 1
   },
   "config_used": {
     "enabled": true,
@@ -40,10 +41,7 @@
     "outputs": {
       "main": "data/output/interfeature_similarity.parquet"
     },
-    "parameters": {
-      "semantic_threshold": 0.6,
-      "lexical_threshold": 0.3
-    },
+    "parameters": {},
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "global": {
       "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",

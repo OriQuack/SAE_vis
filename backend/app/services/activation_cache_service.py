@@ -14,6 +14,8 @@ from typing import Optional
 import msgpack
 import polars as pl
 
+from .pattern_utils import compute_pattern_type
+
 logger = logging.getLogger(__name__)
 
 
@@ -52,18 +54,33 @@ class ActivationCacheService:
             logger.info(f"[ActivationCacheService] Loading activation data from {self.activation_display_file}")
 
             # Load all features from parquet
+            # Note: pattern_type removed from parquet - computed at runtime
+            # First check which columns exist (backward compatibility)
+            all_columns = pl.read_parquet_schema(self.activation_display_file)
+            columns_to_load = [
+                "feature_id",
+                "quantile_examples",
+                "semantic_similarity",
+                "char_ngram_max_jaccard",
+                "word_ngram_max_jaccard",
+                "top_char_ngram_text",
+                "top_word_ngram_text",
+            ]
+
+            # Add per-k columns if they exist
+            per_k_columns = [
+                "char_ngram_per_k_jaccard",
+                "word_ngram_per_k_jaccard",
+                "top_char_ngrams",
+                "top_word_ngrams",
+            ]
+            for col in per_k_columns:
+                if col in all_columns:
+                    columns_to_load.append(col)
+
             df = pl.read_parquet(
                 self.activation_display_file,
-                columns=[
-                    "feature_id",
-                    "quantile_examples",
-                    "semantic_similarity",
-                    "char_ngram_max_jaccard",
-                    "word_ngram_max_jaccard",
-                    "top_char_ngram_text",
-                    "top_word_ngram_text",
-                    "pattern_type"
-                ]
+                columns=columns_to_load
             )
 
             load_time = time.time() - start_time
@@ -75,6 +92,12 @@ class ActivationCacheService:
 
             for row in df.iter_rows(named=True):
                 feature_id = row["feature_id"]
+                # Compute pattern_type at runtime from raw similarity values
+                pattern_type = compute_pattern_type(
+                    row["semantic_similarity"],
+                    row["char_ngram_max_jaccard"],
+                    row["word_ngram_max_jaccard"]
+                )
                 examples_dict[feature_id] = {
                     "quantile_examples": row["quantile_examples"],
                     "semantic_similarity": row["semantic_similarity"],
@@ -82,7 +105,13 @@ class ActivationCacheService:
                     "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
                     "top_char_ngram_text": row["top_char_ngram_text"],
                     "top_word_ngram_text": row["top_word_ngram_text"],
-                    "pattern_type": row["pattern_type"]
+                    "pattern_type": pattern_type,
+                    # NEW: per-k Jaccard values (for longest n-gram selection)
+                    "char_ngram_per_k_jaccard": row.get("char_ngram_per_k_jaccard"),
+                    "word_ngram_per_k_jaccard": row.get("word_ngram_per_k_jaccard"),
+                    # NEW: per-k top n-grams
+                    "top_char_ngrams": row.get("top_char_ngrams"),
+                    "top_word_ngrams": row.get("top_word_ngrams"),
                 }
 
             self._feature_count = len(examples_dict)

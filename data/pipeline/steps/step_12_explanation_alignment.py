@@ -80,10 +80,18 @@ class ExplanationAlignmentProcessor(BaseProcessor):
 
         # Processing parameters
         params = self.config.get("parameters", {})
+
+        # Get embedding model: step params > global config > default
+        global_embedding = global_config.get("processing", {}).get("embedding", {})
+        embedding_model = params.get(
+            "embedding_model",
+            global_embedding.get("model", "google/embeddinggemma-300m")
+        )
+
         self.proc_params = {
             "similarity_threshold": params.get("similarity_threshold", 0.7),
             "chunk_method": params.get("chunk_method", "phrase"),
-            "embedding_model": params.get("embedding_model", "all-MiniLM-L6-v2"),
+            "embedding_model": embedding_model,
             "min_aligned_explainers": params.get("min_aligned_explainers", 2),
         }
 

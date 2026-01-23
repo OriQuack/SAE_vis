@@ -17,7 +17,7 @@ Output:
 Features:
 - Pre-organized quantile examples (2 per quantile, 8 total per feature)
 - Pre-processed tokens (leading underscores removed, joined into text)
-- Pattern type classification (Semantic/Lexical/Both/None)
+- Raw similarity metrics (pattern_type computed at runtime by backend)
 - Feature-level data structure for fast loading (~20ms vs ~5 seconds)
 """
 
@@ -70,21 +70,12 @@ class ActivationDisplayProcessor(BaseProcessor):
         # Output path
         self.output_path = self._resolve_path(f"{output_dir}/activation_display.parquet")
 
-        # Processing parameters
-        params = self.config.get("parameters", {})
-        self.semantic_threshold = params.get("semantic_threshold", 0.3)
-        self.lexical_threshold = params.get("lexical_threshold", 0.3)
-
         # Initialize statistics
         self.stats = {
             "features_processed": 0,
             "features_with_no_data": 0,
             "features_with_limited_examples": 0,
-            "total_examples_processed": 0,
-            "semantic_patterns": 0,
-            "lexical_patterns": 0,
-            "both_patterns": 0,
-            "no_patterns": 0
+            "total_examples_processed": 0
         }
 
     def _load_data(self) -> None:
@@ -150,29 +141,6 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         return sorted(set(positions))
 
-    def _compute_pattern_type(self, semantic_sim: float, char_jaccard: float, word_jaccard: float) -> str:
-        """Categorize activation pattern based on thresholds.
-
-        Args:
-            semantic_sim: Average pairwise semantic similarity
-            char_jaccard: Character n-gram Jaccard similarity
-            word_jaccard: Word n-gram Jaccard similarity
-
-        Returns:
-            Pattern type: "Semantic", "Lexical", "Both", or "None"
-        """
-        has_semantic = semantic_sim > self.semantic_threshold
-        has_lexical = (char_jaccard > self.lexical_threshold) or (word_jaccard > self.lexical_threshold)
-
-        if has_semantic and has_lexical:
-            return "Both"
-        elif has_semantic:
-            return "Semantic"
-        elif has_lexical:
-            return "Lexical"
-        else:
-            return "None"
-
     def _process_feature(self, feature_id: int) -> Optional[Dict[str, Any]]:
         """Process a single feature to create optimized display data.
 
@@ -190,14 +158,18 @@ class ActivationDisplayProcessor(BaseProcessor):
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
-                "pattern_type": "None",
                 "semantic_similarity": None,
                 "semantic_similarity_std": None,
                 "char_ngram_max_jaccard": 0.0,
                 "word_ngram_max_jaccard": 0.0,
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
-                "quantile_examples": []
+                "quantile_examples": [],
+                # NEW: per-k fields
+                "char_ngram_per_k_jaccard": {},
+                "word_ngram_per_k_jaccard": {},
+                "top_char_ngrams": [],
+                "top_word_ngrams": [],
             }
 
         sim_row = feature_sim.to_dicts()[0]
@@ -211,41 +183,36 @@ class ActivationDisplayProcessor(BaseProcessor):
         char_ngram_jaccard = sim_row.get("char_ngram_max_jaccard") or 0.0
         word_ngram_jaccard = sim_row.get("word_ngram_max_jaccard") or 0.0
 
-        # Extract top n-grams
+        # Extract top n-grams (overall)
         top_char_ngram = sim_row.get("top_char_ngram")
         top_word_ngram = sim_row.get("top_word_ngram")
+
+        # NEW: Extract per-k Jaccard values (for longest n-gram selection)
+        char_per_k_jaccard = sim_row.get("char_ngram_per_k_jaccard") or {}
+        word_per_k_jaccard = sim_row.get("word_ngram_per_k_jaccard") or {}
+
+        # NEW: Extract per-k top n-grams
+        top_char_ngrams = sim_row.get("top_char_ngrams") or []
+        top_word_ngrams = sim_row.get("top_word_ngrams") or []
 
         if not prompt_ids or len(prompt_ids) == 0:
             self.stats["features_with_no_data"] += 1
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
-                "pattern_type": "None",
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
                 "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
                 "char_ngram_max_jaccard": float(char_ngram_jaccard),
                 "word_ngram_max_jaccard": float(word_ngram_jaccard),
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
-                "quantile_examples": []
+                "quantile_examples": [],
+                # NEW: per-k fields
+                "char_ngram_per_k_jaccard": char_per_k_jaccard,
+                "word_ngram_per_k_jaccard": word_per_k_jaccard,
+                "top_char_ngrams": top_char_ngrams,
+                "top_word_ngrams": top_word_ngrams,
             }
-
-        # Compute pattern type
-        pattern_type = self._compute_pattern_type(
-            semantic_sim if semantic_sim is not None else 0.0,
-            char_ngram_jaccard,
-            word_ngram_jaccard
-        )
-
-        # Update pattern stats
-        if pattern_type == "Semantic":
-            self.stats["semantic_patterns"] += 1
-        elif pattern_type == "Lexical":
-            self.stats["lexical_patterns"] += 1
-        elif pattern_type == "Both":
-            self.stats["both_patterns"] += 1
-        else:
-            self.stats["no_patterns"] += 1
 
         # Fetch activation examples for these prompt IDs
         feature_examples = self.examples_df.filter(
@@ -313,14 +280,21 @@ class ActivationDisplayProcessor(BaseProcessor):
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
-            "pattern_type": pattern_type,
             "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
             "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
+            # EXISTING: per-k-max Jaccard
             "char_ngram_max_jaccard": float(char_ngram_jaccard),
             "word_ngram_max_jaccard": float(word_ngram_jaccard),
+            # EXISTING: overall top n-gram text
             "top_char_ngram_text": char_ngram_text,
             "top_word_ngram_text": word_ngram_text,
-            "quantile_examples": quantile_examples
+            "quantile_examples": quantile_examples,
+            # NEW: per-k Jaccard values (for longest n-gram selection)
+            "char_ngram_per_k_jaccard": char_per_k_jaccard,
+            "word_ngram_per_k_jaccard": word_per_k_jaccard,
+            # NEW: per-k top n-grams (for display selection)
+            "top_char_ngrams": top_char_ngrams,
+            "top_word_ngrams": top_word_ngrams,
         }
 
     def process(self) -> pl.DataFrame:
@@ -385,7 +359,6 @@ class ActivationDisplayProcessor(BaseProcessor):
         df = df.with_columns([
             pl.col("feature_id").cast(pl.UInt32),
             pl.col("sae_id").cast(pl.Categorical),
-            pl.col("pattern_type").cast(pl.Categorical),
             pl.col("semantic_similarity").cast(pl.Float32),
             pl.col("semantic_similarity_std").cast(pl.Float32),
             pl.col("char_ngram_max_jaccard").cast(pl.Float32),

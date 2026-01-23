@@ -18,6 +18,7 @@ from ..models.responses import (
 )
 from ..models.common import Filters
 from .data_constants import *
+from .pattern_utils import compute_pattern_type
 
 logger = logging.getLogger(__name__)
 
@@ -352,17 +353,31 @@ class DataService:
         try:
             # Single query to get all data (pre-organized, pre-processed)
             # Select only the columns we need to avoid issues with Null-type columns
-            display_df = self._activation_display_lazy.filter(
-                pl.col("feature_id").is_in(feature_ids)
-            ).select([
+            # Note: pattern_type removed from parquet - computed at runtime
+            columns_to_select = [
                 "feature_id",
                 "quantile_examples",
                 "semantic_similarity",
                 "char_ngram_max_jaccard",
                 "word_ngram_max_jaccard",
                 "top_word_ngram_text",
-                "pattern_type"
-            ]).collect()
+            ]
+
+            # Try to add per-k columns if they exist (may not be present in older data)
+            available_columns = self._activation_display_lazy.columns
+            per_k_columns = [
+                "char_ngram_per_k_jaccard",
+                "word_ngram_per_k_jaccard",
+                "top_char_ngrams",
+                "top_word_ngrams",
+            ]
+            for col in per_k_columns:
+                if col in available_columns:
+                    columns_to_select.append(col)
+
+            display_df = self._activation_display_lazy.filter(
+                pl.col("feature_id").is_in(feature_ids)
+            ).select(columns_to_select).collect()
 
             logger.info(f"[get_activation_examples] Loaded optimized data for {len(display_df)} features in ~20ms")
 
@@ -370,6 +385,12 @@ class DataService:
             result = {}
             for row in display_df.iter_rows(named=True):
                 feature_id = row["feature_id"]
+                # Compute pattern_type at runtime from raw similarity values
+                pattern_type = compute_pattern_type(
+                    row["semantic_similarity"],
+                    row["char_ngram_max_jaccard"],
+                    row["word_ngram_max_jaccard"]
+                )
                 result[feature_id] = {
                     "quantile_examples": row["quantile_examples"],
                     "semantic_similarity": row["semantic_similarity"],
@@ -378,7 +399,13 @@ class DataService:
                     "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
                     "top_char_ngram_text": None,  # Skip null column from parquet
                     "top_word_ngram_text": row["top_word_ngram_text"],
-                    "pattern_type": row["pattern_type"]
+                    "pattern_type": pattern_type,
+                    # NEW: per-k Jaccard values (for longest n-gram selection)
+                    "char_ngram_per_k_jaccard": row.get("char_ngram_per_k_jaccard"),
+                    "word_ngram_per_k_jaccard": row.get("word_ngram_per_k_jaccard"),
+                    # NEW: per-k top n-grams
+                    "top_char_ngrams": row.get("top_char_ngrams"),
+                    "top_word_ngrams": row.get("top_word_ngrams"),
                 }
 
             logger.info(f"[get_activation_examples] Successfully returned {len(result)} features (optimized path)")

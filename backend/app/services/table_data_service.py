@@ -30,6 +30,7 @@ from ..models.responses import (
 )
 from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
+from .pattern_utils import compute_pattern_type
 from .data_constants import (
     COL_DECODER_SIMILARITY,
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
@@ -406,11 +407,12 @@ class TableDataService:
         STEP 4: Fetch inter-feature activation similarity data.
 
         Transforms flat pair data into nested structure expected by downstream code.
+        Note: pattern_type is computed at runtime by _build_all_interfeature_lookups().
 
         Returns DataFrame with:
         - feature_id
-        - all_pairs: List(Struct) with all similar features and pattern_type classification
-          - pattern_type: "Semantic" | "Lexical" | "Both" | "None"
+        - all_pairs: List(Struct) with all similar features and raw similarity values
+          - pattern_type computed at runtime from raw values
           - No filtering - all pairs included regardless of threshold
 
         Args:
@@ -434,21 +436,49 @@ class TableDataService:
 
             # Transform flat structure to nested structure expected by downstream code
             # Group by main_feature_id and aggregate similar features into list of structs
+            # Note: pattern_type removed - computed at runtime in _build_all_interfeature_lookups
+
+            # Check which columns exist (backward compatibility)
+            available_columns = df.columns
+
+            # Build the struct fields list
+            struct_fields = [
+                pl.col("similar_feature_id"),
+                pl.col("semantic_similarity"),
+                pl.col("char_ngram_max_jaccard").alias("char_jaccard"),
+                pl.col("word_ngram_max_jaccard").alias("word_jaccard"),
+                # Placeholders for ngram position data (not in flat parquet)
+                pl.lit(None).alias("max_char_ngram"),
+                pl.lit(None).alias("max_word_ngram"),
+                pl.lit(None).alias("main_char_ngram_positions"),
+                pl.lit(None).alias("similar_char_ngram_positions"),
+                pl.lit(None).alias("main_word_ngram_positions"),
+                pl.lit(None).alias("similar_word_ngram_positions"),
+            ]
+
+            # Add per-k fields if they exist
+            if "char_ngram_per_k_jaccard" in available_columns:
+                struct_fields.append(pl.col("char_ngram_per_k_jaccard"))
+            else:
+                struct_fields.append(pl.lit(None).alias("char_ngram_per_k_jaccard"))
+
+            if "word_ngram_per_k_jaccard" in available_columns:
+                struct_fields.append(pl.col("word_ngram_per_k_jaccard"))
+            else:
+                struct_fields.append(pl.lit(None).alias("word_ngram_per_k_jaccard"))
+
+            if "top_char_ngrams_per_k" in available_columns:
+                struct_fields.append(pl.col("top_char_ngrams_per_k"))
+            else:
+                struct_fields.append(pl.lit(None).alias("top_char_ngrams_per_k"))
+
+            if "top_word_ngrams_per_k" in available_columns:
+                struct_fields.append(pl.col("top_word_ngrams_per_k"))
+            else:
+                struct_fields.append(pl.lit(None).alias("top_word_ngrams_per_k"))
+
             result = df.group_by("main_feature_id").agg(
-                pl.struct(
-                    pl.col("similar_feature_id"),
-                    pl.col("pattern_type"),
-                    pl.col("semantic_similarity"),
-                    pl.col("char_ngram_max_jaccard").alias("char_jaccard"),
-                    pl.col("word_ngram_max_jaccard").alias("word_jaccard"),
-                    # Placeholders for ngram position data (not in flat parquet)
-                    pl.lit(None).alias("max_char_ngram"),
-                    pl.lit(None).alias("max_word_ngram"),
-                    pl.lit(None).alias("main_char_ngram_positions"),
-                    pl.lit(None).alias("similar_char_ngram_positions"),
-                    pl.lit(None).alias("main_word_ngram_positions"),
-                    pl.lit(None).alias("similar_word_ngram_positions"),
-                ).alias("all_pairs")
+                pl.struct(*struct_fields).alias("all_pairs")
             ).rename({"main_feature_id": "feature_id"})
 
             logger.info(f"Fetched inter-feature similarity: {len(result)} features")
@@ -467,6 +497,7 @@ class TableDataService:
         Build a lookup dictionary for inter-feature similarity data.
 
         Creates mapping: {similar_feature_id: {pattern_type, semantic_similarity, char_jaccard, word_jaccard, ...}}
+        Note: pattern_type is computed at runtime from raw similarity values.
 
         Args:
             feature_id: Main feature ID
@@ -486,7 +517,7 @@ class TableDataService:
         if len(feature_interf) == 0:
             return lookup
 
-        # Process all_pairs (schema: pattern_type can be "Semantic", "Lexical", "Both", or "None")
+        # Process all_pairs (pattern_type computed at runtime)
         pairs_list = feature_interf["all_pairs"].to_list()[0]
 
         if pairs_list is None:
@@ -495,18 +526,32 @@ class TableDataService:
         for pair in pairs_list:
             similar_feature_id = int(pair["similar_feature_id"])
 
+            # Extract raw values
+            sem_sim = pair["semantic_similarity"]
+            char_jacc = pair["char_jaccard"]
+            word_jacc = pair["word_jaccard"]
+
+            # Compute pattern_type at runtime (inter-feature comparison)
+            pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
+
             # Store similarity info with position data
             lookup[similar_feature_id] = {
-                "pattern_type": pair["pattern_type"],
-                "semantic_similarity": float(pair["semantic_similarity"]) if pair["semantic_similarity"] is not None else None,
-                "char_jaccard": float(pair["char_jaccard"]) if pair["char_jaccard"] is not None else None,
-                "word_jaccard": float(pair["word_jaccard"]) if pair["word_jaccard"] is not None else None,
+                "pattern_type": pattern_type,
+                "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
+                "char_jaccard": float(char_jacc) if char_jacc is not None else None,
+                "word_jaccard": float(word_jacc) if word_jacc is not None else None,
                 "max_char_ngram": pair["max_char_ngram"],
                 "max_word_ngram": pair["max_word_ngram"],
                 "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
                 "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
                 "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
+                "similar_word_ngram_positions": pair.get("similar_word_ngram_positions"),
+                # NEW: per-k Jaccard values (for longest n-gram selection)
+                "char_ngram_per_k_jaccard": pair.get("char_ngram_per_k_jaccard"),
+                "word_ngram_per_k_jaccard": pair.get("word_ngram_per_k_jaccard"),
+                # NEW: per-k top n-grams
+                "top_char_ngrams_per_k": pair.get("top_char_ngrams_per_k"),
+                "top_word_ngrams_per_k": pair.get("top_word_ngrams_per_k"),
             }
 
         return lookup
@@ -696,7 +741,13 @@ class TableDataService:
                             "main_char_ngram_positions": interf_info.get("main_char_ngram_positions"),
                             "similar_char_ngram_positions": interf_info.get("similar_char_ngram_positions"),
                             "main_word_ngram_positions": interf_info.get("main_word_ngram_positions"),
-                            "similar_word_ngram_positions": interf_info.get("similar_word_ngram_positions")
+                            "similar_word_ngram_positions": interf_info.get("similar_word_ngram_positions"),
+                            # NEW: per-k Jaccard values (for longest n-gram selection)
+                            "char_ngram_per_k_jaccard": interf_info.get("char_ngram_per_k_jaccard"),
+                            "word_ngram_per_k_jaccard": interf_info.get("word_ngram_per_k_jaccard"),
+                            # NEW: per-k top n-grams
+                            "top_char_ngrams_per_k": interf_info.get("top_char_ngrams_per_k"),
+                            "top_word_ngrams_per_k": interf_info.get("top_word_ngrams_per_k"),
                         }
                     else:
                         # No inter-feature data, use None pattern
@@ -710,7 +761,12 @@ class TableDataService:
                             "main_char_ngram_positions": None,
                             "similar_char_ngram_positions": None,
                             "main_word_ngram_positions": None,
-                            "similar_word_ngram_positions": None
+                            "similar_word_ngram_positions": None,
+                            # NEW: per-k fields (null when no data)
+                            "char_ngram_per_k_jaccard": None,
+                            "word_ngram_per_k_jaccard": None,
+                            "top_char_ngrams_per_k": None,
+                            "top_word_ngrams_per_k": None,
                         }
 
                     decoder_similarity.append(decoder_feature)
@@ -919,7 +975,7 @@ class TableDataService:
         This replaces the per-feature _build_interfeature_lookup() which was called 14,316 times.
         Uses vectorized column extraction for better performance.
 
-        Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
+        Note: pattern_type is computed at runtime from raw similarity values.
         """
         all_lookups = {}
 
@@ -945,8 +1001,11 @@ class TableDataService:
                 char_jacc = pair["char_jaccard"]
                 word_jacc = pair["word_jaccard"]
 
+                # Compute pattern_type at runtime from raw similarity values (inter-feature comparison)
+                pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
+
                 all_lookups[feature_id][similar_feature_id] = {
-                    "pattern_type": pair["pattern_type"],
+                    "pattern_type": pattern_type,
                     "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
                     "char_jaccard": float(char_jacc) if char_jacc is not None else None,
                     "word_jaccard": float(word_jacc) if word_jacc is not None else None,
@@ -955,7 +1014,13 @@ class TableDataService:
                     "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
                     "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
                     "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions")
+                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions"),
+                    # NEW: per-k Jaccard values (for longest n-gram selection)
+                    "char_ngram_per_k_jaccard": pair.get("char_ngram_per_k_jaccard"),
+                    "word_ngram_per_k_jaccard": pair.get("word_ngram_per_k_jaccard"),
+                    # NEW: per-k top n-grams
+                    "top_char_ngrams_per_k": pair.get("top_char_ngrams_per_k"),
+                    "top_word_ngrams_per_k": pair.get("top_word_ngrams_per_k"),
                 }
 
         return all_lookups
