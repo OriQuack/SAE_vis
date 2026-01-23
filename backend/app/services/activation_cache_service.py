@@ -60,6 +60,7 @@ class ActivationCacheService:
                     "semantic_similarity",
                     "char_ngram_max_jaccard",
                     "word_ngram_max_jaccard",
+                    "top_char_ngram_text",
                     "top_word_ngram_text",
                     "pattern_type"
                 ]
@@ -79,7 +80,7 @@ class ActivationCacheService:
                     "semantic_similarity": row["semantic_similarity"],
                     "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
                     "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
-                    "top_char_ngram_text": None,  # Skip null column
+                    "top_char_ngram_text": row["top_char_ngram_text"],
                     "top_word_ngram_text": row["top_word_ngram_text"],
                     "pattern_type": row["pattern_type"]
                 }

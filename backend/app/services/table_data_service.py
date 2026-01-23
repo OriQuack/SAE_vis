@@ -405,6 +405,8 @@ class TableDataService:
         """
         STEP 4: Fetch inter-feature activation similarity data.
 
+        Transforms flat pair data into nested structure expected by downstream code.
+
         Returns DataFrame with:
         - feature_id
         - all_pairs: List(Struct) with all similar features and pattern_type classification
@@ -422,13 +424,35 @@ class TableDataService:
                 logger.warning("Inter-feature similarity data not loaded")
                 return None
 
-            # Filter to requested features
+            # Filter pairs where main_feature_id is in our set
             df = self.data_service._interfeature_similarity_lazy.filter(
-                pl.col("feature_id").is_in(feature_ids)
+                pl.col("main_feature_id").is_in(feature_ids)
             ).collect()
 
-            logger.info(f"Fetched inter-feature similarity: {len(df)} features")
-            return df
+            if len(df) == 0:
+                return None
+
+            # Transform flat structure to nested structure expected by downstream code
+            # Group by main_feature_id and aggregate similar features into list of structs
+            result = df.group_by("main_feature_id").agg(
+                pl.struct(
+                    pl.col("similar_feature_id"),
+                    pl.col("pattern_type"),
+                    pl.col("semantic_similarity"),
+                    pl.col("char_ngram_max_jaccard").alias("char_jaccard"),
+                    pl.col("word_ngram_max_jaccard").alias("word_jaccard"),
+                    # Placeholders for ngram position data (not in flat parquet)
+                    pl.lit(None).alias("max_char_ngram"),
+                    pl.lit(None).alias("max_word_ngram"),
+                    pl.lit(None).alias("main_char_ngram_positions"),
+                    pl.lit(None).alias("similar_char_ngram_positions"),
+                    pl.lit(None).alias("main_word_ngram_positions"),
+                    pl.lit(None).alias("similar_word_ngram_positions"),
+                ).alias("all_pairs")
+            ).rename({"main_feature_id": "feature_id"})
+
+            logger.info(f"Fetched inter-feature similarity: {len(result)} features")
+            return result
 
         except Exception as e:
             logger.warning(f"Could not fetch inter-feature similarity: {e}")

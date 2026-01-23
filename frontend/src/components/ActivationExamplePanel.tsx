@@ -30,60 +30,78 @@ interface ActivationExampleProps {
 
 /**
  * Determine which n-gram type to use for underlining based on Jaccard scores
- * Only underline for Lexical or Both pattern types (not None or Semantic)
- * Returns both the type and the Jaccard score for confidence encoding
+ * Shows underlines if position data exists, regardless of pattern_type
  */
-const getNgramUnderlineType = (examples: ActivationExamples): { type: 'char' | 'word' | null, jaccard: number } => {
-  // Only show underlines for Lexical or Both patterns
-  const patternType = examples.pattern_type.toLowerCase()
-  if (patternType === 'none' || patternType === 'semantic') {
-    return { type: null, jaccard: 0 }
-  }
-
+const getNgramUnderlineType = (examples: ActivationExamples): 'char' | 'word' | null => {
   const charJaccard = examples.char_ngram_max_jaccard || 0
   const wordJaccard = examples.word_ngram_max_jaccard || 0
 
-  if (charJaccard === 0 && wordJaccard === 0) return { type: null, jaccard: 0 }
-
-  if (charJaccard >= wordJaccard) {
-    return { type: 'char', jaccard: charJaccard }
-  } else {
-    return { type: 'word', jaccard: wordJaccard }
-  }
+  if (charJaccard === 0 && wordJaccard === 0) return null
+  return charJaccard >= wordJaccard ? 'char' : 'word'
 }
 
 /**
- * Get the CSS class for n-gram confidence level based on Jaccard score
- * Low: 0.0-0.4 (dotted border)
- * Medium: 0.4-0.7 (solid border)
- * High: 0.7-1.0 (solid border + glow)
+ * Check if a token should be underlined (word-level) based on n-gram positions
  */
-const getNgramConfidenceClass = (jaccard: number): string => {
-  if (jaccard < 0.4) return 'activation-token--ngram-low'
-  if (jaccard < 0.7) return 'activation-token--ngram-medium'
-  return 'activation-token--ngram-high'
-}
-
-/**
- * Check if a token should be underlined based on n-gram positions
- */
-const shouldUnderlineToken = (
+const shouldUnderlineWordToken = (
   tokenPosition: number,
-  example: QuantileExample,
-  underlineType: 'char' | 'word' | null
+  example: QuantileExample
 ): boolean => {
-  if (!underlineType) return false
+  return example.word_ngram_positions?.includes(tokenPosition) || false
+}
 
-  if (underlineType === 'char') {
-    return example.char_ngram_positions?.some(pos => pos.token_position === tokenPosition) || false
-  } else {
-    return example.word_ngram_positions?.includes(tokenPosition) || false
+/**
+ * Get the character offset for char-level n-gram highlighting
+ * Returns the char_offset if this token has a char n-gram, null otherwise
+ */
+const getCharNgramOffset = (
+  tokenPosition: number,
+  example: QuantileExample
+): number | null => {
+  const position = example.char_ngram_positions?.find(
+    pos => pos.token_position === tokenPosition
+  )
+  return position !== undefined ? position.char_offset : null
+}
+
+/**
+ * Render token content with optional character-level highlighting
+ * For char-level n-grams, splits the token to highlight only the matching substring
+ */
+const renderTokenContent = (
+  text: string,
+  isNewline: boolean | undefined,
+  underlineType: 'char' | 'word' | null,
+  charOffset: number | null,
+  charNgramLength: number
+): React.ReactNode => {
+  // Handle newline tokens
+  if (isNewline) {
+    return <span className="newline-symbol">{getWhitespaceSymbol(text)}</span>
   }
+
+  // For char-level highlighting, split the token into before/highlight/after
+  if (underlineType === 'char' && charOffset !== null && charNgramLength > 0) {
+    const before = text.slice(0, charOffset)
+    const highlight = text.slice(charOffset, charOffset + charNgramLength)
+    const after = text.slice(charOffset + charNgramLength)
+
+    return (
+      <>
+        {before}
+        <span className="activation-token__ngram-char">{highlight}</span>
+        {after}
+      </>
+    )
+  }
+
+  // Default: return text as-is
+  return text
 }
 
 /**
  * Check if a token should be highlighted based on inter-feature positions
- * Similar to shouldUnderlineToken but checks against inter-feature position data
+ * Uses same position-matching logic but for inter-feature highlighting
  */
 const shouldHighlightInterfeature = (
   tokenPosition: number,
@@ -180,11 +198,12 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const CHAR_WIDTH = 8
   const maxLength = useMemo(() => Math.floor(containerWidth / CHAR_WIDTH), [containerWidth])
 
-  // Determine which n-gram type to underline (char vs word) and get Jaccard score
+  // Determine which n-gram type to underline (char vs word)
   // Only compute if we have examples
-  const ngramInfo = useMemo(() => hasExamples ? getNgramUnderlineType(examples) : { type: null, jaccard: 0 }, [examples, hasExamples])
-  const underlineType = ngramInfo.type
-  const ngramJaccard = ngramInfo.jaccard
+  const underlineType = useMemo(() => hasExamples ? getNgramUnderlineType(examples) : null, [examples, hasExamples])
+
+  // Get the length of the character n-gram for precise highlighting
+  const charNgramLength = useMemo(() => examples.top_char_ngram_text?.length || 0, [examples.top_char_ngram_text])
 
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type
@@ -273,27 +292,22 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+                // For word-level: highlight whole token; for char-level: highlight substring
+                const hasWordUnderline = underlineType === 'word' && shouldUnderlineWordToken(token.position, example)
+                const charOffset = underlineType === 'char' ? getCharNgramOffset(token.position, example) : null
                 const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
-
-                // Get confidence-based CSS class for n-gram underline
-                const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
 
                 return (
                   <span
                     key={tokenIdx}
-                    className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
+                    className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                     style={{
                       backgroundColor: token.activation_value
                         ? getActivationColor(token.activation_value, example.max_activation)
                         : 'transparent'
                     }}
                   >
-                    {token.is_newline ? (
-                      <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                    ) : (
-                      token.text
-                    )}
+                    {renderTokenContent(token.text, token.is_newline, underlineType, charOffset, charNgramLength)}
                   </span>
                 )
               })}
@@ -319,27 +333,22 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        const hasUnderline = shouldUnderlineToken(token.position, example, underlineType)
+                        // For word-level: highlight whole token; for char-level: highlight substring
+                        const hasWordUnderline = underlineType === 'word' && shouldUnderlineWordToken(token.position, example)
+                        const charOffset = underlineType === 'char' ? getCharNgramOffset(token.position, example) : null
                         const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
-
-                        // Get confidence-based CSS class for n-gram underline
-                        const ngramClass = hasUnderline ? getNgramConfidenceClass(ngramJaccard) : ''
 
                         return (
                           <span
                             key={tokenIdx}
-                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${ngramClass} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
+                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
                             style={{
                               backgroundColor: token.activation_value
                                 ? getActivationColor(token.activation_value, example.max_activation)
                                 : 'transparent'
                             }}
                           >
-                            {token.is_newline ? (
-                              <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
-                            ) : (
-                              token.text
-                            )}
+                            {renderTokenContent(token.text, token.is_newline, underlineType, charOffset, charNgramLength)}
                           </span>
                         )
                       })}

@@ -385,26 +385,42 @@ class ColdStartService:
                 base_df = base_df.join(act_df, on="feature_id", how="left")
 
             # Extract inter-feature metrics
+            # Schema: main_feature_id, similar_feature_id, char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity
             if self.data_service._interfeature_similarity_lazy is not None:
+                # Filter pairs where either feature is in our set
                 inter_df = self.data_service._interfeature_similarity_lazy.filter(
-                    pl.col("feature_id").is_in(feature_ids)
+                    pl.col("main_feature_id").is_in(feature_ids) | pl.col("similar_feature_id").is_in(feature_ids)
                 ).collect()
 
-                # Extract max jaccard and semantic similarity from all_pairs
-                # Schema: all_pairs with pattern_type: "Semantic" | "Lexical" | "Both" | "None"
-                inter_df = inter_df.select([
-                    "feature_id",
-                    pl.col("all_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0).alias("max_char"),
-                    pl.col("all_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0).alias("max_word"),
-                    pl.col("all_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0).alias("inter_semantic_sim")
-                ]).select([
-                    "feature_id",
-                    pl.max_horizontal("max_char", "max_word").alias("inter_ngram_jaccard"),
-                    "inter_semantic_sim"
-                ]).unique(subset=["feature_id"])
-                inter_df = inter_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
+                if len(inter_df) > 0:
+                    # For each feature, get max inter-feature metrics from pairs it participates in
+                    # Process main_feature_id side
+                    main_metrics = inter_df.filter(pl.col("main_feature_id").is_in(feature_ids)).group_by("main_feature_id").agg([
+                        pl.max("char_ngram_max_jaccard").fill_null(0.0).alias("max_char"),
+                        pl.max("word_ngram_max_jaccard").fill_null(0.0).alias("max_word"),
+                        pl.max("semantic_similarity").fill_null(0.0).alias("inter_semantic_sim")
+                    ]).rename({"main_feature_id": "feature_id"})
 
-                base_df = base_df.join(inter_df, on="feature_id", how="left")
+                    # Process similar_feature_id side
+                    similar_metrics = inter_df.filter(pl.col("similar_feature_id").is_in(feature_ids)).group_by("similar_feature_id").agg([
+                        pl.max("char_ngram_max_jaccard").fill_null(0.0).alias("max_char"),
+                        pl.max("word_ngram_max_jaccard").fill_null(0.0).alias("max_word"),
+                        pl.max("semantic_similarity").fill_null(0.0).alias("inter_semantic_sim")
+                    ]).rename({"similar_feature_id": "feature_id"})
+
+                    # Combine both sides, taking max for each feature
+                    inter_df = pl.concat([main_metrics, similar_metrics]).group_by("feature_id").agg([
+                        pl.max("max_char").alias("max_char"),
+                        pl.max("max_word").alias("max_word"),
+                        pl.max("inter_semantic_sim").alias("inter_semantic_sim")
+                    ]).select([
+                        "feature_id",
+                        pl.max_horizontal("max_char", "max_word").alias("inter_ngram_jaccard"),
+                        "inter_semantic_sim"
+                    ])
+                    inter_df = inter_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
+
+                    base_df = base_df.join(inter_df, on="feature_id", how="left")
 
             # Fill nulls for all metrics
             for metric in self.PAIR_METRICS:

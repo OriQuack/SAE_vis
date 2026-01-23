@@ -214,7 +214,7 @@ export function formatTokensWithEllipsis(
 export function determineNgramType(
   interfeatureData: any
 ): { type: 'char' | 'word' | null, jaccard: number } {
-  if (!interfeatureData || interfeatureData.pattern_type === 'None') {
+  if (!interfeatureData) {
     return { type: null, jaccard: 0 }
   }
 
@@ -248,7 +248,7 @@ export function extractInterFeaturePositions(
   mainPositions: any
   similarPositions: any
 } | null {
-  if (!interfeatureData || interfeatureData.pattern_type === 'None') {
+  if (!interfeatureData) {
     return null
   }
 

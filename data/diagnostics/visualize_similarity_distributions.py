@@ -77,11 +77,11 @@ def extract_step9_pairs(df: pl.DataFrame, limit: int = None) -> Dict[str, List[f
                 data["decoder_similarity"].append(dec_sim)
 
             # Jaccard similarities
-            char_j = pair.get("char_jaccard")
+            char_j = pair.get("char_ngram_max_jaccard")
             if char_j is not None:
                 data["char_jaccard"].append(char_j)
 
-            word_j = pair.get("word_jaccard")
+            word_j = pair.get("word_ngram_max_jaccard")
             if word_j is not None:
                 data["word_jaccard"].append(word_j)
 
@@ -159,20 +159,13 @@ def visualize_step8(df: pl.DataFrame, output_path: Path):
     sem_sim_std = df.filter(pl.col("std_pairwise_semantic_similarity").is_not_null())["std_pairwise_semantic_similarity"].to_list()
     print(f"  Std pairwise semantic similarity: {len(sem_sim_std):,} values")
 
-    # Top char ngram Jaccard
-    top_char_jaccard = df.filter(pl.col("top_char_ngram_jaccard").is_not_null())["top_char_ngram_jaccard"].to_list()
-    print(f"  Top char n-gram Jaccard: {len(top_char_jaccard):,} values")
+    # Char ngram max Jaccard
+    char_ngram_jaccard = df.filter(pl.col("char_ngram_max_jaccard").is_not_null())["char_ngram_max_jaccard"].to_list()
+    print(f"  Char n-gram max Jaccard: {len(char_ngram_jaccard):,} values")
 
-    # Top word ngram Jaccard
-    top_word_jaccard = df.filter(pl.col("top_word_ngram_jaccard").is_not_null())["top_word_ngram_jaccard"].to_list()
-    print(f"  Top word n-gram Jaccard: {len(top_word_jaccard):,} values")
-
-    # N-gram Jaccard similarities (list column - flatten, filter None)
-    ngram_jaccard_list = []
-    for row in df.filter(pl.col("ngram_jaccard_similarity").is_not_null())["ngram_jaccard_similarity"].to_list():
-        if row:
-            ngram_jaccard_list.extend([v for v in row if v is not None])
-    print(f"  N-gram Jaccard similarities (flattened): {len(ngram_jaccard_list):,} values")
+    # Word ngram max Jaccard
+    word_ngram_jaccard = df.filter(pl.col("word_ngram_max_jaccard").is_not_null())["word_ngram_max_jaccard"].to_list()
+    print(f"  Word n-gram max Jaccard: {len(word_ngram_jaccard):,} values")
 
     # Plot histograms
     ax1 = fig.add_subplot(gs[0, 0])
@@ -182,17 +175,14 @@ def visualize_step8(df: pl.DataFrame, output_path: Path):
     plot_histogram(ax2, sem_sim_std, "Std Pairwise Semantic Similarity", "Standard Deviation", "mediumpurple")
 
     ax3 = fig.add_subplot(gs[0, 2])
-    plot_histogram(ax3, ngram_jaccard_list, "N-gram Jaccard (All Pairs)", "Jaccard Similarity", "teal")
+    plot_histogram(ax3, char_ngram_jaccard, "Char N-gram Max Jaccard", "Jaccard Similarity", "darkgreen")
 
     ax4 = fig.add_subplot(gs[1, 0])
-    plot_histogram(ax4, top_char_jaccard, "Top Char N-gram Jaccard", "Jaccard Similarity", "darkgreen")
-
-    ax5 = fig.add_subplot(gs[1, 1])
-    plot_histogram(ax5, top_word_jaccard, "Top Word N-gram Jaccard", "Jaccard Similarity", "darkred")
+    plot_histogram(ax4, word_ngram_jaccard, "Word N-gram Max Jaccard", "Jaccard Similarity", "darkred")
 
     # Summary statistics
-    ax6 = fig.add_subplot(gs[1, 2])
-    ax6.axis('off')
+    ax5 = fig.add_subplot(gs[1, 1])
+    ax5.axis('off')
 
     stats_text = (
         f"Step 8 Summary Statistics\n"
@@ -201,14 +191,14 @@ def visualize_step8(df: pl.DataFrame, output_path: Path):
         f"Avg Semantic Similarity:\n"
         f"  Mean: {np.mean(sem_sim):.4f}\n"
         f"  Std:  {np.std(sem_sim):.4f}\n\n"
-        f"Top Char Jaccard:\n"
-        f"  Mean: {np.mean(top_char_jaccard):.4f}\n"
-        f"  Std:  {np.std(top_char_jaccard):.4f}\n\n"
-        f"Top Word Jaccard:\n"
-        f"  Mean: {np.mean(top_word_jaccard):.4f}\n"
-        f"  Std:  {np.std(top_word_jaccard):.4f}\n"
+        f"Char N-gram Max Jaccard:\n"
+        f"  Mean: {np.mean(char_ngram_jaccard):.4f}\n"
+        f"  Std:  {np.std(char_ngram_jaccard):.4f}\n\n"
+        f"Word N-gram Max Jaccard:\n"
+        f"  Mean: {np.mean(word_ngram_jaccard):.4f}\n"
+        f"  Std:  {np.std(word_ngram_jaccard):.4f}\n"
     )
-    ax6.text(0.1, 0.9, stats_text, transform=ax6.transAxes, fontsize=10,
+    ax5.text(0.1, 0.9, stats_text, transform=ax5.transAxes, fontsize=10,
              verticalalignment='top', fontfamily='monospace',
              bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.5))
 

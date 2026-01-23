@@ -213,7 +213,8 @@ def compute_per_k_max_jaccard(
     # Check if this is intra-feature (same list) comparison
     is_intra_feature = examples_a is examples_b
 
-    per_k_jaccards = []
+    # Store (jaccard_score, k_size) tuples to enable tie-breaking by length
+    per_k_results = []
 
     for k in ngram_sizes:
         # Extract n-gram sets for this k only
@@ -249,6 +250,11 @@ def compute_per_k_max_jaccard(
                 pairwise.append(compute_jaccard_similarity(set_a, set_b))
 
         if pairwise:
-            per_k_jaccards.append(float(np.mean(pairwise)))
+            per_k_results.append((float(np.mean(pairwise)), k))
 
-    return max(per_k_jaccards) if per_k_jaccards else None
+    if not per_k_results:
+        return None
+
+    # Return max Jaccard; prefer longer n-gram (larger k) on tie
+    best = max(per_k_results, key=lambda x: (x[0], x[1]))
+    return best[0]
