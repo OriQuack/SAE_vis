@@ -77,7 +77,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
     @property
     def version(self) -> str:
-        return "1.0"
+        return "1.1"  # Updated to use token_embeddings + mean pooling for activation alignment
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -143,6 +143,51 @@ class ExplanationConsensusProcessor(BaseProcessor):
             model_name = self.proc_params["embedding_model"]
             logger.info(f"Loading sentence embedding model ({model_name})...")
             self.embedding_model = sentence_transformers.SentenceTransformer(model_name)
+
+    def _embed_phrases_aligned(self, texts: List[str]) -> np.ndarray:
+        """Embed phrases using token_embeddings + mean pooling.
+
+        This matches the embedding space used by activation embeddings (step_05),
+        which use token_embeddings + weighted pooling. Using the same base
+        (token_embeddings) ensures phrase-activation similarity is meaningful.
+
+        The standard model.encode() uses a different projection that produces
+        embeddings in an incompatible space.
+
+        Args:
+            texts: List of phrase texts to embed
+
+        Returns:
+            Array of shape (len(texts), embedding_dim) with L2-normalized embeddings
+        """
+        # Get token-level embeddings (same as step_05)
+        token_embeddings_batch = self.embedding_model.encode(
+            texts,
+            output_value="token_embeddings",
+            convert_to_tensor=True,
+            show_progress_bar=False
+        )
+
+        embeddings = []
+        for token_emb in token_embeddings_batch:
+            # Convert to numpy
+            if hasattr(token_emb, 'cpu'):
+                token_emb = token_emb.cpu().numpy()
+            else:
+                token_emb = np.array(token_emb)
+
+            # Mean pooling (step_05 uses weighted pooling, but mean is appropriate
+            # for phrases since we don't have activation weights)
+            pooled = np.mean(token_emb, axis=0)
+
+            # L2 normalize (same as step_05)
+            norm = np.linalg.norm(pooled)
+            if norm > 0:
+                pooled = pooled / norm
+
+            embeddings.append(pooled.astype(np.float32))
+
+        return np.array(embeddings)
 
     def _load_data(self) -> None:
         """Load input data files."""
@@ -247,17 +292,10 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 feature_id, phrases, explainer_names
             )
 
-        # Embed phrases
+        # Embed phrases using token_embeddings + mean pooling
+        # This matches the activation embedding space from step_05
         phrase_texts = [p[0] for p in phrases]
-        phrase_embeddings = self.embedding_model.encode(
-            phrase_texts, show_progress_bar=False
-        )
-        phrase_embeddings = np.array(phrase_embeddings)
-
-        # Normalize embeddings
-        norms = np.linalg.norm(phrase_embeddings, axis=1, keepdims=True)
-        norms = np.where(norms == 0, 1, norms)
-        phrase_embeddings_normalized = phrase_embeddings / norms
+        phrase_embeddings_normalized = self._embed_phrases_aligned(phrase_texts)
 
         # Cluster with HDBSCAN
         clusterer = hdbscan.HDBSCAN(
@@ -406,10 +444,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
         activation_centroid = self._get_activation_centroid(feature_id)
         if activation_centroid is not None:
-            phrase_embedding = self.embedding_model.encode(
-                [phrase_text], show_progress_bar=False
-            )[0]
-            phrase_embedding = phrase_embedding / np.linalg.norm(phrase_embedding)
+            # Use aligned embedding method for consistency
+            phrase_embedding = self._embed_phrases_aligned([phrase_text])[0]
             activation_sim = self._compute_cosine_similarity(
                 phrase_embedding, activation_centroid
             )
@@ -449,6 +485,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
         self._load_data()
         self._load_model()
 
+        assert self.features_df is not None, "Features data not loaded"
         unique_features = sorted(self.features_df["feature_id"].unique().to_list())
 
         if self.feature_limit is not None:
