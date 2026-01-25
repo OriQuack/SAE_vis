@@ -1,0 +1,2636 @@
+{
+  "sample_size": 10,
+  "seed": 456,
+  "features": [
+    {
+      "feature_id": 1582,
+      "explanations": [
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Articles, possessive pronouns, and other determiners, as well as various adjectives and adverbs, often preceding a noun or a verb."
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "descriptions of clothing and attire"
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "dressed like or wearing black"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 11,
+          "avg_word_count": 2.272727272727273,
+          "phrases": [
+            {
+              "phrase": "Articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "possessive pronouns",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "other determiners",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "as well as various adjectives",
+              "word_count": 5,
+              "char_count": 29
+            },
+            {
+              "phrase": "adverbs",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "often preceding a noun",
+              "word_count": 4,
+              "char_count": 22
+            },
+            {
+              "phrase": "a verb.",
+              "word_count": 2,
+              "char_count": 7
+            },
+            {
+              "phrase": "descriptions of clothing",
+              "word_count": 3,
+              "char_count": 24
+            },
+            {
+              "phrase": "attire",
+              "word_count": 1,
+              "char_count": 6
+            },
+            {
+              "phrase": "dressed like",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "wearing black",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 10.0,
+          "phrases": [
+            {
+              "phrase": "Articles, possessive pronouns, and other determiners, as well as various adjectives and adverbs, often preceding a noun or a verb",
+              "word_count": 20,
+              "char_count": 129
+            },
+            {
+              "phrase": "descriptions of clothing and attire",
+              "word_count": 5,
+              "char_count": 35
+            },
+            {
+              "phrase": "dressed like or wearing black",
+              "word_count": 5,
+              "char_count": 29
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 10,
+          "avg_word_count": 1.5,
+          "phrases": [
+            {
+              "phrase": "Articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "possessive pronouns",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "other determiners",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "various adjectives",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "adverbs",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "a noun",
+              "word_count": 2,
+              "char_count": 6
+            },
+            {
+              "phrase": "a verb",
+              "word_count": 2,
+              "char_count": 6
+            },
+            {
+              "phrase": "descriptions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "clothing",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "attire",
+              "word_count": 1,
+              "char_count": 6
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 11,
+          "avg_word_count": 2.272727272727273,
+          "phrases": [
+            {
+              "phrase": "often preceding a noun or a verb",
+              "word_count": 7,
+              "char_count": 32
+            },
+            {
+              "phrase": "Articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "possessive pronouns",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "other determiners",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "various adjectives",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "adverbs",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "descriptions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "clothing",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "attire",
+              "word_count": 1,
+              "char_count": 6
+            },
+            {
+              "phrase": "dressed like or wearing black",
+              "word_count": 5,
+              "char_count": 29
+            },
+            {
+              "phrase": "wearing black",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 8,
+          "avg_word_count": 3.5,
+          "phrases": [
+            {
+              "phrase": "Articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "possessive pronouns",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "other determiners",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "as well as various adjectives and adverbs",
+              "word_count": 7,
+              "char_count": 41
+            },
+            {
+              "phrase": "often preceding a noun or a verb.",
+              "word_count": 7,
+              "char_count": 33
+            },
+            {
+              "phrase": "descriptions of clothing and attire",
+              "word_count": 5,
+              "char_count": 35
+            },
+            {
+              "phrase": "dressed like",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "wearing black",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 8510,
+      "explanations": [
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Specialized terms, abbreviations, and identifiers, often denoting technical or domain-specific concepts, such as programming terms, scientific notation, and proper nouns."
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "field names and categories"
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": " programming language terms and structures related to data models and API interactions"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 13,
+          "avg_word_count": 2.3076923076923075,
+          "phrases": [
+            {
+              "phrase": "Specialized terms",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "abbreviations",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "often denoting technical",
+              "word_count": 3,
+              "char_count": 24
+            },
+            {
+              "phrase": "domain-specific concepts",
+              "word_count": 2,
+              "char_count": 24
+            },
+            {
+              "phrase": "such as programming terms",
+              "word_count": 4,
+              "char_count": 25
+            },
+            {
+              "phrase": "scientific notation",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "proper nouns.",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "field names",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "categories",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "programming language terms",
+              "word_count": 3,
+              "char_count": 26
+            },
+            {
+              "phrase": "structures related to data models",
+              "word_count": 5,
+              "char_count": 33
+            },
+            {
+              "phrase": "API interactions",
+              "word_count": 2,
+              "char_count": 16
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 12.0,
+          "phrases": [
+            {
+              "phrase": "Specialized terms, abbreviations, and identifiers, often denoting technical or domain-specific concepts, such as programming terms, scientific notation, and proper nouns",
+              "word_count": 20,
+              "char_count": 169
+            },
+            {
+              "phrase": "field names and categories",
+              "word_count": 4,
+              "char_count": 26
+            },
+            {
+              "phrase": "programming language terms and structures related to data models and API interactions",
+              "word_count": 12,
+              "char_count": 85
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 13,
+          "avg_word_count": 1.7692307692307692,
+          "phrases": [
+            {
+              "phrase": "Specialized terms",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "abbreviations",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "technical or domain-specific concepts",
+              "word_count": 4,
+              "char_count": 37
+            },
+            {
+              "phrase": "programming terms",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "scientific notation",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "proper nouns",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "field names",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "categories",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "language",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "structures",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "data models",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "API interactions",
+              "word_count": 2,
+              "char_count": 16
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 9,
+          "avg_word_count": 4.0,
+          "phrases": [
+            {
+              "phrase": "often denoting technical or domain - specific concepts , such as programming terms , scientific notation , and proper nouns",
+              "word_count": 20,
+              "char_count": 123
+            },
+            {
+              "phrase": "Specialized terms",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "abbreviations",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "field names",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "categories",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "related to data models and API interactions",
+              "word_count": 7,
+              "char_count": 43
+            },
+            {
+              "phrase": "language",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "structures",
+              "word_count": 1,
+              "char_count": 10
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 9,
+          "avg_word_count": 3.7777777777777777,
+          "phrases": [
+            {
+              "phrase": "Specialized terms",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "abbreviations",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "often denoting technical or domain-specific concepts",
+              "word_count": 6,
+              "char_count": 52
+            },
+            {
+              "phrase": "such as programming terms",
+              "word_count": 4,
+              "char_count": 25
+            },
+            {
+              "phrase": "scientific notation",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "proper nouns.",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "field names and categories",
+              "word_count": 4,
+              "char_count": 26
+            },
+            {
+              "phrase": "programming language terms and structures related to data models and API interactions",
+              "word_count": 12,
+              "char_count": 85
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 10165,
+      "explanations": [
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "long duration or experience"
+        },
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Common function words and punctuation marks, often used to connect clauses, phrases, or ideas, and sometimes used to indicate possession or to form comparative and superlative adjectives."
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "references to individuals\u2019 professional experience and interactions in a healthcare context"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 12,
+          "avg_word_count": 2.9166666666666665,
+          "phrases": [
+            {
+              "phrase": "long duration",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "experience",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "Common function words",
+              "word_count": 3,
+              "char_count": 21
+            },
+            {
+              "phrase": "punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "often used to connect clauses",
+              "word_count": 5,
+              "char_count": 29
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "ideas",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "sometimes used to indicate possession",
+              "word_count": 5,
+              "char_count": 37
+            },
+            {
+              "phrase": "to form comparative",
+              "word_count": 3,
+              "char_count": 19
+            },
+            {
+              "phrase": "superlative adjectives.",
+              "word_count": 2,
+              "char_count": 23
+            },
+            {
+              "phrase": "references to individuals\u2019 professional experience",
+              "word_count": 5,
+              "char_count": 50
+            },
+            {
+              "phrase": "interactions in a healthcare context",
+              "word_count": 5,
+              "char_count": 36
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 14.0,
+          "phrases": [
+            {
+              "phrase": "long duration or experience",
+              "word_count": 4,
+              "char_count": 27
+            },
+            {
+              "phrase": "Common function words and punctuation marks, often used to connect clauses, phrases, or ideas, and sometimes used to indicate possession or to form comparative and superlative adjectives",
+              "word_count": 27,
+              "char_count": 186
+            },
+            {
+              "phrase": "references to individuals\u2019 professional experience and interactions in a healthcare context",
+              "word_count": 11,
+              "char_count": 91
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 13,
+          "avg_word_count": 1.8461538461538463,
+          "phrases": [
+            {
+              "phrase": "long duration",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "experience",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "Common function words",
+              "word_count": 3,
+              "char_count": 21
+            },
+            {
+              "phrase": "punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "clauses",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "ideas",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "possession",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "comparative and superlative adjectives",
+              "word_count": 4,
+              "char_count": 38
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "individuals\u2019 professional experience",
+              "word_count": 3,
+              "char_count": 36
+            },
+            {
+              "phrase": "interactions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "a healthcare context",
+              "word_count": 3,
+              "char_count": 20
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 13,
+          "avg_word_count": 5.846153846153846,
+          "phrases": [
+            {
+              "phrase": "long duration",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "experience",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "often used to connect clauses , phrases , or ideas , and sometimes used to indicate possession or to form comparative and superlative adjectives",
+              "word_count": 24,
+              "char_count": 144
+            },
+            {
+              "phrase": "to connect clauses , phrases , or ideas",
+              "word_count": 8,
+              "char_count": 39
+            },
+            {
+              "phrase": "sometimes used to indicate possession or to form comparative and superlative adjectives",
+              "word_count": 12,
+              "char_count": 87
+            },
+            {
+              "phrase": "to indicate possession or to form comparative and superlative adjectives",
+              "word_count": 10,
+              "char_count": 72
+            },
+            {
+              "phrase": "to form comparative and superlative adjectives",
+              "word_count": 6,
+              "char_count": 46
+            },
+            {
+              "phrase": "Common function words",
+              "word_count": 3,
+              "char_count": 21
+            },
+            {
+              "phrase": "punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "individuals\u2019 professional experience",
+              "word_count": 3,
+              "char_count": 36
+            },
+            {
+              "phrase": "interactions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "a healthcare context",
+              "word_count": 3,
+              "char_count": 20
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 8,
+          "avg_word_count": 4.875,
+          "phrases": [
+            {
+              "phrase": "long duration or experience",
+              "word_count": 4,
+              "char_count": 27
+            },
+            {
+              "phrase": "Common function words and punctuation marks",
+              "word_count": 6,
+              "char_count": 43
+            },
+            {
+              "phrase": "often used to connect clauses",
+              "word_count": 5,
+              "char_count": 29
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "ideas",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "sometimes used to indicate possession",
+              "word_count": 5,
+              "char_count": 37
+            },
+            {
+              "phrase": "to form comparative and superlative adjectives.",
+              "word_count": 6,
+              "char_count": 47
+            },
+            {
+              "phrase": "references to individuals\u2019 professional experience and interactions in a healthcare context",
+              "word_count": 11,
+              "char_count": 91
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 10383,
+      "explanations": [
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "A variety of words and word parts, often suffixes, that are embedded within larger words or phrases, sometimes indicating a relationship or connection to the surrounding context."
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "words ending in 'in' or 'ing'"
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "proper nouns related to names and titles"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 11,
+          "avg_word_count": 3.1818181818181817,
+          "phrases": [
+            {
+              "phrase": "A variety of words",
+              "word_count": 4,
+              "char_count": 18
+            },
+            {
+              "phrase": "word parts",
+              "word_count": 2,
+              "char_count": 10
+            },
+            {
+              "phrase": "often suffixes",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "that are embedded within larger words",
+              "word_count": 6,
+              "char_count": 37
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "sometimes indicating a relationship",
+              "word_count": 4,
+              "char_count": 35
+            },
+            {
+              "phrase": "connection to the surrounding context.",
+              "word_count": 5,
+              "char_count": 38
+            },
+            {
+              "phrase": "words ending in 'in'",
+              "word_count": 4,
+              "char_count": 20
+            },
+            {
+              "phrase": "'ing'",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "proper nouns related to names",
+              "word_count": 5,
+              "char_count": 29
+            },
+            {
+              "phrase": "titles",
+              "word_count": 1,
+              "char_count": 6
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 13.333333333333334,
+          "phrases": [
+            {
+              "phrase": "A variety of words and word parts, often suffixes, that are embedded within larger words or phrases, sometimes indicating a relationship or connection to the surrounding context",
+              "word_count": 27,
+              "char_count": 177
+            },
+            {
+              "phrase": "words ending in 'in' or 'ing'",
+              "word_count": 6,
+              "char_count": 29
+            },
+            {
+              "phrase": "proper nouns related to names and titles",
+              "word_count": 7,
+              "char_count": 40
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 14,
+          "avg_word_count": 1.5,
+          "phrases": [
+            {
+              "phrase": "A variety",
+              "word_count": 2,
+              "char_count": 9
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "word parts",
+              "word_count": 2,
+              "char_count": 10
+            },
+            {
+              "phrase": "that",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "larger words",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "a relationship",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "connection",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "the surrounding context",
+              "word_count": 3,
+              "char_count": 23
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "'ing",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "proper nouns",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "names",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "titles",
+              "word_count": 1,
+              "char_count": 6
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 7,
+          "avg_word_count": 11.0,
+          "phrases": [
+            {
+              "phrase": "A variety of words and word parts , often suffixes , that are embedded within larger words or phrases , sometimes indicating a relationship or connection to the surrounding context .",
+              "word_count": 31,
+              "char_count": 182
+            },
+            {
+              "phrase": ", that are embedded within larger words or phrases , sometimes indicating a relationship or connection to the surrounding context",
+              "word_count": 20,
+              "char_count": 129
+            },
+            {
+              "phrase": "sometimes indicating a relationship or connection to the surrounding context",
+              "word_count": 10,
+              "char_count": 76
+            },
+            {
+              "phrase": "ending in ' in ' or ' ing",
+              "word_count": 8,
+              "char_count": 25
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "related to names and titles",
+              "word_count": 5,
+              "char_count": 27
+            },
+            {
+              "phrase": "proper nouns",
+              "word_count": 2,
+              "char_count": 12
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 6,
+          "avg_word_count": 6.666666666666667,
+          "phrases": [
+            {
+              "phrase": "A variety of words and word parts",
+              "word_count": 7,
+              "char_count": 33
+            },
+            {
+              "phrase": "often suffixes",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "that are embedded within larger words or phrases",
+              "word_count": 8,
+              "char_count": 48
+            },
+            {
+              "phrase": "sometimes indicating a relationship or connection to the surrounding context.",
+              "word_count": 10,
+              "char_count": 77
+            },
+            {
+              "phrase": "words ending in 'in' or 'ing'",
+              "word_count": 6,
+              "char_count": 29
+            },
+            {
+              "phrase": "proper nouns related to names and titles",
+              "word_count": 7,
+              "char_count": 40
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 10572,
+      "explanations": [
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": " identifiers and formatting in structured data or code"
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "African Nation"
+        },
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Special characters and symbols, often used in mathematical or programming contexts, or to denote formatting and syntax in code."
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 10,
+          "avg_word_count": 2.3,
+          "phrases": [
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "formatting in structured data",
+              "word_count": 4,
+              "char_count": 29
+            },
+            {
+              "phrase": "code",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "African Nation",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "Special characters",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "symbols",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "often used in mathematical",
+              "word_count": 4,
+              "char_count": 26
+            },
+            {
+              "phrase": "programming contexts",
+              "word_count": 2,
+              "char_count": 20
+            },
+            {
+              "phrase": "to denote formatting",
+              "word_count": 3,
+              "char_count": 20
+            },
+            {
+              "phrase": "syntax in code.",
+              "word_count": 3,
+              "char_count": 15
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 9.666666666666666,
+          "phrases": [
+            {
+              "phrase": "identifiers and formatting in structured data or code",
+              "word_count": 8,
+              "char_count": 53
+            },
+            {
+              "phrase": "African Nation",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "Special characters and symbols, often used in mathematical or programming contexts, or to denote formatting and syntax in code",
+              "word_count": 19,
+              "char_count": 126
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 10,
+          "avg_word_count": 1.3,
+          "phrases": [
+            {
+              "phrase": " identifiers",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "structured data",
+              "word_count": 2,
+              "char_count": 15
+            },
+            {
+              "phrase": "code",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "African Nation",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "Special characters",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "symbols",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "programming",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "formatting",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "syntax",
+              "word_count": 1,
+              "char_count": 6
+            },
+            {
+              "phrase": "code",
+              "word_count": 1,
+              "char_count": 4
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 7,
+          "avg_word_count": 5.0,
+          "phrases": [
+            {
+              "phrase": "formatting in structured data or code",
+              "word_count": 6,
+              "char_count": 37
+            },
+            {
+              "phrase": " identifiers",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "African Nation",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "often used in mathematical or programming contexts , or to denote formatting and syntax in code",
+              "word_count": 16,
+              "char_count": 95
+            },
+            {
+              "phrase": "to denote formatting and syntax in code",
+              "word_count": 7,
+              "char_count": 39
+            },
+            {
+              "phrase": "Special characters",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "symbols",
+              "word_count": 1,
+              "char_count": 7
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 6,
+          "avg_word_count": 4.5,
+          "phrases": [
+            {
+              "phrase": "identifiers",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "formatting in structured data or code",
+              "word_count": 6,
+              "char_count": 37
+            },
+            {
+              "phrase": "African Nation",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "Special characters and symbols",
+              "word_count": 4,
+              "char_count": 30
+            },
+            {
+              "phrase": "often used in mathematical or programming contexts",
+              "word_count": 7,
+              "char_count": 50
+            },
+            {
+              "phrase": "to denote formatting and syntax in code.",
+              "word_count": 7,
+              "char_count": 40
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 11359,
+      "explanations": [
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "references to older software or technologies, particularly focusing on their legacy status"
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "old, outdated, obsolete"
+        },
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Prepositions, articles, and nouns often function as important tokens, sometimes in combination with other parts of speech, to form phrases that provide context or describe relationships between entities."
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 12,
+          "avg_word_count": 3.3333333333333335,
+          "phrases": [
+            {
+              "phrase": "references to older software",
+              "word_count": 4,
+              "char_count": 28
+            },
+            {
+              "phrase": "technologies",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "particularly focusing on their legacy status",
+              "word_count": 6,
+              "char_count": 44
+            },
+            {
+              "phrase": "old",
+              "word_count": 1,
+              "char_count": 3
+            },
+            {
+              "phrase": "outdated",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "obsolete",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "nouns often function as important tokens",
+              "word_count": 6,
+              "char_count": 40
+            },
+            {
+              "phrase": "sometimes in combination with other parts of speech",
+              "word_count": 8,
+              "char_count": 51
+            },
+            {
+              "phrase": "to form phrases that provide context",
+              "word_count": 6,
+              "char_count": 36
+            },
+            {
+              "phrase": "describe relationships between entities.",
+              "word_count": 4,
+              "char_count": 40
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 14.333333333333334,
+          "phrases": [
+            {
+              "phrase": "references to older software or technologies, particularly focusing on their legacy status",
+              "word_count": 12,
+              "char_count": 90
+            },
+            {
+              "phrase": "old, outdated, obsolete",
+              "word_count": 3,
+              "char_count": 23
+            },
+            {
+              "phrase": "Prepositions, articles, and nouns often function as important tokens, sometimes in combination with other parts of speech, to form phrases that provide context or describe relationships between entities",
+              "word_count": 28,
+              "char_count": 202
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 16,
+          "avg_word_count": 1.3125,
+          "phrases": [
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "older software",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "technologies",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "their legacy status",
+              "word_count": 3,
+              "char_count": 19
+            },
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "nouns",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "important tokens",
+              "word_count": 2,
+              "char_count": 16
+            },
+            {
+              "phrase": "combination",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "other parts",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "speech",
+              "word_count": 1,
+              "char_count": 6
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "that",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "context",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "relationships",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "entities",
+              "word_count": 1,
+              "char_count": 8
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 9,
+          "avg_word_count": 7.666666666666667,
+          "phrases": [
+            {
+              "phrase": "particularly focusing on their legacy status",
+              "word_count": 6,
+              "char_count": 44
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "older software",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "technologies",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "old, outdated, obsolete",
+              "word_count": 3,
+              "char_count": 23
+            },
+            {
+              "phrase": "Prepositions , articles , and nouns often function as important tokens , sometimes in combination with other parts of speech , to form phrases that provide context or describe relationships between entities .",
+              "word_count": 33,
+              "char_count": 208
+            },
+            {
+              "phrase": "to form phrases that provide context or describe relationships between entities",
+              "word_count": 11,
+              "char_count": 79
+            },
+            {
+              "phrase": "that provide context or describe relationships between entities",
+              "word_count": 8,
+              "char_count": 63
+            },
+            {
+              "phrase": "describe relationships between entities",
+              "word_count": 4,
+              "char_count": 39
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 11,
+          "avg_word_count": 3.727272727272727,
+          "phrases": [
+            {
+              "phrase": "references to older software or technologies",
+              "word_count": 6,
+              "char_count": 44
+            },
+            {
+              "phrase": "particularly focusing on their legacy status",
+              "word_count": 6,
+              "char_count": 44
+            },
+            {
+              "phrase": "old",
+              "word_count": 1,
+              "char_count": 3
+            },
+            {
+              "phrase": "outdated",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "obsolete",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "articles",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "nouns often function as important tokens",
+              "word_count": 6,
+              "char_count": 40
+            },
+            {
+              "phrase": "sometimes in combination with other parts of speech",
+              "word_count": 8,
+              "char_count": 51
+            },
+            {
+              "phrase": "to form phrases that provide context",
+              "word_count": 6,
+              "char_count": 36
+            },
+            {
+              "phrase": "describe relationships between entities.",
+              "word_count": 4,
+              "char_count": 40
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 13591,
+      "explanations": [
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "reusable or recyclable items"
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "concepts related to recycling and waste management"
+        },
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Function words and common nouns, often in prepositional phrases or verb phrases, that provide context and structure to sentences."
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 10,
+          "avg_word_count": 2.5,
+          "phrases": [
+            {
+              "phrase": "reusable",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "recyclable items",
+              "word_count": 2,
+              "char_count": 16
+            },
+            {
+              "phrase": "concepts related to recycling",
+              "word_count": 4,
+              "char_count": 29
+            },
+            {
+              "phrase": "waste management",
+              "word_count": 2,
+              "char_count": 16
+            },
+            {
+              "phrase": "Function words",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "common nouns",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "often in prepositional phrases",
+              "word_count": 4,
+              "char_count": 30
+            },
+            {
+              "phrase": "verb phrases",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "that provide context",
+              "word_count": 3,
+              "char_count": 20
+            },
+            {
+              "phrase": "structure to sentences.",
+              "word_count": 3,
+              "char_count": 23
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 10.0,
+          "phrases": [
+            {
+              "phrase": "reusable or recyclable items",
+              "word_count": 4,
+              "char_count": 28
+            },
+            {
+              "phrase": "concepts related to recycling and waste management",
+              "word_count": 7,
+              "char_count": 50
+            },
+            {
+              "phrase": "Function words and common nouns, often in prepositional phrases or verb phrases, that provide context and structure to sentences",
+              "word_count": 19,
+              "char_count": 128
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 11,
+          "avg_word_count": 1.9090909090909092,
+          "phrases": [
+            {
+              "phrase": "reusable or recyclable items",
+              "word_count": 4,
+              "char_count": 28
+            },
+            {
+              "phrase": "concepts",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "recycling and waste management",
+              "word_count": 4,
+              "char_count": 30
+            },
+            {
+              "phrase": "Function words",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "common nouns",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "prepositional phrases",
+              "word_count": 2,
+              "char_count": 21
+            },
+            {
+              "phrase": "verb phrases",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "that",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "context",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "structure",
+              "word_count": 1,
+              "char_count": 9
+            },
+            {
+              "phrase": "sentences",
+              "word_count": 1,
+              "char_count": 9
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 8,
+          "avg_word_count": 3.25,
+          "phrases": [
+            {
+              "phrase": "reusable or recyclable items",
+              "word_count": 4,
+              "char_count": 28
+            },
+            {
+              "phrase": "related to recycling and waste management",
+              "word_count": 6,
+              "char_count": 41
+            },
+            {
+              "phrase": "concepts",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "that provide context and structure to sentences",
+              "word_count": 7,
+              "char_count": 47
+            },
+            {
+              "phrase": "Function words",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "common nouns",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "prepositional phrases",
+              "word_count": 2,
+              "char_count": 21
+            },
+            {
+              "phrase": "verb phrases",
+              "word_count": 2,
+              "char_count": 12
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 5,
+          "avg_word_count": 6.0,
+          "phrases": [
+            {
+              "phrase": "reusable or recyclable items",
+              "word_count": 4,
+              "char_count": 28
+            },
+            {
+              "phrase": "concepts related to recycling and waste management",
+              "word_count": 7,
+              "char_count": 50
+            },
+            {
+              "phrase": "Function words and common nouns",
+              "word_count": 5,
+              "char_count": 31
+            },
+            {
+              "phrase": "often in prepositional phrases or verb phrases",
+              "word_count": 7,
+              "char_count": 46
+            },
+            {
+              "phrase": "that provide context and structure to sentences.",
+              "word_count": 7,
+              "char_count": 48
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 13680,
+      "explanations": [
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "sentence beginnings"
+        },
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Punctuation marks, particularly periods, often used to end sentences, and sometimes quotation marks or other special characters, marking the end of a thought or a quotation."
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": " phrases related to biotechnology and healthcare industry advancements"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 10,
+          "avg_word_count": 3.2,
+          "phrases": [
+            {
+              "phrase": "sentence beginnings",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "particularly periods",
+              "word_count": 2,
+              "char_count": 20
+            },
+            {
+              "phrase": "often used to end sentences",
+              "word_count": 5,
+              "char_count": 27
+            },
+            {
+              "phrase": "sometimes quotation marks",
+              "word_count": 3,
+              "char_count": 25
+            },
+            {
+              "phrase": "other special characters",
+              "word_count": 3,
+              "char_count": 24
+            },
+            {
+              "phrase": "marking the end of a thought",
+              "word_count": 6,
+              "char_count": 28
+            },
+            {
+              "phrase": "a quotation.",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "phrases related to biotechnology",
+              "word_count": 4,
+              "char_count": 32
+            },
+            {
+              "phrase": "healthcare industry advancements",
+              "word_count": 3,
+              "char_count": 32
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 12.0,
+          "phrases": [
+            {
+              "phrase": "sentence beginnings",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "Punctuation marks, particularly periods, often used to end sentences, and sometimes quotation marks or other special characters, marking the end of a thought or a quotation",
+              "word_count": 26,
+              "char_count": 172
+            },
+            {
+              "phrase": "phrases related to biotechnology and healthcare industry advancements",
+              "word_count": 8,
+              "char_count": 69
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 9,
+          "avg_word_count": 2.111111111111111,
+          "phrases": [
+            {
+              "phrase": "sentence beginnings",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "particularly periods",
+              "word_count": 2,
+              "char_count": 20
+            },
+            {
+              "phrase": "sentences",
+              "word_count": 1,
+              "char_count": 9
+            },
+            {
+              "phrase": "the end",
+              "word_count": 2,
+              "char_count": 7
+            },
+            {
+              "phrase": "a thought",
+              "word_count": 2,
+              "char_count": 9
+            },
+            {
+              "phrase": "a quotation",
+              "word_count": 2,
+              "char_count": 11
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "biotechnology and healthcare industry advancements",
+              "word_count": 5,
+              "char_count": 50
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 8,
+          "avg_word_count": 5.0,
+          "phrases": [
+            {
+              "phrase": "sentence beginnings",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "often used to end sentences , and sometimes quotation marks or other special characters",
+              "word_count": 14,
+              "char_count": 87
+            },
+            {
+              "phrase": "to end sentences",
+              "word_count": 3,
+              "char_count": 16
+            },
+            {
+              "phrase": "marking the end of a thought or a quotation",
+              "word_count": 9,
+              "char_count": 43
+            },
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "particularly periods",
+              "word_count": 2,
+              "char_count": 20
+            },
+            {
+              "phrase": "related to biotechnology and healthcare industry advancements",
+              "word_count": 7,
+              "char_count": 61
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 7,
+          "avg_word_count": 5.0,
+          "phrases": [
+            {
+              "phrase": "sentence beginnings",
+              "word_count": 2,
+              "char_count": 19
+            },
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "particularly periods",
+              "word_count": 2,
+              "char_count": 20
+            },
+            {
+              "phrase": "often used to end sentences",
+              "word_count": 5,
+              "char_count": 27
+            },
+            {
+              "phrase": "sometimes quotation marks or other special characters",
+              "word_count": 7,
+              "char_count": 53
+            },
+            {
+              "phrase": "marking the end of a thought or a quotation.",
+              "word_count": 9,
+              "char_count": 44
+            },
+            {
+              "phrase": "phrases related to biotechnology and healthcare industry advancements",
+              "word_count": 8,
+              "char_count": 69
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 14948,
+      "explanations": [
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Punctuation marks and special characters, often used to denote formatting, citations, or mathematical operations, as well as words or phrases that indicate transitions, references, or quotations."
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "references to news sources and photo credits"
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "news agencies"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 12,
+          "avg_word_count": 2.5,
+          "phrases": [
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "special characters",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "often used to denote formatting",
+              "word_count": 5,
+              "char_count": 31
+            },
+            {
+              "phrase": "citations",
+              "word_count": 1,
+              "char_count": 9
+            },
+            {
+              "phrase": "mathematical operations",
+              "word_count": 2,
+              "char_count": 23
+            },
+            {
+              "phrase": "as well as words",
+              "word_count": 4,
+              "char_count": 16
+            },
+            {
+              "phrase": "phrases that indicate transitions",
+              "word_count": 4,
+              "char_count": 33
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "quotations.",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "references to news sources",
+              "word_count": 4,
+              "char_count": 26
+            },
+            {
+              "phrase": "photo credits",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "news agencies",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 11.666666666666666,
+          "phrases": [
+            {
+              "phrase": "Punctuation marks and special characters, often used to denote formatting, citations, or mathematical operations, as well as words or phrases that indicate transitions, references, or quotations",
+              "word_count": 26,
+              "char_count": 194
+            },
+            {
+              "phrase": "references to news sources and photo credits",
+              "word_count": 7,
+              "char_count": 44
+            },
+            {
+              "phrase": "news agencies",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 15,
+          "avg_word_count": 1.4,
+          "phrases": [
+            {
+              "phrase": "Punctuation marks",
+              "word_count": 2,
+              "char_count": 17
+            },
+            {
+              "phrase": "special characters",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "formatting",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "citations",
+              "word_count": 1,
+              "char_count": 9
+            },
+            {
+              "phrase": "mathematical operations",
+              "word_count": 2,
+              "char_count": 23
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "phrases",
+              "word_count": 1,
+              "char_count": 7
+            },
+            {
+              "phrase": "that",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "transitions",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "quotations",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "news sources",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "photo credits",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "news agencies",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 7,
+          "avg_word_count": 10.285714285714286,
+          "phrases": [
+            {
+              "phrase": "Punctuation marks and special characters , often used to denote formatting , citations , or mathematical operations , as well as words or phrases that indicate transitions , references , or quotations .",
+              "word_count": 33,
+              "char_count": 202
+            },
+            {
+              "phrase": "to denote formatting , citations , or mathematical operations , as well as words or phrases that indicate transitions , references , or quotations",
+              "word_count": 24,
+              "char_count": 146
+            },
+            {
+              "phrase": "that indicate transitions , references , or quotations",
+              "word_count": 8,
+              "char_count": 54
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "news sources",
+              "word_count": 2,
+              "char_count": 12
+            },
+            {
+              "phrase": "photo credits",
+              "word_count": 2,
+              "char_count": 13
+            },
+            {
+              "phrase": "news agencies",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 9,
+          "avg_word_count": 3.6666666666666665,
+          "phrases": [
+            {
+              "phrase": "Punctuation marks and special characters",
+              "word_count": 5,
+              "char_count": 40
+            },
+            {
+              "phrase": "often used to denote formatting",
+              "word_count": 5,
+              "char_count": 31
+            },
+            {
+              "phrase": "citations",
+              "word_count": 1,
+              "char_count": 9
+            },
+            {
+              "phrase": "mathematical operations",
+              "word_count": 2,
+              "char_count": 23
+            },
+            {
+              "phrase": "as well as words or phrases that indicate transitions",
+              "word_count": 9,
+              "char_count": 53
+            },
+            {
+              "phrase": "references",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "quotations.",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "references to news sources and photo credits",
+              "word_count": 7,
+              "char_count": 44
+            },
+            {
+              "phrase": "news agencies",
+              "word_count": 2,
+              "char_count": 13
+            }
+          ]
+        }
+      }
+    },
+    {
+      "feature_id": 15682,
+      "explanations": [
+        {
+          "explainer": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+          "text": "Prepositions and conjunctions, as well as words that indicate a relationship or connection between entities, often used in formal or technical writing."
+        },
+        {
+          "explainer": "google/gemini-flash-2.5",
+          "text": "vulnerability and susceptibility"
+        },
+        {
+          "explainer": "openai/gpt-4o-mini",
+          "text": "terminology related to vulnerability and susceptibility in various contexts"
+        }
+      ],
+      "methods": {
+        "regex_baseline": {
+          "count": 10,
+          "avg_word_count": 2.9,
+          "phrases": [
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "conjunctions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "as well as words that indicate a relationship",
+              "word_count": 8,
+              "char_count": 45
+            },
+            {
+              "phrase": "connection between entities",
+              "word_count": 3,
+              "char_count": 27
+            },
+            {
+              "phrase": "often used in formal",
+              "word_count": 4,
+              "char_count": 20
+            },
+            {
+              "phrase": "technical writing.",
+              "word_count": 2,
+              "char_count": 18
+            },
+            {
+              "phrase": "vulnerability",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "susceptibility",
+              "word_count": 1,
+              "char_count": 14
+            },
+            {
+              "phrase": "terminology related to vulnerability",
+              "word_count": 4,
+              "char_count": 36
+            },
+            {
+              "phrase": "susceptibility in various contexts",
+              "word_count": 4,
+              "char_count": 34
+            }
+          ]
+        },
+        "sentence_split": {
+          "count": 3,
+          "avg_word_count": 11.333333333333334,
+          "phrases": [
+            {
+              "phrase": "Prepositions and conjunctions, as well as words that indicate a relationship or connection between entities, often used in formal or technical writing",
+              "word_count": 22,
+              "char_count": 150
+            },
+            {
+              "phrase": "vulnerability and susceptibility",
+              "word_count": 3,
+              "char_count": 32
+            },
+            {
+              "phrase": "terminology related to vulnerability and susceptibility in various contexts",
+              "word_count": 9,
+              "char_count": 75
+            }
+          ]
+        },
+        "spacy_noun_chunks": {
+          "count": 14,
+          "avg_word_count": 1.3571428571428572,
+          "phrases": [
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "conjunctions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "that",
+              "word_count": 1,
+              "char_count": 4
+            },
+            {
+              "phrase": "a relationship",
+              "word_count": 2,
+              "char_count": 14
+            },
+            {
+              "phrase": "connection",
+              "word_count": 1,
+              "char_count": 10
+            },
+            {
+              "phrase": "entities",
+              "word_count": 1,
+              "char_count": 8
+            },
+            {
+              "phrase": "formal or technical writing",
+              "word_count": 4,
+              "char_count": 27
+            },
+            {
+              "phrase": "vulnerability",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "susceptibility",
+              "word_count": 1,
+              "char_count": 14
+            },
+            {
+              "phrase": "terminology",
+              "word_count": 1,
+              "char_count": 11
+            },
+            {
+              "phrase": "vulnerability",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "susceptibility",
+              "word_count": 1,
+              "char_count": 14
+            },
+            {
+              "phrase": "various contexts",
+              "word_count": 2,
+              "char_count": 16
+            }
+          ]
+        },
+        "spacy_clauses": {
+          "count": 9,
+          "avg_word_count": 4.111111111111111,
+          "phrases": [
+            {
+              "phrase": "that indicate a relationship or connection between entities , often used in formal or technical writing",
+              "word_count": 16,
+              "char_count": 103
+            },
+            {
+              "phrase": "often used in formal or technical writing",
+              "word_count": 7,
+              "char_count": 41
+            },
+            {
+              "phrase": "Prepositions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "conjunctions",
+              "word_count": 1,
+              "char_count": 12
+            },
+            {
+              "phrase": "words",
+              "word_count": 1,
+              "char_count": 5
+            },
+            {
+              "phrase": "vulnerability",
+              "word_count": 1,
+              "char_count": 13
+            },
+            {
+              "phrase": "susceptibility",
+              "word_count": 1,
+              "char_count": 14
+            },
+            {
+              "phrase": "related to vulnerability and susceptibility in various contexts",
+              "word_count": 8,
+              "char_count": 63
+            },
+            {
+              "phrase": "terminology",
+              "word_count": 1,
+              "char_count": 11
+            }
+          ]
+        },
+        "smart_coordination": {
+          "count": 5,
+          "avg_word_count": 6.8,
+          "phrases": [
+            {
+              "phrase": "Prepositions and conjunctions",
+              "word_count": 3,
+              "char_count": 29
+            },
+            {
+              "phrase": "as well as words that indicate a relationship or connection between entities",
+              "word_count": 12,
+              "char_count": 76
+            },
+            {
+              "phrase": "often used in formal or technical writing.",
+              "word_count": 7,
+              "char_count": 42
+            },
+            {
+              "phrase": "vulnerability and susceptibility",
+              "word_count": 3,
+              "char_count": 32
+            },
+            {
+              "phrase": "terminology related to vulnerability and susceptibility in various contexts",
+              "word_count": 9,
+              "char_count": 75
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

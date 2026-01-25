@@ -116,7 +116,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
         self.proc_params = {
             "min_cluster_size": params.get("min_cluster_size", 2),
             "min_samples": params.get("min_samples", 1),
-            "chunk_method": params.get("chunk_method", "phrase"),
+            "chunk_method": params.get("chunk_method", "smart"),
             "embedding_model": embedding_model,
         }
 

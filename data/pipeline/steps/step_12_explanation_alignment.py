@@ -90,7 +90,7 @@ class ExplanationAlignmentProcessor(BaseProcessor):
 
         self.proc_params = {
             "similarity_threshold": params.get("similarity_threshold", 0.7),
-            "chunk_method": params.get("chunk_method", "phrase"),
+            "chunk_method": params.get("chunk_method", "smart"),
             "embedding_model": embedding_model,
             "min_aligned_explainers": params.get("min_aligned_explainers", 2),
         }
