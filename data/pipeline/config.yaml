@@ -217,6 +217,19 @@ steps:
       pair_metrics: "${output}/svm_pair_metrics.parquet"
     parameters: {}  # No parameters needed - simple aggregation
 
+  # Step 14: Explanation consensus analysis (phrase clustering)
+  step_14_explanation_consensus:
+    enabled: true
+    inputs:
+      features: "${output}/features.parquet"
+      activation_embeddings: "${intermediate}/activation_embeddings.parquet"
+    outputs:
+      explanation_consensus: "${output}/explanation_consensus.parquet"
+    parameters:
+      min_cluster_size: 2          # HDBSCAN min cluster size
+      min_samples: 1               # HDBSCAN min samples
+      chunk_method: "phrase"       # "phrase" or "sentence"
+
 # Dependency graph - defines execution order
 # Format: step_name: [list of dependencies]
 dependencies:
@@ -233,6 +246,7 @@ dependencies:
   step_11_interfeature_display: [step_09_interfeature_similarity]
   step_12_explanation_alignment: [step_07_features]
   step_13_svm_metrics: [step_07_features, step_10_activation_display, step_11_interfeature_display]
+  step_14_explanation_consensus: [step_07_features, step_05_activation_embeddings]
 
 # Output files required by backend (for verification)
 backend_required:

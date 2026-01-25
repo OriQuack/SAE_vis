@@ -58,6 +58,12 @@ from .embeddings import (
     get_embeddings_for_prompts,
 )
 
+# Phrase utilities
+from .phrases import (
+    chunk_text,
+    extract_all_phrases,
+)
+
 __all__ = [
     # Paths
     'find_project_root',
@@ -104,4 +110,7 @@ __all__ = [
     'compute_intra_feature_semantic_similarity',
     'compute_cross_feature_semantic_similarity',
     'get_embeddings_for_prompts',
+    # Phrases
+    'chunk_text',
+    'extract_all_phrases',
 ]

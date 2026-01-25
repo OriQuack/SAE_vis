@@ -44,6 +44,9 @@ from .step_12_explanation_alignment import ExplanationAlignmentProcessor
 # Step 13: Pre-aggregated SVM metrics for feature and pair classification
 from .step_13_svm_metrics import SvmMetricsProcessor
 
+# Step 14: Explanation consensus (phrase clustering)
+from .step_14_explanation_consensus import ExplanationConsensusProcessor
+
 
 # Step mapping for dynamic dispatch
 STEP_PROCESSORS = {
@@ -60,6 +63,7 @@ STEP_PROCESSORS = {
     "step_11_interfeature_display": InterfeatureDisplayProcessor,
     "step_12_explanation_alignment": ExplanationAlignmentProcessor,
     "step_13_svm_metrics": SvmMetricsProcessor,
+    "step_14_explanation_consensus": ExplanationConsensusProcessor,
 }
 
 
@@ -77,5 +81,6 @@ __all__ = [
     'InterfeatureDisplayProcessor',
     'ExplanationAlignmentProcessor',
     'SvmMetricsProcessor',
+    'ExplanationConsensusProcessor',
     'STEP_PROCESSORS',
 ]

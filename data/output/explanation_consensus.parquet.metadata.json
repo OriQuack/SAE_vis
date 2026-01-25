@@ -1,22 +1,24 @@
 {
-  "created_at": "2026-01-25T16:27:16.069045",
-  "step_name": "Step 12: Explanation Alignment",
-  "script_version": "2.0",
+  "created_at": "2026-01-25T16:36:46.393092",
+  "step_name": "Step 14: Explanation Consensus",
+  "script_version": "1.0",
   "total_rows": 16384,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
-    "llm_explainers": "List(Utf8)",
-    "num_aligned_groups": "UInt16",
-    "aligned_groups": "List(Struct([Field('aligned_group_id', Int64), Field('similarity_score', Float64), Field('phrases', List(Struct([Field('explainer_name', Utf8), Field('text', Utf8), Field('chunk_index', Int64)])))]))"
+    "consensus_score": "Float32",
+    "num_clusters": "UInt16",
+    "num_outliers": "UInt16",
+    "clusters": "List(Struct([Field('cluster_id', Int64), Field('medoid_phrase', Utf8), Field('medoid_explainer', Utf8), Field('medoid_activation_similarity', Float64), Field('cluster_coherence', Float64), Field('phrases', List(Struct([Field('text', Utf8), Field('explainer', Utf8), Field('distance_to_medoid', Float64), Field('activation_similarity', Float64), Field('is_outlier', Int64)])))]))"
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "features_processed": 16384,
-    "features_with_alignments": 8127,
-    "total_aligned_groups": 10370,
-    "features_with_single_explanation": 0,
-    "features_with_no_alignments": 8257
+    "features_with_clusters": 14777,
+    "features_with_outliers_only": 1607,
+    "total_clusters": 39379,
+    "total_outliers": 55636,
+    "total_phrases": 185127
   },
   "result_stats": {
     "unique_feature_ids": 16384,
@@ -25,12 +27,17 @@
   "config_used": {
     "enabled": true,
     "inputs": {
-      "features": "data/output/features.parquet"
+      "features": "data/output/features.parquet",
+      "activation_embeddings": "data/intermediate/activation_embeddings.parquet"
     },
     "outputs": {
-      "main": "data/output/explanation_alignment.parquet"
+      "explanation_consensus": "data/output/explanation_consensus.parquet"
     },
-    "parameters": {},
+    "parameters": {
+      "min_cluster_size": 2,
+      "min_samples": 1,
+      "chunk_method": "phrase"
+    },
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "global": {
       "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",

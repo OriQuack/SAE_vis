@@ -19,9 +19,8 @@ Features:
 """
 
 import logging
-import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import numpy as np
 import polars as pl
@@ -36,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.base import BaseProcessor, load_yaml_config
 from core.logging import setup_logging
+from core.phrases import chunk_text
 
 # Lazy imports for heavy dependencies
 sentence_transformers = None
@@ -125,23 +125,6 @@ class ExplanationAlignmentProcessor(BaseProcessor):
         self.features_df = pl.read_parquet(self.features_path)
         logger.info(f"Loaded {len(self.features_df):,} feature rows")
 
-    @staticmethod
-    def _chunk_text(text: str, method: str = "phrase") -> List[str]:
-        """Split text into chunks for alignment.
-
-        Args:
-            text: Input text
-            method: "sentence" or "phrase"
-
-        Returns:
-            List of text chunks
-        """
-        if method == "sentence":
-            chunks = [s.strip() for s in re.split(r'[.!?;]', text) if s.strip()]
-        else:
-            chunks = [c.strip() for c in re.split(r',|\band\b|\bor\b|\bbut\b', text) if c.strip()]
-        return chunks
-
     def _compute_semantic_alignment(
         self,
         explanations: List[str],
@@ -164,7 +147,7 @@ class ExplanationAlignmentProcessor(BaseProcessor):
         chunk_to_exp = []
 
         for exp_idx, text in enumerate(explanations):
-            chunks = self._chunk_text(text, chunk_method)
+            chunks = chunk_text(text, chunk_method)
             all_chunks.extend(chunks)
             chunk_to_exp.extend([(exp_idx, i) for i in range(len(chunks))])
 

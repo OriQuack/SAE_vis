@@ -430,6 +430,7 @@ def get_refactored_steps() -> Set[str]:
         "step_11_interfeature_display",
         "step_12_explanation_alignment",
         "step_13_svm_metrics",
+        "step_14_explanation_consensus",
     }
 
 
@@ -512,7 +513,11 @@ def run_step(
     refactored_steps = get_refactored_steps()
 
     try:
-        if use_legacy:
+        # Check if step has a legacy script
+        legacy_mapping = get_legacy_script_mapping()
+        has_legacy = step_name in legacy_mapping
+
+        if use_legacy and has_legacy:
             # Use legacy script
             logger.info(f"Using legacy script for {step_name}")
             success = run_legacy_step(step_name, limit)
