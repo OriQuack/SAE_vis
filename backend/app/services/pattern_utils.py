@@ -19,14 +19,14 @@ from typing import Dict, List, Optional
 # Intra-feature thresholds (comparing activations within the same feature)
 # These tend to be higher since same-feature activations should be more similar
 INTRA_SEMANTIC_THRESHOLD = 0.6
-INTRA_LEXICAL_THRESHOLD = 0.3
-INTRA_NGRAM_JACCARD_THRESHOLD = 0.3
+INTRA_LEXICAL_THRESHOLD = 0.5
+INTRA_NGRAM_JACCARD_THRESHOLD = 0.5
 
 # Inter-feature thresholds (comparing activations between different features)
 # These can be lower since cross-feature patterns are typically weaker
-INTER_SEMANTIC_THRESHOLD = 0.5
-INTER_LEXICAL_THRESHOLD = 0.25
-INTER_NGRAM_JACCARD_THRESHOLD = 0.25
+INTER_SEMANTIC_THRESHOLD = 0.6
+INTER_LEXICAL_THRESHOLD = 0.2
+INTER_NGRAM_JACCARD_THRESHOLD = 0.2
 
 
 def compute_pattern_type(
@@ -166,3 +166,30 @@ def get_best_ngram_text(
     if best_ngram:
         return best_ngram.get("ngram")
     return fallback_text
+
+
+def get_best_ngram_with_positions(
+    per_k_jaccard: Optional[Dict],
+    per_k_ngrams: Optional[List[Dict]],
+    threshold: Optional[float] = None,
+    is_inter: bool = False
+) -> Optional[Dict]:
+    """Get the longest n-gram above threshold WITH its full position data.
+
+    This is used to replace positions in quantile_examples with positions
+    from the selected best n-gram (longest above threshold), so highlighting
+    matches the displayed n-gram text.
+
+    Args:
+        per_k_jaccard: Dict mapping k-size → Jaccard value
+        per_k_ngrams: List of {k/ngram_size, ngram, occurrences: [...]} dicts
+        threshold: Minimum Jaccard to consider (default depends on is_inter)
+        is_inter: If True, use inter-feature threshold; if False, use intra-feature threshold
+
+    Returns:
+        Full n-gram dict with 'ngram', 'ngram_size'/'k', and 'occurrences',
+        or None if no n-gram qualifies
+    """
+    return select_longest_ngram_above_threshold(
+        per_k_jaccard, per_k_ngrams, threshold, is_inter
+    )

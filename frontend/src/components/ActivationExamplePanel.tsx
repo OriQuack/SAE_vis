@@ -203,7 +203,11 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const underlineType = useMemo(() => hasExamples ? getNgramUnderlineType(examples) : null, [examples, hasExamples])
 
   // Get the length of the character n-gram for precise highlighting
-  const charNgramLength = useMemo(() => examples.top_char_ngram_text?.length || 0, [examples.top_char_ngram_text])
+  // Prefer best (longest above threshold), fall back to top (overall most frequent)
+  const charNgramLength = useMemo(() => {
+    const text = examples.best_char_ngram_text ?? examples.top_char_ngram_text
+    return text?.length || 0
+  }, [examples.best_char_ngram_text, examples.top_char_ngram_text])
 
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with positions for the winning type

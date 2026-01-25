@@ -464,6 +464,9 @@ export interface ActivationExamples {
   top_char_ngram_text: string | null   // Most frequent character n-gram (e.g., "ing")
   top_word_ngram_text: string | null   // Most frequent word n-gram (e.g., "observation")
   pattern_type: string                 // Pattern categorization: 'None' | 'Semantic' | 'Lexical' | 'Both'
+  // NEW: Longest n-gram above threshold (preferred for display)
+  best_char_ngram_text?: string | null // Longest char n-gram above Jaccard threshold
+  best_word_ngram_text?: string | null // Longest word n-gram above Jaccard threshold
 }
 
 /**

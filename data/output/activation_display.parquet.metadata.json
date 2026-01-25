@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-23T17:21:01.121003",
+  "created_at": "2026-01-23T22:14:20.194619",
   "step_name": "Step 10: Activation Display",
   "script_version": "2.0",
   "total_rows": 16384,
@@ -13,7 +13,7 @@
     "top_char_ngram_text": "Utf8",
     "top_word_ngram_text": "Utf8",
     "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('char_ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)]))), Field('word_ngram_positions', List(Int64))]))",
-    "char_ngram_per_k_jaccard": "Struct([Field('k2', Float64), Field('k3', Float64), Field('k4', Float64), Field('k5', Float64)])",
+    "char_ngram_per_k_jaccard": "Struct([Field('k2', Float64), Field('k3', Float64), Field('k4', Float64), Field('k5', Float64), Field('k6', Float64), Field('k7', Float64), Field('k8', Float64)])",
     "word_ngram_per_k_jaccard": "Struct([Field('k1', Float64), Field('k2', Float64), Field('k3', Float64)])",
     "top_char_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('token_position', Int64), Field('token_text', Utf8), Field('char_offset', Int64), Field('ngram_size', Int64)])))]))",
     "top_word_ngrams": "List(Struct([Field('ngram', Utf8), Field('ngram_size', Int64), Field('count', Int64), Field('occurrences', List(Struct([Field('prompt_id', Int64), Field('start_position', Int64), Field('ngram_size', Int64)])))]))"

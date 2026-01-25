@@ -18,7 +18,7 @@ from ..models.responses import (
 )
 from ..models.common import Filters
 from .data_constants import *
-from .pattern_utils import compute_pattern_type
+from .pattern_utils import compute_pattern_type, get_best_ngram_text, get_best_ngram_with_positions
 
 logger = logging.getLogger(__name__)
 
@@ -391,8 +391,47 @@ class DataService:
                     row["char_ngram_max_jaccard"],
                     row["word_ngram_max_jaccard"]
                 )
+                # Get best n-gram WITH positions (longest above threshold)
+                best_char_ngram = get_best_ngram_with_positions(
+                    row.get("char_ngram_per_k_jaccard"),
+                    row.get("top_char_ngrams"),
+                    is_inter=False
+                )
+                best_char_ngram_text = best_char_ngram.get("ngram") if best_char_ngram else None
+
+                best_word_ngram_text = get_best_ngram_text(
+                    row.get("word_ngram_per_k_jaccard"),
+                    row.get("top_word_ngrams"),
+                    fallback_text=row["top_word_ngram_text"],
+                    is_inter=False
+                )
+
+                # Build prompt_id -> positions lookup for best char n-gram
+                char_positions_by_prompt = {}
+                if best_char_ngram and best_char_ngram.get("occurrences"):
+                    for occ in best_char_ngram["occurrences"]:
+                        pid = occ.get("prompt_id")
+                        if pid is not None:
+                            if pid not in char_positions_by_prompt:
+                                char_positions_by_prompt[pid] = []
+                            char_positions_by_prompt[pid].append({
+                                "token_position": occ.get("token_position"),
+                                "char_offset": occ.get("char_offset", 0)
+                            })
+
+                # Update quantile_examples with correct positions for best n-gram
+                quantile_examples = row["quantile_examples"]
+                if quantile_examples and char_positions_by_prompt:
+                    for qe in quantile_examples:
+                        pid = qe.get("prompt_id")
+                        if pid in char_positions_by_prompt:
+                            qe["char_ngram_positions"] = char_positions_by_prompt[pid]
+                        else:
+                            # No match for this prompt in best n-gram occurrences
+                            qe["char_ngram_positions"] = []
+
                 result[feature_id] = {
-                    "quantile_examples": row["quantile_examples"],
+                    "quantile_examples": quantile_examples,
                     "semantic_similarity": row["semantic_similarity"],
                     # Dual n-gram fields (character + word)
                     "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
@@ -400,12 +439,9 @@ class DataService:
                     "top_char_ngram_text": None,  # Skip null column from parquet
                     "top_word_ngram_text": row["top_word_ngram_text"],
                     "pattern_type": pattern_type,
-                    # NEW: per-k Jaccard values (for longest n-gram selection)
-                    "char_ngram_per_k_jaccard": row.get("char_ngram_per_k_jaccard"),
-                    "word_ngram_per_k_jaccard": row.get("word_ngram_per_k_jaccard"),
-                    # NEW: per-k top n-grams
-                    "top_char_ngrams": row.get("top_char_ngrams"),
-                    "top_word_ngrams": row.get("top_word_ngrams"),
+                    # Best n-gram text (longest above threshold, for display)
+                    "best_char_ngram_text": best_char_ngram_text,
+                    "best_word_ngram_text": best_word_ngram_text,
                 }
 
             logger.info(f"[get_activation_examples] Successfully returned {len(result)} features (optimized path)")
