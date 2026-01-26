@@ -99,15 +99,16 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {/* Phrase text */}
               <span className="consensus-item__phrase">{item.phrase}</span>
 
-              {/* Cluster badge - show score for clusters, phrase_weight for outliers */}
+              {/* Cluster badge - show cluster_score + weighted_quality */}
               {!item.is_outlier && (
                 <span className="consensus-item__badge">
-                  {(item.cluster_score ?? 0).toFixed(2)}
+                  {(item.cluster_score ?? 0).toFixed(2)} | Q:{(item.weighted_quality_score ?? 0).toFixed(2)}
                 </span>
               )}
+              {/* Outlier badge - show phrase_weight + weighted_quality */}
               {item.is_outlier && (
                 <span className="consensus-item__badge consensus-item__badge--outlier">
-                  {(item.phrase_weight ?? 0).toFixed(2)}
+                  {(item.phrase_weight ?? 0).toFixed(2)} | Q:{(item.weighted_quality_score ?? 0).toFixed(2)}
                 </span>
               )}
             </div>
@@ -134,7 +135,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               ? tooltipData.item.phrase_weight
               : tooltipData.item.cluster_score
             )?.toFixed(2) ?? '0.00'}</span>
-            <span>Act. Sim: {tooltipData.item.activation_similarity.toFixed(2)}</span>
+            <span>Wtd. Quality: {tooltipData.item.weighted_quality_score?.toFixed(2) ?? '0.00'}</span>
           </div>
           {/* Show all phrases for clusters */}
           {!tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
@@ -142,9 +143,9 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
                 <span key={pIdx} className="consensus-tooltip__phrase">
                   {phrase.text}
-                  {phrase.phrase_weight !== undefined && (
+                  {phrase.weighted_quality_score !== undefined && (
                     <span className="consensus-tooltip__phrase-weight">
-                      ({phrase.phrase_weight.toFixed(2)})
+                      (Q: {phrase.weighted_quality_score.toFixed(2)})
                     </span>
                   )}
                 </span>

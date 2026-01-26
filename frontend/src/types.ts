@@ -870,6 +870,7 @@ export interface ClusterPhrase {
   text: string
   explainer: string
   phrase_weight: number           // Weight of this phrase (1/n where n = phrases from same explainer)
+  weighted_quality_score?: number // avg(detection, fuzz, embedding) * phrase_weight
   distance_to_medoid: number
   activation_similarity: number
 }
@@ -882,6 +883,7 @@ export interface ConsensusItem {
   phrase: string
   explainer: string
   activation_similarity: number
+  weighted_quality_score?: number // Sum of weighted_quality_scores for cluster, or single score for outlier
   is_outlier: boolean
   phrase_weight?: number          // Only for outliers (individual phrase weight)
   cluster_size?: number           // Only for clusters

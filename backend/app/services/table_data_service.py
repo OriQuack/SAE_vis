@@ -30,7 +30,7 @@ from ..models.responses import (
 )
 from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
-from .pattern_utils import compute_pattern_type
+from .pattern_utils import compute_pattern_type, get_best_ngram_with_positions
 from .data_constants import (
     COL_DECODER_SIMILARITY,
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
@@ -534,24 +534,60 @@ class TableDataService:
             # Compute pattern_type at runtime (inter-feature comparison)
             pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
 
-            # Store similarity info with position data
+            # Select best n-gram (longest above threshold) and extract its positions
+            # This enables more meaningful highlighting by showing longer patterns
+            char_per_k = pair.get("char_ngram_per_k_jaccard")
+            word_per_k = pair.get("word_ngram_per_k_jaccard")
+            top_char_per_k = pair.get("top_char_ngrams_per_k")
+            top_word_per_k = pair.get("top_word_ngrams_per_k")
+
+            # Get best char n-gram (longest above threshold)
+            best_char_ngram = get_best_ngram_with_positions(
+                char_per_k, top_char_per_k, is_inter=True
+            )
+            # Get best word n-gram (longest above threshold)
+            best_word_ngram = get_best_ngram_with_positions(
+                word_per_k, top_word_per_k, is_inter=True
+            )
+
+            # Extract positions from best n-gram, falling back to raw positions
+            if best_char_ngram:
+                best_char_text = best_char_ngram.get("ngram")
+                main_char_pos = best_char_ngram.get("main_occurrences", [])
+                similar_char_pos = best_char_ngram.get("similar_occurrences", [])
+            else:
+                best_char_text = pair["max_char_ngram"]
+                main_char_pos = pair.get("main_char_ngram_positions")
+                similar_char_pos = pair.get("similar_char_ngram_positions")
+
+            if best_word_ngram:
+                best_word_text = best_word_ngram.get("ngram")
+                main_word_pos = best_word_ngram.get("main_occurrences", [])
+                similar_word_pos = best_word_ngram.get("similar_occurrences", [])
+            else:
+                best_word_text = pair["max_word_ngram"]
+                main_word_pos = pair.get("main_word_ngram_positions")
+                similar_word_pos = pair.get("similar_word_ngram_positions")
+
+            # Store similarity info with position data from best n-gram
             lookup[similar_feature_id] = {
                 "pattern_type": pattern_type,
                 "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
                 "char_jaccard": float(char_jacc) if char_jacc is not None else None,
                 "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                "max_char_ngram": pair["max_char_ngram"],
-                "max_word_ngram": pair["max_word_ngram"],
-                "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
-                "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
-                "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                "similar_word_ngram_positions": pair.get("similar_word_ngram_positions"),
-                # NEW: per-k Jaccard values (for longest n-gram selection)
-                "char_ngram_per_k_jaccard": pair.get("char_ngram_per_k_jaccard"),
-                "word_ngram_per_k_jaccard": pair.get("word_ngram_per_k_jaccard"),
-                # NEW: per-k top n-grams
-                "top_char_ngrams_per_k": pair.get("top_char_ngrams_per_k"),
-                "top_word_ngrams_per_k": pair.get("top_word_ngrams_per_k"),
+                # N-gram text: best (longest above threshold) takes precedence
+                "max_char_ngram": best_char_text,
+                "max_word_ngram": best_word_text,
+                # Position data: from best n-gram if available
+                "main_char_ngram_positions": main_char_pos,
+                "similar_char_ngram_positions": similar_char_pos,
+                "main_word_ngram_positions": main_word_pos,
+                "similar_word_ngram_positions": similar_word_pos,
+                # Per-k data (kept for debugging/frontend flexibility)
+                "char_ngram_per_k_jaccard": char_per_k,
+                "word_ngram_per_k_jaccard": word_per_k,
+                "top_char_ngrams_per_k": top_char_per_k,
+                "top_word_ngrams_per_k": top_word_per_k,
             }
 
         return lookup
@@ -1004,23 +1040,58 @@ class TableDataService:
                 # Compute pattern_type at runtime from raw similarity values (inter-feature comparison)
                 pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
 
+                # Select best n-gram (longest above threshold) and extract its positions
+                char_per_k = pair.get("char_ngram_per_k_jaccard")
+                word_per_k = pair.get("word_ngram_per_k_jaccard")
+                top_char_per_k = pair.get("top_char_ngrams_per_k")
+                top_word_per_k = pair.get("top_word_ngrams_per_k")
+
+                # Get best char n-gram (longest above threshold)
+                best_char_ngram = get_best_ngram_with_positions(
+                    char_per_k, top_char_per_k, is_inter=True
+                )
+                # Get best word n-gram (longest above threshold)
+                best_word_ngram = get_best_ngram_with_positions(
+                    word_per_k, top_word_per_k, is_inter=True
+                )
+
+                # Extract positions from best n-gram, falling back to raw positions
+                if best_char_ngram:
+                    best_char_text = best_char_ngram.get("ngram")
+                    main_char_pos = best_char_ngram.get("main_occurrences", [])
+                    similar_char_pos = best_char_ngram.get("similar_occurrences", [])
+                else:
+                    best_char_text = pair["max_char_ngram"]
+                    main_char_pos = pair.get("main_char_ngram_positions")
+                    similar_char_pos = pair.get("similar_char_ngram_positions")
+
+                if best_word_ngram:
+                    best_word_text = best_word_ngram.get("ngram")
+                    main_word_pos = best_word_ngram.get("main_occurrences", [])
+                    similar_word_pos = best_word_ngram.get("similar_occurrences", [])
+                else:
+                    best_word_text = pair["max_word_ngram"]
+                    main_word_pos = pair.get("main_word_ngram_positions")
+                    similar_word_pos = pair.get("similar_word_ngram_positions")
+
                 all_lookups[feature_id][similar_feature_id] = {
                     "pattern_type": pattern_type,
                     "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
                     "char_jaccard": float(char_jacc) if char_jacc is not None else None,
                     "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                    "max_char_ngram": pair["max_char_ngram"],
-                    "max_word_ngram": pair["max_word_ngram"],
-                    "main_char_ngram_positions": pair.get("main_char_ngram_positions"),
-                    "similar_char_ngram_positions": pair.get("similar_char_ngram_positions"),
-                    "main_word_ngram_positions": pair.get("main_word_ngram_positions"),
-                    "similar_word_ngram_positions": pair.get("similar_word_ngram_positions"),
-                    # NEW: per-k Jaccard values (for longest n-gram selection)
-                    "char_ngram_per_k_jaccard": pair.get("char_ngram_per_k_jaccard"),
-                    "word_ngram_per_k_jaccard": pair.get("word_ngram_per_k_jaccard"),
-                    # NEW: per-k top n-grams
-                    "top_char_ngrams_per_k": pair.get("top_char_ngrams_per_k"),
-                    "top_word_ngrams_per_k": pair.get("top_word_ngrams_per_k"),
+                    # N-gram text: best (longest above threshold) takes precedence
+                    "max_char_ngram": best_char_text,
+                    "max_word_ngram": best_word_text,
+                    # Position data: from best n-gram if available
+                    "main_char_ngram_positions": main_char_pos,
+                    "similar_char_ngram_positions": similar_char_pos,
+                    "main_word_ngram_positions": main_word_pos,
+                    "similar_word_ngram_positions": similar_word_pos,
+                    # Per-k data (kept for debugging/frontend flexibility)
+                    "char_ngram_per_k_jaccard": char_per_k,
+                    "word_ngram_per_k_jaccard": word_per_k,
+                    "top_char_ngrams_per_k": top_char_per_k,
+                    "top_word_ngrams_per_k": top_word_per_k,
                 }
 
         return all_lookups

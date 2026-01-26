@@ -116,6 +116,11 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 # NEW: per-k top n-grams
                 pl.col("all_pairs").struct.field("top_char_ngrams_per_k"),
                 pl.col("all_pairs").struct.field("top_word_ngrams_per_k"),
+                # Position data for highlighting
+                pl.col("all_pairs").struct.field("main_char_ngram_positions"),
+                pl.col("all_pairs").struct.field("similar_char_ngram_positions"),
+                pl.col("all_pairs").struct.field("main_word_ngram_positions"),
+                pl.col("all_pairs").struct.field("similar_word_ngram_positions"),
             ])
             logger.info(f"Flattened to {len(self.raw_df):,} pair rows")
         else:
@@ -188,6 +193,17 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "word_ngram_per_k_jaccard",
             "top_char_ngrams_per_k",
             "top_word_ngrams_per_k",
+            # N-gram text and metadata
+            "max_char_ngram",
+            "max_word_ngram",
+            "main_prompt_ids",
+            "similar_prompt_ids",
+            "num_comparisons",
+            # Position data for highlighting
+            "main_char_ngram_positions",
+            "similar_char_ngram_positions",
+            "main_word_ngram_positions",
+            "similar_word_ngram_positions",
         ]
 
         for col in optional_columns:
@@ -244,6 +260,17 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "char_ngram_max_jaccard": pl.Float32,
             "word_ngram_max_jaccard": pl.Float32,
             "semantic_similarity": pl.Float32,
+            # N-gram text and metadata
+            "max_char_ngram": pl.Utf8,
+            "max_word_ngram": pl.Utf8,
+            "main_prompt_ids": pl.List(pl.Int64),
+            "similar_prompt_ids": pl.List(pl.Int64),
+            "num_comparisons": pl.Int64,
+            # Position data for highlighting
+            "main_char_ngram_positions": pl.List(pl.Struct({})),
+            "similar_char_ngram_positions": pl.List(pl.Struct({})),
+            "main_word_ngram_positions": pl.List(pl.Struct({})),
+            "similar_word_ngram_positions": pl.List(pl.Struct({})),
         }
         return pl.DataFrame(schema=schema)
 

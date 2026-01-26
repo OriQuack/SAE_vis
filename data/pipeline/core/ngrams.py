@@ -142,7 +142,7 @@ def compute_jaccard_similarity(set_a: Set[str], set_b: Set[str]) -> float:
         Jaccard similarity coefficient (0.0 to 1.0)
     """
     if len(set_a) == 0 and len(set_b) == 0:
-        return 1.0  # Both empty = perfect similarity
+        return 0.0  # Both empty = no evidence of similarity
     if len(set_a) == 0 or len(set_b) == 0:
         return 0.0  # One empty, one not
 

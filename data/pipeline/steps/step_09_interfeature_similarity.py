@@ -430,13 +430,25 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             char_counter = Counter(all_char_ngrams)
             max_char_ngram = find_top_ngram(dict(char_counter))
 
-        # NEW: Find top char n-gram per k-size
+        # NEW: Find top char n-gram per k-size WITH positions for highlighting
         top_char_ngrams_per_k = []
         for k in char_ngram_sizes:
             if char_ngram_counts_per_k[k]:
                 top_ng = find_top_ngram(dict(char_ngram_counts_per_k[k]))
                 if top_ng:
-                    top_char_ngrams_per_k.append({"k": k, "ngram": top_ng})
+                    # Find positions for this specific n-gram in both main and similar examples
+                    main_occ = self._find_char_ngram_positions_in_examples(
+                        main_examples, top_ng, char_window_size
+                    )
+                    similar_occ = self._find_char_ngram_positions_in_examples(
+                        selected_examples, top_ng, char_window_size
+                    )
+                    top_char_ngrams_per_k.append({
+                        "k": k,
+                        "ngram": top_ng,
+                        "main_occurrences": main_occ,
+                        "similar_occurrences": similar_occ
+                    })
 
         # Extract word n-grams for finding top n-gram
         word_ngram_counts_per_k = {k: Counter() for k in word_ngram_sizes}
@@ -463,13 +475,25 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             word_counter = Counter(all_word_ngrams)
             max_word_ngram = find_top_ngram(dict(word_counter))
 
-        # NEW: Find top word n-gram per k-size
+        # NEW: Find top word n-gram per k-size WITH positions for highlighting
         top_word_ngrams_per_k = []
         for k in word_ngram_sizes:
             if word_ngram_counts_per_k[k]:
                 top_ng = find_top_ngram(dict(word_ngram_counts_per_k[k]))
                 if top_ng:
-                    top_word_ngrams_per_k.append({"k": k, "ngram": top_ng})
+                    # Find positions for this specific n-gram in both main and similar examples
+                    main_occ = self._find_word_ngram_positions_in_examples(
+                        main_examples, top_ng, word_window_size
+                    )
+                    similar_occ = self._find_word_ngram_positions_in_examples(
+                        selected_examples, top_ng, word_window_size
+                    )
+                    top_word_ngrams_per_k.append({
+                        "k": k,
+                        "ngram": top_ng,
+                        "main_occurrences": main_occ,
+                        "similar_occurrences": similar_occ
+                    })
 
         # Extract position data for all examples (for visualization highlighting)
         main_char_positions = self._find_char_ngram_positions_in_examples(
@@ -679,10 +703,18 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             pl.Field("k3", pl.Float32),
         ])
 
-        # NEW: Per-k top n-gram struct
-        per_k_ngram_struct = pl.Struct([
+        # NEW: Per-k top n-gram struct WITH occurrences for highlighting
+        per_k_char_ngram_struct = pl.Struct([
             pl.Field("k", pl.UInt8),
             pl.Field("ngram", pl.Utf8),
+            pl.Field("main_occurrences", pl.List(char_ngram_positions_struct)),
+            pl.Field("similar_occurrences", pl.List(char_ngram_positions_struct)),
+        ])
+        per_k_word_ngram_struct = pl.Struct([
+            pl.Field("k", pl.UInt8),
+            pl.Field("ngram", pl.Utf8),
+            pl.Field("main_occurrences", pl.List(word_ngram_positions_struct)),
+            pl.Field("similar_occurrences", pl.List(word_ngram_positions_struct)),
         ])
 
         pair_struct = pl.Struct([
@@ -706,9 +738,9 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             # NEW: per-k Jaccard values (stored as dict, will be converted)
             pl.Field("char_ngram_per_k_jaccard", char_per_k_jaccard_struct),
             pl.Field("word_ngram_per_k_jaccard", word_per_k_jaccard_struct),
-            # NEW: per-k top n-grams
-            pl.Field("top_char_ngrams_per_k", pl.List(per_k_ngram_struct)),
-            pl.Field("top_word_ngrams_per_k", pl.List(per_k_ngram_struct)),
+            # NEW: per-k top n-grams WITH occurrences for highlighting
+            pl.Field("top_char_ngrams_per_k", pl.List(per_k_char_ngram_struct)),
+            pl.Field("top_word_ngrams_per_k", pl.List(per_k_word_ngram_struct)),
         ])
 
         return {

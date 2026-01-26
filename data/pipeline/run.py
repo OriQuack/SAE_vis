@@ -223,36 +223,100 @@ def topological_sort(dependencies: Dict[str, List[str]]) -> List[str]:
     return result
 
 
+def get_downstream_dependents(
+    dependencies: Dict[str, List[str]],
+    target_steps: List[str]
+) -> Set[str]:
+    """Get all steps that depend on the target steps (downstream).
+
+    Args:
+        dependencies: Step dependency mapping (step -> [deps it requires])
+        target_steps: Steps to find dependents for
+
+    Returns:
+        Set of steps that depend on any target step (including targets themselves)
+    """
+    # Build reverse mapping: step -> [steps that depend on it]
+    dependents: Dict[str, List[str]] = {step: [] for step in dependencies}
+    for step, deps in dependencies.items():
+        for dep in deps:
+            if dep not in dependents:
+                dependents[dep] = []
+            dependents[dep].append(step)
+
+    # BFS to find all downstream dependents
+    to_run: Set[str] = set(target_steps)
+    queue = list(target_steps)
+
+    while queue:
+        current = queue.pop(0)
+        for dependent in dependents.get(current, []):
+            if dependent not in to_run:
+                to_run.add(dependent)
+                queue.append(dependent)
+
+    return to_run
+
+
+def get_upstream_dependencies(
+    dependencies: Dict[str, List[str]],
+    target_steps: List[str]
+) -> Set[str]:
+    """Get all steps that target steps depend on (upstream).
+
+    Args:
+        dependencies: Step dependency mapping
+        target_steps: Steps to find dependencies for
+
+    Returns:
+        Set of upstream dependencies (including targets themselves)
+    """
+    to_run: Set[str] = set()
+
+    def add_with_deps(step: str):
+        if step in to_run:
+            return
+        to_run.add(step)
+        for dep in dependencies.get(step, []):
+            add_with_deps(dep)
+
+    for step in target_steps:
+        add_with_deps(step)
+
+    return to_run
+
+
 def get_steps_to_run(
     all_steps: List[str],
     dependencies: Dict[str, List[str]],
     target_steps: Optional[List[str]] = None,
-    from_step: Optional[str] = None
+    from_step: Optional[str] = None,
+    include_downstream: bool = True,
+    include_upstream: bool = False
 ) -> List[str]:
     """Determine which steps to run based on targets and dependencies.
 
     Args:
         all_steps: All available steps in order
         dependencies: Step dependency mapping
-        target_steps: Specific steps to run (with their dependencies)
+        target_steps: Specific steps to run
         from_step: Run from this step onwards
+        include_downstream: Include steps that depend on target steps (default: True)
+        include_upstream: Include steps that target steps depend on (default: False)
 
     Returns:
         List of steps to run in order
     """
     if target_steps:
-        # Collect target steps and their dependencies
-        to_run: Set[str] = set()
+        to_run: Set[str] = set(target_steps)
 
-        def add_with_deps(step: str):
-            if step in to_run:
-                return
-            to_run.add(step)
-            for dep in dependencies.get(step, []):
-                add_with_deps(dep)
+        # Add downstream dependents (steps that depend on targets)
+        if include_downstream:
+            to_run |= get_downstream_dependents(dependencies, target_steps)
 
-        for step in target_steps:
-            add_with_deps(step)
+        # Add upstream dependencies (steps that targets depend on)
+        if include_upstream:
+            to_run |= get_upstream_dependencies(dependencies, target_steps)
 
         # Return in topological order
         return [s for s in all_steps if s in to_run]
@@ -591,7 +655,7 @@ def main():
     parser.add_argument(
         "--steps",
         nargs="+",
-        help="Specific steps to run (includes dependencies)"
+        help="Specific steps to run (includes downstream dependents by default)"
     )
     parser.add_argument(
         "--from",
@@ -619,9 +683,14 @@ def main():
         help="Use legacy scripts instead of refactored steps"
     )
     parser.add_argument(
-        "--no-deps",
+        "--only",
         action="store_true",
-        help="Skip dependencies when running specific steps (for testing)"
+        help="Run only the specified steps (no downstream dependents)"
+    )
+    parser.add_argument(
+        "--with-upstream",
+        action="store_true",
+        help="Also run upstream dependencies (steps that targets depend on)"
     )
 
     args = parser.parse_args()
@@ -645,8 +714,8 @@ def main():
 
     # Determine which steps to run
     try:
-        if args.no_deps and args.steps:
-            # Skip dependency resolution - run only specified steps in order
+        if args.only and args.steps:
+            # Run only specified steps (no downstream or upstream)
             steps_to_run = [s for s in all_steps if s in args.steps]
             if not steps_to_run:
                 # Steps not in all_steps, use as-is
@@ -656,7 +725,9 @@ def main():
                 all_steps,
                 dependencies,
                 target_steps=args.steps,
-                from_step=args.from_step
+                from_step=args.from_step,
+                include_downstream=not args.only,  # Default: include downstream
+                include_upstream=args.with_upstream  # Default: no upstream
             )
     except ValueError as e:
         logger.error(str(e))

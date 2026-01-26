@@ -11,6 +11,9 @@ python data/pipeline/run.py
 # Run specific steps (automatically includes dependencies)
 python data/pipeline/run.py --steps step_06_clustering step_10_activation_display
 
+# Run specific steps (do not include dependencies)
+python data/pipeline/run.py --steps step_06_clustering --no-deps
+
 # Run from a specific step onwards
 python data/pipeline/run.py --from step_06_clustering
 
