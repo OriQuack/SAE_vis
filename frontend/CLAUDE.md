@@ -113,7 +113,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (32 files)
+├── components/                    # React Components (33 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -139,6 +139,7 @@ frontend/src/
 │   ├── ScrollableItemList.tsx    # Scrollable item list
 │   ├── ActivationExamplePanel.tsx # Activation display panel
 │   ├── ExplanationPanel.tsx      # Explanation text with highlights
+│   ├── ConsensusSection.tsx      # Consensus phrase clustering display
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
 │   ├── Tooltip.tsx               # Reusable tooltip with composition pattern
 │   ├── QualityScoreBreakdown.tsx # Score breakdown
@@ -191,7 +192,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (30 files)
+├── styles/                       # CSS Files (31 files)
 │   ├── base.css                  # Base styles, CSS variables, unified styling
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
@@ -215,6 +216,7 @@ frontend/src/
 │   ├── DecisionMarginHistogram.css # Decision margin histogram styles
 │   ├── ScrollableItemList.css    # Scrollable list styles
 │   ├── ActivationExamplePanel.css # Activation panel styles
+│   ├── ConsensusSection.css      # Consensus phrase clustering styles
 │   ├── ModalityIndicator.css     # Modality indicator styles
 │   ├── ExplainerComparisonGrid.css # Comparison grid styles
 │   ├── FlowPanel.css             # Flow panel styles
@@ -375,6 +377,12 @@ frontend/src/
 - Explanation text with keyword highlights
 - Cross-explainer comparison support
 
+**ConsensusSection.tsx** - Consensus Phrase Display
+- Displays HDBSCAN-clustered phrases sorted by activation similarity
+- Shows cluster medoids with expansion to view all phrases
+- Visual indicators for outliers vs clustered phrases
+- Loads data via /api/consensus/{feature_id} endpoint
+
 **Indicators.tsx** - Visual Indicators
 - **TagBadge**: Unified tag badge showing Feature ID + Tag Name with category colors
 - **MetricBar**: Horizontal bar for metric values with optional uncertainty display
@@ -517,6 +525,7 @@ const debouncedUpdate = useMemo(
 | POST /api/pair-similarity-score-histogram | Pair histogram + modality |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/cold-start/representative | Representative features for cold start |
+| GET /api/consensus/{feature_id} | Consensus phrases for a feature |
 | POST /api/activation-examples | On-demand activation data |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 

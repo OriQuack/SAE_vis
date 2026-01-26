@@ -1146,6 +1146,10 @@ const QualityView: React.FC<QualityViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Consensus Section - Clustered explanation phrases */}
+                  <span className="subheader">Consensus</span>
+                  <ConsensusSection consensus={consensus} />
+
                   {/* Explanation Header - Subheader and legend outside container */}
                   <div className="quality-view__explanation-header">
                     <span className="subheader subheader--with-value">
@@ -1246,14 +1250,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                       </div>
                     </div>
                   </div>
-
-                  {/* Consensus Section - Clustered explanation phrases */}
-                  <span className="subheader subheader--with-value">
-                    Consensus
-                    <span className="subheader__label">Score:</span>
-                    <span className="subheader__value">{consensus?.consensus_score?.toFixed(2) ?? 'N/A'}</span>
-                  </span>
-                  <ConsensusSection consensus={consensus} />
 
                   {/* Floating control panel at bottom */}
                   <div className="floating-controls">

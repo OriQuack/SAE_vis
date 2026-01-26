@@ -35,18 +35,35 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
     setTooltipData(null)
   }, [])
 
-  // Calculate opacity based on activation similarity
-  const getOpacity = useCallback((activationSimilarity: number, items: ConsensusItem[]): number => {
-    if (items.length === 0) return 1
+  // Calculate opacity based on cluster_score (for clusters) or phrase_weight (for outliers)
+  // Higher scores = more explainers agree = more prominent
+  // Falls back to activation_similarity for backward compatibility with old data
+  const getOpacity = useCallback((item: ConsensusItem, items: ConsensusItem[]): number => {
+    // Check if new scoring data is available
+    const hasNewScoring = item.cluster_score !== undefined || item.phrase_weight !== undefined
 
-    const maxSim = Math.max(...items.map(i => i.activation_similarity))
-    const minSim = Math.min(...items.map(i => i.activation_similarity))
+    if (hasNewScoring) {
+      // New scoring: use cluster_score for clusters, phrase_weight for outliers
+      const score = item.is_outlier
+        ? (item.phrase_weight ?? 0.1)
+        : (item.cluster_score ?? 0.5)
 
-    if (maxSim === minSim) return 1
+      // Map score to opacity range [0.4, 1.0]
+      // Max single cluster score is ~1.0 (if all 3 explainers agree on one phrase)
+      const normalized = Math.min(score, 1.0)
+      return 0.4 + normalized * 0.6
+    } else {
+      // Fallback: use activation_similarity (old scoring)
+      if (items.length === 0) return 1
 
-    // Map to 0.4 - 1.0 range
-    const normalized = (activationSimilarity - minSim) / (maxSim - minSim)
-    return 0.4 + normalized * 0.6
+      const maxSim = Math.max(...items.map(i => i.activation_similarity))
+      const minSim = Math.min(...items.map(i => i.activation_similarity))
+
+      if (maxSim === minSim) return 1
+
+      const normalized = (item.activation_similarity - minSim) / (maxSim - minSim)
+      return 0.4 + normalized * 0.6
+    }
   }, [])
 
   // Memoized opacity calculator using current items
@@ -55,7 +72,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
 
     const map = new Map<number, number>()
     consensus.items.forEach((item, idx) => {
-      map.set(idx, getOpacity(item.activation_similarity, consensus.items))
+      map.set(idx, getOpacity(item, consensus.items))
     })
     return map
   }, [consensus?.items, getOpacity])
@@ -82,10 +99,15 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {/* Phrase text */}
               <span className="consensus-item__phrase">{item.phrase}</span>
 
-              {/* Cluster badge (for non-outliers) */}
-              {!item.is_outlier && item.cluster_size && (
+              {/* Cluster badge - show score for clusters, phrase_weight for outliers */}
+              {!item.is_outlier && (
                 <span className="consensus-item__badge">
-                  {item.cluster_size}
+                  {(item.cluster_score ?? 0).toFixed(2)}
+                </span>
+              )}
+              {item.is_outlier && (
+                <span className="consensus-item__badge consensus-item__badge--outlier">
+                  {(item.phrase_weight ?? 0).toFixed(2)}
                 </span>
               )}
             </div>
@@ -104,11 +126,15 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
         >
           <div className="consensus-tooltip__header">
             {tooltipData.item.is_outlier
-              ? `Outlier (1 phrase)`
+              ? `Outlier`
               : `Cluster (${tooltipData.item.cluster_size} phrases)`}
-            <span className="consensus-tooltip__score">
-              {tooltipData.item.activation_similarity.toFixed(2)}
-            </span>
+          </div>
+          <div className="consensus-tooltip__metrics">
+            <span>Score: {(tooltipData.item.is_outlier
+              ? tooltipData.item.phrase_weight
+              : tooltipData.item.cluster_score
+            )?.toFixed(2) ?? '0.00'}</span>
+            <span>Act. Sim: {tooltipData.item.activation_similarity.toFixed(2)}</span>
           </div>
           {/* Show all phrases for clusters */}
           {!tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
@@ -116,6 +142,11 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
                 <span key={pIdx} className="consensus-tooltip__phrase">
                   {phrase.text}
+                  {phrase.phrase_weight !== undefined && (
+                    <span className="consensus-tooltip__phrase-weight">
+                      ({phrase.phrase_weight.toFixed(2)})
+                    </span>
+                  )}
                 </span>
               ))}
             </div>

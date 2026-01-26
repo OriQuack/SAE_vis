@@ -1359,6 +1359,10 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
 
+                    {/* Consensus Section - Clustered explanation phrases */}
+                    <span className="subheader">Consensus</span>
+                    <ConsensusSection consensus={consensus} />
+
                     {/* ---- Bottom section: Best Explanation (metrics + text in one border) ---- */}
                     <div className="cause-view__detail-bottom-row">
                       {/* Header - OUTSIDE bordered container */}
@@ -1449,14 +1453,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                         </div>
                       </div>
                     </div>
-
-                    {/* Consensus Section - Clustered explanation phrases */}
-                    <span className="subheader subheader--with-value">
-                      Consensus
-                      <span className="subheader__label">Score:</span>
-                      <span className="subheader__value">{consensus?.consensus_score?.toFixed(2) ?? 'N/A'}</span>
-                    </span>
-                    <ConsensusSection consensus={consensus} />
 
                     {/* ---- Floating control panel ---- */}
                     <div className="floating-controls">

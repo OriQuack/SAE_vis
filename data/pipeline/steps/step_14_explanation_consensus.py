@@ -286,10 +286,23 @@ class ExplanationConsensusProcessor(BaseProcessor):
         phrases = extract_all_phrases(explanations, self.proc_params["chunk_method"])
         self.stats["total_phrases"] += len(phrases)
 
+        # Calculate phrase weights: each explanation contributes 1.0 total
+        # Each phrase gets 1/n weight where n = number of phrases from that explanation
+        phrases_per_explainer: Dict[int, int] = {}
+        for text, exp_idx, phrase_idx in phrases:
+            if exp_idx not in phrases_per_explainer:
+                phrases_per_explainer[exp_idx] = 0
+            phrases_per_explainer[exp_idx] += 1
+
+        phrase_weights = []
+        for text, exp_idx, phrase_idx in phrases:
+            weight = 1.0 / phrases_per_explainer[exp_idx]
+            phrase_weights.append(weight)
+
         if len(phrases) < 2:
             # Not enough phrases to cluster
             return self._create_single_phrase_result(
-                feature_id, phrases, explainer_names
+                feature_id, phrases, explainer_names, phrase_weights
             )
 
         # Embed phrases using token_embeddings + mean pooling
@@ -352,6 +365,9 @@ class ExplanationConsensusProcessor(BaseProcessor):
             else:
                 coherence = 1.0
 
+            # Calculate cluster score: sum of phrase weights in this cluster
+            cluster_score = sum(phrase_weights[i] for i in cluster_indices)
+
             # Build phrase details
             phrase_details = []
             for local_idx, global_idx in enumerate(cluster_indices):
@@ -374,6 +390,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 phrase_details.append({
                     "text": phrase_text,
                     "explainer": explainer_names[exp_idx],
+                    "phrase_weight": phrase_weights[global_idx],
                     "distance_to_medoid": distance_to_medoid,
                     "activation_similarity": activation_sim,
                     "is_outlier": is_outlier,
@@ -384,30 +401,23 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 "medoid_phrase": medoid_phrase_text,
                 "medoid_explainer": medoid_explainer,
                 "medoid_activation_similarity": medoid_activation_sim,
+                "cluster_score": float(cluster_score),
                 "cluster_coherence": coherence,
                 "phrases": phrase_details,
             })
 
-        # Compute consensus score
+        # Compute consensus score: sum of all cluster scores (including outliers)
+        # Maximum possible = number of explainers (e.g., 3.0 for 3 LLMs)
         num_clusters = len([c for c in clusters if c["cluster_id"] != -1])
         num_outliers = len([c for c in clusters if c["cluster_id"] == -1])
 
+        # New scoring: sum all cluster scores (phrase weights already sum to 1 per explainer)
+        consensus_score = sum(c["cluster_score"] for c in clusters)
+
         if num_clusters > 0:
             self.stats["features_with_clusters"] += 1
-            # Consensus score: ratio of clustered phrases * avg coherence
-            clustered_phrases = sum(
-                len(c["phrases"]) for c in clusters if c["cluster_id"] != -1
-            )
-            total_phrases_count = len(phrases)
-            cluster_ratio = clustered_phrases / total_phrases_count if total_phrases_count > 0 else 0
-
-            avg_coherence = np.mean([
-                c["cluster_coherence"] for c in clusters if c["cluster_id"] != -1
-            ])
-            consensus_score = cluster_ratio * avg_coherence
         else:
             self.stats["features_with_outliers_only"] += 1
-            consensus_score = 0.0
 
         return {
             "feature_id": feature_id,
@@ -433,7 +443,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
         self,
         feature_id: int,
         phrases: List[tuple],
-        explainer_names: List[str]
+        explainer_names: List[str],
+        phrase_weights: List[float]
     ) -> Dict[str, Any]:
         """Create result for features with 0-1 phrases."""
         if not phrases:
@@ -441,6 +452,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
         # Single phrase is treated as outlier
         phrase_text, exp_idx, phrase_idx = phrases[0]
+        phrase_weight = phrase_weights[0] if phrase_weights else 1.0
 
         activation_centroid = self._get_activation_centroid(feature_id)
         if activation_centroid is not None:
@@ -454,10 +466,13 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
         self.stats["total_outliers"] += 1
 
+        # Single phrase outlier: cluster_score = its phrase_weight
+        cluster_score = phrase_weight
+
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
-            "consensus_score": 0.0,
+            "consensus_score": cluster_score,  # Single phrase contributes its weight
             "num_clusters": 0,
             "num_outliers": 1,
             "clusters": [{
@@ -465,10 +480,12 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 "medoid_phrase": phrase_text,
                 "medoid_explainer": explainer_names[exp_idx],
                 "medoid_activation_similarity": activation_sim,
+                "cluster_score": cluster_score,
                 "cluster_coherence": 1.0,
                 "phrases": [{
                     "text": phrase_text,
                     "explainer": explainer_names[exp_idx],
+                    "phrase_weight": phrase_weight,
                     "distance_to_medoid": 0.0,
                     "activation_similarity": activation_sim,
                     "is_outlier": True,
@@ -537,6 +554,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
         phrase_struct = pl.Struct([
             pl.Field("text", pl.Utf8),
             pl.Field("explainer", pl.Utf8),
+            pl.Field("phrase_weight", pl.Float32),
             pl.Field("distance_to_medoid", pl.Float32),
             pl.Field("activation_similarity", pl.Float32),
             pl.Field("is_outlier", pl.Boolean),
@@ -547,6 +565,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             pl.Field("medoid_phrase", pl.Utf8),
             pl.Field("medoid_explainer", pl.Utf8),
             pl.Field("medoid_activation_similarity", pl.Float32),
+            pl.Field("cluster_score", pl.Float32),
             pl.Field("cluster_coherence", pl.Float32),
             pl.Field("phrases", pl.List(phrase_struct)),
         ])

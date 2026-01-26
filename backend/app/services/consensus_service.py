@@ -103,13 +103,15 @@ class ConsensusService:
                         "phrase": phrase.get("text", ""),
                         "explainer": phrase.get("explainer", ""),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0)),
-                        "is_outlier": True
+                        "is_outlier": True,
+                        "phrase_weight": float(phrase.get("phrase_weight", 0.0))
                     })
             else:
                 # Cluster: add medoid with cluster info
                 medoid_phrase = cluster.get("medoid_phrase", "")
                 medoid_explainer = cluster.get("medoid_explainer", "")
                 medoid_activation_sim = float(cluster.get("medoid_activation_similarity", 0.0))
+                cluster_score = float(cluster.get("cluster_score", 0.0))
                 cluster_coherence = float(cluster.get("cluster_coherence", 0.0))
 
                 # Get all phrases in cluster
@@ -119,6 +121,7 @@ class ConsensusService:
                     cluster_phrases.append({
                         "text": phrase.get("text", ""),
                         "explainer": phrase.get("explainer", ""),
+                        "phrase_weight": float(phrase.get("phrase_weight", 0.0)),
                         "distance_to_medoid": float(phrase.get("distance_to_medoid", 0.0)),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0))
                     })
@@ -130,12 +133,13 @@ class ConsensusService:
                     "activation_similarity": medoid_activation_sim,
                     "is_outlier": False,
                     "cluster_size": len(cluster_phrases),
+                    "cluster_score": cluster_score,
                     "cluster_coherence": cluster_coherence,
                     "cluster_phrases": cluster_phrases
                 })
 
-        # Sort by activation_similarity (descending)
-        items.sort(key=lambda x: x["activation_similarity"], reverse=True)
+        # Sort by consensus score (cluster_score for clusters, phrase_weight for outliers) descending
+        items.sort(key=lambda x: x.get("cluster_score") or x.get("phrase_weight") or 0, reverse=True)
 
         result = {
             "feature_id": feature_id,

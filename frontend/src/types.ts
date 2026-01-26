@@ -869,6 +869,7 @@ export interface Stage3QualityScoresRequest {
 export interface ClusterPhrase {
   text: string
   explainer: string
+  phrase_weight: number           // Weight of this phrase (1/n where n = phrases from same explainer)
   distance_to_medoid: number
   activation_similarity: number
 }
@@ -882,7 +883,9 @@ export interface ConsensusItem {
   explainer: string
   activation_similarity: number
   is_outlier: boolean
+  phrase_weight?: number          // Only for outliers (individual phrase weight)
   cluster_size?: number           // Only for clusters
+  cluster_score?: number          // Sum of phrase weights in cluster (max ~1.0 per cluster)
   cluster_coherence?: number      // Only for clusters
   cluster_phrases?: ClusterPhrase[]  // Only for clusters
 }

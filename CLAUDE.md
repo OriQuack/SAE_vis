@@ -71,6 +71,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Committee Service (QBC: Random Forest + MLP for active learning)       │
 │  • Bimodality Service (Hartigan's Dip + GMM analysis)                     │
 │  • Alignment Service (semantic phrase matching)                           │
+│  • Consensus Service (HDBSCAN phrase clustering)                          │
 │  • Activation Cache Service (pre-computed msgpack+gzip)                   │
 │  • Table Data Service (feature scores and metadata)                       │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -81,6 +82,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • activation_display.parquet (frontend-optimized)                        │
 │  • interfeature_similarity.parquet (cross-feature analysis)               │
 │  • explanation_alignment.parquet (cross-explainer phrase matching)        │
+│  • explanation_consensus.parquet (HDBSCAN phrase clustering)              │
 │  • svm_feature_metrics.parquet (pre-aggregated feature SVM metrics)       │
 │  • svm_pair_metrics.parquet (pre-computed pair SVM metrics)               │
 │  • clustering_linkage.npy (hierarchical clustering)                       │
@@ -159,23 +161,23 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (32 files)
+│   │   ├── components/    # UI components (33 files)
 │   │   ├── lib/          # D3 utilities, helpers (22 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (30 files)
+│   │   ├── styles/       # CSS files (31 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (9 files)
+│   │   ├── api/          # Endpoints (10 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (13 files)
+│   │   └── services/     # Business logic (18 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── input/            # Raw input data (run configs, activation examples)
-│   ├── output/           # Backend-required parquet files (7 files)
-│   ├── pipeline/         # Refactored preprocessing pipeline (13 steps)
+│   ├── output/           # Backend-required parquet files (8 files)
+│   ├── pipeline/         # Refactored preprocessing pipeline (14 steps)
 │   ├── diagnostics/      # Analysis and diagnostic scripts
 │   ├── Thematic-LM/      # Thematic analysis (WWW '25 paper impl.)
 │   └── CLAUDE.md         # Data docs
@@ -284,6 +286,7 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 | POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/cold-start/representative | Get representative features for cold start |
+| GET /api/consensus/{feature_id} | Get consensus phrases for a feature |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 | GET /health | Health check |
@@ -315,6 +318,7 @@ All backend-required files are in `/data/output/`:
 - **Activation Display**: `activation_display.parquet` (frontend-optimized)
 - **Interfeature Similarity**: `interfeature_similarity.parquet` (cross-feature analysis)
 - **Explanation Alignment**: `explanation_alignment.parquet` (phrase matching)
+- **Explanation Consensus**: `explanation_consensus.parquet` (HDBSCAN phrase clustering)
 - **SVM Feature Metrics**: `svm_feature_metrics.parquet` (pre-aggregated for Stage 2/3)
 - **SVM Pair Metrics**: `svm_pair_metrics.parquet` (pre-computed for Stage 1)
 - **Clustering**: `clustering_linkage.npy` (hierarchical clustering)

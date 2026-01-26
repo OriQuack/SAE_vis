@@ -13,7 +13,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-height: 120px;
+  height: 72px;
   overflow-y: auto;
   padding-right: 4px;
   align-content: flex-start;
@@ -95,6 +95,12 @@
   justify-content: center;
 }
 
+/* Outlier badge - gray style */
+.consensus-item__badge--outlier {
+  background-color: rgba(156, 163, 175, 0.4);
+  color: #6b7280;
+}
+
 /* ============================================================================
  * HOVER TOOLTIP
  * ============================================================================ */
@@ -112,19 +118,19 @@
 }
 
 .consensus-tooltip__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   font-size: 11px;
   font-weight: 600;
   color: var(--text-secondary, #6b7280);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 
-.consensus-tooltip__score {
+.consensus-tooltip__metrics {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: #14b8a6;
+  color: var(--text-tertiary, #9ca3af);
+  margin-bottom: 6px;
 }
 
 .consensus-tooltip__phrases {
@@ -138,9 +144,16 @@
 .consensus-tooltip__phrase {
   display: inline-flex;
   align-items: center;
+  gap: 4px;
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 11px;
   background-color: rgba(20, 184, 166, 0.15);
   color: var(--text-secondary, #6b7280);
+}
+
+.consensus-tooltip__phrase-weight {
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
 }

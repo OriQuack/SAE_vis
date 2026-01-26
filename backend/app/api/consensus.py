@@ -33,6 +33,7 @@ class ClusterPhrase(BaseModel):
     """Single phrase within a cluster."""
     text: str
     explainer: str
+    phrase_weight: float  # Weight of this phrase (1/n where n = phrases from same explainer)
     distance_to_medoid: float
     activation_similarity: float
 
@@ -44,7 +45,9 @@ class ConsensusItem(BaseModel):
     explainer: str
     activation_similarity: float
     is_outlier: bool
+    phrase_weight: Optional[float] = None  # Only for outliers (individual phrase weight)
     cluster_size: Optional[int] = None  # Only for clusters
+    cluster_score: Optional[float] = None  # Sum of phrase weights in cluster
     cluster_coherence: Optional[float] = None  # Only for clusters
     cluster_phrases: Optional[List[ClusterPhrase]] = None  # Only for clusters
 

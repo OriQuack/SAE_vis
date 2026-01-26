@@ -218,13 +218,24 @@ async def get_representative_features(feature_ids, n_samples, method):
     # Returns representative feature IDs for cold start
 ```
 
+### 10. Consensus Service
+HDBSCAN-based phrase clustering for explanation consensus analysis:
+
+```python
+# services/consensus_service.py
+def get_feature_consensus(feature_id):
+    # Load pre-computed phrase clusters from explanation_consensus.parquet
+    # Return medoid phrases + outliers sorted by activation similarity
+    # Includes cluster coherence, phrase weights, and consensus scores
+```
+
 ## Project Structure
 
 ```
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (9 files)
+│   ├── api/                       # API endpoints (10 files)
 │   │   ├── __init__.py           # Router aggregation
 │   │   ├── feature_groups.py     # Feature grouping
 │   │   ├── cluster_candidates.py # Clustering endpoint
@@ -234,12 +245,13 @@ backend/
 │   │   ├── table.py              # Table data
 │   │   ├── activation_examples.py # Activation data
 │   │   ├── cause.py              # Cause classification (Stage 3)
-│   │   └── cold_start.py         # Cold start representative sampling
+│   │   ├── cold_start.py         # Cold start representative sampling
+│   │   └── consensus.py          # Consensus phrase clustering
 │   ├── models/                    # Pydantic schemas
 │   │   ├── requests.py           # Request models
 │   │   ├── responses.py          # Response models
 │   │   └── cold_start.py         # Cold start models
-│   └── services/                  # Business logic (13 files)
+│   └── services/                  # Business logic (18 files)
 │       ├── data_service.py           # Data loading + initialization
 │       ├── data_constants.py         # Metric definitions
 │       ├── feature_group_service.py  # Feature grouping
@@ -255,7 +267,9 @@ backend/
 │       ├── activation_cache_service.py # Cached activation data
 │       ├── cause_service.py          # SVM-based cause classification (Stage 3)
 │       ├── consistency_service.py    # Consistency metrics
-│       └── cold_start_service.py     # Diversity-based representative sampling
+│       ├── cold_start_service.py     # Diversity-based representative sampling
+│       ├── consensus_service.py      # HDBSCAN phrase clustering
+│       └── pattern_utils.py          # Pattern type classification utilities
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
 └── requirements.txt               # Dependencies
@@ -469,6 +483,32 @@ Get representative features for cold start initialization using diversity sampli
 }
 ```
 
+#### GET /api/consensus/{feature_id}
+Get consensus phrases for a feature (HDBSCAN clustering results)
+
+**Response**:
+```json
+{
+  "feature_id": 123,
+  "consensus_score": 2.5,
+  "num_clusters": 3,
+  "num_outliers": 2,
+  "items": [
+    {
+      "cluster_id": 0,
+      "phrase": "dates and times",
+      "explainer": "gemini",
+      "activation_similarity": 0.85,
+      "is_outlier": false,
+      "cluster_size": 3,
+      "cluster_score": 1.2,
+      "cluster_coherence": 0.92,
+      "cluster_phrases": [...]
+    }
+  ]
+}
+```
+
 ### Supporting Endpoints
 
 | Endpoint | Purpose |
@@ -507,6 +547,13 @@ Get representative features for cold start initialization using diversity sampli
 #### explanation_alignment.parquet
 - **Location**: `/data/output/explanation_alignment.parquet`
 - **Purpose**: Cross-explainer phrase alignments for highlighting
+
+#### explanation_consensus.parquet
+- **Location**: `/data/output/explanation_consensus.parquet`
+- **Purpose**: HDBSCAN phrase clustering with activation similarity scoring
+- **Size**: ~4.1MB
+- **Key Columns**: feature_id, consensus_score, num_clusters, num_outliers, clusters (nested)
+- **Used by**: consensus_service.py for phrase clustering visualization
 
 #### interfeature_similarity.parquet
 - **Location**: `/data/output/interfeature_similarity.parquet`
@@ -643,11 +690,12 @@ app.add_middleware(
 Services are initialized in `main.py` lifespan in this order:
 1. **DataService** - Load parquet files
 2. **AlignmentService** - Load explanation alignments
-3. **FeatureGroupService** - Initialize grouping
-4. **HierarchicalClusterCandidateService** - Load decoder weights
-5. **SimilaritySortService** - Initialize with cluster service
-6. **ActivationCacheService** - Pre-compute msgpack blob
-7. **ColdStartService** - Load interfeature similarity data
+3. **ConsensusService** - Load phrase clustering data
+4. **FeatureGroupService** - Initialize grouping
+5. **HierarchicalClusterCandidateService** - Load decoder weights
+6. **SimilaritySortService** - Initialize with cluster service
+7. **ActivationCacheService** - Pre-compute msgpack blob
+8. **ColdStartService** - Load interfeature similarity data
 
 ## Common Issues & Solutions
 
