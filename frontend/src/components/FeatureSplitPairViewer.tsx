@@ -381,20 +381,20 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 ← Prev
               </button>
 
-              {/* Selection buttons */}
-              <TagButton
-                label="Unsure"
-                variant="unsure"
-                color={unsureColor}
-                isSelected={pairSelectionState === null}
-                onClick={handleUnsureClick}
-              />
+              {/* Selection buttons - Monosemantic | Unsure | Fragmented */}
               <TagButton
                 label="Monosemantic"
                 variant="monosemantic"
                 color={monosemanticColor}
                 isSelected={pairSelectionState === 'rejected'}
                 onClick={handleMonosemanticClick}
+              />
+              <TagButton
+                label="Unsure"
+                variant="unsure"
+                color={unsureColor}
+                isSelected={pairSelectionState === null}
+                onClick={handleUnsureClick}
               />
               <TagButton
                 label="Fragmented"

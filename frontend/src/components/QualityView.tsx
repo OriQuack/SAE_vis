@@ -1,7 +1,8 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, ConsensusResponse } from '../types'
 import * as api from '../api'
+import { getFeatureConsensus } from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
@@ -15,6 +16,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import ExplainerComparisonGrid from './ExplainerComparisonGrid'
+import ConsensusSection from './ConsensusSection'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
@@ -73,6 +75,9 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
+
+  // Consensus data for selected feature
+  const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
 
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = similarityScores.size > 0
@@ -576,6 +581,18 @@ const QualityView: React.FC<QualityViewProps> = ({
       setCurrentFeatureIndex(newIndex)
     }
   }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+
+  // Fetch consensus data when selected feature changes
+  useEffect(() => {
+    if (selectedFeatureId === null) {
+      setConsensus(null)
+      return
+    }
+
+    getFeatureConsensus(selectedFeatureId)
+      .then(setConsensus)
+      .catch(() => setConsensus(null))
+  }, [selectedFeatureId])
 
   // Compute highlight index for main list (always show where selected item is)
   const mainListHighlightIndex = useMemo(() => {
@@ -1230,6 +1247,14 @@ const QualityView: React.FC<QualityViewProps> = ({
                     </div>
                   </div>
 
+                  {/* Consensus Section - Clustered explanation phrases */}
+                  <span className="subheader subheader--with-value">
+                    Consensus
+                    <span className="subheader__label">Score:</span>
+                    <span className="subheader__value">{consensus?.consensus_score?.toFixed(2) ?? 'N/A'}</span>
+                  </span>
+                  <ConsensusSection consensus={consensus} />
+
                   {/* Floating control panel at bottom */}
                   <div className="floating-controls">
                     {/* Previous button */}
@@ -1241,20 +1266,20 @@ const QualityView: React.FC<QualityViewProps> = ({
                       ← Prev
                     </button>
 
-                    {/* Selection buttons */}
-                    <TagButton
-                      label="Unsure"
-                      variant="unsure"
-                      color={unsureColor}
-                      isSelected={currentSelectionState === null}
-                      onClick={handleUnsureClick}
-                    />
+                    {/* Selection buttons - Need Revision | Unsure | Well-Explained */}
                     <TagButton
                       label="Need Revision"
                       variant="need-revision"
                       color={needRevisionColor}
                       isSelected={currentSelectionState === 'rejected'}
                       onClick={handleNeedRevisionClick}
+                    />
+                    <TagButton
+                      label="Unsure"
+                      variant="unsure"
+                      color={unsureColor}
+                      isSelected={currentSelectionState === null}
+                      onClick={handleUnsureClick}
                     />
                     <TagButton
                       label="Well-Explained"

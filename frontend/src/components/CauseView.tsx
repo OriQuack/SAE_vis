@@ -1,12 +1,14 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, ConsensusResponse } from '../types'
 import * as api from '../api'
+import { getFeatureConsensus } from '../api'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
+import ConsensusSection from './ConsensusSection'
 import ThresholdTaggingPanel, { type CauseFeatureItem } from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -112,6 +114,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [hideTagged, setHideTagged] = useState(false)
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
+
+  // Consensus data for selected feature
+  const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
 
   // Multi-list navigation: main list (all) or boundary list
   const { activeListSource, setActiveListSource } = useListNavigation({
@@ -682,7 +687,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentFeatureIndex(0)
   }, [visibleCategories])
 
-
   // Compute selected feature ID - prefer stored state, fallback to index-based
   // This is the source of truth for which feature is selected
   const selectedFeatureId = useMemo(() => {
@@ -705,6 +709,18 @@ const CauseView: React.FC<CauseViewProps> = ({
       setCurrentFeatureIndex(newIndex)
     }
   }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+
+  // Fetch consensus data when selected feature changes
+  useEffect(() => {
+    if (selectedFeatureId === null) {
+      setConsensus(null)
+      return
+    }
+
+    getFeatureConsensus(selectedFeatureId)
+      .then(setConsensus)
+      .catch(() => setConsensus(null))
+  }, [selectedFeatureId])
 
   // Compute highlight index for main list (always show where selected item is)
   const mainListHighlightIndex = useMemo(() => {
@@ -1433,6 +1449,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                         </div>
                       </div>
                     </div>
+
+                    {/* Consensus Section - Clustered explanation phrases */}
+                    <span className="subheader subheader--with-value">
+                      Consensus
+                      <span className="subheader__label">Score:</span>
+                      <span className="subheader__value">{consensus?.consensus_score?.toFixed(2) ?? 'N/A'}</span>
+                    </span>
+                    <ConsensusSection consensus={consensus} />
 
                     {/* ---- Floating control panel ---- */}
                     <div className="floating-controls">

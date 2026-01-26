@@ -859,3 +859,41 @@ export interface Stage3QualityScoresRequest {
 // Stage3QualityScoresResponse reuses SimilarityScoreHistogramResponse
 // (same structure: scores, histogram, statistics, bimodality, total_items)
 
+// ============================================================================
+// CONSENSUS TYPES (for explanation consensus visualization)
+// ============================================================================
+
+/**
+ * Single phrase within a cluster
+ */
+export interface ClusterPhrase {
+  text: string
+  explainer: string
+  distance_to_medoid: number
+  activation_similarity: number
+}
+
+/**
+ * Single item in consensus results (medoid or outlier)
+ */
+export interface ConsensusItem {
+  cluster_id: number              // -1 for outliers
+  phrase: string
+  explainer: string
+  activation_similarity: number
+  is_outlier: boolean
+  cluster_size?: number           // Only for clusters
+  cluster_coherence?: number      // Only for clusters
+  cluster_phrases?: ClusterPhrase[]  // Only for clusters
+}
+
+/**
+ * Response from feature consensus API
+ */
+export interface ConsensusResponse {
+  feature_id: number
+  consensus_score: number
+  num_clusters: number
+  num_outliers: number
+  items: ConsensusItem[]
+}

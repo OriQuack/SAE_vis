@@ -15,7 +15,8 @@ from .services.hierarchical_cluster_candidate_service import HierarchicalCluster
 from .services.activation_cache_service import activation_cache_service
 from .services.cause_service import CauseService
 from .services.cold_start_service import ColdStartService
-from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start
+from .services.consensus_service import ConsensusService
+from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -47,10 +48,11 @@ pair_similarity_service = None
 cluster_candidate_service = None
 cause_service = None
 cold_start_service = None
+consensus_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service
+    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service, consensus_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -107,6 +109,15 @@ async def lifespan(app: FastAPI):
         await activation_cache_service.initialize()
         logger.info("Activation cache service initialized successfully")
 
+        # Initialize consensus service for explanation consensus visualization
+        consensus_service = ConsensusService()
+        success = await consensus_service.initialize()
+        if success:
+            consensus.set_consensus_service(consensus_service)
+            logger.info("Consensus service initialized successfully")
+        else:
+            logger.warning("Consensus service initialization failed - consensus visualization will not be available")
+
         yield
     except Exception as e:
         logger.error(f"Failed to initialize services: {e}")
@@ -116,6 +127,8 @@ async def lifespan(app: FastAPI):
             await data_service.cleanup()
         if alignment_service:
             await alignment_service.cleanup()
+        if consensus_service:
+            await consensus_service.cleanup()
 
 app = FastAPI(
     title="SAE Feature Visualization API",

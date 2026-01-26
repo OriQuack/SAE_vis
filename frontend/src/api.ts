@@ -21,7 +21,8 @@ import type {
   Stage3QualityScoresRequest,
   WeightedFeatureId,
   WeightedPairKey,
-  CauseSelectionItem
+  CauseSelectionItem,
+  ConsensusResponse
 } from './types'
 
 // ============================================================================
@@ -67,7 +68,8 @@ const API_ENDPOINTS = {
   CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test",
   STAGE3_QUALITY_SCORES: "/stage3-quality-scores",
-  COLD_START_SUGGESTIONS: "/cold-start-suggestions"
+  COLD_START_SUGGESTIONS: "/cold-start-suggestions",
+  FEATURE_CONSENSUS: "/feature-consensus"
 } as const
 
 const API_BASE = API_BASE_URL
@@ -737,6 +739,48 @@ export async function getColdStartSuggestions(
     totalSuggestions: data.total_suggestions,
     numClusters: data.num_clusters,
     cacheHit: data.cache_hit
+  })
+
+  return data
+}
+
+// ============================================================================
+// CONSENSUS API
+// ============================================================================
+
+/**
+ * Get consensus data for a specific feature.
+ *
+ * Returns clustered explanation phrases ranked by activation similarity,
+ * with medoids representing clusters and outliers shown individually.
+ *
+ * @param featureId - Feature ID to fetch consensus data for
+ * @returns Consensus data with items sorted by activation_similarity (descending)
+ */
+export async function getFeatureConsensus(featureId: number): Promise<ConsensusResponse> {
+  console.log('[API] getFeatureConsensus called for feature:', featureId)
+
+  const response = await fetch(`${API_BASE}${API_ENDPOINTS.FEATURE_CONSENSUS}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ feature_id: featureId })
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    console.error('[API] Feature consensus error:', response.status, errorText)
+    throw new Error(`Failed to fetch feature consensus: ${response.status} - ${errorText}`)
+  }
+
+  const data = await response.json()
+  console.log('[API] getFeatureConsensus response:', {
+    featureId: data.feature_id,
+    consensusScore: data.consensus_score,
+    numClusters: data.num_clusters,
+    numOutliers: data.num_outliers,
+    itemCount: data.items?.length || 0
   })
 
   return data

@@ -1,0 +1,146 @@
+/* ============================================================================
+ * CONSENSUS SECTION - Displays clustered explanation phrases as pills
+ * ============================================================================ */
+/* Note: Header is rendered by parent components (QualityView, CauseView)
+   using .subheader styles from base.css */
+
+.consensus-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.consensus-section__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-height: 120px;
+  overflow-y: auto;
+  padding-right: 4px;
+  align-content: flex-start;
+}
+
+/* Custom scrollbar for items container */
+.consensus-section__items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.consensus-section__items::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.consensus-section__items::-webkit-scrollbar-thumb {
+  background-color: var(--border-color, #e5e7eb);
+  border-radius: 3px;
+}
+
+.consensus-section__items::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-tertiary, #9ca3af);
+}
+
+/* ============================================================================
+ * CONSENSUS PILL
+ * ============================================================================ */
+
+.consensus-item__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 16px;
+  font-size: 12px;
+  cursor: default;
+  transition: background-color 0.15s ease;
+  max-width: 100%;
+}
+
+/* Medoid style - teal background */
+.consensus-item__pill--medoid {
+  background-color: rgba(20, 184, 166, 0.2);
+}
+
+.consensus-item__pill--medoid:hover {
+  background-color: rgba(20, 184, 166, 0.35);
+}
+
+/* Outlier style - gray background */
+.consensus-item__pill--outlier {
+  background-color: rgba(156, 163, 175, 0.2);
+}
+
+.consensus-item__pill--outlier:hover {
+  background-color: rgba(156, 163, 175, 0.35);
+}
+
+/* Phrase text */
+.consensus-item__phrase {
+  color: var(--text-primary, #1f2937);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Cluster badge - teal circle */
+.consensus-item__badge {
+  flex-shrink: 0;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 600;
+  background-color: rgba(20, 184, 166, 0.4);
+  color: #0d9488;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================================
+ * HOVER TOOLTIP
+ * ============================================================================ */
+
+.consensus-tooltip {
+  position: fixed;
+  z-index: 1000;
+  background: white;
+  border: 1px solid var(--border-thin, #e5e7eb);
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 8px 10px;
+  max-width: 280px;
+  pointer-events: none;
+}
+
+.consensus-tooltip__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary, #6b7280);
+  margin-bottom: 6px;
+}
+
+.consensus-tooltip__score {
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: #14b8a6;
+}
+
+.consensus-tooltip__phrases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.consensus-tooltip__phrase {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  background-color: rgba(20, 184, 166, 0.15);
+  color: var(--text-secondary, #6b7280);
+}
