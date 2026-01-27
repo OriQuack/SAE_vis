@@ -69,6 +69,11 @@ class TableDataService:
         self._default_explainers = None
         self._default_scorers = None
 
+        # OPTIMIZATION: Class-level cache for interfeature lookups
+        # Key: frozenset of feature_ids, Value: lookup dict
+        # This avoids recomputation when the same feature set is requested multiple times
+        self._interfeature_lookup_cache: Dict[frozenset, Dict[int, Dict[int, Dict]]] = {}
+
     def _get_default_explainers(self) -> List[str]:
         """Get all unique explainers from the dataset."""
         if self._default_explainers is None:
@@ -1005,14 +1010,43 @@ class TableDataService:
 
         return decoder_lookup, merge_threshold_lookup
 
-    def _build_all_interfeature_lookups(self, interfeature_df: pl.DataFrame) -> Dict[int, Dict[int, Dict]]:
+    def _build_all_interfeature_lookups(
+        self,
+        interfeature_df: pl.DataFrame,
+        feature_ids_set: Optional[set] = None
+    ) -> Dict[int, Dict[int, Dict]]:
         """
-        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v3.0 - OPTIMIZED).
+        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v4.0 - CACHED).
         This replaces the per-feature _build_interfeature_lookup() which was called 14,316 times.
-        Uses vectorized column extraction for better performance.
+        Uses class-level caching to avoid recomputation on subsequent calls.
+
+        OPTIMIZATION v4.0: Added caching based on feature_ids set.
+        Expected improvement: First call ~3.5 min, subsequent calls instant.
 
         Note: pattern_type is computed at runtime from raw similarity values.
+
+        Args:
+            interfeature_df: DataFrame with interfeature similarity data
+            feature_ids_set: Optional set of feature IDs for cache key (auto-extracted if None)
+
+        Returns:
+            Dict mapping feature_id -> {similar_feature_id -> info}
         """
+        import time
+        start_time = time.time()
+
+        # Build cache key from feature IDs in the dataframe
+        if feature_ids_set is None:
+            feature_ids_set = set(interfeature_df["feature_id"].to_list())
+        cache_key = frozenset(feature_ids_set)
+
+        # Check cache first
+        if cache_key in self._interfeature_lookup_cache:
+            logger.info(f"✅ Interfeature lookup CACHE HIT: {len(feature_ids_set)} features (instant)")
+            return self._interfeature_lookup_cache[cache_key]
+
+        logger.info(f"Interfeature lookup CACHE MISS: building for {len(feature_ids_set)} features...")
+
         all_lookups = {}
 
         # Extract columns as lists (faster than iter_rows for outer loop)
@@ -1093,6 +1127,11 @@ class TableDataService:
                     "top_char_ngrams_per_k": top_char_per_k,
                     "top_word_ngrams_per_k": top_word_per_k,
                 }
+
+        # Store in cache
+        self._interfeature_lookup_cache[cache_key] = all_lookups
+        elapsed = time.time() - start_time
+        logger.info(f"✅ Interfeature lookup built and cached in {elapsed:.2f}s ({len(all_lookups)} features)")
 
         return all_lookups
 

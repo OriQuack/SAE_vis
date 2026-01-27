@@ -19,14 +19,14 @@ from typing import Dict, List, Optional
 # Intra-feature thresholds (comparing activations within the same feature)
 # These tend to be higher since same-feature activations should be more similar
 INTRA_SEMANTIC_THRESHOLD = 0.6
-INTRA_LEXICAL_THRESHOLD = 0.5
-INTRA_NGRAM_JACCARD_THRESHOLD = 0.5
+INTRA_LEXICAL_THRESHOLD = 0.3
+INTRA_NGRAM_JACCARD_THRESHOLD = 0.3
 
 # Inter-feature thresholds (comparing activations between different features)
 # These can be lower since cross-feature patterns are typically weaker
 INTER_SEMANTIC_THRESHOLD = 0.6
-INTER_LEXICAL_THRESHOLD = 0.2
-INTER_NGRAM_JACCARD_THRESHOLD = 0.2
+INTER_LEXICAL_THRESHOLD = 0.3
+INTER_NGRAM_JACCARD_THRESHOLD = 0.3
 
 
 def compute_pattern_type(

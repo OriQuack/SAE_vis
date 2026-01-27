@@ -6,14 +6,18 @@
 
 .consensus-section {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  gap: 12px;
+  align-items: flex-start;
 }
 
 .consensus-section__items {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  height: 54px;
+  flex: 1;
+  min-width: 0;
+  max-height: 90px;
   overflow-y: auto;
   padding-right: 4px;
   align-content: flex-start;
@@ -156,4 +160,36 @@
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 10px;
   color: var(--text-tertiary, #9ca3af);
+}
+
+/* ============================================================================
+ * SCATTER PLOT
+ * ============================================================================ */
+
+.consensus-plot {
+  display: block;
+  flex-shrink: 0;
+}
+
+.consensus-plot__label {
+  font-size: 9px;
+  fill: var(--text-tertiary, #9ca3af);
+}
+
+.consensus-plot__point {
+  cursor: pointer;
+  transition: opacity 0.15s ease, stroke 0.15s ease;
+}
+
+.consensus-plot__point--medoid {
+  fill: rgba(20, 184, 166, 0.6);
+}
+
+.consensus-plot__point--outlier {
+  fill: rgba(156, 163, 175, 0.6);
+}
+
+.consensus-plot__point:hover {
+  stroke: var(--text-primary, #1f2937);
+  stroke-width: 1.5;
 }

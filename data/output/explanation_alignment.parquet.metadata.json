@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-25T22:33:47.410805",
+  "created_at": "2026-01-27T02:17:47.556767",
   "step_name": "Step 12: Explanation Alignment",
   "script_version": "2.0",
   "total_rows": 16384,
@@ -14,7 +14,7 @@
   "processing_stats": {
     "features_processed": 16384,
     "features_with_alignments": 4217,
-    "total_aligned_groups": 4521,
+    "total_aligned_groups": 4525,
     "features_with_single_explanation": 0,
     "features_with_no_alignments": 12167
   },

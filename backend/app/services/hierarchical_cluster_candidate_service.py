@@ -372,16 +372,22 @@ class HierarchicalClusterCandidateService:
 
     def _load_interfeature_data(self, path: Path) -> None:
         """
-        Load interfeature_similarity.parquet and build lookup structures.
+        Load interfeature_similarity.parquet and build lookup structures (OPTIMIZED v2.0).
 
         Builds three data structures:
         1. pair_data: {f1: {f2: {decoder_sim, semantic_sim}}} - similarity values for all pairs
         2. top_decoder: {f1: set(f2, f3, ...)} - top 10 decoder-similar features per feature
         3. top_semantic: {f1: set(f2, f3, ...)} - top 20 semantic-similar features per feature
 
+        OPTIMIZATION: Uses Polars group_by + struct aggregation instead of iter_rows.
+        Expected improvement: 6+ min → ~10-30 sec for 476k rows.
+
         Args:
             path: Path to interfeature_similarity.parquet file
         """
+        import time
+        start_time = time.time()
+
         if not path.exists():
             logger.warning(
                 f"Interfeature similarity data not found at {path}. "
@@ -396,51 +402,99 @@ class HierarchicalClusterCandidateService:
         logger.info(f"Loading interfeature similarity data from {path}")
 
         df = pl.read_parquet(path)
-        logger.info(f"Loaded {len(df)} interfeature similarity rows")
+        logger.info(f"Loaded {len(df)} interfeature similarity rows in {time.time() - start_time:.2f}s")
 
-        # Initialize data structures
+        # Filter out rows with null main or similar feature IDs
+        df = df.filter(
+            pl.col("main_feature_id").is_not_null() &
+            pl.col("similar_feature_id").is_not_null()
+        )
+
+        # ========================================================================
+        # OPTIMIZATION 1: Build pair_data using group_by + struct aggregation
+        # Old: iter_rows over 476k rows = O(n) Python iterations
+        # New: Polars vectorized group_by = much faster
+        # ========================================================================
+        step_start = time.time()
+
+        # Aggregate all pairs per main_feature_id into a list of structs
+        pair_agg_df = df.group_by("main_feature_id").agg([
+            pl.struct([
+                pl.col("similar_feature_id"),
+                pl.col("decoder_similarity_score").alias("decoder_sim"),
+                pl.col("semantic_similarity").alias("semantic_sim")
+            ]).alias("pairs")
+        ])
+
+        # Build pair_data dict from aggregated result
+        # This still uses iteration but over ~16k features instead of 476k rows
         self.pair_data = {}
-        self.top_decoder = {}
-        self.top_semantic = {}
+        for row in pair_agg_df.iter_rows(named=True):
+            main_fid = int(row["main_feature_id"])
+            pairs_list = row["pairs"]
 
-        # Process data: group by main_feature_id for efficient processing
-        for row in df.iter_rows(named=True):
-            main_fid = row['main_feature_id']
-            similar_fid = row['similar_feature_id']
-            source_type = row['source_type']
-            decoder_sim = row['decoder_similarity_score']
-            semantic_sim = row['semantic_similarity']
-
-            # Skip rows with null values in required fields
-            if main_fid is None or similar_fid is None:
-                continue
-
-            main_fid = int(main_fid)
-            similar_fid = int(similar_fid)
-
-            # Initialize nested dicts if needed
-            if main_fid not in self.pair_data:
-                self.pair_data[main_fid] = {}
-                self.top_decoder[main_fid] = set()
-                self.top_semantic[main_fid] = set()
-
-            # Store pair similarity data
-            self.pair_data[main_fid][similar_fid] = {
-                'decoder_sim': float(decoder_sim) if decoder_sim is not None else None,
-                'semantic_sim': float(semantic_sim) if semantic_sim is not None else None
+            self.pair_data[main_fid] = {
+                int(p["similar_feature_id"]): {
+                    'decoder_sim': float(p["decoder_sim"]) if p["decoder_sim"] is not None else None,
+                    'semantic_sim': float(p["semantic_sim"]) if p["semantic_sim"] is not None else None
+                }
+                for p in pairs_list
             }
 
-            # Track top decoder features (source_type = 'decoder' or 'both')
-            if source_type in ('decoder', 'both'):
-                self.top_decoder[main_fid].add(similar_fid)
+        logger.info(f"Built pair_data in {time.time() - step_start:.2f}s ({len(self.pair_data)} features)")
 
-            # Track top semantic features (source_type = 'semantic' or 'both')
-            if source_type in ('semantic', 'both'):
-                self.top_semantic[main_fid].add(similar_fid)
+        # ========================================================================
+        # OPTIMIZATION 2: Build top_decoder using filter + group_by
+        # Filter to decoder/both source types, then aggregate similar_feature_ids
+        # ========================================================================
+        step_start = time.time()
+
+        decoder_df = df.filter(
+            pl.col("source_type").is_in(["decoder", "both"])
+        ).group_by("main_feature_id").agg(
+            pl.col("similar_feature_id").alias("similar_ids")
+        )
+
+        self.top_decoder = {
+            int(row["main_feature_id"]): set(int(sid) for sid in row["similar_ids"])
+            for row in decoder_df.iter_rows(named=True)
+        }
+
+        # Initialize empty sets for features with no decoder neighbors
+        for fid in self.pair_data.keys():
+            if fid not in self.top_decoder:
+                self.top_decoder[fid] = set()
+
+        logger.info(f"Built top_decoder in {time.time() - step_start:.2f}s ({len(self.top_decoder)} features)")
+
+        # ========================================================================
+        # OPTIMIZATION 3: Build top_semantic using filter + group_by
+        # Filter to semantic/both source types, then aggregate similar_feature_ids
+        # ========================================================================
+        step_start = time.time()
+
+        semantic_df = df.filter(
+            pl.col("source_type").is_in(["semantic", "both"])
+        ).group_by("main_feature_id").agg(
+            pl.col("similar_feature_id").alias("similar_ids")
+        )
+
+        self.top_semantic = {
+            int(row["main_feature_id"]): set(int(sid) for sid in row["similar_ids"])
+            for row in semantic_df.iter_rows(named=True)
+        }
+
+        # Initialize empty sets for features with no semantic neighbors
+        for fid in self.pair_data.keys():
+            if fid not in self.top_semantic:
+                self.top_semantic[fid] = set()
+
+        logger.info(f"Built top_semantic in {time.time() - step_start:.2f}s ({len(self.top_semantic)} features)")
 
         self._interfeature_loaded = True
+        total_time = time.time() - start_time
         logger.info(
-            f"Interfeature data loaded: {len(self.pair_data)} features with similarity data"
+            f"✅ Interfeature data loaded (OPTIMIZED): {len(self.pair_data)} features in {total_time:.2f}s"
         )
 
     def _get_pair_similarities(self, f1: int, f2: int) -> Tuple[Optional[float], Optional[float]]:

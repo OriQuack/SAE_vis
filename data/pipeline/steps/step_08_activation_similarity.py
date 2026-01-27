@@ -48,7 +48,6 @@ from core.ngrams import (
     compute_per_k_jaccard_all,
     find_top_ngram,
 )
-from core.sampling import get_quantile_boundaries
 from core.embeddings import compute_intra_feature_semantic_similarity
 
 
@@ -260,15 +259,13 @@ class ActivationSimilarityProcessor(BaseProcessor):
         Returns:
             Dictionary with computed metrics
         """
-        num_total_activations = int(feature_df.filter(pl.col("num_activations") > 0).shape[0])
-
         # Get prompt IDs from pre-computed embeddings
         feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
 
         if len(feature_embeddings) == 0:
             logger.warning(f"No pre-computed embeddings found for feature {feature_id}")
             self.stats["features_with_no_activations"] += 1
-            return self._create_empty_result(feature_id, num_total_activations)
+            return self._create_empty_result(feature_id)
 
         all_prompt_ids = feature_embeddings["prompt_ids"][0]
         if hasattr(all_prompt_ids, 'to_list'):
@@ -298,7 +295,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
 
         if len(all_examples) == 0:
             self.stats["features_with_no_activations"] += 1
-            return self._create_empty_result(feature_id, num_total_activations)
+            return self._create_empty_result(feature_id)
 
         self.stats["total_examples_analyzed"] += len(all_examples)
 
@@ -357,48 +354,40 @@ class ActivationSimilarityProcessor(BaseProcessor):
         if len(top_char_ngrams) > 0 or len(top_word_ngrams) > 0:
             self.stats["ngram_analysis_computed"] += 1
 
-        # Calculate quantile boundaries (4 quantiles for display)
-        activations = [ex[1] for ex in all_examples]
-        q_boundaries = get_quantile_boundaries(activations, num_quantiles=4)
-
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
             "prompt_ids": prompt_ids,
-            "num_total_activations": num_total_activations,
             "avg_pairwise_semantic_similarity": semantic_sim_mean,
             "std_pairwise_semantic_similarity": semantic_sim_std,
             "top_char_ngrams": top_char_ngrams,
             "top_word_ngrams": top_word_ngrams,
             "top_char_ngram": overall_top_char,
             "top_word_ngram": overall_top_word,
-            "quantile_boundaries": q_boundaries,
-            # EXISTING: per-k-max Jaccard (keep for SVM)
+            # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": char_ngram_max_jaccard,
             "word_ngram_max_jaccard": word_ngram_max_jaccard,
-            # NEW: per-k Jaccard values (for longest n-gram selection)
+            # per-k Jaccard values (for longest n-gram selection)
             "char_ngram_per_k_jaccard": char_ngram_per_k_jaccard,
             "word_ngram_per_k_jaccard": word_ngram_per_k_jaccard,
         }
 
-    def _create_empty_result(self, feature_id: int, num_total_activations: int) -> Dict[str, Any]:
+    def _create_empty_result(self, feature_id: int) -> Dict[str, Any]:
         """Create an empty result dictionary for features with no data."""
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
             "prompt_ids": [],
-            "num_total_activations": num_total_activations,
             "avg_pairwise_semantic_similarity": None,
             "std_pairwise_semantic_similarity": None,
             "top_char_ngrams": [],
             "top_word_ngrams": [],
             "top_char_ngram": None,
             "top_word_ngram": None,
-            "quantile_boundaries": [],
-            # EXISTING: per-k-max Jaccard (keep for SVM)
+            # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": None,
             "word_ngram_max_jaccard": None,
-            # NEW: per-k Jaccard values (for longest n-gram selection)
+            # per-k Jaccard values (for longest n-gram selection)
             "char_ngram_per_k_jaccard": {},
             "word_ngram_per_k_jaccard": {},
         }
@@ -455,7 +444,6 @@ class ActivationSimilarityProcessor(BaseProcessor):
         df = df.with_columns([
             pl.col("feature_id").cast(pl.UInt32),
             pl.col("sae_id").cast(pl.Categorical),
-            pl.col("num_total_activations").cast(pl.UInt32),
             pl.col("avg_pairwise_semantic_similarity").cast(pl.Float32),
             pl.col("std_pairwise_semantic_similarity").cast(pl.Float32),
         ])

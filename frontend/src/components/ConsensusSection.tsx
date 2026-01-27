@@ -1,6 +1,11 @@
 import React, { useState, useCallback, useMemo } from 'react'
+import { scaleLinear } from 'd3-scale'
 import type { ConsensusResponse, ConsensusItem } from '../types'
 import '../styles/ConsensusSection.css'
+
+// Plot constants - square plot
+const PLOT_SIZE = 90
+const PLOT_MARGIN = { top: 8, right: 8, bottom: 18, left: 28 }
 
 // ============================================================================
 // CONSENSUS SECTION - Displays clustered explanation phrases as pills
@@ -77,6 +82,33 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
     return map
   }, [consensus?.items, getOpacity])
 
+  // Calculate scales and plot data for scatter plot
+  const { xScale, yScale, plotData } = useMemo(() => {
+    if (!consensus?.items) {
+      return { xScale: null, yScale: null, plotData: [] }
+    }
+
+    const plotData = consensus.items.map((item, idx) => ({
+      x: item.is_outlier ? (item.phrase_weight ?? 0) : (item.cluster_score ?? 0),
+      y: item.weighted_quality_score ?? 0,
+      item,
+      idx
+    }))
+
+    const maxX = Math.max(...plotData.map(d => d.x), 0.1)
+    const maxY = Math.max(...plotData.map(d => d.y), 0.1)
+
+    const xScale = scaleLinear()
+      .domain([0, maxX * 1.1])
+      .range([PLOT_MARGIN.left, PLOT_SIZE - PLOT_MARGIN.right])
+
+    const yScale = scaleLinear()
+      .domain([0, maxY * 1.1])
+      .range([PLOT_SIZE - PLOT_MARGIN.bottom, PLOT_MARGIN.top])
+
+    return { xScale, yScale, plotData }
+  }, [consensus?.items])
+
   // Return null if no data - parent handles empty state in subheader
   if (!consensus || consensus.items.length === 0) {
     return null
@@ -84,6 +116,60 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
 
   return (
     <div className="consensus-section">
+      {/* Scatter plot: Consensus (x) vs Quality (y) */}
+      {xScale && yScale && plotData.length > 0 && (
+        <svg className="consensus-plot" width={PLOT_SIZE} height={PLOT_SIZE}>
+          {/* X-axis */}
+          <g transform={`translate(0,${PLOT_SIZE - PLOT_MARGIN.bottom})`}>
+            <line
+              x1={PLOT_MARGIN.left}
+              x2={PLOT_SIZE - PLOT_MARGIN.right}
+              stroke="var(--border-color, #e5e7eb)"
+            />
+            <text
+              x={(PLOT_MARGIN.left + PLOT_SIZE - PLOT_MARGIN.right) / 2}
+              y={13}
+              textAnchor="middle"
+              className="consensus-plot__label"
+            >
+              Consensus
+            </text>
+          </g>
+
+          {/* Y-axis */}
+          <g transform={`translate(${PLOT_MARGIN.left},0)`}>
+            <line
+              y1={PLOT_MARGIN.top}
+              y2={PLOT_SIZE - PLOT_MARGIN.bottom}
+              stroke="var(--border-color, #e5e7eb)"
+            />
+            <text
+              x={-((PLOT_SIZE - PLOT_MARGIN.top - PLOT_MARGIN.bottom) / 2 + PLOT_MARGIN.top)}
+              y={-16}
+              textAnchor="middle"
+              transform="rotate(-90)"
+              className="consensus-plot__label"
+            >
+              Quality
+            </text>
+          </g>
+
+          {/* Points */}
+          {plotData.map((d, i) => (
+            <circle
+              key={i}
+              cx={xScale(d.x)}
+              cy={yScale(d.y)}
+              r={4}
+              className={`consensus-plot__point ${d.item.is_outlier ? 'consensus-plot__point--outlier' : 'consensus-plot__point--medoid'}`}
+              style={{ opacity: opacityMap.get(d.idx) ?? 1 }}
+              onMouseEnter={(e) => handleMouseEnter(e, d.item)}
+              onMouseLeave={handleMouseLeave}
+            />
+          ))}
+        </svg>
+      )}
+
       <div className="consensus-section__items">
         {consensus.items.map((item, idx) => {
           const opacity = opacityMap.get(idx) ?? 1

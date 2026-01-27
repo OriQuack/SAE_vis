@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-01-26T23:33:46.713976",
+  "created_at": "2026-01-27T02:05:21.303275",
   "step_name": "Step 11: Interfeature Display",
   "script_version": "2.0",
-  "total_rows": 1453,
+  "total_rows": 476519,
   "schema": {
     "main_feature_id": "UInt32",
     "similar_feature_id": "UInt32",
@@ -27,11 +27,29 @@
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
-    "rows_processed": 1453,
-    "rows_output": 1453
+    "rows_processed": 476519,
+    "rows_output": 476519
   },
   "result_stats": {
-    "max_char_ngram_null_count": 3
+    "similar_feature_id_null_count": 1,
+    "source_type_null_count": 1,
+    "decoder_similarity_score_null_count": 1,
+    "char_ngram_max_jaccard_null_count": 1,
+    "word_ngram_max_jaccard_null_count": 1,
+    "semantic_similarity_null_count": 1,
+    "char_ngram_per_k_jaccard_null_count": 1,
+    "word_ngram_per_k_jaccard_null_count": 1,
+    "top_char_ngrams_per_k_null_count": 1,
+    "top_word_ngrams_per_k_null_count": 1,
+    "max_char_ngram_null_count": 458,
+    "max_word_ngram_null_count": 1,
+    "main_prompt_ids_null_count": 1,
+    "similar_prompt_ids_null_count": 1,
+    "num_comparisons_null_count": 1,
+    "main_char_ngram_positions_null_count": 1,
+    "similar_char_ngram_positions_null_count": 1,
+    "main_word_ngram_positions_null_count": 1,
+    "similar_word_ngram_positions_null_count": 1
   },
   "config_used": {
     "enabled": true,

@@ -185,10 +185,7 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "char_ngram_max_jaccard",
             "word_ngram_max_jaccard",
             "semantic_similarity",
-            "char_ngram_mean_jaccard",
-            "word_ngram_mean_jaccard",
-            "semantic_similarity_std",
-            # NEW: per-k fields
+            # per-k fields
             "char_ngram_per_k_jaccard",
             "word_ngram_per_k_jaccard",
             "top_char_ngrams_per_k",
@@ -234,9 +231,6 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "char_ngram_max_jaccard",
             "word_ngram_max_jaccard",
             "semantic_similarity",
-            "char_ngram_mean_jaccard",
-            "word_ngram_mean_jaccard",
-            "semantic_similarity_std"
         ]
         for col in float_columns:
             if col in result_df.columns:
