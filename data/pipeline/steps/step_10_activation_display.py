@@ -37,6 +37,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.base import BaseProcessor, load_yaml_config
 from core.logging import setup_logging
+from core.ngrams import select_best_ngram
 
 
 logger = logging.getLogger(__name__)
@@ -45,13 +46,18 @@ logger = logging.getLogger(__name__)
 class ActivationDisplayProcessor(BaseProcessor):
     """Process activation data into optimized display format."""
 
+    # Default thresholds for pattern type classification (intra-feature)
+    DEFAULT_SEMANTIC_THRESHOLD = 0.6
+    DEFAULT_LEXICAL_THRESHOLD = 0.3
+    DEFAULT_NGRAM_JACCARD_THRESHOLD = 0.3
+
     @property
     def step_name(self) -> str:
         return "Step 10: Activation Display"
 
     @property
     def version(self) -> str:
-        return "2.0"
+        return "4.0"  # Version bump: pre-compute best n-gram selection
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -70,6 +76,15 @@ class ActivationDisplayProcessor(BaseProcessor):
         # Output path
         self.output_path = self._resolve_path(f"{output_dir}/activation_display.parquet")
 
+        # Load pattern_type thresholds from config (with defaults)
+        parameters = self.config.get("parameters", {})
+        thresholds = parameters.get("pattern_type_thresholds", {})
+        self.semantic_threshold = thresholds.get("semantic", self.DEFAULT_SEMANTIC_THRESHOLD)
+        self.lexical_threshold = thresholds.get("lexical", self.DEFAULT_LEXICAL_THRESHOLD)
+        self.ngram_jaccard_threshold = thresholds.get("ngram_jaccard", self.DEFAULT_NGRAM_JACCARD_THRESHOLD)
+
+        logger.info(f"Pattern type thresholds: semantic={self.semantic_threshold}, lexical={self.lexical_threshold}, ngram_jaccard={self.ngram_jaccard_threshold}")
+
         # Initialize statistics
         self.stats = {
             "features_processed": 0,
@@ -77,6 +92,33 @@ class ActivationDisplayProcessor(BaseProcessor):
             "features_with_limited_examples": 0,
             "total_examples_processed": 0
         }
+
+    def _compute_pattern_type(
+        self,
+        semantic_sim: Optional[float],
+        char_jaccard: Optional[float],
+        word_jaccard: Optional[float]
+    ) -> str:
+        """Compute pattern type from raw similarity values.
+
+        Args:
+            semantic_sim: Semantic embedding similarity
+            char_jaccard: Character n-gram Jaccard similarity
+            word_jaccard: Word n-gram Jaccard similarity
+
+        Returns:
+            Pattern type: "Semantic", "Lexical", "Both", or "None"
+        """
+        has_semantic = (semantic_sim or 0) >= self.semantic_threshold
+        has_lexical = max(char_jaccard or 0, word_jaccard or 0) >= self.lexical_threshold
+
+        if has_semantic and has_lexical:
+            return "Both"
+        elif has_semantic:
+            return "Semantic"
+        elif has_lexical:
+            return "Lexical"
+        return "None"
 
     def _load_data(self) -> None:
         """Load activation examples and similarity data."""
@@ -141,6 +183,46 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         return sorted(set(positions))
 
+    def _extract_unified_ngram_positions(
+        self, best_ngram: Dict, prompt_id: int
+    ) -> List[Dict]:
+        """Extract unified positions for the selected best n-gram.
+
+        Args:
+            best_ngram: Result from select_best_ngram() with type, text, occurrences
+            prompt_id: Prompt ID to filter positions for
+
+        Returns:
+            List of position dicts with token_position and char_offset
+        """
+        ngram_type = best_ngram.get("type")
+        occurrences = best_ngram.get("occurrences", [])
+
+        if not ngram_type or not occurrences:
+            return []
+
+        positions = []
+        for occ in occurrences:
+            if occ.get("prompt_id") != prompt_id:
+                continue
+
+            if ngram_type == "word":
+                # Word n-grams: char_offset is None (highlight entire token)
+                start_pos = occ.get("start_position")
+                if start_pos is not None:
+                    positions.append({
+                        "token_position": int(start_pos),
+                        "char_offset": None  # Entire token
+                    })
+            else:  # char
+                # Char n-grams: include char_offset for substring highlighting
+                positions.append({
+                    "token_position": int(occ.get("token_position", 0)),
+                    "char_offset": int(occ.get("char_offset", 0))
+                })
+
+        return positions
+
     def _process_feature(self, feature_id: int) -> Optional[Dict[str, Any]]:
         """Process a single feature to create optimized display data.
 
@@ -165,11 +247,12 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
                 "quantile_examples": [],
-                # NEW: per-k fields
-                "char_ngram_per_k_jaccard": {},
-                "word_ngram_per_k_jaccard": {},
-                "top_char_ngrams": [],
-                "top_word_ngrams": [],
+                # Pre-computed pattern_type
+                "pattern_type": "None",
+                # Pre-computed best n-gram (unified display format)
+                "best_ngram_type": None,
+                "best_ngram_text": None,
+                "best_ngram_size": 0,
             }
 
         sim_row = feature_sim.to_dicts()[0]
@@ -197,6 +280,14 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         if not prompt_ids or len(prompt_ids) == 0:
             self.stats["features_with_no_data"] += 1
+            # Compute pattern_type even for empty features
+            pattern_type = self._compute_pattern_type(semantic_sim, char_ngram_jaccard, word_ngram_jaccard)
+            # Select best n-gram even for empty features
+            best_ngram = select_best_ngram(
+                word_per_k_jaccard, top_word_ngrams,
+                char_per_k_jaccard, top_char_ngrams,
+                self.ngram_jaccard_threshold
+            )
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
@@ -207,11 +298,12 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
                 "quantile_examples": [],
-                # NEW: per-k fields
-                "char_ngram_per_k_jaccard": char_per_k_jaccard,
-                "word_ngram_per_k_jaccard": word_per_k_jaccard,
-                "top_char_ngrams": top_char_ngrams,
-                "top_word_ngrams": top_word_ngrams,
+                # Pre-computed pattern_type
+                "pattern_type": pattern_type,
+                # Pre-computed best n-gram (unified display format)
+                "best_ngram_type": best_ngram["type"],
+                "best_ngram_text": best_ngram["text"],
+                "best_ngram_size": best_ngram["size"],
             }
 
         # Fetch activation examples for these prompt IDs
@@ -224,7 +316,14 @@ class ActivationDisplayProcessor(BaseProcessor):
             self.stats["features_with_no_data"] += 1
             return None
 
-        # Build example data list
+        # Pre-compute best n-gram selection (word preferred over char)
+        best_ngram = select_best_ngram(
+            word_per_k_jaccard, top_word_ngrams,
+            char_per_k_jaccard, top_char_ngrams,
+            self.ngram_jaccard_threshold
+        )
+
+        # Build example data list with unified ngram_positions
         example_data_list = []
         for row_dict in feature_examples.to_dicts():
             raw_tokens = row_dict.get("prompt_tokens", [])
@@ -238,8 +337,8 @@ class ActivationDisplayProcessor(BaseProcessor):
                 max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
                 max_pos = max_pair["token_position"]
 
-            char_ngram_positions = self._extract_char_ngram_positions(top_char_ngram, row_dict["prompt_id"])
-            word_ngram_positions = self._extract_word_ngram_positions(top_word_ngram, row_dict["prompt_id"])
+            # Use unified ngram_positions from selected best n-gram
+            ngram_positions = self._extract_unified_ngram_positions(best_ngram, row_dict["prompt_id"])
 
             example_data_list.append({
                 "prompt_id": row_dict["prompt_id"],
@@ -247,8 +346,7 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "activation_pairs": activation_pairs,
                 "max_activation": float(max_activation) if max_activation is not None else 0.0,
                 "max_activation_position": int(max_pos),
-                "char_ngram_positions": char_ngram_positions,
-                "word_ngram_positions": word_ngram_positions
+                "ngram_positions": ngram_positions  # Unified positions from best n-gram
             })
 
         # Sort by max_activation descending for rank-based quantile assignment
@@ -273,28 +371,31 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         self.stats["total_examples_processed"] += len(quantile_examples)
 
-        # Extract n-gram text
+        # Extract n-gram text (for backward compatibility)
         char_ngram_text = top_char_ngram.get("ngram") if top_char_ngram else None
         word_ngram_text = top_word_ngram.get("ngram") if top_word_ngram else None
+
+        # Pre-compute pattern_type
+        pattern_type = self._compute_pattern_type(semantic_sim, char_ngram_jaccard, word_ngram_jaccard)
 
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
             "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
             "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
-            # EXISTING: per-k-max Jaccard
+            # Max Jaccard values
             "char_ngram_max_jaccard": float(char_ngram_jaccard),
             "word_ngram_max_jaccard": float(word_ngram_jaccard),
-            # EXISTING: overall top n-gram text
+            # Overall top n-gram text (for backward compatibility)
             "top_char_ngram_text": char_ngram_text,
             "top_word_ngram_text": word_ngram_text,
             "quantile_examples": quantile_examples,
-            # NEW: per-k Jaccard values (for longest n-gram selection)
-            "char_ngram_per_k_jaccard": char_per_k_jaccard,
-            "word_ngram_per_k_jaccard": word_per_k_jaccard,
-            # NEW: per-k top n-grams (for display selection)
-            "top_char_ngrams": top_char_ngrams,
-            "top_word_ngrams": top_word_ngrams,
+            # Pre-computed pattern_type
+            "pattern_type": pattern_type,
+            # Pre-computed best n-gram (unified display format)
+            "best_ngram_type": best_ngram["type"],
+            "best_ngram_text": best_ngram["text"],
+            "best_ngram_size": best_ngram["size"],
         }
 
     def process(self) -> pl.DataFrame:
@@ -363,6 +464,10 @@ class ActivationDisplayProcessor(BaseProcessor):
             pl.col("semantic_similarity_std").cast(pl.Float32),
             pl.col("char_ngram_max_jaccard").cast(pl.Float32),
             pl.col("word_ngram_max_jaccard").cast(pl.Float32),
+            pl.col("pattern_type").cast(pl.Categorical),
+            # Best n-gram columns
+            pl.col("best_ngram_type").cast(pl.Categorical),
+            pl.col("best_ngram_size").cast(pl.UInt8),
         ])
 
         logger.info(f"Created DataFrame with {len(df)} rows and {len(df.columns)} columns")

@@ -6,7 +6,7 @@ from tokenized text, along with Jaccard similarity computation.
 """
 
 from collections import defaultdict
-from typing import Dict, List, Set, Tuple, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from .tokens import normalize_token, reconstruct_words_with_positions
 
@@ -330,3 +330,128 @@ def compute_per_k_max_jaccard(
     # Return max Jaccard; prefer longer n-gram (larger k) on tie
     best = max(per_k_results, key=lambda x: (x[0], x[1]))
     return best[0]
+
+
+def select_longest_ngram_above_threshold(
+    per_k_jaccard: Optional[Dict],
+    per_k_ngrams: Optional[List[Dict]],
+    threshold: float
+) -> Optional[Dict]:
+    """
+    Select the longest n-gram with Jaccard >= threshold.
+
+    Args:
+        per_k_jaccard: Dict mapping k-size to Jaccard value.
+            Supports both dict format ({2: 0.3, 3: 0.5}) and struct format ({"k2": 0.3, "k3": 0.5}).
+        per_k_ngrams: List of n-gram dicts with keys: ngram, k/ngram_size, occurrences, etc.
+        threshold: Minimum Jaccard to consider valid.
+
+    Returns:
+        The n-gram dict for largest k above threshold, or None if none qualify.
+    """
+    if not per_k_jaccard or not per_k_ngrams:
+        return None
+
+    # Handle both dict format and struct format from parquet
+    # Struct format has keys like "k2", "k3", etc.
+    jaccard_by_k = {}
+    for key, value in per_k_jaccard.items():
+        if isinstance(key, str) and key.startswith("k"):
+            # Struct format: "k2" -> 2
+            try:
+                k = int(key[1:])
+                if value is not None:
+                    jaccard_by_k[k] = value
+            except (ValueError, TypeError):
+                pass
+        elif isinstance(key, int):
+            # Dict format: 2 -> value
+            if value is not None:
+                jaccard_by_k[key] = value
+
+    if not jaccard_by_k:
+        return None
+
+    # Find valid k-sizes above threshold
+    valid_k = [k for k, v in jaccard_by_k.items() if v >= threshold]
+    if not valid_k:
+        return None
+
+    # Get largest k (longest n-gram)
+    target_k = max(valid_k)
+
+    # Find corresponding n-gram
+    for ng in per_k_ngrams:
+        # Handle both "k" and "ngram_size" field names
+        k = ng.get("k") or ng.get("ngram_size")
+        if k == target_k:
+            return ng
+
+    return None
+
+
+def select_best_ngram(
+    word_per_k_jaccard: Optional[Dict],
+    word_ngrams: Optional[List[Dict]],
+    char_per_k_jaccard: Optional[Dict],
+    char_ngrams: Optional[List[Dict]],
+    threshold: float
+) -> Dict[str, Any]:
+    """
+    Select ONE best n-gram for display. Prefers word over char (more semantically meaningful).
+
+    This is the unified selection logic used by both Step 10 (intra-feature) and
+    Step 11 (inter-feature) to ensure consistent n-gram selection behavior.
+
+    Args:
+        word_per_k_jaccard: Word n-gram per-k Jaccard values
+        word_ngrams: List of word n-gram dicts with ngram, k/ngram_size, occurrences
+        char_per_k_jaccard: Char n-gram per-k Jaccard values
+        char_ngrams: List of char n-gram dicts with ngram, k/ngram_size, occurrences
+        threshold: Minimum Jaccard to consider valid
+
+    Returns:
+        Dict with keys:
+        - type: 'word' | 'char' | None
+        - text: str | None (the n-gram text)
+        - size: int (k value, e.g., 3 for trigram)
+        - main_positions: list | None (positions in main feature - for inter-feature)
+        - similar_positions: list | None (positions in similar feature - for inter-feature)
+        - occurrences: list | None (positions for intra-feature)
+    """
+    # Try word first (more meaningful)
+    best_word = select_longest_ngram_above_threshold(
+        word_per_k_jaccard, word_ngrams, threshold
+    )
+    if best_word and best_word.get("ngram"):
+        return {
+            "type": "word",
+            "text": best_word.get("ngram"),
+            "size": best_word.get("ngram_size") or best_word.get("k") or 0,
+            "main_positions": best_word.get("main_occurrences"),
+            "similar_positions": best_word.get("similar_occurrences"),
+            "occurrences": best_word.get("occurrences", []),
+        }
+
+    # Fallback to char
+    best_char = select_longest_ngram_above_threshold(
+        char_per_k_jaccard, char_ngrams, threshold
+    )
+    if best_char and best_char.get("ngram"):
+        return {
+            "type": "char",
+            "text": best_char.get("ngram"),
+            "size": best_char.get("ngram_size") or best_char.get("k") or 0,
+            "main_positions": best_char.get("main_occurrences"),
+            "similar_positions": best_char.get("similar_occurrences"),
+            "occurrences": best_char.get("occurrences", []),
+        }
+
+    return {
+        "type": None,
+        "text": None,
+        "size": 0,
+        "main_positions": None,
+        "similar_positions": None,
+        "occurrences": [],
+    }

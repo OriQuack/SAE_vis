@@ -1006,12 +1006,13 @@ export const useStore = create<AppState>((set, get) => {
 
   initializeCauseMetricScores: (featureIds: Set<number>) => {
     const state = get()
-    const { tableData, activationExamples } = state
+    const { tableData } = state
 
     console.log('[Store.initializeCauseMetricScores] Calculating metric scores for', featureIds.size, 'features')
 
     // Calculate metric scores only (no tag assignment - features start as unsure)
-    const causeScores = calculateMetricScoresOnly(featureIds, tableData, activationExamples)
+    // Note: intra_feature_sim is now read directly from FeatureTableRow (backend-computed)
+    const causeScores = calculateMetricScoresOnly(featureIds, tableData)
 
     // Clear existing selections and set only the scores
     set({

@@ -443,6 +443,7 @@ export interface DecoderSimilarFeature {
 export interface FeatureTableRow {
   feature_id: number
   decoder_similarity?: Array<DecoderSimilarFeature> | null  // List of top similar features with cosine similarity scores
+  intra_feature_sim?: number  // max(intra_ngram_jaccard, intra_semantic_sim) from backend
   explainers: Record<string, ExplainerScoreData>
   // NEW: Activation examples (lazy loaded)
   activation_examples?: ActivationExamples
@@ -453,20 +454,18 @@ export interface FeatureTableRow {
 // ============================================================================
 
 /**
- * Activation examples for a feature with dual n-gram pattern analysis
+ * Activation examples for a feature with unified n-gram pattern analysis
+ * Backend decides word vs char n-gram - frontend just renders it
  */
 export interface ActivationExamples {
   quantile_examples: QuantileExample[]  // 4 quantiles (Q1-Q4)
   semantic_similarity: number           // Average pairwise semantic similarity (0-1)
-  // Dual n-gram fields (character + word patterns)
-  char_ngram_max_jaccard: number       // Character n-gram Jaccard similarity (0-1)
-  word_ngram_max_jaccard: number       // Word n-gram Jaccard similarity (0-1)
-  top_char_ngram_text: string | null   // Most frequent character n-gram (e.g., "ing")
-  top_word_ngram_text: string | null   // Most frequent word n-gram (e.g., "observation")
   pattern_type: string                 // Pattern categorization: 'None' | 'Semantic' | 'Lexical' | 'Both'
-  // NEW: Longest n-gram above threshold (preferred for display)
-  best_char_ngram_text?: string | null // Longest char n-gram above Jaccard threshold
-  best_word_ngram_text?: string | null // Longest word n-gram above Jaccard threshold
+  // Unified n-gram (backend decides word vs char, prefers word)
+  ngram_type: 'word' | 'char' | null   // Backend decision: word preferred over char
+  ngram_text: string | null            // Text to display
+  ngram_length: number                 // chars for char-ngram, words for word-ngram
+  ngram_size: number                   // k value (e.g., 3 for trigram)
 }
 
 /**
@@ -482,12 +481,11 @@ export interface QuantileExample {
   }>
   max_activation: number
   max_activation_position: number      // Where to center highlighting
-  // Dual n-gram position data for precise highlighting
-  char_ngram_positions: Array<{
+  // Unified n-gram positions (char_offset is null for word n-grams)
+  ngram_positions: Array<{
     token_position: number             // Token index containing the n-gram
-    char_offset: number                // Character offset within the token
+    char_offset: number | null         // Character offset (null = highlight entire token for word n-grams)
   }>
-  word_ngram_positions: number[]       // Token positions where word n-grams start
 }
 
 export interface TableDataRequest {
@@ -870,7 +868,7 @@ export interface ClusterPhrase {
   text: string
   explainer: string
   phrase_weight: number           // Weight of this phrase (1/n where n = phrases from same explainer)
-  weighted_quality_score?: number // avg(detection, fuzz, embedding) * phrase_weight
+  quality_score?: number          // avg(detection, fuzz, embedding) for the explainer
   distance_to_medoid: number
   activation_similarity: number
 }
@@ -883,7 +881,8 @@ export interface ConsensusItem {
   phrase: string
   explainer: string
   activation_similarity: number
-  weighted_quality_score?: number // Sum of weighted_quality_scores for cluster, or single score for outlier
+  quality_score?: number          // For outliers: explainer's quality score
+  avg_quality_score?: number      // For clusters: average quality of all phrases
   is_outlier: boolean
   phrase_weight?: number          // Only for outliers (individual phrase weight)
   cluster_size?: number           // Only for clusters

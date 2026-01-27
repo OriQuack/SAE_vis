@@ -16,7 +16,8 @@ from .services.activation_cache_service import activation_cache_service
 from .services.cause_service import CauseService
 from .services.cold_start_service import ColdStartService
 from .services.consensus_service import ConsensusService
-from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus
+from .services.table_data_service import TableDataService
+from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus, table
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -49,10 +50,11 @@ cluster_candidate_service = None
 cause_service = None
 cold_start_service = None
 consensus_service = None
+table_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service, consensus_service
+    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service, consensus_service, table_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -65,6 +67,11 @@ async def lifespan(app: FastAPI):
             logger.info("Alignment service initialized successfully")
         else:
             logger.warning("Alignment service initialization failed - explanations will not be highlighted")
+
+        # Initialize table data service as singleton (for interfeature cache efficiency)
+        table_service = TableDataService(data_service, alignment_service)
+        table.set_table_service(table_service)
+        logger.info("Table data service initialized successfully")
 
         # Initialize feature groups service
         feature_groups.initialize_service()

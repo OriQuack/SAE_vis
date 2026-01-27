@@ -1,7 +1,7 @@
 {
-  "created_at": "2026-01-27T02:05:21.303275",
+  "created_at": "2026-01-27T21:35:59.504535",
   "step_name": "Step 11: Interfeature Display",
-  "script_version": "2.0",
+  "script_version": "4.0",
   "total_rows": 476519,
   "schema": {
     "main_feature_id": "UInt32",
@@ -11,19 +11,13 @@
     "char_ngram_max_jaccard": "Float32",
     "word_ngram_max_jaccard": "Float32",
     "semantic_similarity": "Float32",
-    "char_ngram_per_k_jaccard": "Struct([Field('k2', Float32), Field('k3', Float32), Field('k4', Float32), Field('k5', Float32)])",
-    "word_ngram_per_k_jaccard": "Struct([Field('k1', Float32), Field('k2', Float32), Field('k3', Float32)])",
-    "top_char_ngrams_per_k": "List(Struct([Field('k', UInt8), Field('ngram', Utf8), Field('main_occurrences', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))), Field('similar_occurrences', List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))])))]))",
-    "top_word_ngrams_per_k": "List(Struct([Field('k', UInt8), Field('ngram', Utf8), Field('main_occurrences', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))), Field('similar_occurrences', List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))])))]))",
+    "pattern_type": "Categorical",
+    "best_ngram_type": "Categorical",
+    "best_ngram_text": "Utf8",
+    "best_ngram_main_positions": "List(Struct([Field('prompt_id', Int64), Field('positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)])))]))",
+    "best_ngram_similar_positions": "List(Struct([Field('prompt_id', Int64), Field('positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)])))]))",
     "max_char_ngram": "Utf8",
-    "max_word_ngram": "Utf8",
-    "main_prompt_ids": "List(UInt32)",
-    "similar_prompt_ids": "List(UInt32)",
-    "num_comparisons": "UInt32",
-    "main_char_ngram_positions": "List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))",
-    "similar_char_ngram_positions": "List(Struct([Field('prompt_id', UInt32), Field('positions', List(Struct([Field('token_position', UInt16), Field('char_offset', UInt8)])))]))",
-    "main_word_ngram_positions": "List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))",
-    "similar_word_ngram_positions": "List(Struct([Field('prompt_id', UInt32), Field('positions', List(UInt16))]))"
+    "max_word_ngram": "Utf8"
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
@@ -37,29 +31,28 @@
     "char_ngram_max_jaccard_null_count": 1,
     "word_ngram_max_jaccard_null_count": 1,
     "semantic_similarity_null_count": 1,
-    "char_ngram_per_k_jaccard_null_count": 1,
-    "word_ngram_per_k_jaccard_null_count": 1,
-    "top_char_ngrams_per_k_null_count": 1,
-    "top_word_ngrams_per_k_null_count": 1,
+    "best_ngram_type_null_count": 473741,
+    "best_ngram_text_null_count": 473741,
+    "best_ngram_main_positions_null_count": 473741,
+    "best_ngram_similar_positions_null_count": 473741,
     "max_char_ngram_null_count": 458,
-    "max_word_ngram_null_count": 1,
-    "main_prompt_ids_null_count": 1,
-    "similar_prompt_ids_null_count": 1,
-    "num_comparisons_null_count": 1,
-    "main_char_ngram_positions_null_count": 1,
-    "similar_char_ngram_positions_null_count": 1,
-    "main_word_ngram_positions_null_count": 1,
-    "similar_word_ngram_positions_null_count": 1
+    "max_word_ngram_null_count": 1
   },
   "config_used": {
     "enabled": true,
     "inputs": {
-      "raw_similarity": "data/intermediate/interfeature_similarity.parquet"
+      "raw_similarity": "${intermediate}/interfeature_similarity.parquet"
     },
     "outputs": {
-      "main": "data/output/interfeature_similarity.parquet"
+      "main": "${output}/interfeature_similarity.parquet"
     },
-    "parameters": {},
+    "parameters": {
+      "pattern_type_thresholds": {
+        "semantic": 0.6,
+        "lexical": 0.25,
+        "ngram_jaccard": 0.25
+      }
+    },
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "global": {
       "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",

@@ -370,27 +370,32 @@ class ColdStartService:
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
             # Extract activation metrics (intra-feature)
+            # Select only needed columns BEFORE collect() to avoid schema issues with new columns
             if self.data_service._activation_display_lazy is not None:
                 act_df = self.data_service._activation_display_lazy.filter(
                     pl.col("feature_id").is_in(feature_ids)
-                ).collect()
-
-                act_df = act_df.select([
+                ).select([
                     "feature_id",
                     pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
                       .fill_null(0.0).alias("intra_ngram_jaccard"),
                     pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim")
-                ]).unique(subset=["feature_id"])
+                ]).unique(subset=["feature_id"]).collect()
 
                 base_df = base_df.join(act_df, on="feature_id", how="left")
 
             # Extract inter-feature metrics
-            # Schema: main_feature_id, similar_feature_id, char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity
+            # Select only needed columns BEFORE collect() to avoid schema issues
             if self.data_service._interfeature_similarity_lazy is not None:
                 # Filter pairs where either feature is in our set
                 inter_df = self.data_service._interfeature_similarity_lazy.filter(
                     pl.col("main_feature_id").is_in(feature_ids) | pl.col("similar_feature_id").is_in(feature_ids)
-                ).collect()
+                ).select([
+                    "main_feature_id",
+                    "similar_feature_id",
+                    "char_ngram_max_jaccard",
+                    "word_ngram_max_jaccard",
+                    "semantic_similarity"
+                ]).collect()
 
                 if len(inter_df) > 0:
                     # For each feature, get max inter-feature metrics from pairs it participates in

@@ -34,7 +34,7 @@ class ClusterPhrase(BaseModel):
     text: str
     explainer: str
     phrase_weight: float  # Weight of this phrase (1/n where n = phrases from same explainer)
-    weighted_quality_score: Optional[float] = None  # avg(detection, fuzz, embedding) * phrase_weight
+    quality_score: Optional[float] = None  # avg(detection, fuzz, embedding) for the explainer
     distance_to_medoid: float
     activation_similarity: float
 
@@ -45,7 +45,8 @@ class ConsensusItem(BaseModel):
     phrase: str
     explainer: str
     activation_similarity: float
-    weighted_quality_score: Optional[float] = None  # Sum of weighted_quality_scores for cluster, or single for outlier
+    quality_score: Optional[float] = None  # For outliers: explainer's quality score
+    avg_quality_score: Optional[float] = None  # For clusters: average quality of all phrases
     is_outlier: bool
     phrase_weight: Optional[float] = None  # Only for outliers (individual phrase weight)
     cluster_size: Optional[int] = None  # Only for clusters

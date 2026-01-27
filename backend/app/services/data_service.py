@@ -18,7 +18,6 @@ from ..models.responses import (
 )
 from ..models.common import Filters
 from .data_constants import *
-from .pattern_utils import compute_pattern_type, get_best_ngram_text, get_best_ngram_with_positions
 
 logger = logging.getLogger(__name__)
 
@@ -349,11 +348,15 @@ class DataService:
         return self._get_activation_examples_optimized(feature_ids)
 
     def _get_activation_examples_optimized(self, feature_ids: List[int]) -> Dict[int, Dict]:
-        """Fast path using pre-processed activation_display.parquet."""
+        """Fast path using pre-processed activation_display.parquet.
+
+        Uses pre-computed fields from step_10 v4.0+:
+        - pattern_type: Pre-computed pattern classification
+        - best_ngram_type, best_ngram_text, best_ngram_size: Pre-computed best n-gram
+        - quantile_examples with ngram_positions: Pre-computed positions
+        """
         try:
-            # Single query to get all data (pre-organized, pre-processed)
-            # Select only the columns we need to avoid issues with Null-type columns
-            # Note: pattern_type removed from parquet - computed at runtime
+            # Select only the columns we need (all pre-computed in step_10 v4.0+)
             columns_to_select = [
                 "feature_id",
                 "quantile_examples",
@@ -361,19 +364,14 @@ class DataService:
                 "char_ngram_max_jaccard",
                 "word_ngram_max_jaccard",
                 "top_word_ngram_text",
+                "pattern_type",  # Pre-computed in step_10 v4.0+
+                "best_ngram_type",  # Pre-computed in step_10 v4.0+
+                "best_ngram_text",  # Pre-computed in step_10 v4.0+
             ]
 
-            # Try to add per-k columns if they exist (may not be present in older data)
+            # Filter to only columns that exist (backward compatibility)
             available_columns = self._activation_display_lazy.columns
-            per_k_columns = [
-                "char_ngram_per_k_jaccard",
-                "word_ngram_per_k_jaccard",
-                "top_char_ngrams",
-                "top_word_ngrams",
-            ]
-            for col in per_k_columns:
-                if col in available_columns:
-                    columns_to_select.append(col)
+            columns_to_select = [c for c in columns_to_select if c in available_columns]
 
             display_df = self._activation_display_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
@@ -381,54 +379,24 @@ class DataService:
 
             logger.info(f"[get_activation_examples] Loaded optimized data for {len(display_df)} features in ~20ms")
 
-            # Convert to dictionary format expected by frontend (dual n-gram architecture)
+            # Convert to dictionary format expected by frontend
             result = {}
             for row in display_df.iter_rows(named=True):
                 feature_id = row["feature_id"]
-                # Compute pattern_type at runtime from raw similarity values
-                pattern_type = compute_pattern_type(
-                    row["semantic_similarity"],
-                    row["char_ngram_max_jaccard"],
-                    row["word_ngram_max_jaccard"]
-                )
-                # Get best n-gram WITH positions (longest above threshold)
-                best_char_ngram = get_best_ngram_with_positions(
-                    row.get("char_ngram_per_k_jaccard"),
-                    row.get("top_char_ngrams"),
-                    is_inter=False
-                )
-                best_char_ngram_text = best_char_ngram.get("ngram") if best_char_ngram else None
 
-                best_word_ngram_text = get_best_ngram_text(
-                    row.get("word_ngram_per_k_jaccard"),
-                    row.get("top_word_ngrams"),
-                    fallback_text=row["top_word_ngram_text"],
-                    is_inter=False
-                )
+                # Use pre-computed pattern_type (required in step_10 v4.0+)
+                pattern_type = row.get("pattern_type") or "None"
 
-                # Build prompt_id -> positions lookup for best char n-gram
-                char_positions_by_prompt = {}
-                if best_char_ngram and best_char_ngram.get("occurrences"):
-                    for occ in best_char_ngram["occurrences"]:
-                        pid = occ.get("prompt_id")
-                        if pid is not None:
-                            if pid not in char_positions_by_prompt:
-                                char_positions_by_prompt[pid] = []
-                            char_positions_by_prompt[pid].append({
-                                "token_position": occ.get("token_position"),
-                                "char_offset": occ.get("char_offset", 0)
-                            })
+                # Use pre-computed best n-gram fields (step_10 v4.0+)
+                ngram_type = row.get("best_ngram_type")
+                ngram_text = row.get("best_ngram_text")
 
-                # Update quantile_examples with correct positions for best n-gram
+                # For backward compatibility, map to old field names
+                best_char_ngram_text = ngram_text if ngram_type == "char" else None
+                best_word_ngram_text = ngram_text if ngram_type == "word" else row.get("top_word_ngram_text")
+
+                # quantile_examples already has ngram_positions pre-computed in step_10 v4.0+
                 quantile_examples = row["quantile_examples"]
-                if quantile_examples and char_positions_by_prompt:
-                    for qe in quantile_examples:
-                        pid = qe.get("prompt_id")
-                        if pid in char_positions_by_prompt:
-                            qe["char_ngram_positions"] = char_positions_by_prompt[pid]
-                        else:
-                            # No match for this prompt in best n-gram occurrences
-                            qe["char_ngram_positions"] = []
 
                 result[feature_id] = {
                     "quantile_examples": quantile_examples,
@@ -436,8 +404,8 @@ class DataService:
                     # Dual n-gram fields (character + word)
                     "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
                     "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
-                    "top_char_ngram_text": None,  # Skip null column from parquet
-                    "top_word_ngram_text": row["top_word_ngram_text"],
+                    "top_char_ngram_text": None,
+                    "top_word_ngram_text": row.get("top_word_ngram_text"),
                     "pattern_type": pattern_type,
                     # Best n-gram text (longest above threshold, for display)
                     "best_char_ngram_text": best_char_ngram_text,

@@ -550,16 +550,12 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             self.stats["features_with_no_activations"] += 1
             return {"feature_id": feature_id, "sae_id": self.sae_id, "all_pairs": []}
 
-        main_prompt_ids = [ex[0] for ex in main_examples]
-
         # Process each similar feature
         all_pairs = []
         for selected_feature_id, pair_info in pair_sources.items():
             selected_examples = self._get_examples_from_embeddings(selected_feature_id)
             if len(selected_examples) == 0:
                 continue
-
-            selected_prompt_ids = [ex[0] for ex in selected_examples]
 
             # Compute semantic similarity on-the-fly (dot product of normalized embeddings)
             if self.mean_embeddings is not None:
@@ -597,13 +593,10 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
                 "decoder_similarity": decoder_sim,
                 "similarity_source": source,
                 "semantic_similarity": float(semantic_sim) if semantic_sim is not None else None,
-                # EXISTING: per-k-max Jaccard (keep for SVM and backward compat)
+                # per-k-max Jaccard (keep for SVM and backward compat)
                 "char_ngram_max_jaccard": float(char_ngram_max_jaccard) if char_ngram_max_jaccard is not None else None,
                 "word_ngram_max_jaccard": float(word_ngram_max_jaccard) if word_ngram_max_jaccard is not None else None,
-                "main_prompt_ids": [int(pid) for pid in main_prompt_ids],
-                "similar_prompt_ids": [int(pid) for pid in selected_prompt_ids],
-                "num_comparisons": int(len(main_examples) * len(selected_examples)),
-                # EXISTING: overall top n-grams
+                # overall top n-grams
                 "max_char_ngram": max_char_ngram,
                 "max_word_ngram": max_word_ngram,
                 "main_char_ngram_positions": main_char_pos,
@@ -722,13 +715,10 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             pl.Field("decoder_similarity", pl.Float32),
             pl.Field("similarity_source", pl.Utf8),
             pl.Field("semantic_similarity", pl.Float32),
-            # EXISTING: per-k-max Jaccard
+            # per-k-max Jaccard
             pl.Field("char_ngram_max_jaccard", pl.Float32),
             pl.Field("word_ngram_max_jaccard", pl.Float32),
-            pl.Field("main_prompt_ids", pl.List(pl.UInt32)),
-            pl.Field("similar_prompt_ids", pl.List(pl.UInt32)),
-            pl.Field("num_comparisons", pl.UInt32),
-            # EXISTING: overall top n-grams
+            # overall top n-grams
             pl.Field("max_char_ngram", pl.Utf8),
             pl.Field("max_word_ngram", pl.Utf8),
             pl.Field("main_char_ngram_positions", pl.List(char_ngram_positions_struct)),

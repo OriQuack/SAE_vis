@@ -151,6 +151,18 @@ def extract_step9_pairs(df: pl.DataFrame, limit: int = None) -> Dict[str, List[f
     }
 
 
+def compute_threshold_stats(values: np.ndarray) -> str:
+    """Compute how many values are above each threshold from 0 to 0.9."""
+    thresholds = np.arange(0, 1.0, 0.1)
+    n = len(values)
+    lines = []
+    for t in thresholds:
+        count = np.sum(values >= t)
+        pct = 100 * count / n if n > 0 else 0
+        lines.append(f">={t:.1f}: {count:,} ({pct:.1f}%)")
+    return "\n".join(lines)
+
+
 def plot_histogram(ax, values: List[float], title: str, xlabel: str,
                    color: str = "steelblue", bins: int = 50, ylim: int = None):
     """Plot a histogram with statistics."""
@@ -167,16 +179,27 @@ def plot_histogram(ax, values: List[float], title: str, xlabel: str,
     median_val = np.median(values)
     std_val = np.std(values)
 
-    ax.axvline(mean_val, color='red', linestyle='--', linewidth=1.5, label=f'Mean: {mean_val:.3f}')
-    ax.axvline(median_val, color='orange', linestyle=':', linewidth=1.5, label=f'Median: {median_val:.3f}')
+    ax.axvline(mean_val, color='red', linestyle='--', linewidth=1.5)
+    ax.axvline(median_val, color='orange', linestyle=':', linewidth=1.5)
 
     ax.set_title(f"{title}\n(n={len(values):,}, std={std_val:.3f})", fontsize=10)
     ax.set_xlabel(xlabel, fontsize=9)
     ax.set_ylabel("Count", fontsize=9)
-    ax.legend(fontsize=7, loc='upper right')
     ax.grid(True, alpha=0.3)
     if ylim is not None:
         ax.set_ylim(0, ylim)
+
+    # Add threshold statistics as text box (upper right)
+    threshold_text = compute_threshold_stats(values)
+    ax.text(0.98, 0.98, threshold_text, transform=ax.transAxes, fontsize=6,
+            verticalalignment='top', horizontalalignment='right', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+    # Add mean/median as text box (upper left)
+    stats_text = f"Mean: {mean_val:.3f}\nMedian: {median_val:.3f}"
+    ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=7,
+            verticalalignment='top', horizontalalignment='left', fontfamily='monospace',
+            bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
 
 
 def plot_stacked_histogram(ax, data_dict: Dict[str, List[float]], title: str, xlabel: str,
@@ -185,9 +208,11 @@ def plot_stacked_histogram(ax, data_dict: Dict[str, List[float]], title: str, xl
     colors = {"decoder": "steelblue", "semantic": "coral", "both": "green"}
 
     has_data = False
+    all_values = []
     for key, values in data_dict.items():
         if values:
             has_data = True
+            all_values.extend(values)
             ax.hist(values, bins=50, alpha=0.5, label=f"{key} (n={len(values):,})",
                    color=colors.get(key, "gray"), edgecolor='black', linewidth=0.3)
 
@@ -201,6 +226,13 @@ def plot_stacked_histogram(ax, data_dict: Dict[str, List[float]], title: str, xl
     ax.grid(True, alpha=0.3)
     if ylim is not None:
         ax.set_ylim(0, ylim)
+
+    # Add threshold statistics for combined data
+    if all_values:
+        threshold_text = compute_threshold_stats(np.array(all_values))
+        ax.text(0.98, 0.98, threshold_text, transform=ax.transAxes, fontsize=6,
+                verticalalignment='top', horizontalalignment='right', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
 
 def plot_per_k_row(axes: List, per_k_data: Dict[str, List[float]], title_prefix: str,
@@ -231,16 +263,27 @@ def plot_per_k_row(axes: List, per_k_data: Dict[str, List[float]], title_prefix:
         median_val = np.median(values_arr)
         nonzero_pct = 100 * np.sum(values_arr > 0) / len(values_arr)
 
-        ax.axvline(mean_val, color='red', linestyle='--', linewidth=1.2, label=f'Mean: {mean_val:.3f}')
-        ax.axvline(median_val, color='orange', linestyle=':', linewidth=1.2, label=f'Med: {median_val:.3f}')
+        ax.axvline(mean_val, color='red', linestyle='--', linewidth=1.2)
+        ax.axvline(median_val, color='orange', linestyle=':', linewidth=1.2)
 
         ax.set_title(f"{title_prefix} {k_label}\n(n={len(values):,}, {nonzero_pct:.1f}% > 0)", fontsize=9)
         ax.set_xlabel("Jaccard", fontsize=8)
         ax.set_ylabel("Count", fontsize=8)
-        ax.legend(fontsize=6, loc='upper right')
         ax.grid(True, alpha=0.3)
         if ylim is not None:
             ax.set_ylim(0, ylim)
+
+        # Add threshold statistics (upper right)
+        threshold_text = compute_threshold_stats(values_arr)
+        ax.text(0.98, 0.98, threshold_text, transform=ax.transAxes, fontsize=5,
+                verticalalignment='top', horizontalalignment='right', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
+
+        # Add mean/median as text box (upper left)
+        stats_text = f"Mean: {mean_val:.3f}\nMed: {median_val:.3f}"
+        ax.text(0.02, 0.98, stats_text, transform=ax.transAxes, fontsize=6,
+                verticalalignment='top', horizontalalignment='left', fontfamily='monospace',
+                bbox=dict(boxstyle='round', facecolor='lightyellow', alpha=0.8))
 
 
 def create_per_k_summary_stats(char_per_k: Dict[str, List[float]],
@@ -422,6 +465,12 @@ def visualize_step9(df: pl.DataFrame, output_path: Path, limit: int = None):
         ax_max_overview.legend(fontsize=7)
         ax_max_overview.grid(True, alpha=0.3)
         ax_max_overview.set_ylim(0, INTER_FEATURE_YLIM)
+        # Add threshold statistics for combined max jaccard
+        combined_jaccard = data["char_jaccard"] + data["word_jaccard"]
+        threshold_text = compute_threshold_stats(np.array(combined_jaccard))
+        ax_max_overview.text(0.98, 0.98, threshold_text, transform=ax_max_overview.transAxes, fontsize=6,
+                             verticalalignment='top', horizontalalignment='right', fontfamily='monospace',
+                             bbox=dict(boxstyle='round', facecolor='white', alpha=0.8))
 
     # Row 2: Character n-gram per-k distributions (k=2,3,4,5)
     char_axes = [fig.add_subplot(gs[1, i]) for i in range(4)]

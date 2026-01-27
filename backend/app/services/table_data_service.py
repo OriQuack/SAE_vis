@@ -1,12 +1,17 @@
 """
-Table data service for feature-level score visualization (v3.0 - OPTIMIZED).
+Table data service for feature-level score visualization (v4.0 - PRE-COMPUTED).
 
-Optimizations in v3.0:
+Optimizations in v4.0:
+- pattern_type and best_ngram fields are pre-computed in pipeline (step_11)
+- Eliminates 255s cold start caused by runtime computation
+- Removes 2.1GB pickle cache - no longer needed
+- Direct column reads from parquet (instant)
+
+Previous optimizations maintained:
 - Vectorized pairwise similarity extraction (explode/unnest instead of iter_rows)
 - Vectorized global stats calculation (group_by instead of nested loops)
 - Optimized lookup building (column extraction instead of iter_rows)
 - Performance monitoring with detailed timing logs
-- Dead code removal for maintainability
 
 Clean 4-step flow:
 1. Fetch scores from features.parquet
@@ -20,7 +25,6 @@ import numpy as np
 import logging
 import time
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
-from pathlib import Path
 
 from ..models.common import Filters
 from ..models.responses import (
@@ -30,7 +34,6 @@ from ..models.responses import (
 )
 from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
-from .pattern_utils import compute_pattern_type, get_best_ngram_with_positions
 from .data_constants import (
     COL_DECODER_SIMILARITY,
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
@@ -69,10 +72,48 @@ class TableDataService:
         self._default_explainers = None
         self._default_scorers = None
 
-        # OPTIMIZATION: Class-level cache for interfeature lookups
-        # Key: frozenset of feature_ids, Value: lookup dict
-        # This avoids recomputation when the same feature set is requested multiple times
-        self._interfeature_lookup_cache: Dict[frozenset, Dict[int, Dict[int, Dict]]] = {}
+        # Load intra-feature similarity metrics from svm_feature_metrics.parquet
+        self._intra_feature_sim_lookup: Dict[int, float] = self._load_intra_feature_sim_lookup()
+
+    # TODO: Loading from different parquet is actually stupid:
+    # should be merged into main features.parquet in data pipeline
+    def _load_intra_feature_sim_lookup(self) -> Dict[int, float]:
+        """
+        Load intra-feature similarity from svm_feature_metrics.parquet via DataService.
+
+        Computes intra_feature_sim = max(intra_ngram_jaccard, intra_semantic_sim)
+        for each feature and returns a lookup dict.
+
+        Returns:
+            Dict mapping feature_id to intra_feature_sim value
+        """
+        try:
+            if self.data_service._svm_feature_metrics_lazy is None:
+                logger.warning("svm_feature_metrics not loaded in DataService")
+                return {}
+
+            df = self.data_service._svm_feature_metrics_lazy.collect()
+            lookup = {}
+
+            # Extract columns as lists for fast iteration
+            feature_ids = df["feature_id"].to_list()
+            intra_ngram = df["intra_ngram_jaccard"].to_list()
+            intra_semantic = df["intra_semantic_sim"].to_list()
+
+            for i, feature_id in enumerate(feature_ids):
+                ngram_val = intra_ngram[i] if intra_ngram[i] is not None else 0.0
+                semantic_val = intra_semantic[i] if intra_semantic[i] is not None else 0.0
+                lookup[feature_id] = max(ngram_val, semantic_val)
+
+            logger.info(f"Loaded intra_feature_sim lookup: {len(lookup)} features")
+            return lookup
+
+        except Exception as e:
+            logger.warning(f"Could not load intra_feature_sim lookup: {e}")
+            return {}
+
+    # NOTE: _load_disk_cache and _save_disk_cache removed in v4.0
+    # pattern_type and best_ngram are now pre-computed in pipeline step_11
 
     def _get_default_explainers(self) -> List[str]:
         """Get all unique explainers from the dataset."""
@@ -409,29 +450,23 @@ class TableDataService:
         feature_ids: List[int]
     ) -> Optional[pl.DataFrame]:
         """
-        STEP 4: Fetch inter-feature activation similarity data.
+        STEP 4: Fetch inter-feature activation similarity data (v5.0 - FLAT DataFrame).
 
-        Transforms flat pair data into nested structure expected by downstream code.
-        Note: pattern_type is computed at runtime by _build_all_interfeature_lookups().
-
-        Returns DataFrame with:
-        - feature_id
-        - all_pairs: List(Struct) with all similar features and raw similarity values
-          - pattern_type computed at runtime from raw values
-          - No filtering - all pairs included regardless of threshold
+        Returns FLAT DataFrame (no nested aggregation) for efficient partition_by in lookup building.
+        Note: pattern_type and best_ngram fields are PRE-COMPUTED in pipeline step_11.
 
         Args:
             feature_ids: List of feature IDs to filter
 
         Returns:
-            DataFrame with inter-feature similarity or None if data not available
+            FLAT DataFrame with inter-feature similarity rows, or None if data not available
         """
         try:
             if self.data_service._interfeature_similarity_lazy is None:
                 logger.warning("Inter-feature similarity data not loaded")
                 return None
 
-            # Filter pairs where main_feature_id is in our set
+            # Filter pairs where main_feature_id is in our set - return FLAT (no group_by)
             df = self.data_service._interfeature_similarity_lazy.filter(
                 pl.col("main_feature_id").is_in(feature_ids)
             ).collect()
@@ -439,163 +474,12 @@ class TableDataService:
             if len(df) == 0:
                 return None
 
-            # Transform flat structure to nested structure expected by downstream code
-            # Group by main_feature_id and aggregate similar features into list of structs
-            # Note: pattern_type removed - computed at runtime in _build_all_interfeature_lookups
-
-            # Check which columns exist (backward compatibility)
-            available_columns = df.columns
-
-            # Build the struct fields list
-            struct_fields = [
-                pl.col("similar_feature_id"),
-                pl.col("semantic_similarity"),
-                pl.col("char_ngram_max_jaccard").alias("char_jaccard"),
-                pl.col("word_ngram_max_jaccard").alias("word_jaccard"),
-                # Placeholders for ngram position data (not in flat parquet)
-                pl.lit(None).alias("max_char_ngram"),
-                pl.lit(None).alias("max_word_ngram"),
-                pl.lit(None).alias("main_char_ngram_positions"),
-                pl.lit(None).alias("similar_char_ngram_positions"),
-                pl.lit(None).alias("main_word_ngram_positions"),
-                pl.lit(None).alias("similar_word_ngram_positions"),
-            ]
-
-            # Add per-k fields if they exist
-            if "char_ngram_per_k_jaccard" in available_columns:
-                struct_fields.append(pl.col("char_ngram_per_k_jaccard"))
-            else:
-                struct_fields.append(pl.lit(None).alias("char_ngram_per_k_jaccard"))
-
-            if "word_ngram_per_k_jaccard" in available_columns:
-                struct_fields.append(pl.col("word_ngram_per_k_jaccard"))
-            else:
-                struct_fields.append(pl.lit(None).alias("word_ngram_per_k_jaccard"))
-
-            if "top_char_ngrams_per_k" in available_columns:
-                struct_fields.append(pl.col("top_char_ngrams_per_k"))
-            else:
-                struct_fields.append(pl.lit(None).alias("top_char_ngrams_per_k"))
-
-            if "top_word_ngrams_per_k" in available_columns:
-                struct_fields.append(pl.col("top_word_ngrams_per_k"))
-            else:
-                struct_fields.append(pl.lit(None).alias("top_word_ngrams_per_k"))
-
-            result = df.group_by("main_feature_id").agg(
-                pl.struct(*struct_fields).alias("all_pairs")
-            ).rename({"main_feature_id": "feature_id"})
-
-            logger.info(f"Fetched inter-feature similarity: {len(result)} features")
-            return result
+            logger.info(f"Fetched inter-feature similarity: {len(df)} rows (flat)")
+            return df
 
         except Exception as e:
             logger.warning(f"Could not fetch inter-feature similarity: {e}")
             return None
-
-    def _build_interfeature_lookup(
-        self,
-        feature_id: int,
-        interfeature_df: Optional[pl.DataFrame]
-    ) -> Dict[int, Dict]:
-        """
-        Build a lookup dictionary for inter-feature similarity data.
-
-        Creates mapping: {similar_feature_id: {pattern_type, semantic_similarity, char_jaccard, word_jaccard, ...}}
-        Note: pattern_type is computed at runtime from raw similarity values.
-
-        Args:
-            feature_id: Main feature ID
-            interfeature_df: DataFrame with inter-feature similarity data
-
-        Returns:
-            Dictionary mapping similar feature IDs to their similarity info
-        """
-        lookup = {}
-
-        if interfeature_df is None or len(interfeature_df) == 0:
-            return lookup
-
-        # Filter for this feature
-        feature_interf = interfeature_df.filter(pl.col("feature_id") == feature_id)
-
-        if len(feature_interf) == 0:
-            return lookup
-
-        # Process all_pairs (pattern_type computed at runtime)
-        pairs_list = feature_interf["all_pairs"].to_list()[0]
-
-        if pairs_list is None:
-            return lookup
-
-        for pair in pairs_list:
-            similar_feature_id = int(pair["similar_feature_id"])
-
-            # Extract raw values
-            sem_sim = pair["semantic_similarity"]
-            char_jacc = pair["char_jaccard"]
-            word_jacc = pair["word_jaccard"]
-
-            # Compute pattern_type at runtime (inter-feature comparison)
-            pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
-
-            # Select best n-gram (longest above threshold) and extract its positions
-            # This enables more meaningful highlighting by showing longer patterns
-            char_per_k = pair.get("char_ngram_per_k_jaccard")
-            word_per_k = pair.get("word_ngram_per_k_jaccard")
-            top_char_per_k = pair.get("top_char_ngrams_per_k")
-            top_word_per_k = pair.get("top_word_ngrams_per_k")
-
-            # Get best char n-gram (longest above threshold)
-            best_char_ngram = get_best_ngram_with_positions(
-                char_per_k, top_char_per_k, is_inter=True
-            )
-            # Get best word n-gram (longest above threshold)
-            best_word_ngram = get_best_ngram_with_positions(
-                word_per_k, top_word_per_k, is_inter=True
-            )
-
-            # Extract positions from best n-gram, falling back to raw positions
-            if best_char_ngram:
-                best_char_text = best_char_ngram.get("ngram")
-                main_char_pos = best_char_ngram.get("main_occurrences", [])
-                similar_char_pos = best_char_ngram.get("similar_occurrences", [])
-            else:
-                best_char_text = pair["max_char_ngram"]
-                main_char_pos = pair.get("main_char_ngram_positions")
-                similar_char_pos = pair.get("similar_char_ngram_positions")
-
-            if best_word_ngram:
-                best_word_text = best_word_ngram.get("ngram")
-                main_word_pos = best_word_ngram.get("main_occurrences", [])
-                similar_word_pos = best_word_ngram.get("similar_occurrences", [])
-            else:
-                best_word_text = pair["max_word_ngram"]
-                main_word_pos = pair.get("main_word_ngram_positions")
-                similar_word_pos = pair.get("similar_word_ngram_positions")
-
-            # Store similarity info with position data from best n-gram
-            lookup[similar_feature_id] = {
-                "pattern_type": pattern_type,
-                "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
-                "char_jaccard": float(char_jacc) if char_jacc is not None else None,
-                "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                # N-gram text: best (longest above threshold) takes precedence
-                "max_char_ngram": best_char_text,
-                "max_word_ngram": best_word_text,
-                # Position data: from best n-gram if available
-                "main_char_ngram_positions": main_char_pos,
-                "similar_char_ngram_positions": similar_char_pos,
-                "main_word_ngram_positions": main_word_pos,
-                "similar_word_ngram_positions": similar_word_pos,
-                # Per-k data (kept for debugging/frontend flexibility)
-                "char_ngram_per_k_jaccard": char_per_k,
-                "word_ngram_per_k_jaccard": word_per_k,
-                "top_char_ngrams_per_k": top_char_per_k,
-                "top_word_ngrams_per_k": top_word_per_k,
-            }
-
-        return lookup
 
     def _compute_global_stats(
         self,
@@ -777,18 +661,14 @@ class TableDataService:
                             "semantic_similarity": interf_info["semantic_similarity"],
                             "char_jaccard": interf_info["char_jaccard"],
                             "word_jaccard": interf_info["word_jaccard"],
-                            "max_char_ngram": interf_info["max_char_ngram"],
-                            "max_word_ngram": interf_info["max_word_ngram"],
-                            "main_char_ngram_positions": interf_info.get("main_char_ngram_positions"),
-                            "similar_char_ngram_positions": interf_info.get("similar_char_ngram_positions"),
-                            "main_word_ngram_positions": interf_info.get("main_word_ngram_positions"),
-                            "similar_word_ngram_positions": interf_info.get("similar_word_ngram_positions"),
-                            # NEW: per-k Jaccard values (for longest n-gram selection)
-                            "char_ngram_per_k_jaccard": interf_info.get("char_ngram_per_k_jaccard"),
-                            "word_ngram_per_k_jaccard": interf_info.get("word_ngram_per_k_jaccard"),
-                            # NEW: per-k top n-grams
-                            "top_char_ngrams_per_k": interf_info.get("top_char_ngrams_per_k"),
-                            "top_word_ngrams_per_k": interf_info.get("top_word_ngrams_per_k"),
+                            # Unified best n-gram (word preferred over char)
+                            "best_ngram_type": interf_info.get("best_ngram_type"),
+                            "best_ngram_text": interf_info.get("best_ngram_text"),
+                            "main_ngram_positions": interf_info.get("main_ngram_positions"),
+                            "similar_ngram_positions": interf_info.get("similar_ngram_positions"),
+                            # Legacy n-gram text (kept for backward compatibility)
+                            "max_char_ngram": interf_info.get("max_char_ngram"),
+                            "max_word_ngram": interf_info.get("max_word_ngram"),
                         }
                     else:
                         # No inter-feature data, use None pattern
@@ -797,17 +677,14 @@ class TableDataService:
                             "semantic_similarity": None,
                             "char_jaccard": None,
                             "word_jaccard": None,
+                            # Unified best n-gram (null when no data)
+                            "best_ngram_type": None,
+                            "best_ngram_text": None,
+                            "main_ngram_positions": None,
+                            "similar_ngram_positions": None,
+                            # Legacy n-gram text (null when no data)
                             "max_char_ngram": None,
                             "max_word_ngram": None,
-                            "main_char_ngram_positions": None,
-                            "similar_char_ngram_positions": None,
-                            "main_word_ngram_positions": None,
-                            "similar_word_ngram_positions": None,
-                            # NEW: per-k fields (null when no data)
-                            "char_ngram_per_k_jaccard": None,
-                            "word_ngram_per_k_jaccard": None,
-                            "top_char_ngrams_per_k": None,
-                            "top_word_ngrams_per_k": None,
                         }
 
                     decoder_similarity.append(decoder_feature)
@@ -876,10 +753,14 @@ class TableDataService:
                 )
 
             if explainers_dict:
+                # Get intra_feature_sim from pre-loaded lookup
+                intra_feature_sim = self._intra_feature_sim_lookup.get(feature_id)
+
                 features.append(FeatureTableRow(
                     feature_id=feature_id,
                     decoder_similarity=decoder_similarity,
                     decoder_similarity_merge_threshold=merge_threshold,
+                    intra_feature_sim=intra_feature_sim,
                     explainers=explainers_dict
                 ))
 
@@ -1016,122 +897,75 @@ class TableDataService:
         feature_ids_set: Optional[set] = None
     ) -> Dict[int, Dict[int, Dict]]:
         """
-        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v4.0 - CACHED).
-        This replaces the per-feature _build_interfeature_lookup() which was called 14,316 times.
-        Uses class-level caching to avoid recomputation on subsequent calls.
+        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v6.0 - PARTITION_BY).
 
-        OPTIMIZATION v4.0: Added caching based on feature_ids set.
-        Expected improvement: First call ~3.5 min, subsequent calls instant.
-
-        Note: pattern_type is computed at runtime from raw similarity values.
+        Uses Polars partition_by() for efficient grouping instead of Python nested loops.
+        Expected speedup: 228s → <5s
 
         Args:
-            interfeature_df: DataFrame with interfeature similarity data
-            feature_ids_set: Optional set of feature IDs for cache key (auto-extracted if None)
+            interfeature_df: FLAT DataFrame with interfeature similarity rows
+            feature_ids_set: Optional set of feature IDs (unused, kept for API compatibility)
 
         Returns:
             Dict mapping feature_id -> {similar_feature_id -> info}
         """
-        import time
         start_time = time.time()
 
-        # Build cache key from feature IDs in the dataframe
-        if feature_ids_set is None:
-            feature_ids_set = set(interfeature_df["feature_id"].to_list())
-        cache_key = frozenset(feature_ids_set)
+        all_lookups: Dict[int, Dict[int, Dict]] = {}
 
-        # Check cache first
-        if cache_key in self._interfeature_lookup_cache:
-            logger.info(f"✅ Interfeature lookup CACHE HIT: {len(feature_ids_set)} features (instant)")
-            return self._interfeature_lookup_cache[cache_key]
+        if interfeature_df is None or len(interfeature_df) == 0:
+            return all_lookups
 
-        logger.info(f"Interfeature lookup CACHE MISS: building for {len(feature_ids_set)} features...")
+        # Use Polars partition_by for efficient grouping (returns dict of feature_id -> DataFrame)
+        partitions = interfeature_df.partition_by("main_feature_id", as_dict=True)
 
-        all_lookups = {}
+        logger.info(f"Building interfeature lookups for {len(partitions)} features using partition_by...")
 
-        # Extract columns as lists (faster than iter_rows for outer loop)
-        feature_ids = interfeature_df["feature_id"].to_list()
-        all_pairs_list = interfeature_df["all_pairs"].to_list()
+        for feature_id, partition_df in partitions.items():
+            # Convert partition to list of dicts once (efficient - Polars native)
+            rows = partition_df.to_dicts()
 
-        # ⚡ OPTIMIZED: Iterate using zip with reduced type conversions
-        for feature_id, pairs in zip(feature_ids, all_pairs_list):
-            if feature_id not in all_lookups:
-                all_lookups[feature_id] = {}
+            feature_lookup = {}
+            for row in rows:
+                similar_feature_id = row["similar_feature_id"]
 
-            if pairs is None:
-                continue
+                # Extract values with column name mapping
+                sem_sim = row.get("semantic_similarity")
+                char_jacc = row.get("char_ngram_max_jaccard")
+                word_jacc = row.get("word_ngram_max_jaccard")
 
-            for pair in pairs:
-                # ⚡ OPTIMIZATION: similar_feature_id is already int from Polars
-                similar_feature_id = pair["similar_feature_id"]
+                # Use pre-computed pattern_type
+                pattern_type = row.get("pattern_type", "None")
 
-                # ⚡ OPTIMIZATION: Reduced conditional checks - only convert if not None
-                # Most values are already correct types from Polars
-                sem_sim = pair["semantic_similarity"]
-                char_jacc = pair["char_jaccard"]
-                word_jacc = pair["word_jaccard"]
+                # Use unified best n-gram fields (word preferred over char)
+                best_ngram_type = row.get("best_ngram_type")
+                best_ngram_text = row.get("best_ngram_text")
+                best_ngram_main_pos = row.get("best_ngram_main_positions")
+                best_ngram_similar_pos = row.get("best_ngram_similar_positions")
 
-                # Compute pattern_type at runtime from raw similarity values (inter-feature comparison)
-                pattern_type = compute_pattern_type(sem_sim, char_jacc, word_jacc, is_inter=True)
+                # Legacy: Use separate best n-grams as fallback for max_char/word_ngram
+                best_char_text = row.get("best_char_ngram") or row.get("max_char_ngram")
+                best_word_text = row.get("best_word_ngram") or row.get("max_word_ngram")
 
-                # Select best n-gram (longest above threshold) and extract its positions
-                char_per_k = pair.get("char_ngram_per_k_jaccard")
-                word_per_k = pair.get("word_ngram_per_k_jaccard")
-                top_char_per_k = pair.get("top_char_ngrams_per_k")
-                top_word_per_k = pair.get("top_word_ngrams_per_k")
-
-                # Get best char n-gram (longest above threshold)
-                best_char_ngram = get_best_ngram_with_positions(
-                    char_per_k, top_char_per_k, is_inter=True
-                )
-                # Get best word n-gram (longest above threshold)
-                best_word_ngram = get_best_ngram_with_positions(
-                    word_per_k, top_word_per_k, is_inter=True
-                )
-
-                # Extract positions from best n-gram, falling back to raw positions
-                if best_char_ngram:
-                    best_char_text = best_char_ngram.get("ngram")
-                    main_char_pos = best_char_ngram.get("main_occurrences", [])
-                    similar_char_pos = best_char_ngram.get("similar_occurrences", [])
-                else:
-                    best_char_text = pair["max_char_ngram"]
-                    main_char_pos = pair.get("main_char_ngram_positions")
-                    similar_char_pos = pair.get("similar_char_ngram_positions")
-
-                if best_word_ngram:
-                    best_word_text = best_word_ngram.get("ngram")
-                    main_word_pos = best_word_ngram.get("main_occurrences", [])
-                    similar_word_pos = best_word_ngram.get("similar_occurrences", [])
-                else:
-                    best_word_text = pair["max_word_ngram"]
-                    main_word_pos = pair.get("main_word_ngram_positions")
-                    similar_word_pos = pair.get("similar_word_ngram_positions")
-
-                all_lookups[feature_id][similar_feature_id] = {
+                feature_lookup[similar_feature_id] = {
                     "pattern_type": pattern_type,
                     "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
                     "char_jaccard": float(char_jacc) if char_jacc is not None else None,
                     "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                    # N-gram text: best (longest above threshold) takes precedence
+                    # Unified best n-gram (word preferred over char)
+                    "best_ngram_type": best_ngram_type,
+                    "best_ngram_text": best_ngram_text,
+                    "main_ngram_positions": best_ngram_main_pos,
+                    "similar_ngram_positions": best_ngram_similar_pos,
+                    # Legacy n-gram text (kept for backward compatibility)
                     "max_char_ngram": best_char_text,
                     "max_word_ngram": best_word_text,
-                    # Position data: from best n-gram if available
-                    "main_char_ngram_positions": main_char_pos,
-                    "similar_char_ngram_positions": similar_char_pos,
-                    "main_word_ngram_positions": main_word_pos,
-                    "similar_word_ngram_positions": similar_word_pos,
-                    # Per-k data (kept for debugging/frontend flexibility)
-                    "char_ngram_per_k_jaccard": char_per_k,
-                    "word_ngram_per_k_jaccard": word_per_k,
-                    "top_char_ngrams_per_k": top_char_per_k,
-                    "top_word_ngrams_per_k": top_word_per_k,
                 }
 
-        # Store in cache
-        self._interfeature_lookup_cache[cache_key] = all_lookups
+            all_lookups[feature_id] = feature_lookup
+
         elapsed = time.time() - start_time
-        logger.info(f"✅ Interfeature lookup built and cached in {elapsed:.2f}s ({len(all_lookups)} features)")
+        logger.info(f"✅ Interfeature lookups built in {elapsed:.2f}s ({len(all_lookups)} features) using partition_by")
 
         return all_lookups
 

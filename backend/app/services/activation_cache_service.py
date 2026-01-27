@@ -3,6 +3,9 @@ Activation Cache Service - Pre-computed MessagePack cache for fast activation da
 
 This service pre-computes all activation data at startup, serializes it to MessagePack,
 and compresses with gzip. This reduces loading time from ~100s to ~15-25s.
+
+Version 2.0: Now uses pre-computed best n-gram fields from step_10 (activation_display.parquet).
+No longer requires pattern_utils.py.
 """
 
 import gzip
@@ -13,8 +16,6 @@ from typing import Optional
 
 import msgpack
 import polars as pl
-
-from .pattern_utils import compute_pattern_type, get_best_ngram_text, get_best_ngram_with_positions
 
 logger = logging.getLogger(__name__)
 
@@ -54,29 +55,22 @@ class ActivationCacheService:
             logger.info(f"[ActivationCacheService] Loading activation data from {self.activation_display_file}")
 
             # Load all features from parquet
-            # Note: pattern_type removed from parquet - computed at runtime
+            # pattern_type is pre-computed in parquet (since step_10 v3.0)
             # First check which columns exist (backward compatibility)
+            # Load only the columns we need (all pre-computed in step_10 v4.0+)
             all_columns = pl.read_parquet_schema(self.activation_display_file)
             columns_to_load = [
                 "feature_id",
                 "quantile_examples",
                 "semantic_similarity",
-                "char_ngram_max_jaccard",
-                "word_ngram_max_jaccard",
-                "top_char_ngram_text",
-                "top_word_ngram_text",
+                "pattern_type",  # Pre-computed in step_10
+                "best_ngram_type",  # Pre-computed in step_10 v4.0
+                "best_ngram_text",  # Pre-computed in step_10 v4.0
+                "best_ngram_size",  # Pre-computed in step_10 v4.0
             ]
 
-            # Add per-k columns if they exist
-            per_k_columns = [
-                "char_ngram_per_k_jaccard",
-                "word_ngram_per_k_jaccard",
-                "top_char_ngrams",
-                "top_word_ngrams",
-            ]
-            for col in per_k_columns:
-                if col in all_columns:
-                    columns_to_load.append(col)
+            # Filter to only columns that exist (backward compatibility)
+            columns_to_load = [c for c in columns_to_load if c in all_columns]
 
             df = pl.read_parquet(
                 self.activation_display_file,
@@ -85,77 +79,51 @@ class ActivationCacheService:
 
             load_time = time.time() - start_time
             logger.info(f"[ActivationCacheService] Loaded {len(df)} features in {load_time:.2f}s")
+            logger.info(f"[ActivationCacheService] Columns loaded: {columns_to_load}")
 
-            # Convert to dictionary format expected by frontend (OPTIMIZED v2.0)
-            # Uses to_dicts() instead of iter_rows() for ~30-40% faster iteration
+            # Convert to dictionary format expected by frontend
             serialize_start = time.time()
             examples_dict = {}
 
             # ⚡ OPTIMIZATION: Use to_dicts() for faster bulk conversion
-            # to_dicts() converts the entire DataFrame at once, which is faster than
-            # iterating with iter_rows() for 16k+ rows
             rows = df.to_dicts()
             logger.info(f"[ActivationCacheService] Converted to dicts in {time.time() - serialize_start:.2f}s")
 
             process_start = time.time()
+            has_best_ngram = "best_ngram_type" in columns_to_load
+            logger.info(f"[ActivationCacheService] Using pre-computed best_ngram: {has_best_ngram}")
+
             for row in rows:
                 feature_id = row["feature_id"]
-                # Compute pattern_type at runtime from raw similarity values
-                pattern_type = compute_pattern_type(
-                    row["semantic_similarity"],
-                    row["char_ngram_max_jaccard"],
-                    row["word_ngram_max_jaccard"]
-                )
-                # Get best n-gram WITH positions (longest above threshold)
-                best_char_ngram = get_best_ngram_with_positions(
-                    row.get("char_ngram_per_k_jaccard"),
-                    row.get("top_char_ngrams"),
-                    is_inter=False
-                )
-                best_char_ngram_text = best_char_ngram.get("ngram") if best_char_ngram else row["top_char_ngram_text"]
 
-                best_word_ngram_text = get_best_ngram_text(
-                    row.get("word_ngram_per_k_jaccard"),
-                    row.get("top_word_ngrams"),
-                    fallback_text=row["top_word_ngram_text"],
-                    is_inter=False
-                )
+                # Use pre-computed pattern_type (required in step_10 v4.0+)
+                pattern_type = row.get("pattern_type") or "None"
 
-                # Build prompt_id -> positions lookup for best char n-gram
-                char_positions_by_prompt = {}
-                if best_char_ngram and best_char_ngram.get("occurrences"):
-                    for occ in best_char_ngram["occurrences"]:
-                        pid = occ.get("prompt_id")
-                        if pid is not None:
-                            if pid not in char_positions_by_prompt:
-                                char_positions_by_prompt[pid] = []
-                            char_positions_by_prompt[pid].append({
-                                "token_position": occ.get("token_position"),
-                                "char_offset": occ.get("char_offset", 0)
-                            })
+                # Use pre-computed best n-gram fields (step_10 v4.0+)
+                ngram_type = row.get("best_ngram_type")
+                ngram_text = row.get("best_ngram_text")
+                ngram_size = row.get("best_ngram_size") or 0
 
-                # Update quantile_examples with correct positions for best n-gram
+                # Compute ngram_length from ngram_text
+                ngram_length = 0
+                if ngram_text:
+                    if ngram_type == "word":
+                        ngram_length = len(ngram_text.split())
+                    else:  # char
+                        ngram_length = len(ngram_text)
+
+                # quantile_examples already has ngram_positions pre-computed in step_10 v4.0+
                 quantile_examples = row["quantile_examples"]
-                if quantile_examples and char_positions_by_prompt:
-                    for qe in quantile_examples:
-                        pid = qe.get("prompt_id")
-                        if pid in char_positions_by_prompt:
-                            qe["char_ngram_positions"] = char_positions_by_prompt[pid]
-                        else:
-                            # No match for this prompt in best n-gram occurrences
-                            qe["char_ngram_positions"] = []
 
                 examples_dict[feature_id] = {
                     "quantile_examples": quantile_examples,
                     "semantic_similarity": row["semantic_similarity"],
-                    "char_ngram_max_jaccard": row["char_ngram_max_jaccard"],
-                    "word_ngram_max_jaccard": row["word_ngram_max_jaccard"],
-                    "top_char_ngram_text": row["top_char_ngram_text"],
-                    "top_word_ngram_text": row["top_word_ngram_text"],
                     "pattern_type": pattern_type,
-                    # Best n-gram text (longest above threshold, for display)
-                    "best_char_ngram_text": best_char_ngram_text,
-                    "best_word_ngram_text": best_word_ngram_text,
+                    # Pre-computed n-gram fields
+                    "ngram_type": ngram_type,
+                    "ngram_text": ngram_text,
+                    "ngram_length": ngram_length,
+                    "ngram_size": ngram_size,
                 }
 
             logger.info(f"[ActivationCacheService] Processed {len(examples_dict)} features in {time.time() - process_start:.2f}s")

@@ -12,13 +12,18 @@ Output:
 - interfeature_similarity.parquet: Processed display-ready data
 
 Features:
-- Raw similarity metrics (pattern_type computed at runtime by backend)
+- Pre-computed pattern_type classification (Semantic/Lexical/Both/None)
+- Pre-computed best n-grams (longest above Jaccard threshold)
+- Pre-computed n-gram positions for highlighting
 - Aggregation of metrics for display
 - Filtering to keep only relevant similarity pairs
+
+Pre-computation eliminates 255s cold start caused by runtime computation.
 """
 
 import logging
 from pathlib import Path
+from typing import Dict, List, Optional
 
 import polars as pl
 
@@ -31,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.base import BaseProcessor, load_yaml_config
 from core.logging import setup_logging
+from core.ngrams import select_best_ngram
 
 logger = logging.getLogger(__name__)
 
@@ -38,13 +44,197 @@ logger = logging.getLogger(__name__)
 class InterfeatureDisplayProcessor(BaseProcessor):
     """Process inter-feature similarity data for frontend display."""
 
+    # Default thresholds for pattern type classification (inter-feature)
+    DEFAULT_SEMANTIC_THRESHOLD = 0.6
+    DEFAULT_LEXICAL_THRESHOLD = 0.3
+    DEFAULT_NGRAM_JACCARD_THRESHOLD = 0.3
+
     @property
     def step_name(self) -> str:
         return "Step 11: Interfeature Display"
 
     @property
     def version(self) -> str:
-        return "2.0"
+        return "4.0"  # Version bump: unified best n-gram selection (word over char)
+
+    def _compute_pattern_type_row(
+        self,
+        semantic_sim: Optional[float],
+        char_jaccard: Optional[float],
+        word_jaccard: Optional[float]
+    ) -> str:
+        """Compute pattern type for a single row."""
+        has_semantic = (semantic_sim or 0) >= self.SEMANTIC_THRESHOLD
+        has_lexical = max(char_jaccard or 0, word_jaccard or 0) >= self.LEXICAL_THRESHOLD
+
+        if has_semantic and has_lexical:
+            return "Both"
+        elif has_semantic:
+            return "Semantic"
+        elif has_lexical:
+            return "Lexical"
+        return "None"
+
+    def _precompute_derived_fields(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Pre-compute pattern_type and best n-gram fields for all rows.
+
+        OPTIMIZED: Uses vectorized Polars operations for pattern_type,
+        and only processes rows with potential valid n-grams for the rest.
+
+        Adds columns:
+        - pattern_type: Categorical ("Semantic", "Lexical", "Both", "None")
+        - best_ngram_type: Categorical ('word' | 'char' | null) - unified selection
+        - best_ngram_text: Utf8 - unified n-gram text (word preferred over char)
+        - best_ngram_main_positions: List - positions in main feature
+        - best_ngram_similar_positions: List - positions in similar feature
+        """
+        logger.info("Pre-computing derived fields (pattern_type, best n-grams)...")
+
+        # Check required columns exist
+        required_cols = ["semantic_similarity", "char_ngram_max_jaccard", "word_ngram_max_jaccard"]
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            logger.warning(f"Missing required columns for pattern_type: {missing}")
+            return df.with_columns([
+                pl.lit("None").alias("pattern_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(None).alias("best_ngram_main_positions"),
+                pl.lit(None).alias("best_ngram_similar_positions"),
+            ])
+
+        total_rows = len(df)
+        logger.info(f"Processing {total_rows:,} rows...")
+
+        # ============================================================
+        # OPTIMIZATION 1: Vectorized pattern_type computation
+        # ============================================================
+        logger.info("Computing pattern_type (vectorized)...")
+
+        has_semantic = pl.col("semantic_similarity").fill_null(0) >= self.SEMANTIC_THRESHOLD
+        max_lexical = pl.max_horizontal(
+            pl.col("char_ngram_max_jaccard").fill_null(0),
+            pl.col("word_ngram_max_jaccard").fill_null(0)
+        )
+        has_lexical = max_lexical >= self.LEXICAL_THRESHOLD
+
+        result_df = df.with_columns([
+            pl.when(has_semantic & has_lexical).then(pl.lit("Both"))
+              .when(has_semantic).then(pl.lit("Semantic"))
+              .when(has_lexical).then(pl.lit("Lexical"))
+              .otherwise(pl.lit("None"))
+              .alias("pattern_type")
+        ])
+
+        # Log pattern type distribution
+        pattern_counts = result_df.group_by("pattern_type").agg(pl.count().alias("count"))
+        logger.info(f"Pattern type distribution:\n{pattern_counts}")
+
+        # ============================================================
+        # OPTIMIZATION 2: Only process rows that might have valid n-grams
+        # ============================================================
+        has_per_k = "word_ngram_per_k_jaccard" in df.columns or "char_ngram_per_k_jaccard" in df.columns
+
+        if not has_per_k:
+            logger.info("No per-k data available, skipping n-gram selection")
+            return result_df.with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(None).alias("best_ngram_main_positions"),
+                pl.lit(None).alias("best_ngram_similar_positions"),
+            ])
+
+        # Pre-filter: Only rows where max Jaccard >= threshold might have valid n-grams
+        threshold = self.NGRAM_JACCARD_THRESHOLD
+        might_have_ngram = (
+            (pl.col("char_ngram_max_jaccard").fill_null(0) >= threshold) |
+            (pl.col("word_ngram_max_jaccard").fill_null(0) >= threshold)
+        )
+
+        # Add row index for later join (use with_row_count for older Polars versions)
+        result_df = result_df.with_row_count("_row_idx")
+
+        # Filter to candidate rows only
+        candidate_df = result_df.filter(might_have_ngram)
+        candidate_count = len(candidate_df)
+        logger.info(f"Processing {candidate_count:,} candidate rows for n-gram selection (out of {total_rows:,})")
+
+        if candidate_count == 0:
+            logger.info("No candidate rows, all n-gram fields will be null")
+            return result_df.drop("_row_idx").with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(None).alias("best_ngram_main_positions"),
+                pl.lit(None).alias("best_ngram_similar_positions"),
+            ])
+
+        # Process only candidate rows
+        candidate_rows = candidate_df.to_dicts()
+
+        best_ngram_types = []
+        best_ngram_texts = []
+        best_ngram_main_positions = []
+        best_ngram_similar_positions = []
+        row_indices = []
+
+        for i, row in enumerate(candidate_rows):
+            if i % 50000 == 0 and i > 0:
+                logger.info(f"Processing candidate {i:,}/{candidate_count:,} ({100*i/candidate_count:.1f}%)")
+
+            word_per_k = row.get("word_ngram_per_k_jaccard")
+            top_word_per_k = row.get("top_word_ngrams_per_k")
+            char_per_k = row.get("char_ngram_per_k_jaccard")
+            top_char_per_k = row.get("top_char_ngrams_per_k")
+
+            best = select_best_ngram(
+                word_per_k_jaccard=word_per_k,
+                word_ngrams=top_word_per_k,
+                char_per_k_jaccard=char_per_k,
+                char_ngrams=top_char_per_k,
+                threshold=threshold
+            )
+
+            if best["type"] is not None:
+                row_indices.append(row["_row_idx"])
+                best_ngram_types.append(best["type"])
+                best_ngram_texts.append(best["text"])
+                best_ngram_main_positions.append(best["main_positions"])
+                best_ngram_similar_positions.append(best["similar_positions"])
+
+        logger.info(f"Found {len(row_indices):,} rows with valid n-grams")
+
+        # Create DataFrame with n-gram results
+        if row_indices:
+            ngram_df = pl.DataFrame({
+                "_row_idx": row_indices,
+                "best_ngram_type": best_ngram_types,
+                "best_ngram_text": best_ngram_texts,
+                "best_ngram_main_positions": best_ngram_main_positions,
+                "best_ngram_similar_positions": best_ngram_similar_positions,
+            }).with_columns(pl.col("_row_idx").cast(pl.UInt32))  # Match type from with_row_count
+
+            # Join back to main DataFrame
+            result_df = result_df.join(ngram_df, on="_row_idx", how="left")
+        else:
+            result_df = result_df.with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(None).alias("best_ngram_main_positions"),
+                pl.lit(None).alias("best_ngram_similar_positions"),
+            ])
+
+        # Drop temporary index and cast types
+        result_df = result_df.drop("_row_idx").with_columns([
+            pl.col("pattern_type").cast(pl.Categorical),
+            pl.col("best_ngram_type").cast(pl.Categorical),
+        ])
+
+        # Log n-gram type distribution
+        ngram_counts = result_df.group_by("best_ngram_type").agg(pl.count().alias("count"))
+        logger.info(f"best_ngram_type distribution:\n{ngram_counts}")
+
+        return result_df
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -61,6 +251,15 @@ class InterfeatureDisplayProcessor(BaseProcessor):
 
         # Output path
         self.output_path = self._resolve_path(f"{output_dir}/interfeature_similarity.parquet")
+
+        # Load pattern_type thresholds from config (with defaults)
+        parameters = self.config.get("parameters", {})
+        thresholds = parameters.get("pattern_type_thresholds", {})
+        self.SEMANTIC_THRESHOLD = thresholds.get("semantic", self.DEFAULT_SEMANTIC_THRESHOLD)
+        self.LEXICAL_THRESHOLD = thresholds.get("lexical", self.DEFAULT_LEXICAL_THRESHOLD)
+        self.NGRAM_JACCARD_THRESHOLD = thresholds.get("ngram_jaccard", self.DEFAULT_NGRAM_JACCARD_THRESHOLD)
+
+        logger.info(f"Pattern type thresholds: semantic={self.SEMANTIC_THRESHOLD}, lexical={self.LEXICAL_THRESHOLD}, ngram_jaccard={self.NGRAM_JACCARD_THRESHOLD}")
 
         # Statistics tracking
         self.stats = {
@@ -101,19 +300,16 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 pl.col("all_pairs").struct.field("decoder_similarity").alias("decoder_similarity_score"),
                 pl.col("all_pairs").struct.field("similarity_source").alias("source_type"),
                 pl.col("all_pairs").struct.field("semantic_similarity"),
-                # EXISTING: per-k-max Jaccard
+                # per-k-max Jaccard
                 pl.col("all_pairs").struct.field("char_ngram_max_jaccard"),
                 pl.col("all_pairs").struct.field("word_ngram_max_jaccard"),
-                pl.col("all_pairs").struct.field("main_prompt_ids"),
-                pl.col("all_pairs").struct.field("similar_prompt_ids"),
-                pl.col("all_pairs").struct.field("num_comparisons"),
-                # EXISTING: overall top n-grams
+                # overall top n-grams
                 pl.col("all_pairs").struct.field("max_char_ngram"),
                 pl.col("all_pairs").struct.field("max_word_ngram"),
-                # NEW: per-k Jaccard values (for longest n-gram selection)
+                # per-k Jaccard values (for longest n-gram selection)
                 pl.col("all_pairs").struct.field("char_ngram_per_k_jaccard"),
                 pl.col("all_pairs").struct.field("word_ngram_per_k_jaccard"),
-                # NEW: per-k top n-grams
+                # per-k top n-grams
                 pl.col("all_pairs").struct.field("top_char_ngrams_per_k"),
                 pl.col("all_pairs").struct.field("top_word_ngrams_per_k"),
                 # Position data for highlighting
@@ -168,11 +364,11 @@ class InterfeatureDisplayProcessor(BaseProcessor):
 
         logger.info(f"Available similarity columns: {similarity_columns}")
 
-        # pattern_type is now computed at runtime by backend
-        # (allows dynamic threshold adjustment without regenerating parquet)
-        result_df = self.raw_df
+        # Pre-compute pattern_type and best n-gram fields
+        # This eliminates the 255s cold start caused by runtime computation
+        result_df = self._precompute_derived_fields(self.raw_df)
 
-        # Select output columns (pattern_type removed - computed at runtime)
+        # Select output columns (including pre-computed pattern_type and best n-grams)
         output_columns = [
             "main_feature_id",
             "similar_feature_id",
@@ -185,22 +381,16 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "char_ngram_max_jaccard",
             "word_ngram_max_jaccard",
             "semantic_similarity",
-            # per-k fields
-            "char_ngram_per_k_jaccard",
-            "word_ngram_per_k_jaccard",
-            "top_char_ngrams_per_k",
-            "top_word_ngrams_per_k",
-            # N-gram text and metadata
+            # Pre-computed derived fields (eliminates runtime computation)
+            "pattern_type",
+            # Unified best n-gram fields (word preferred over char)
+            "best_ngram_type",
+            "best_ngram_text",
+            "best_ngram_main_positions",
+            "best_ngram_similar_positions",
+            # N-gram text (raw max values - kept for fallback)
             "max_char_ngram",
             "max_word_ngram",
-            "main_prompt_ids",
-            "similar_prompt_ids",
-            "num_comparisons",
-            # Position data for highlighting
-            "main_char_ngram_positions",
-            "similar_char_ngram_positions",
-            "main_word_ngram_positions",
-            "similar_word_ngram_positions",
         ]
 
         for col in optional_columns:
@@ -254,17 +444,16 @@ class InterfeatureDisplayProcessor(BaseProcessor):
             "char_ngram_max_jaccard": pl.Float32,
             "word_ngram_max_jaccard": pl.Float32,
             "semantic_similarity": pl.Float32,
-            # N-gram text and metadata
+            # Pre-computed derived fields
+            "pattern_type": pl.Categorical,
+            # Unified best n-gram fields (word preferred over char)
+            "best_ngram_type": pl.Categorical,
+            "best_ngram_text": pl.Utf8,
+            "best_ngram_main_positions": pl.List(pl.Struct({})),
+            "best_ngram_similar_positions": pl.List(pl.Struct({})),
+            # N-gram text (raw max values - kept for fallback)
             "max_char_ngram": pl.Utf8,
             "max_word_ngram": pl.Utf8,
-            "main_prompt_ids": pl.List(pl.Int64),
-            "similar_prompt_ids": pl.List(pl.Int64),
-            "num_comparisons": pl.Int64,
-            # Position data for highlighting
-            "main_char_ngram_positions": pl.List(pl.Struct({})),
-            "similar_char_ngram_positions": pl.List(pl.Struct({})),
-            "main_word_ngram_positions": pl.List(pl.Struct({})),
-            "similar_word_ngram_positions": pl.List(pl.Struct({})),
         }
         return pl.DataFrame(schema=schema)
 

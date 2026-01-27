@@ -190,30 +190,31 @@ class InterFeatureSimilarityInfo(BaseModel):
         le=1.0,
         description="Word n-gram Jaccard similarity"
     )
+    # Unified best n-gram fields (word preferred over char)
+    best_ngram_type: Optional[str] = Field(
+        None,
+        description="Type of best n-gram: 'word' or 'char'"
+    )
+    best_ngram_text: Optional[str] = Field(
+        None,
+        description="Best n-gram text (word preferred over char)"
+    )
+    main_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="N-gram positions in main feature"
+    )
+    similar_ngram_positions: Optional[List[Dict]] = Field(
+        None,
+        description="N-gram positions in similar feature"
+    )
+    # Legacy n-gram text (kept for backward compatibility)
     max_char_ngram: Optional[str] = Field(
         None,
-        description="Most frequent character n-gram"
+        description="Most frequent character n-gram (legacy)"
     )
     max_word_ngram: Optional[str] = Field(
         None,
-        description="Most frequent word n-gram"
-    )
-    # NEW: Position tracking fields (V4.0)
-    main_char_ngram_positions: Optional[List[Dict]] = Field(
-        None,
-        description="Character n-gram positions in main feature"
-    )
-    similar_char_ngram_positions: Optional[List[Dict]] = Field(
-        None,
-        description="Character n-gram positions in similar feature"
-    )
-    main_word_ngram_positions: Optional[List[Dict]] = Field(
-        None,
-        description="Word n-gram positions in main feature"
-    )
-    similar_word_ngram_positions: Optional[List[Dict]] = Field(
-        None,
-        description="Word n-gram positions in similar feature"
+        description="Most frequent word n-gram (legacy)"
     )
 
 class DecoderSimilarFeature(BaseModel):
@@ -292,6 +293,10 @@ class FeatureTableRow(BaseModel):
         None,
         description="Merge threshold value for decoder similarity (aggregate metric for grouping/filtering)"
     )
+    intra_feature_sim: Optional[float] = Field(
+        None,
+        description="Intra-feature similarity: max(intra_ngram_jaccard, intra_semantic_sim) from svm_feature_metrics"
+    )
     explainers: Dict[str, ExplainerScoreData] = Field(
         ...,
         description="Scores for each explainer (llama, qwen, openai)"
@@ -342,6 +347,11 @@ class ActivationPair(BaseModel):
     token_position: int = Field(..., description="Token index in the prompt")
     activation_value: float = Field(..., description="Activation strength at this position")
 
+class NgramPosition(BaseModel):
+    """Position of the selected best n-gram (unified format)"""
+    token_position: int = Field(..., description="Token index in the prompt")
+    char_offset: Optional[int] = Field(None, description="Character offset within the normalized token (None for word n-grams)")
+
 class QuantileExample(BaseModel):
     """Single activation example from a quantile"""
     quantile_index: int = Field(..., ge=0, le=3, description="Quantile group (0-3) based on activation strength")
@@ -350,13 +360,9 @@ class QuantileExample(BaseModel):
     activation_pairs: List[ActivationPair] = Field(..., description="List of (token_position, activation_value) pairs")
     max_activation: float = Field(..., description="Maximum activation value for this example")
     max_activation_position: int = Field(..., description="Token position of maximum activation")
-    char_ngram_positions: List[CharNgramPosition] = Field(
-        ...,
-        description="List of {token_position, char_offset} where top char n-gram appears (enables precise character-level highlighting within token)"
-    )
-    word_ngram_positions: List[int] = Field(
-        ...,
-        description="Token positions where top word n-gram starts (for word-level highlighting)"
+    ngram_positions: List[NgramPosition] = Field(
+        default_factory=list,
+        description="List of {token_position, char_offset} where the selected best n-gram appears (unified format)"
     )
 
 class ActivationExampleData(BaseModel):
@@ -383,15 +389,24 @@ class ActivationExampleData(BaseModel):
     )
     top_char_ngram_text: Optional[str] = Field(
         None,
-        description="The actual character n-gram text (e.g., 'ing')"
+        description="The actual character n-gram text (legacy, see best_char_ngram_text)"
     )
     top_word_ngram_text: Optional[str] = Field(
         None,
-        description="The actual word n-gram text (e.g., 'observation')"
+        description="The actual word n-gram text (legacy, see best_word_ngram_text)"
     )
     pattern_type: str = Field(
         ...,
         description="Pattern classification: Semantic, Lexical, Both, or None (uses char OR word Jaccard > 0.3)"
+    )
+    # Best n-gram text (longest above threshold, pre-computed in step_10)
+    best_char_ngram_text: Optional[str] = Field(
+        None,
+        description="Best character n-gram text (longest above Jaccard threshold)"
+    )
+    best_word_ngram_text: Optional[str] = Field(
+        None,
+        description="Best word n-gram text (longest above Jaccard threshold)"
     )
 
 class ActivationExamplesResponse(BaseModel):

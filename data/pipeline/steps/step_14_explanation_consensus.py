@@ -402,23 +402,23 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 else:
                     activation_sim = 0.0
 
-                # Calculate weighted quality score
-                avg_quality = explainer_quality_scores.get(explainer_names[exp_idx], 0)
-                weighted_quality_score = avg_quality * phrase_weights[global_idx]
+                # Get quality score for this phrase's explainer
+                quality_score = explainer_quality_scores.get(explainer_names[exp_idx], 0)
 
                 phrase_details.append({
                     "text": phrase_text,
                     "explainer": explainer_names[exp_idx],
                     "phrase_weight": phrase_weights[global_idx],
-                    "weighted_quality_score": weighted_quality_score,
+                    "quality_score": quality_score,
                     "distance_to_medoid": distance_to_medoid,
                     "activation_similarity": activation_sim,
                     "is_outlier": is_outlier,
                 })
 
-            # Calculate cluster-level weighted quality score (sum of phrase scores)
-            cluster_weighted_quality = sum(
-                p["weighted_quality_score"] for p in phrase_details
+            # Calculate cluster-level average quality score (simple average of all phrases)
+            cluster_avg_quality = (
+                sum(p["quality_score"] for p in phrase_details) / len(phrase_details)
+                if phrase_details else 0.0
             )
 
             clusters.append({
@@ -427,7 +427,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 "medoid_explainer": medoid_explainer,
                 "medoid_activation_similarity": medoid_activation_sim,
                 "cluster_score": float(cluster_score),
-                "cluster_weighted_quality_score": float(cluster_weighted_quality),
+                "cluster_avg_quality_score": float(cluster_avg_quality),
                 "cluster_coherence": coherence,
                 "phrases": phrase_details,
             })
@@ -496,9 +496,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
         # Single phrase outlier: cluster_score = its phrase_weight
         cluster_score = phrase_weight
 
-        # Calculate weighted quality score
-        avg_quality = explainer_quality_scores.get(explainer_names[exp_idx], 0)
-        weighted_quality_score = avg_quality * phrase_weight
+        # Get quality score for this phrase's explainer
+        quality_score = explainer_quality_scores.get(explainer_names[exp_idx], 0)
 
         return {
             "feature_id": feature_id,
@@ -512,13 +511,13 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 "medoid_explainer": explainer_names[exp_idx],
                 "medoid_activation_similarity": activation_sim,
                 "cluster_score": cluster_score,
-                "cluster_weighted_quality_score": float(weighted_quality_score),
+                "cluster_avg_quality_score": float(quality_score),  # Single phrase = its quality
                 "cluster_coherence": 1.0,
                 "phrases": [{
                     "text": phrase_text,
                     "explainer": explainer_names[exp_idx],
                     "phrase_weight": phrase_weight,
-                    "weighted_quality_score": weighted_quality_score,
+                    "quality_score": quality_score,
                     "distance_to_medoid": 0.0,
                     "activation_similarity": activation_sim,
                     "is_outlier": True,
@@ -588,7 +587,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             pl.Field("text", pl.Utf8),
             pl.Field("explainer", pl.Utf8),
             pl.Field("phrase_weight", pl.Float32),
-            pl.Field("weighted_quality_score", pl.Float32),
+            pl.Field("quality_score", pl.Float32),
             pl.Field("distance_to_medoid", pl.Float32),
             pl.Field("activation_similarity", pl.Float32),
             pl.Field("is_outlier", pl.Boolean),
@@ -600,7 +599,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             pl.Field("medoid_explainer", pl.Utf8),
             pl.Field("medoid_activation_similarity", pl.Float32),
             pl.Field("cluster_score", pl.Float32),
-            pl.Field("cluster_weighted_quality_score", pl.Float32),
+            pl.Field("cluster_avg_quality_score", pl.Float32),
             pl.Field("cluster_coherence", pl.Float32),
             pl.Field("phrases", pl.List(phrase_struct)),
         ])

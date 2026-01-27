@@ -90,7 +90,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
 
     const plotData = consensus.items.map((item, idx) => ({
       x: item.is_outlier ? (item.phrase_weight ?? 0) : (item.cluster_score ?? 0),
-      y: item.weighted_quality_score ?? 0,
+      y: item.is_outlier ? (item.quality_score ?? 0) : (item.avg_quality_score ?? 0),
       item,
       idx
     }))
@@ -185,16 +185,16 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {/* Phrase text */}
               <span className="consensus-item__phrase">{item.phrase}</span>
 
-              {/* Cluster badge - show cluster_score + weighted_quality */}
+              {/* Cluster badge - show cluster_score + avg_quality */}
               {!item.is_outlier && (
                 <span className="consensus-item__badge">
-                  {(item.cluster_score ?? 0).toFixed(2)} | Q:{(item.weighted_quality_score ?? 0).toFixed(2)}
+                  {(item.cluster_score ?? 0).toFixed(2)} | Q:{(item.avg_quality_score ?? 0).toFixed(2)}
                 </span>
               )}
-              {/* Outlier badge - show phrase_weight + weighted_quality */}
+              {/* Outlier badge - show phrase_weight + quality */}
               {item.is_outlier && (
                 <span className="consensus-item__badge consensus-item__badge--outlier">
-                  {(item.phrase_weight ?? 0).toFixed(2)} | Q:{(item.weighted_quality_score ?? 0).toFixed(2)}
+                  {(item.phrase_weight ?? 0).toFixed(2)} | Q:{(item.quality_score ?? 0).toFixed(2)}
                 </span>
               )}
             </div>
@@ -221,7 +221,10 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               ? tooltipData.item.phrase_weight
               : tooltipData.item.cluster_score
             )?.toFixed(2) ?? '0.00'}</span>
-            <span>Wtd. Quality: {tooltipData.item.weighted_quality_score?.toFixed(2) ?? '0.00'}</span>
+            <span>Avg Quality: {(tooltipData.item.is_outlier
+              ? tooltipData.item.quality_score
+              : tooltipData.item.avg_quality_score
+            )?.toFixed(2) ?? '0.00'}</span>
           </div>
           {/* Show all phrases for clusters */}
           {!tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
@@ -229,9 +232,9 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
                 <span key={pIdx} className="consensus-tooltip__phrase">
                   {phrase.text}
-                  {phrase.weighted_quality_score !== undefined && (
+                  {phrase.quality_score !== undefined && (
                     <span className="consensus-tooltip__phrase-weight">
-                      (Q: {phrase.weighted_quality_score.toFixed(2)})
+                      (Q: {phrase.quality_score.toFixed(2)})
                     </span>
                   )}
                 </span>

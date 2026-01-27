@@ -269,8 +269,8 @@ export interface CauseTagMetricConfig {
 export const CAUSE_TAG_METRICS: Record<string, CauseTagMetricConfig> = {
   'noisy-activation': {
     // Noisy Activation: High intra-feature similarity + high explanation semantic similarity
-    // Metrics: Max(char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity) from ActivationExamples
-    //          + Avg(pairwise semantic_similarity) from ExplainerScoreData
+    // intra_feature_sim = max(intra_ngram_jaccard, intra_semantic_sim) from backend
+    // explanation_semantic_sim = Avg(pairwise semantic_similarity) from ExplainerScoreData
     // Final score = average of the two components
     metrics: ['intra_feature_similarity', 'explanation_semantic_similarity'],
     aggregation: 'average',

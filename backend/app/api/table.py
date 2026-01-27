@@ -10,32 +10,31 @@ from typing import Optional
 
 from app.models.requests import TableDataRequest
 from app.models.responses import FeatureTableDataResponse
-from app.services.data_service import DataService
 from app.services.table_data_service import TableDataService
-from app.services.alignment_service import AlignmentService
 
 router = APIRouter()
 
-
-def get_data_service() -> DataService:
-    """Dependency to get the data service instance."""
-    from app.main import data_service
-    if not data_service:
-        raise HTTPException(status_code=503, detail="Data service not initialized")
-    return data_service
+# Module-level singleton for TableDataService (set at startup)
+_table_service: Optional[TableDataService] = None
 
 
-def get_alignment_service() -> Optional[AlignmentService]:
-    """Dependency to get the alignment service instance."""
-    from app.main import alignment_service
-    return alignment_service  # Can be None if initialization failed
+def set_table_service(service: TableDataService) -> None:
+    """Set the table service instance (called at startup)."""
+    global _table_service
+    _table_service = service
+
+
+def get_table_service() -> TableDataService:
+    """Dependency to get the table service instance."""
+    if not _table_service:
+        raise HTTPException(status_code=503, detail="Table service not initialized")
+    return _table_service
 
 
 @router.post("/table-data", response_model=FeatureTableDataResponse)
 async def get_table_data(
     request: TableDataRequest,
-    data_service: DataService = Depends(get_data_service),
-    alignment_service: Optional[AlignmentService] = Depends(get_alignment_service)
+    table_service: TableDataService = Depends(get_table_service)
 ) -> FeatureTableDataResponse:
     """
     Get feature-level score data for table visualization.
@@ -53,8 +52,7 @@ async def get_table_data(
 
     Args:
         request: TableDataRequest with filters
-        data_service: Injected DataService instance
-        alignment_service: Injected AlignmentService instance (optional)
+        table_service: Injected TableDataService singleton
 
     Returns:
         FeatureTableDataResponse with features and metadata
@@ -63,10 +61,7 @@ async def get_table_data(
         HTTPException: 400 for invalid filters, 500 for server errors
     """
     try:
-        # Create table service instance with alignment service
-        table_service = TableDataService(data_service, alignment_service)
-
-        # Delegate to service layer
+        # Delegate to singleton service (no per-request instantiation)
         return await table_service.get_table_data(request.filters)
 
     except ValueError as e:

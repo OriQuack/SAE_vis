@@ -103,7 +103,7 @@ class ConsensusService:
                         "phrase": phrase.get("text", ""),
                         "explainer": phrase.get("explainer", ""),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0)),
-                        "weighted_quality_score": float(phrase.get("weighted_quality_score", 0.0)),
+                        "quality_score": float(phrase.get("quality_score", 0.0)),
                         "is_outlier": True,
                         "phrase_weight": float(phrase.get("phrase_weight", 0.0))
                     })
@@ -123,20 +123,20 @@ class ConsensusService:
                         "text": phrase.get("text", ""),
                         "explainer": phrase.get("explainer", ""),
                         "phrase_weight": float(phrase.get("phrase_weight", 0.0)),
-                        "weighted_quality_score": float(phrase.get("weighted_quality_score", 0.0)),
+                        "quality_score": float(phrase.get("quality_score", 0.0)),
                         "distance_to_medoid": float(phrase.get("distance_to_medoid", 0.0)),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0))
                     })
 
-                # Get cluster-level weighted_quality_score (sum of phrase scores)
-                cluster_weighted_quality = float(cluster.get("cluster_weighted_quality_score", 0.0))
+                # Get cluster-level average quality score
+                cluster_avg_quality = float(cluster.get("cluster_avg_quality_score", 0.0))
 
                 items.append({
                     "cluster_id": cluster_id,
                     "phrase": medoid_phrase,
                     "explainer": medoid_explainer,
                     "activation_similarity": medoid_activation_sim,
-                    "weighted_quality_score": cluster_weighted_quality,
+                    "avg_quality_score": cluster_avg_quality,
                     "is_outlier": False,
                     "cluster_size": len(cluster_phrases),
                     "cluster_score": cluster_score,

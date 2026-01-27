@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-27T02:31:49.636330",
+  "created_at": "2026-01-27T20:06:55.434238",
   "step_name": "Step 14: Explanation Consensus",
   "script_version": "1.1",
   "total_rows": 16384,
@@ -9,7 +9,7 @@
     "consensus_score": "Float32",
     "num_clusters": "UInt16",
     "num_outliers": "UInt16",
-    "clusters": "List(Struct([Field('cluster_id', Int64), Field('medoid_phrase', Utf8), Field('medoid_explainer', Utf8), Field('medoid_activation_similarity', Float64), Field('cluster_score', Float64), Field('cluster_weighted_quality_score', Float64), Field('cluster_coherence', Float64), Field('phrases', List(Struct([Field('text', Utf8), Field('explainer', Utf8), Field('phrase_weight', Float64), Field('weighted_quality_score', Float64), Field('distance_to_medoid', Float64), Field('activation_similarity', Float64), Field('is_outlier', Int64)])))]))"
+    "clusters": "List(Struct([Field('cluster_id', Int64), Field('medoid_phrase', Utf8), Field('medoid_explainer', Utf8), Field('medoid_activation_similarity', Float64), Field('cluster_score', Float64), Field('cluster_avg_quality_score', Float64), Field('cluster_coherence', Float64), Field('phrases', List(Struct([Field('text', Utf8), Field('explainer', Utf8), Field('phrase_weight', Float64), Field('quality_score', Float64), Field('distance_to_medoid', Float64), Field('activation_similarity', Float64), Field('is_outlier', Int64)])))]))"
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {

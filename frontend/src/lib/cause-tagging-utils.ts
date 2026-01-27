@@ -3,7 +3,7 @@
 // Functions for auto-tagging features in Stage 3 based on metric thresholds
 // ============================================================================
 
-import type { FeatureTableRow, ExplainerScoreData, ActivationExamples, ScorerScoreSet } from '../types'
+import type { FeatureTableRow, ExplainerScoreData, ScorerScoreSet } from '../types'
 import { isUserConfirmed, type SelectionSource } from './tagging-hooks/useCommitHistory'
 
 // ============================================================================
@@ -78,31 +78,12 @@ function averageValues(values: (number | null | undefined)[]): number | null {
 // ============================================================================
 
 /**
- * Calculate intra-feature similarity from ActivationExamples
- * Returns Max(char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity)
+ * Calculate intra-feature similarity from FeatureTableRow
+ * Returns intra_feature_sim = max(intra_ngram_jaccard, intra_semantic_sim)
+ * This value is pre-computed in the backend from svm_feature_metrics.parquet.
  */
-export function calculateIntraFeatureSimilarity(activation: ActivationExamples | null | undefined): number | null {
-  if (!activation) return null
-
-  const values: number[] = []
-
-  // Add char n-gram jaccard if available
-  if (activation.char_ngram_max_jaccard !== null && activation.char_ngram_max_jaccard !== undefined) {
-    values.push(activation.char_ngram_max_jaccard)
-  }
-
-  // Add word n-gram jaccard if available
-  if (activation.word_ngram_max_jaccard !== null && activation.word_ngram_max_jaccard !== undefined) {
-    values.push(activation.word_ngram_max_jaccard)
-  }
-
-  // Add semantic similarity if available
-  if (activation.semantic_similarity !== null && activation.semantic_similarity !== undefined) {
-    values.push(activation.semantic_similarity)
-  }
-
-  if (values.length === 0) return null
-  return Math.max(...values)
+export function calculateIntraFeatureSimilarity(row: FeatureTableRow | null | undefined): number | null {
+  return row?.intra_feature_sim ?? null
 }
 
 /**
@@ -250,10 +231,10 @@ function calculateFuzzScore(
 
 /**
  * Calculate all cause metric scores for a single feature
+ * Note: intra_feature_sim is now read directly from FeatureTableRow (backend-computed)
  */
 export function calculateCauseMetricScores(
-  row: FeatureTableRow | null | undefined,
-  activation: ActivationExamples | null | undefined
+  row: FeatureTableRow | null | undefined
 ): CauseMetricScores {
   if (!row) {
     return {
@@ -271,7 +252,7 @@ export function calculateCauseMetricScores(
   const explainers = row.explainers
 
   // Calculate Noisy Activation score components
-  const intraFeatureSim = calculateIntraFeatureSimilarity(activation)
+  const intraFeatureSim = calculateIntraFeatureSimilarity(row)
   const explainerSemanticSim = calculateExplainerSemanticSimilarity(explainers)
   const noisyActivation = averageValues([intraFeatureSim, explainerSemanticSim])
 
@@ -334,14 +315,12 @@ export function determineCauseTag(scores: CauseMetricScores): CauseCategory {
  * Features remain untagged (unsure) until manually tagged or SVM-assigned.
  *
  * @param featureIds - Set of feature IDs to calculate scores for
- * @param tableData - Table data containing feature rows
- * @param activationExamples - Map of feature ID to activation examples
+ * @param tableData - Table data containing feature rows (includes intra_feature_sim from backend)
  * @returns Map of feature_id to CauseMetricScores
  */
 export function calculateMetricScoresOnly(
   featureIds: Set<number>,
-  tableData: { features: FeatureTableRow[] } | null,
-  activationExamples: Record<number, ActivationExamples> | null
+  tableData: { features: FeatureTableRow[] } | null
 ): Map<number, CauseMetricScores> {
   const causeScores = new Map<number, CauseMetricScores>()
 
@@ -359,8 +338,7 @@ export function calculateMetricScoresOnly(
   // Calculate scores for each feature (NO tag assignment)
   for (const featureId of featureIds) {
     const row = featureMap.get(featureId)
-    const activation = activationExamples?.[featureId] ?? null
-    const scores = calculateCauseMetricScores(row, activation)
+    const scores = calculateCauseMetricScores(row)
     causeScores.set(featureId, scores)
   }
 
@@ -373,14 +351,12 @@ export function calculateMetricScoresOnly(
  * Auto-tag all features based on their metric scores
  *
  * @param featureIds - Set of feature IDs to tag
- * @param tableData - Table data containing feature rows
- * @param activationExamples - Map of feature ID to activation examples
+ * @param tableData - Table data containing feature rows (includes intra_feature_sim from backend)
  * @returns AutoTagResult with cause states, sources, and scores
  */
 export function autoTagFeatures(
   featureIds: Set<number>,
-  tableData: { features: FeatureTableRow[] } | null,
-  activationExamples: Record<number, ActivationExamples> | null
+  tableData: { features: FeatureTableRow[] } | null
 ): AutoTagResult {
   const causeStates = new Map<number, CauseCategory>()
   const causeSources = new Map<number, 'predicted'>()
@@ -400,10 +376,9 @@ export function autoTagFeatures(
   // Process each feature
   for (const featureId of featureIds) {
     const row = featureMap.get(featureId)
-    const activation = activationExamples?.[featureId] ?? null
 
     // Calculate scores
-    const scores = calculateCauseMetricScores(row, activation)
+    const scores = calculateCauseMetricScores(row)
 
     // Determine tag
     const category = determineCauseTag(scores)

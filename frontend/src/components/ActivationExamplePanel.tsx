@@ -29,62 +29,43 @@ interface ActivationExampleProps {
 }
 
 /**
- * Determine which n-gram type to use for underlining based on Jaccard scores
- * Shows underlines if position data exists, regardless of pattern_type
+ * Check if a token should be highlighted and get char offset (unified logic)
+ * Backend decides word vs char; frontend just uses the unified positions
  */
-const getNgramUnderlineType = (examples: ActivationExamples): 'char' | 'word' | null => {
-  const charJaccard = examples.char_ngram_max_jaccard || 0
-  const wordJaccard = examples.word_ngram_max_jaccard || 0
-
-  if (charJaccard === 0 && wordJaccard === 0) return null
-  return charJaccard >= wordJaccard ? 'char' : 'word'
-}
-
-/**
- * Check if a token should be underlined (word-level) based on n-gram positions
- */
-const shouldUnderlineWordToken = (
+const getTokenHighlight = (
   tokenPosition: number,
   example: QuantileExample
-): boolean => {
-  return example.word_ngram_positions?.includes(tokenPosition) || false
-}
-
-/**
- * Get the character offset for char-level n-gram highlighting
- * Returns the char_offset if this token has a char n-gram, null otherwise
- */
-const getCharNgramOffset = (
-  tokenPosition: number,
-  example: QuantileExample
-): number | null => {
-  const position = example.char_ngram_positions?.find(
-    pos => pos.token_position === tokenPosition
+): { highlight: boolean; charOffset: number | null } => {
+  const pos = example.ngram_positions?.find(
+    p => p.token_position === tokenPosition
   )
-  return position !== undefined ? position.char_offset : null
+  if (pos) {
+    return { highlight: true, charOffset: pos.char_offset }
+  }
+  return { highlight: false, charOffset: null }
 }
 
 /**
  * Render token content with optional character-level highlighting
- * For char-level n-grams, splits the token to highlight only the matching substring
+ * For char-level n-grams (charOffset !== null), splits the token to highlight substring
+ * For word-level n-grams (charOffset === null), the whole token is highlighted via CSS class
  */
 const renderTokenContent = (
   text: string,
   isNewline: boolean | undefined,
-  underlineType: 'char' | 'word' | null,
   charOffset: number | null,
-  charNgramLength: number
+  ngramLength: number
 ): React.ReactNode => {
   // Handle newline tokens
   if (isNewline) {
     return <span className="newline-symbol">{getWhitespaceSymbol(text)}</span>
   }
 
-  // For char-level highlighting, split the token into before/highlight/after
-  if (underlineType === 'char' && charOffset !== null && charNgramLength > 0) {
+  // For char-level highlighting (charOffset !== null), split the token
+  if (charOffset !== null && ngramLength > 0) {
     const before = text.slice(0, charOffset)
-    const highlight = text.slice(charOffset, charOffset + charNgramLength)
-    const after = text.slice(charOffset + charNgramLength)
+    const highlight = text.slice(charOffset, charOffset + ngramLength)
+    const after = text.slice(charOffset + ngramLength)
 
     return (
       <>
@@ -95,7 +76,7 @@ const renderTokenContent = (
     )
   }
 
-  // Default: return text as-is
+  // Default: return text as-is (word n-grams use CSS class on entire token)
   return text
 }
 
@@ -198,35 +179,31 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   const CHAR_WIDTH = 8
   const maxLength = useMemo(() => Math.floor(containerWidth / CHAR_WIDTH), [containerWidth])
 
-  // Determine which n-gram type to underline (char vs word)
-  // Only compute if we have examples
-  const underlineType = useMemo(() => hasExamples ? getNgramUnderlineType(examples) : null, [examples, hasExamples])
-
-  // Get the length of the character n-gram for precise highlighting
-  // Prefer best (longest above threshold), fall back to top (overall most frequent)
-  const charNgramLength = useMemo(() => {
-    const text = examples.best_char_ngram_text ?? examples.top_char_ngram_text
-    return text?.length || 0
-  }, [examples.best_char_ngram_text, examples.top_char_ngram_text])
+  // Get the n-gram length for precise highlighting (backend provides this)
+  // For char n-grams: number of characters; for word n-grams: not used (whole token highlighted)
+  const ngramLength = useMemo(() => {
+    if (!hasExamples) return 0
+    // For char n-grams, ngram_length is the character count
+    // For word n-grams, we don't need the length (whole token is highlighted via CSS)
+    return examples.ngram_type === 'char' ? examples.ngram_length : 0
+  }, [examples?.ngram_type, examples?.ngram_length, hasExamples])
 
   // Group examples by quantile_index (memoized for performance)
-  // Prioritize examples with positions for the winning type
+  // Prioritize examples with n-gram positions
   const quantileGroups = useMemo(() => {
     if (!hasExamples) return []
     const groups = Array.from({ length: numQuantiles }, (_, qIndex) => {
       const filtered = examples.quantile_examples.filter(ex => ex.quantile_index === qIndex)
-      // Sort to put examples with winning type positions first
+      // Sort to put examples with positions first
       const sorted = [...filtered].sort((a, b) => {
-        const aHasPositions = (underlineType === 'char' && a.char_ngram_positions?.length > 0) ||
-                             (underlineType === 'word' && a.word_ngram_positions?.length > 0)
-        const bHasPositions = (underlineType === 'char' && b.char_ngram_positions?.length > 0) ||
-                             (underlineType === 'word' && b.word_ngram_positions?.length > 0)
+        const aHasPositions = (a.ngram_positions?.length ?? 0) > 0
+        const bHasPositions = (b.ngram_positions?.length ?? 0) > 0
         return bHasPositions === aHasPositions ? 0 : (bHasPositions ? 1 : -1)
       })
       return sorted.slice(0, 2)
     })
     return groups
-  }, [examples, hasExamples, underlineType, numQuantiles])
+  }, [examples, hasExamples, numQuantiles])
 
   // Recalculate popover position when isHovered becomes true
   // This handles the case where the main feature's popover is shown
@@ -296,9 +273,11 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                // For word-level: highlight whole token; for char-level: highlight substring
-                const hasWordUnderline = underlineType === 'word' && shouldUnderlineWordToken(token.position, example)
-                const charOffset = underlineType === 'char' ? getCharNgramOffset(token.position, example) : null
+                // Unified highlighting: backend decides word vs char
+                const { highlight, charOffset } = getTokenHighlight(token.position, example)
+                // Word n-grams: charOffset is null, highlight entire token via CSS
+                // Char n-grams: charOffset is set, highlight substring
+                const hasWordUnderline = highlight && charOffset === null
                 const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
                 return (
@@ -311,7 +290,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                         : 'transparent'
                     }}
                   >
-                    {renderTokenContent(token.text, token.is_newline, underlineType, charOffset, charNgramLength)}
+                    {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
                   </span>
                 )
               })}
@@ -337,9 +316,9 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        // For word-level: highlight whole token; for char-level: highlight substring
-                        const hasWordUnderline = underlineType === 'word' && shouldUnderlineWordToken(token.position, example)
-                        const charOffset = underlineType === 'char' ? getCharNgramOffset(token.position, example) : null
+                        // Unified highlighting: backend decides word vs char
+                        const { highlight, charOffset } = getTokenHighlight(token.position, example)
+                        const hasWordUnderline = highlight && charOffset === null
                         const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
                         return (
@@ -352,7 +331,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                                 : 'transparent'
                             }}
                           >
-                            {renderTokenContent(token.text, token.is_newline, underlineType, charOffset, charNgramLength)}
+                            {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
                           </span>
                         )
                       })}

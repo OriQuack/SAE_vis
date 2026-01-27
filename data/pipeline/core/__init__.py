@@ -37,6 +37,8 @@ from .ngrams import (
     compute_jaccard_similarity,
     compute_per_k_max_jaccard,
     find_top_ngram,
+    select_longest_ngram_above_threshold,
+    select_best_ngram,
 )
 
 # Sampling utilities
@@ -97,6 +99,8 @@ __all__ = [
     'compute_jaccard_similarity',
     'compute_per_k_max_jaccard',
     'find_top_ngram',
+    'select_longest_ngram_above_threshold',
+    'select_best_ngram',
     # Sampling
     'select_top_k_per_quantile',
     'select_top_k_per_quantile_tuples',

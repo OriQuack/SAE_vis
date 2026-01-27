@@ -672,15 +672,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     featureSelectionStates.forEach((state, featureId) => {
       if (state === 'selected') {  // Well-Explained in Stage 2
         const row = featureMap.get(featureId)
-        const activation = activationExamples[featureId] ?? null
         if (row) {
-          const scores = calculateCauseMetricScores(row, activation)
+          const scores = calculateCauseMetricScores(row)
           map.set(featureId, scores)
         }
       }
     })
     return map
-  }, [featureSelectionStates, tableData, activationExamples])
+  }, [featureSelectionStates, tableData])
 
   // Reset feature index when visible categories change (auto-select first feature)
   useEffect(() => {
