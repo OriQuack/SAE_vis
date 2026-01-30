@@ -84,7 +84,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Stage 2 selection states (for well-explained background lines)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
 
-  // Table data and activation examples for feature detail view
+  // Table data and activating examples for feature detail view
   const tableData = useVisualizationStore(state => state.tableData)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
 
@@ -1326,7 +1326,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* ---- Activation Section (top half) ---- */}
                     {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
-                      <h4 className="subheader">Activation Examples</h4>
+                      <h4 className="subheader">Activating Examples</h4>
                       <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
@@ -1353,7 +1353,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                             disableHover={true}
                           />
                         ) : (
-                          <div className="cause-view__loading">Loading activation examples...</div>
+                          <div className="cause-view__loading">Loading activating examples...</div>
                         )}
                       </div>
                     </div>

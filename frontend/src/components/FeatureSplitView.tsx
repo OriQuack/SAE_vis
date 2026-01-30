@@ -571,7 +571,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [sortMode, sortDirection, setActiveListSource])
 
-  // Pre-fetch activation examples for visible pairs
+  // Pre-fetch activating examples for visible pairs
   useEffect(() => {
     if (displayPairList.length === 0) return
 
@@ -827,7 +827,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [selectedPairKey, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
 
-  // Fetch activation examples for current pair when it changes
+  // Fetch activating examples for current pair when it changes
   useEffect(() => {
     const currentPair = activePairList[currentPairIndex]
     if (currentPair) {
@@ -889,7 +889,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       setActiveListSource(listType === 'left' ? 'reject' : 'select')
       setCurrentPairIndex(index)
       scrollToItemInMainList(pair.pairKey)
-      // Pre-fetch activation examples for clicked pair
+      // Pre-fetch activating examples for clicked pair
       if (pair) {
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
@@ -1087,7 +1087,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       <div className="view-header">
         <span className="view-title">Feature Splitting Detection</span>
         <span className="view-description">
-          Compare activation examples of two features and identify{' '}
+          Compare activating examples of two features and identify{' '}
           <span
             className="view-tag-badge"
             style={{ backgroundColor: fragmentedColor }}

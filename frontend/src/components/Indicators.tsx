@@ -160,7 +160,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 // TAG BUTTON COMPONENT
 // ============================================================================
 // Reusable button for tagging features/pairs with category colors
-// - Used in floating control panels below activation examples
+// - Used in floating control panels below activating examples
 // - Supports selected state with visual feedback (scale, shadow)
 // - Color controlled via --tag-color CSS variable
 

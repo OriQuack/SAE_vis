@@ -229,15 +229,6 @@ export interface D3SankeyLink {
   y1?: number
 }
 
-export interface AlluvialFlow {
-  source: string
-  target: string
-  value: number
-  feature_ids: number[]
-  sourceCategory: string
-  targetCategory: string
-}
-
 export interface FeatureDetail {
   feature_id: number
   sae_id: string
@@ -340,49 +331,6 @@ export interface SankeyLayout {
 }
 
 // ============================================================================
-// ALLUVIAL DIAGRAM TYPES
-// ============================================================================
-
-export interface AlluvialSankeyNode {
-  id: string
-  x0?: number
-  x1?: number
-  y0?: number
-  y1?: number
-  value?: number
-  label: string
-  featureCount: number
-  height?: number
-  width?: number
-}
-
-export interface AlluvialSankeyLink {
-  source: AlluvialSankeyNode | number
-  target: AlluvialSankeyNode | number
-  value: number
-  y0?: number
-  y1?: number
-  width?: number
-  flow: AlluvialFlow
-  color: string
-  opacity: number
-  id: string
-}
-
-export interface AlluvialLayoutData {
-  flows: AlluvialSankeyLink[]
-  leftNodes: AlluvialSankeyNode[]
-  rightNodes: AlluvialSankeyNode[]
-  sankeyGenerator: any
-  stats: {
-    totalFlows: number
-    consistentFlows: number
-    totalFeatures: number
-    consistencyRate: number
-  } | null
-}
-
-// ============================================================================
 // TABLE TYPES (Feature-Level Table with 824 rows)
 // ============================================================================
 
@@ -445,7 +393,7 @@ export interface FeatureTableRow {
   decoder_similarity?: Array<DecoderSimilarFeature> | null  // List of top similar features with cosine similarity scores
   intra_feature_sim?: number  // max(intra_ngram_jaccard, intra_semantic_sim) from backend
   explainers: Record<string, ExplainerScoreData>
-  // NEW: Activation examples (lazy loaded)
+  // NEW: activating examples (lazy loaded)
   activation_examples?: ActivationExamples
 }
 
@@ -454,7 +402,7 @@ export interface FeatureTableRow {
 // ============================================================================
 
 /**
- * Activation examples for a feature with unified n-gram pattern analysis
+ * activating examples for a feature with unified n-gram pattern analysis
  * Backend decides word vs char n-gram - frontend just renders it
  */
 export interface ActivationExamples {

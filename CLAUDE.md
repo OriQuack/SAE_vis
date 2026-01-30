@@ -36,7 +36,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                              USER INTERFACE                                │
 │  Sankey Diagram │ Feature Split View │ Quality View │ Tag Stage Panel     │
-│  Alluvial Diagram │ Selection Panel │ Flow Overlay │ Comparison View      │
+│  Selection Panel │ Flow Overlay │ Cause View │ Summary View               │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -45,7 +45,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Tree-Based Sankey Builder with Feature Group Cache                     │
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
-│  • D3.js Visualizations (Sankey, Histograms, Alluvial, Flow Overlay)     │
+│  • D3.js Visualizations (Sankey, Histograms, Flow Overlay)               │
 │  • 4-Stage Tag Workflow: Feature Splitting → Quality → Cause → Summary   │
 │  • SVM-Based Similarity Scoring with Bimodality Detection                 │
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
@@ -161,10 +161,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (33 files)
-│   │   ├── lib/          # D3 utilities, helpers (22 files + 10 tagging hooks)
+│   │   ├── components/    # UI components (30 files)
+│   │   ├── lib/          # D3 utilities, helpers (21 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (31 files)
+│   │   ├── styles/       # CSS files (28 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -207,7 +207,6 @@ npm run dev -- --port 3003
 
 ### Visualization
 - **Sankey Diagram**: Tree-based feature grouping with inline histograms and hierarchical coloring
-- **Alluvial Diagram**: Cross-explainer flow comparison (comparison overlay)
 - **Feature Split View**: Stage 1 - Pair similarity analysis with clustering
 - **Quality View**: Stage 2 - Feature quality assessment
 - **Cause View**: Stage 3 - Root cause analysis with RadViz scatter and decision margin histogram

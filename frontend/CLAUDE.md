@@ -113,13 +113,12 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (33 files)
+├── components/                    # React Components (30 files)
 │   ├── App.tsx                   # Main application + stage routing (NOT in components/)
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
 │   ├── SankeyOverlay.tsx         # Stage addition interface
 │   ├── SankeyToSelectionFlowOverlay.tsx # Flow visualization overlay
-│   ├── AlluvialDiagram.tsx       # Cross-explainer flow comparison
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
@@ -142,13 +141,11 @@ frontend/src/
 │   ├── ConsensusSection.tsx      # Consensus phrase clustering display
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
 │   ├── Tooltip.tsx               # Reusable tooltip with composition pattern
-│   ├── QualityScoreBreakdown.tsx # Score breakdown
-│   ├── ModalityIndicator.tsx     # Modality detection display
 │   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
-├── lib/                          # Utilities (22 files + 10 tagging hooks)
+├── lib/                          # Utilities (21 files + 10 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -157,7 +154,6 @@ frontend/src/
 │   ├── sankey-selection-flow-utils.ts # Flow overlay calculations
 │   ├── histogram-utils.ts        # Histogram processing
 │   ├── threshold-utils.ts        # Threshold path handling
-│   ├── alluvial-utils.ts         # Alluvial diagram layout
 │   ├── flow-utils.ts             # Flow panel utilities
 │   ├── table-data-utils.ts       # Table data processing
 │   ├── tag-system.ts             # Tag colors/labels
@@ -192,13 +188,12 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (31 files)
+├── styles/                       # CSS Files (28 files)
 │   ├── base.css                  # Base styles, CSS variables, unified styling
 │   ├── index.css                 # Global styles
 │   ├── App.css                   # Main app layout
 │   ├── SankeyDiagram.css         # Sankey styles
 │   ├── SankeyToSelectionFlowOverlay.css # Flow overlay styles
-│   ├── AlluvialDiagram.css       # Alluvial styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── QualityView.css           # Stage 2 styles
@@ -217,7 +212,6 @@ frontend/src/
 │   ├── ScrollableItemList.css    # Scrollable list styles
 │   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── ConsensusSection.css      # Consensus phrase clustering styles
-│   ├── ModalityIndicator.css     # Modality indicator styles
 │   ├── ExplainerComparisonGrid.css # Comparison grid styles
 │   ├── FlowPanel.css             # Flow panel styles
 │   ├── TagAutomaticPopover.css   # Legacy popover styles
@@ -302,11 +296,6 @@ frontend/src/
 - Reference lines at 10%, 25%, 50% flip rate
 - Stage-aware coloring (Stage 1/2: selected/rejected, Stage 3: cause categories)
 
-**AlluvialDiagram.tsx** - Comparison View
-- Cross-explainer flow visualization
-- Appears in comparison overlay
-- Hover interaction with Sankey diagrams
-
 **RegenerationView.tsx** - Stage 4: Summary
 - Layout with SankeyDiagram (left) + OverviewSummary (right)
 - Shows final tagging results overview
@@ -359,10 +348,6 @@ frontend/src/
 - Interactive pair exploration
 - Decoder similarity visualization
 - Selection/rejection interface
-
-**ModalityIndicator.tsx** - Modality Detection
-- Visual indicator for unimodal/bimodal distributions
-- Shows GMM components, Dip test results
 
 **ScrollableItemList.tsx** - Boundary Lists
 - Scrollable list with fixed height

@@ -179,7 +179,7 @@
   min-height: 0;
 }
 
-/* Scrollbar for activation examples - matches FeatureSplitPairViewer */
+/* Scrollbar for activating examples - matches FeatureSplitPairViewer */
 .quality-view__activation-examples::-webkit-scrollbar {
   width: 8px;
 }

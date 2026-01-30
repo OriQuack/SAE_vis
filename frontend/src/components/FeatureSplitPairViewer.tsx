@@ -72,7 +72,7 @@ const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text, h
 // ============================================================================
 // FEATURE SPLIT PAIR VIEWER COMPONENT
 // ============================================================================
-// Displays activation examples for the current pair
+// Displays activating examples for the current pair
 // Parent (FeatureSplitView) manages pair list and navigation
 
 type PairData = {
@@ -122,7 +122,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const tableData = useVisualizationStore(state => state.tableData)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
 
-  // Container width for activation examples (responsive to resize)
+  // Container width for activating examples (responsive to resize)
   const [containerWidth, setContainerWidth] = useState(1400)
   const mainContainerRef = useRef<HTMLDivElement>(null)
 
@@ -146,7 +146,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   // Get selection state for current pair
   const pairSelectionState = currentPair ? pairSelectionStates.get(currentPair.pairKey) || null : null
 
-  // NOTE: Activation examples are pre-fetched by parent (FeatureSplitView) for the entire page
+  // NOTE: activating examples are pre-fetched by parent (FeatureSplitView) for the entire page
   // This component just reads from the activationExamples cache
 
   // Post-tagging navigation hook
@@ -225,7 +225,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const mainActivation = currentPair ? activationExamples[currentPair.mainFeatureId] : null
 
   // TEMPORARY FIX: We have 16k features but only ~7500 in tableData
-  // However, we DO have activation examples for features > 7500
+  // However, we DO have activating examples for features > 7500
   // So we get activation data directly, even if similarRow doesn't exist
   // TODO: Remove this workaround when full feature data is available
   const similarActivation = currentPair ? (activationExamples[currentPair.similarFeatureId] || null) : null
@@ -275,7 +275,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader">Activation Examples</h4>
+              <h4 className="subheader">activating examples</h4>
 
               {/* Feature IDs */}
               <div className="pair-info__ids">
@@ -307,7 +307,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
               </div>
             </div>
 
-            {/* Activation examples side-by-side */}
+            {/* activating examples side-by-side */}
             <div className={`pair-viewer__content ${isLoading ? 'pair-viewer__content--loading' : ''}`}>
               {/* Main feature activation */}
               <div className="activation-panel activation-panel--main">
@@ -334,7 +334,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="activation-panel__loading">Loading activation examples...</div>
+                  <div className="activation-panel__loading">Loading activating examples...</div>
                 )}
               </div>
 
@@ -365,7 +365,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                     />
                   </div>
                 ) : (
-                  <div className="activation-panel__loading">Loading activation examples...</div>
+                  <div className="activation-panel__loading">Loading activating examples...</div>
                 )}
               </div>
             </div>

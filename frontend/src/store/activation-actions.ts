@@ -6,7 +6,7 @@ import type { ActivationExamples } from '../types'
 // ============================================================================
 
 /**
- * Module-level cache for activation examples.
+ * Module-level cache for activating examples.
  *
  * This cache persists outside the React/Zustand lifecycle, surviving:
  * - React StrictMode double-renders
@@ -27,11 +27,11 @@ let activationFetchInProgress = false
  * Factory function to create activation data-related actions for the store
  *
  * This module provides centralized caching and request deduplication for
- * activation examples data, eliminating duplicate fetches across components.
+ * activating examples data, eliminating duplicate fetches across components.
  */
 export const createActivationActions = (set: any, get: any) => ({
   /**
-   * Fetch activation examples for given feature IDs with smart deduplication
+   * Fetch activating examples for given feature IDs with smart deduplication
    *
    * Features:
    * - Skips already-cached features (cache hit)
@@ -62,7 +62,7 @@ export const createActivationActions = (set: any, get: any) => ({
       return
     }
 
-    console.log('[Store.fetchActivationExamples] Fetching activation examples:', {
+    console.log('[Store.fetchActivationExamples] Fetching activating examples:', {
       requested: featureIds.length,
       unique: uniqueIds.length,
       uncached: uncachedIds.length,
@@ -76,10 +76,10 @@ export const createActivationActions = (set: any, get: any) => ({
     }))
 
     try {
-      // Fetch activation examples from API
+      // Fetch activating examples from API
       const examples = await api.getActivationExamples(uncachedIds)
 
-      console.log('[Store.fetchActivationExamples] Received activation examples:', {
+      console.log('[Store.fetchActivationExamples] Received activating examples:', {
         fetched: Object.keys(examples).length,
         sampleKeys: Object.keys(examples).slice(0, 5)
       })
@@ -104,7 +104,7 @@ export const createActivationActions = (set: any, get: any) => ({
         set({ activationLoadingState: false })
       }
 
-      console.log('[Store.fetchActivationExamples] Successfully cached activation examples')
+      console.log('[Store.fetchActivationExamples] Successfully cached activating examples')
     } catch (error) {
       console.error('[Store.fetchActivationExamples] Failed to fetch:', error)
 
@@ -126,7 +126,7 @@ export const createActivationActions = (set: any, get: any) => ({
    * Get activation data for a specific feature (selector)
    *
    * @param featureId - Feature ID to retrieve
-   * @returns Activation examples or undefined if not cached
+   * @returns activating examples or undefined if not cached
    */
   getActivationData: (featureId: number): ActivationExamples | undefined => {
     const state = get()
@@ -218,9 +218,9 @@ export const createActivationActions = (set: any, get: any) => ({
   },
 
   /**
-   * Fetch ALL activation examples in parallel chunks for fast initialization.
+   * Fetch ALL activating examples in parallel chunks for fast initialization.
    *
-   * This enables loading all 16k+ activation examples during init by:
+   * This enables loading all 16k+ activating examples during init by:
    * - Splitting feature IDs into manageable chunks
    * - Firing all chunk requests in parallel
    * - Leveraging existing fetchActivationExamples for caching/deduplication
@@ -253,13 +253,13 @@ export const createActivationActions = (set: any, get: any) => ({
     }))
 
     const duration = performance.now() - startTime
-    console.log(`[Store.fetchAllActivationsChunked] ✅ All ${featureIds.length} activation examples loaded in ${duration.toFixed(0)}ms`)
+    console.log(`[Store.fetchAllActivationsChunked] ✅ All ${featureIds.length} activating examples loaded in ${duration.toFixed(0)}ms`)
   },
 
   /**
-   * Fetch ALL activation examples using pre-computed cached endpoint.
+   * Fetch ALL activating examples using pre-computed cached endpoint.
    *
-   * This is the OPTIMIZED method for loading all activation examples:
+   * This is the OPTIMIZED method for loading all activating examples:
    * - Single request for all ~16k features
    * - Binary format (MessagePack + gzip) for fast transfer
    * - Pre-computed on backend startup
@@ -306,7 +306,7 @@ export const createActivationActions = (set: any, get: any) => ({
     const startTime = performance.now()
 
     try {
-      // Fetch all activation examples from cached endpoint
+      // Fetch all activating examples from cached endpoint
       const examples = await api.getAllActivationExamplesCached()
 
       const featureCount = Object.keys(examples).length
@@ -337,7 +337,7 @@ export const createActivationActions = (set: any, get: any) => ({
    * Clears both module-level and store-level caches.
    */
   clearActivationCache: () => {
-    console.log('[Store.clearActivationCache] Clearing activation examples cache (both module and store level)')
+    console.log('[Store.clearActivationCache] Clearing activating examples cache (both module and store level)')
     // Clear module-level cache
     activationExamplesCache = null
     activationFetchInProgress = false

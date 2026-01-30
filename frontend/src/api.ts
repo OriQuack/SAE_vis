@@ -197,8 +197,8 @@ export async function getActivationExamples(
   })
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Activation examples error:', response.status, errorText)
-    throw new Error(`Failed to fetch activation examples: ${response.status} - ${errorText}`)
+    console.error('[API] activating examples error:', response.status, errorText)
+    throw new Error(`Failed to fetch activating examples: ${response.status} - ${errorText}`)
   }
   const data = await response.json()
   console.log('[API] getActivationExamples response:', {
@@ -209,7 +209,7 @@ export async function getActivationExamples(
 }
 
 /**
- * Get ALL activation examples as pre-computed cached data (MessagePack + gzip).
+ * Get ALL activating examples as pre-computed cached data (MessagePack + gzip).
  *
  * This is the optimized bulk loading endpoint that returns all ~16k features
  * in a single request using binary serialization and compression.
@@ -226,8 +226,8 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Cached activation examples error:', response.status, errorText)
-    throw new Error(`Failed to fetch cached activation examples: ${response.status} - ${errorText}`)
+    console.error('[API] Cached activating examples error:', response.status, errorText)
+    throw new Error(`Failed to fetch cached activating examples: ${response.status} - ${errorText}`)
   }
 
   const fetchTime = performance.now() - startTime

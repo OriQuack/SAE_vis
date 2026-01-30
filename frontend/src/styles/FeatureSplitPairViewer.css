@@ -1,5 +1,5 @@
 /* ============================================================================
- * FEATURE SPLIT PAIR VIEWER - Compact side-by-side activation examples
+ * FEATURE SPLIT PAIR VIEWER - Compact side-by-side activating examples
  * ============================================================================ */
 
 .feature-split-pair-viewer {
@@ -330,7 +330,7 @@
   min-height: 0;
 }
 
-/* Scrollbar for activation examples */
+/* Scrollbar for activating examples */
 .activation-panel__examples::-webkit-scrollbar {
   width: 8px;
 }

@@ -1106,13 +1106,13 @@ const QualityView: React.FC<QualityViewProps> = ({
               isActive={activeListSource === 'all'}
               scrollTargetIndex={scrollTargetIndex}
             />
-            {/* Right panel - activation examples and explanations */}
+            {/* Right panel - activating examples and explanations */}
             <div className="quality-view__right-panel" ref={rightPanelRef}>
               {selectedFeatureData ? (
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
-                    <h4 className="subheader">Activation Examples</h4>
+                    <h4 className="subheader">activating examples</h4>
                     <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
@@ -1129,7 +1129,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Activation Examples Section */}
+                  {/* activating examples Section */}
                   <div className="quality-view__activation-section">
                     <div className="quality-view__activation-examples">
                       {selectedFeatureData.activation ? (
@@ -1141,7 +1141,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                           disableHover={true}
                         />
                       ) : (
-                        <div className="quality-view__loading">Loading activation examples...</div>
+                        <div className="quality-view__loading">Loading activating examples...</div>
                       )}
                     </div>
                   </div>

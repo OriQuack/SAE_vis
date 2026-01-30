@@ -2,7 +2,6 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { useVisualizationStore } from './store/index'
 import Header from './components/AppHeader'
 import SankeyDiagram from './components/SankeyDiagram'
-import AlluvialDiagram from './components/AlluvialDiagram'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
 import CauseView from './components/CauseView'
@@ -92,8 +91,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
     filterOptions,
     fetchFilterOptions,
     initializeWithDefaultFilters,
-    showComparisonView,
-    toggleComparisonView,
     activeStageCategory,
     activateCategoryTable,
     tableData,
@@ -274,35 +271,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
                 ) : (
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 1, color: '#9ca3af', fontSize: '14px' }}>
                     Select a stage to begin
-                  </div>
-                )}
-
-                {/* Comparison Overlay - Alluvial + Right Sankey */}
-                {showComparisonView && (
-                  <div className="comparison-overlay">
-                    {/* Alluvial Panel */}
-                    <div className="comparison-overlay__alluvial">
-                      <AlluvialDiagram
-                        className="sankey-view__alluvial"
-                      />
-                    </div>
-
-                    {/* Right Sankey Diagram */}
-                    <div className="comparison-overlay__sankey">
-                      <SankeyDiagram
-                        flowDirection="right-to-left"
-                        panel="right"
-                      />
-                    </div>
-
-                    {/* Close Button */}
-                    <button
-                      className="comparison-overlay__close"
-                      onClick={toggleComparisonView}
-                      title="Hide comparison view"
-                    >
-                      ◀
-                    </button>
                   </div>
                 )}
               </div>

@@ -15,7 +15,7 @@ interface ActivationExampleProps {
     type: 'char' | 'word'
     positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
   }
-  // Hover coordination for paired activation examples
+  // Hover coordination for paired activating examples
   isHovered?: boolean  // Whether this pair is currently hovered (from parent)
   onHoverChange?: (isHovered: boolean) => void  // Callback when hover state changes
   // Number of quantiles to show (1-4, default 3 for tables, 4 for feature split)
@@ -221,7 +221,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     ? examplesPerQuantile.reduce((sum, n) => sum + n, 0)
     : numQuantiles
 
-  // Handle empty activation examples (features with 0 activations)
+  // Handle empty activating examples (features with 0 activations)
   if (!hasExamples) {
     return (
       <div className="activation-example activation-example--empty">

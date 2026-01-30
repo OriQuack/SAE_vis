@@ -5,8 +5,6 @@ import type {
   HistogramData,
   LoadingStates,
   ErrorStates,
-  AlluvialFlow,
-  SankeyNode,
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData,
@@ -116,10 +114,6 @@ interface AppState {
   loading: LoadingStates & { sankeyLeft?: boolean; sankeyRight?: boolean }
   errors: ErrorStates & { sankeyLeft?: string | null; sankeyRight?: string | null }
 
-  // Hover state for cross-component highlighting
-  hoveredAlluvialNodeId: string | null
-  hoveredAlluvialPanel: 'left' | 'right' | null
-  setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) => void
 
   // Feature selection state (used by QualityView)
   // Three-state system: null (empty) -> 'selected' (checkmark) -> 'rejected' (red X) -> null
@@ -152,9 +146,6 @@ interface AppState {
   // Initialize metric scores for all features entering Stage 3 (no auto-tagging)
   initializeCauseMetricScores: (featureIds: Set<number>) => void
 
-  // Comparison view state
-  showComparisonView: boolean
-  toggleComparisonView: () => void
 
   // Data actions
   setFilters: (filters: Partial<any>, panel?: PanelSide) => void
@@ -178,11 +169,6 @@ interface AppState {
   // API actions
   fetchFilterOptions: () => Promise<void>
 
-  // Alluvial flows data
-  alluvialFlows: AlluvialFlow[] | null
-
-  // Alluvial flow actions
-  updateAlluvialFlows: () => void
 
   // Table data actions (composed from modular action files)
   fetchTableData: () => Promise<void>
@@ -380,12 +366,12 @@ interface AppState {
   activateCategoryTable: (categoryId: string) => Promise<void>
   moveToNextStep: () => void
 
-  // Activation examples cache (centralized for all components)
+  // activating examples cache (centralized for all components)
   activationExamples: Record<number, ActivationExamples>
   activationLoading: Set<number>
   activationLoadingState: boolean
 
-  // Activation examples actions (from activation-actions.ts)
+  // activating examples actions (from activation-actions.ts)
   fetchActivationExamples: (featureIds: number[]) => Promise<void>
   fetchAllActivationsChunked: (featureIds: number[], chunkSize?: number) => Promise<void>
   fetchAllActivationsCached: () => Promise<void>
@@ -425,8 +411,6 @@ const initialState = {
     table: null
   },
 
-  // Alluvial flows
-  alluvialFlows: null,
 
   // Table data
   tableData: null,
@@ -528,9 +512,6 @@ const initialState = {
   stage3DiversityFeatureIds: new Set<number>(),
   stage3DiversitySignature: null,
 
-  // Hover state
-  hoveredAlluvialNodeId: null,
-  hoveredAlluvialPanel: null,
 
   // Feature selection state (used by QualityView)
   featureSelectionStates: new Map<number, 'selected' | 'rejected'>(),
@@ -545,10 +526,8 @@ const initialState = {
   causeSelectionSources: new Map<number, 'click' | 'threshold' | 'predicted'>(),
   causeMetricScores: new Map<number, CauseMetricScores>(),
 
-  // Comparison view state
-  showComparisonView: false,
 
-  // Activation examples cache
+  // activating examples cache
   activationExamples: {},
   activationLoading: new Set<number>(),
   activationLoadingState: false
@@ -661,10 +640,6 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose activation actions
   ...createActivationActions(set, get),
-
-  // Hover state actions
-  setHoveredAlluvialNode: (nodeId: string | null, panel: 'left' | 'right' | null) =>
-    set({ hoveredAlluvialNodeId: nodeId, hoveredAlluvialPanel: panel }),
 
   // Threshold drag state action
   setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
@@ -1063,11 +1038,6 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  // Comparison view actions
-  toggleComparisonView: () => {
-    set((state) => ({ showComparisonView: !state.showComparisonView }))
-  },
-
   // Data actions
   setFilters: (newFilters, panel = PANEL_LEFT) => {
     set((state) => ({
@@ -1143,62 +1113,6 @@ export const useStore = create<AppState>((set, get) => {
       state.setError('filters', errorMessage)
       state.setLoading('filters', false)
     }
-  },
-
-  // Update alluvial flows from both panel data (uses d3Layout)
-  updateAlluvialFlows: () => {
-    const state = get()
-    const { leftPanel, rightPanel } = state
-
-    // Return null if either panel doesn't have visualization data
-    if (!leftPanel.d3Layout || !rightPanel.d3Layout) {
-      set({ alluvialFlows: null })
-      return
-    }
-
-    // Extract leaf nodes (nodes with feature_ids) from both panels
-    const leftFinalNodes = leftPanel.d3Layout.nodes.filter((node: SankeyNode) =>
-      node.feature_ids && node.feature_ids.length > 0
-    )
-    const rightFinalNodes = rightPanel.d3Layout.nodes.filter((node: SankeyNode) =>
-      node.feature_ids && node.feature_ids.length > 0
-    )
-
-    // If no final nodes with feature IDs, return empty array
-    if (leftFinalNodes.length === 0 || rightFinalNodes.length === 0) {
-      set({ alluvialFlows: [] })
-      return
-    }
-
-    // Generate flows by finding overlapping feature IDs
-    const flows: AlluvialFlow[] = []
-
-    for (const leftNode of leftFinalNodes) {
-      for (const rightNode of rightFinalNodes) {
-        if (!leftNode.feature_ids || !rightNode.feature_ids) continue
-
-        // Find common features between left and right nodes
-        const commonFeatures = leftNode.feature_ids.filter((id: number) =>
-          rightNode.feature_ids!.includes(id)
-        )
-
-        if (commonFeatures.length > 0) {
-          const leftCategory = leftNode.category
-          const rightCategory = rightNode.category
-
-          flows.push({
-            source: leftNode.id,
-            target: rightNode.id,
-            value: commonFeatures.length,
-            feature_ids: commonFeatures,
-            sourceCategory: leftCategory,
-            targetCategory: rightCategory
-          })
-        }
-      }
-    }
-
-    set({ alluvialFlows: flows })
   },
 
   // Auto-initialization with default filters
