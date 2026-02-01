@@ -5,7 +5,7 @@ import '../styles/ConsensusSection.css'
 
 // Plot constants - square plot
 const PLOT_SIZE = 90
-const PLOT_MARGIN = { top: 8, right: 8, bottom: 18, left: 28 }
+const PLOT_MARGIN = { top: 5, right: 5, bottom: 14, left: 14 }
 
 // ============================================================================
 // CONSENSUS SECTION - Displays clustered explanation phrases as pills
@@ -26,9 +26,12 @@ interface TooltipData {
 const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
   // Local state for tooltip on hover
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
+  // Track which item is being hovered for cross-highlight between dots and pills
+  const [hoveredItemIndex, setHoveredItemIndex] = useState<number | null>(null)
 
   // Handle mouse enter on item
-  const handleMouseEnter = useCallback((e: React.MouseEvent, item: ConsensusItem) => {
+  const handleMouseEnter = useCallback((e: React.MouseEvent, item: ConsensusItem, idx: number) => {
+    setHoveredItemIndex(idx)
     setTooltipData({
       position: { x: e.clientX, y: e.clientY },
       item
@@ -37,38 +40,22 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
 
   // Handle mouse leave
   const handleMouseLeave = useCallback(() => {
+    setHoveredItemIndex(null)
     setTooltipData(null)
   }, [])
 
-  // Calculate opacity based on cluster_score (for clusters) or phrase_weight (for outliers)
-  // Higher scores = more explainers agree = more prominent
-  // Falls back to activation_similarity for backward compatibility with old data
-  const getOpacity = useCallback((item: ConsensusItem, items: ConsensusItem[]): number => {
-    // Check if new scoring data is available
-    const hasNewScoring = item.cluster_score !== undefined || item.phrase_weight !== undefined
+  // Calculate opacity based on quality score
+  // Items below random baseline (0.5) get lower opacity
+  const getOpacity = useCallback((item: ConsensusItem): number => {
+    const qualityScore = item.is_outlier
+      ? (item.quality_score ?? 0.5)
+      : (item.avg_quality_score ?? 0.5)
 
-    if (hasNewScoring) {
-      // New scoring: use cluster_score for clusters, phrase_weight for outliers
-      const score = item.is_outlier
-        ? (item.phrase_weight ?? 0.1)
-        : (item.cluster_score ?? 0.5)
-
-      // Map score to opacity range [0.4, 1.0]
-      // Max single cluster score is ~1.0 (if all 3 explainers agree on one phrase)
-      const normalized = Math.min(score, 1.0)
-      return 0.4 + normalized * 0.6
-    } else {
-      // Fallback: use activation_similarity (old scoring)
-      if (items.length === 0) return 1
-
-      const maxSim = Math.max(...items.map(i => i.activation_similarity))
-      const minSim = Math.min(...items.map(i => i.activation_similarity))
-
-      if (maxSim === minSim) return 1
-
-      const normalized = (item.activation_similarity - minSim) / (maxSim - minSim)
-      return 0.4 + normalized * 0.6
+    // Items below 0.5 (random baseline) get lower opacity
+    if (qualityScore < 0.5) {
+      return 0.4
     }
+    return 1.0
   }, [])
 
   // Memoized opacity calculator using current items
@@ -77,7 +64,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
 
     const map = new Map<number, number>()
     consensus.items.forEach((item, idx) => {
-      map.set(idx, getOpacity(item, consensus.items))
+      map.set(idx, getOpacity(item))
     })
     return map
   }, [consensus?.items, getOpacity])
@@ -95,15 +82,13 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
       idx
     }))
 
-    const maxX = Math.max(...plotData.map(d => d.x), 0.1)
-    const maxY = Math.max(...plotData.map(d => d.y), 0.1)
-
+    // Fixed scales: Consensus (x) out of 3, Quality (y) out of 1
     const xScale = scaleLinear()
-      .domain([0, maxX * 1.1])
+      .domain([0, 3])
       .range([PLOT_MARGIN.left, PLOT_SIZE - PLOT_MARGIN.right])
 
     const yScale = scaleLinear()
-      .domain([0, maxY * 1.1])
+      .domain([0, 1])
       .range([PLOT_SIZE - PLOT_MARGIN.bottom, PLOT_MARGIN.top])
 
     return { xScale, yScale, plotData }
@@ -126,13 +111,23 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               x2={PLOT_SIZE - PLOT_MARGIN.right}
               stroke="var(--border-color, #e5e7eb)"
             />
+            {/* X-axis label at origin */}
             <text
-              x={(PLOT_MARGIN.left + PLOT_SIZE - PLOT_MARGIN.right) / 2}
-              y={13}
-              textAnchor="middle"
+              x={PLOT_MARGIN.left}
+              y={10}
+              textAnchor="start"
               className="consensus-plot__label"
             >
               Consensus
+            </text>
+            {/* X-axis max tick */}
+            <text
+              x={PLOT_SIZE}
+              y={10}
+              textAnchor="end"
+              className="consensus-plot__tick"
+            >
+              3
             </text>
           </g>
 
@@ -143,27 +138,48 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               y2={PLOT_SIZE - PLOT_MARGIN.bottom}
               stroke="var(--border-color, #e5e7eb)"
             />
+            {/* Y-axis label at origin */}
             <text
-              x={-((PLOT_SIZE - PLOT_MARGIN.top - PLOT_MARGIN.bottom) / 2 + PLOT_MARGIN.top)}
-              y={-16}
-              textAnchor="middle"
+              x={-(PLOT_SIZE - PLOT_MARGIN.bottom)}
+              y={-5}
+              textAnchor="start"
               transform="rotate(-90)"
               className="consensus-plot__label"
             >
               Quality
             </text>
+            {/* Y-axis max tick */}
+            <text
+              x={-4}
+              y={PLOT_MARGIN.top + 3}
+              textAnchor="end"
+              className="consensus-plot__tick"
+            >
+              1
+            </text>
           </g>
 
-          {/* Points */}
+          {/* Random baseline dotted line at quality = 0.5 */}
+          <line
+            x1={PLOT_MARGIN.left}
+            y1={yScale(0.5)}
+            x2={PLOT_SIZE - PLOT_MARGIN.right}
+            y2={yScale(0.5)}
+            stroke="#B22222"
+            strokeWidth="1.5"
+            strokeDasharray="4 3"
+          />
+
+          {/* Points - outliers use smaller radius to compensate for stroke width */}
           {plotData.map((d, i) => (
             <circle
               key={i}
               cx={xScale(d.x)}
               cy={yScale(d.y)}
-              r={4}
-              className={`consensus-plot__point ${d.item.is_outlier ? 'consensus-plot__point--outlier' : 'consensus-plot__point--medoid'}`}
-              style={{ opacity: opacityMap.get(d.idx) ?? 1 }}
-              onMouseEnter={(e) => handleMouseEnter(e, d.item)}
+              r={d.item.is_outlier ? 2.75 : 3.5}
+              className={`consensus-plot__point ${d.item.is_outlier ? 'consensus-plot__point--outlier' : 'consensus-plot__point--medoid'}${hoveredItemIndex === d.idx ? ' consensus-plot__point--highlighted' : ''}`}
+              style={{ fillOpacity: opacityMap.get(d.idx) ?? 1 }}
+              onMouseEnter={(e) => handleMouseEnter(e, d.item, d.idx)}
               onMouseLeave={handleMouseLeave}
             />
           ))}
@@ -177,9 +193,9 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
           return (
             <div
               key={`${item.cluster_id}-${idx}`}
-              className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
+              className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}${hoveredItemIndex === idx ? ' consensus-item__pill--highlighted' : ''}`}
               style={{ opacity }}
-              onMouseEnter={(e) => handleMouseEnter(e, item)}
+              onMouseEnter={(e) => handleMouseEnter(e, item, idx)}
               onMouseLeave={handleMouseLeave}
             >
               {/* Phrase text */}
@@ -188,13 +204,13 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               {/* Cluster badge - show cluster_score + avg_quality */}
               {!item.is_outlier && (
                 <span className="consensus-item__badge">
-                  {(item.cluster_score ?? 0).toFixed(2)} | Q:{(item.avg_quality_score ?? 0).toFixed(2)}
+                  C:{(item.cluster_score ?? 0).toFixed(2)} | Q:{(item.avg_quality_score ?? 0).toFixed(2)}
                 </span>
               )}
               {/* Outlier badge - show phrase_weight + quality */}
               {item.is_outlier && (
                 <span className="consensus-item__badge consensus-item__badge--outlier">
-                  {(item.phrase_weight ?? 0).toFixed(2)} | Q:{(item.quality_score ?? 0).toFixed(2)}
+                  C:{(item.phrase_weight ?? 0).toFixed(2)} | Q:{(item.quality_score ?? 0).toFixed(2)}
                 </span>
               )}
             </div>
@@ -217,14 +233,14 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
               : `Cluster (${tooltipData.item.cluster_size} phrases)`}
           </div>
           <div className="consensus-tooltip__metrics">
-            <span>Score: {(tooltipData.item.is_outlier
+            <span>Consensus: {(tooltipData.item.is_outlier
               ? tooltipData.item.phrase_weight
               : tooltipData.item.cluster_score
-            )?.toFixed(2) ?? '0.00'}</span>
-            <span>Avg Quality: {(tooltipData.item.is_outlier
+            )?.toFixed(2) ?? '0.00'}/3</span>
+            <span>Quality: {(tooltipData.item.is_outlier
               ? tooltipData.item.quality_score
               : tooltipData.item.avg_quality_score
-            )?.toFixed(2) ?? '0.00'}</span>
+            )?.toFixed(2) ?? '0.00'}/1</span>
           </div>
           {/* Show all phrases for clusters */}
           {!tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (

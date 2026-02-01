@@ -88,27 +88,25 @@
  * TWO-ROW LAYOUT - 50/50 split (matches QualityView pattern)
  * ============================================================================ */
 
-/* Top row - list + detail panel (50% of available height) */
+/* Top row - list + detail panel (5/9 of available height) */
 .cause-view__row-top {
   display: flex;
   flex-direction: row;
-  max-height: 50%;
   min-height: 0;
   gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
-  flex: 1;
+  flex: 5;
 }
 
-/* Bottom row - UMAP + Histogram + Batch Tagging (50% of available height) */
+/* Bottom row - UMAP + Histogram + Batch Tagging (4/9 of available height) */
 .cause-view__row-bottom {
   display: flex;
   flex-direction: row;
-  max-height: 50%;
   min-height: 0;
   gap: 8px;
   flex-shrink: 0;
-  flex: 1;
+  flex: 4;
 }
 
 /* StageAccordionList - fixed width */
@@ -389,6 +387,9 @@
   line-height: 1.4;
   flex: 1;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cause-view__no-explanation {

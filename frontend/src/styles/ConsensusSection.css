@@ -57,22 +57,24 @@
   max-width: 100%;
 }
 
-/* Medoid style - teal background */
+/* Cluster (medoid) style - filled neutral gray */
 .consensus-item__pill--medoid {
-  background-color: rgba(20, 184, 166, 0.2);
+  background-color: rgba(107, 114, 128, 0.2);
 }
 
 .consensus-item__pill--medoid:hover {
-  background-color: rgba(20, 184, 166, 0.35);
+  background-color: rgba(107, 114, 128, 0.35);
 }
 
-/* Outlier style - gray background */
+/* Outlier style - hollow neutral gray (border only) */
 .consensus-item__pill--outlier {
-  background-color: rgba(156, 163, 175, 0.2);
+  background-color: transparent;
+  border: 1.5px solid rgba(107, 114, 128, 0.5);
 }
 
 .consensus-item__pill--outlier:hover {
-  background-color: rgba(156, 163, 175, 0.35);
+  background-color: rgba(107, 114, 128, 0.1);
+  border-color: rgba(107, 114, 128, 0.7);
 }
 
 /* Phrase text */
@@ -83,7 +85,7 @@
   white-space: nowrap;
 }
 
-/* Cluster badge - teal circle */
+/* Cluster badge - neutral gray */
 .consensus-item__badge {
   flex-shrink: 0;
   min-width: 16px;
@@ -92,17 +94,17 @@
   border-radius: 8px;
   font-size: 10px;
   font-weight: 600;
-  background-color: rgba(20, 184, 166, 0.4);
-  color: #0d9488;
+  background-color: rgba(107, 114, 128, 0.3);
+  color: #4b5563;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Outlier badge - gray style */
+/* Outlier badge - same neutral gray style */
 .consensus-item__badge--outlier {
-  background-color: rgba(156, 163, 175, 0.4);
-  color: #6b7280;
+  background-color: rgba(107, 114, 128, 0.3);
+  color: #4b5563;
 }
 
 /* ============================================================================
@@ -133,7 +135,7 @@
   gap: 12px;
   font-size: 11px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-secondary, #6b7280);
   margin-bottom: 6px;
 }
 
@@ -152,14 +154,14 @@
   padding: 3px 8px;
   border-radius: 12px;
   font-size: 11px;
-  background-color: rgba(20, 184, 166, 0.15);
-  color: var(--text-secondary, #6b7280);
+  background-color: rgba(107, 114, 128, 0.2);
+  color: var(--text-primary, #1f2937);
 }
 
 .consensus-tooltip__phrase-weight {
   font-family: 'Consolas', 'Monaco', monospace;
   font-size: 10px;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-secondary, #6b7280);
 }
 
 /* ============================================================================
@@ -172,24 +174,43 @@
 }
 
 .consensus-plot__label {
-  font-size: 9px;
-  fill: var(--text-tertiary, #9ca3af);
+  font-size: 11px;
+  fill: var(--text-secondary, #6b7280);
+}
+
+.consensus-plot__tick {
+  font-size: 10px;
+  fill: var(--text-secondary, #6b7280);
 }
 
 .consensus-plot__point {
   cursor: pointer;
-  transition: opacity 0.15s ease, stroke 0.15s ease;
+  transition: fill-opacity 0.15s ease, stroke 0.15s ease;
 }
 
+/* Cluster (medoid) - filled neutral gray */
 .consensus-plot__point--medoid {
-  fill: rgba(20, 184, 166, 0.6);
+  fill: #6b7280;
 }
 
+/* Outlier - hollow neutral gray (stroke only) */
 .consensus-plot__point--outlier {
-  fill: rgba(156, 163, 175, 0.6);
+  fill: transparent;
+  stroke: #6b7280;
+  stroke-width: 1.5;
 }
 
 .consensus-plot__point:hover {
-  stroke: var(--text-primary, #1f2937);
+  stroke: #3b82f6;
   stroke-width: 1.5;
+}
+
+/* Highlighted state for cross-hover (blue selection style) */
+.consensus-plot__point--highlighted {
+  stroke: #3b82f6;
+  stroke-width: 1.5;
+}
+
+.consensus-item__pill--highlighted {
+  box-shadow: inset 0 0 0 1.5px #3b82f6;
 }

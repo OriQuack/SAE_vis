@@ -73,12 +73,11 @@
 .quality-view__row-top {
   display: flex;
   flex-direction: row;
-  max-height: 50%;
   min-height: 0;
   gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
-  flex: 1;
+  flex: 5;
 }
 
 /* StageAccordionList - fixed width */
@@ -206,6 +205,73 @@
   color: #9ca3af;
   font-style: italic;
   height: 72px;
+}
+
+/* ============================================================================
+ * CONSENSUS HEADER - Subheader with count and legend
+ * ============================================================================ */
+
+.quality-view__consensus-header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+
+.quality-view__consensus-legend {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  font-size: 12px;
+  color: #6b7280;
+  padding: 0px 12px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+/* Override legend-item styles for even spacing */
+.quality-view__consensus-legend .legend-item {
+  padding-right: 8px;
+  margin-right: 8px;
+  border-right: 1px solid #d1d5db;
+}
+
+.quality-view__consensus-legend .legend-item:last-child {
+  border-right: none;
+  margin-right: 0;
+  padding-right: 0;
+}
+
+/* Legend dot indicators for cluster/outlier */
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.legend-dot--filled {
+  background-color: #6b7280;
+}
+
+.legend-dot--hollow {
+  background-color: transparent;
+  border: 1.5px solid #6b7280;
+  box-sizing: border-box;
+}
+
+/* Legend line for random baseline */
+.legend-line {
+  display: inline-block;
+  width: 16px;
+  height: 0;
+  border-top: 1.5px dashed;
+  vertical-align: middle;
+}
+
+.legend-line--random {
+  border-color: #B22222;
 }
 
 /* ============================================================================
@@ -348,6 +414,9 @@
   line-height: 1.4;
   flex: 1;
   min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .quality-view__no-explanation {

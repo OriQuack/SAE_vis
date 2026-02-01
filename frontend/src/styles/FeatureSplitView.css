@@ -73,12 +73,11 @@
 .feature-split-view__row-top {
   display: flex;
   flex-direction: row;
-  max-height: 50%;
   min-height: 0;
   gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
-  flex: 1;
+  flex: 5;
 }
 
 /* StageAccordionList - fixed width */
