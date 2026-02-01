@@ -22,7 +22,7 @@ Features:
 
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
 import polars as pl
@@ -37,13 +37,9 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.base import BaseProcessor, load_yaml_config
 from core.logging import setup_logging
-from core.tokens import (
-    normalize_token,
-    extract_token_window,
-    calculate_window_offset,
-    join_tokens_to_text,
-)
+from core.tokens import join_tokens_to_text
 from core.sampling import select_top_k_per_quantile_tuples
+from core.embeddings import get_projection_modules, apply_projection_layers
 
 # Lazy imports for heavy dependencies
 sentence_transformers = None
@@ -153,6 +149,9 @@ class ActivationEmbeddingProcessor(BaseProcessor):
                 logger.info(f"Model loaded on device: {device}")
             except Exception as e:
                 logger.warning(f"Could not set device: {e}")
+
+            # Get EmbeddingGemma projection modules for applying after weighted pooling
+            self.dense1, self.dense2, self.normalize = get_projection_modules(self.sentence_model)
 
     def _load_data(self) -> None:
         """Load activation examples data."""
@@ -381,6 +380,7 @@ class ActivationEmbeddingProcessor(BaseProcessor):
             self.stats["alignment_exact_match"] += 1
             return content_activations
 
+
     def _weighted_pooling(
         self,
         token_embeddings: np.ndarray,
@@ -406,11 +406,13 @@ class ActivationEmbeddingProcessor(BaseProcessor):
             weights = weights / np.sum(weights)
             weighted_embedding = np.sum(token_embeddings * weights[:, np.newaxis], axis=0)
 
-        norm = np.linalg.norm(weighted_embedding)
-        if norm > 0:
-            weighted_embedding = weighted_embedding / norm
-
-        return weighted_embedding.astype(np.float32)
+        # Apply EmbeddingGemma's projection layers (Dense + Normalize)
+        # This transforms embeddings into the semantic similarity space
+        projected = apply_projection_layers(
+            weighted_embedding, self.sentence_model,
+            self.dense1, self.dense2, self.normalize
+        )
+        return projected.astype(np.float32)
 
     def _process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
         """Process a single feature to compute embeddings.

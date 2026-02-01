@@ -107,7 +107,7 @@ steps:
       main: "${intermediate}/activation_embeddings.parquet"
     parameters:
       pooling_mode: "weighted"
-      pooling_temperature: 50.0
+      pooling_temperature: 60.0
       sentence_transformer_model: "google/embeddinggemma-300m"
       # Quantile sampling
       num_quantiles: 4
@@ -188,8 +188,8 @@ steps:
     parameters:
       pattern_type_thresholds:
         semantic: 0.6
-        lexical: 0.25
-        ngram_jaccard: 0.25
+        lexical: 0.15
+        ngram_jaccard: 0.10
 
   # Step 11: Process interfeature display data
   step_11_interfeature_display:
@@ -201,8 +201,8 @@ steps:
     parameters:
       pattern_type_thresholds:
         semantic: 0.6
-        lexical: 0.25
-        ngram_jaccard: 0.25
+        lexical: 0.15
+        ngram_jaccard: 0.10
 
   # Step 12: Explanation alignment (phrase matching)
   step_12_explanation_alignment:

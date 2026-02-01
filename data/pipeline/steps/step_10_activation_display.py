@@ -12,13 +12,20 @@ Input:
 - activation_example_similarity.parquet: Similarity metrics
 
 Output:
-- activation_display.parquet: Optimized display data (~67MB)
+- activation_display.parquet: Optimized display data (~128MB)
 
 Features:
 - Pre-organized quantile examples (2 per quantile, 8 total per feature)
 - Pre-processed tokens (leading underscores removed, joined into text)
-- Raw similarity metrics (pattern_type computed at runtime by backend)
+- Pre-computed pattern_type (vectorized Polars expressions)
+- Pre-computed best n-gram selection (batch processing candidates only)
 - Feature-level data structure for fast loading (~20ms vs ~5 seconds)
+
+Optimizations (v5.0):
+- Vectorized pattern_type: O(N) in Polars vs O(N) with Python overhead
+- Batch n-gram selection: Only process candidates (~30% of rows) vs all rows
+- Pre-join similarity data: Eliminates N filter operations per feature
+- Pattern type distribution logging for diagnostics
 """
 
 import logging
@@ -57,7 +64,7 @@ class ActivationDisplayProcessor(BaseProcessor):
 
     @property
     def version(self) -> str:
-        return "4.0"  # Version bump: pre-compute best n-gram selection
+        return "5.0"  # Version bump: vectorized pattern_type + batch n-gram selection
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -93,32 +100,163 @@ class ActivationDisplayProcessor(BaseProcessor):
             "total_examples_processed": 0
         }
 
-    def _compute_pattern_type(
-        self,
-        semantic_sim: Optional[float],
-        char_jaccard: Optional[float],
-        word_jaccard: Optional[float]
-    ) -> str:
-        """Compute pattern type from raw similarity values.
+    def _precompute_derived_fields(self, df: pl.DataFrame) -> pl.DataFrame:
+        """
+        Pre-compute pattern_type and best n-gram fields for all similarity rows.
+
+        OPTIMIZED: Uses vectorized Polars operations for pattern_type,
+        and only processes rows with potential valid n-grams for the rest.
 
         Args:
-            semantic_sim: Semantic embedding similarity
-            char_jaccard: Character n-gram Jaccard similarity
-            word_jaccard: Word n-gram Jaccard similarity
+            df: similarity_df with all features
 
         Returns:
-            Pattern type: "Semantic", "Lexical", "Both", or "None"
+            DataFrame with added columns:
+            - pattern_type: Categorical ("Semantic", "Lexical", "Both", "None")
+            - best_ngram_type: Categorical ('word' | 'char' | null)
+            - best_ngram_text: Utf8 - unified n-gram text
+            - best_ngram_size: UInt8 - n-gram size (k value)
         """
-        has_semantic = (semantic_sim or 0) >= self.semantic_threshold
-        has_lexical = max(char_jaccard or 0, word_jaccard or 0) >= self.lexical_threshold
+        logger.info("Pre-computing derived fields (pattern_type, best n-grams)...")
 
-        if has_semantic and has_lexical:
-            return "Both"
-        elif has_semantic:
-            return "Semantic"
-        elif has_lexical:
-            return "Lexical"
-        return "None"
+        # Check required columns exist
+        required_cols = ["avg_pairwise_semantic_similarity", "char_ngram_max_jaccard", "word_ngram_max_jaccard"]
+        missing = [c for c in required_cols if c not in df.columns]
+        if missing:
+            logger.warning(f"Missing required columns for pattern_type: {missing}")
+            return df.with_columns([
+                pl.lit("None").alias("pattern_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(0).cast(pl.UInt8).alias("best_ngram_size"),
+            ])
+
+        total_rows = len(df)
+        logger.info(f"Processing {total_rows:,} features for derived fields...")
+
+        # ============================================================
+        # OPTIMIZATION 1: Vectorized pattern_type computation
+        # ============================================================
+        logger.info("Computing pattern_type (vectorized)...")
+
+        has_semantic = pl.col("avg_pairwise_semantic_similarity").fill_null(0) >= self.semantic_threshold
+        max_lexical = pl.max_horizontal(
+            pl.col("char_ngram_max_jaccard").fill_null(0),
+            pl.col("word_ngram_max_jaccard").fill_null(0)
+        )
+        has_lexical = max_lexical >= self.lexical_threshold
+
+        result_df = df.with_columns([
+            pl.when(has_semantic & has_lexical).then(pl.lit("Both"))
+              .when(has_semantic).then(pl.lit("Semantic"))
+              .when(has_lexical).then(pl.lit("Lexical"))
+              .otherwise(pl.lit("None"))
+              .alias("pattern_type")
+        ])
+
+        # Log pattern type distribution
+        pattern_counts = result_df.group_by("pattern_type").agg(pl.count().alias("count")).sort("pattern_type")
+        logger.info(f"Pattern type distribution:\n{pattern_counts}")
+
+        # ============================================================
+        # OPTIMIZATION 2: Only process rows that might have valid n-grams
+        # ============================================================
+        has_per_k = "word_ngram_per_k_jaccard" in df.columns or "char_ngram_per_k_jaccard" in df.columns
+
+        if not has_per_k:
+            logger.info("No per-k data available, skipping n-gram selection")
+            return result_df.with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(0).cast(pl.UInt8).alias("best_ngram_size"),
+            ])
+
+        # Pre-filter: Only rows where max Jaccard >= lexical_threshold might have valid n-grams
+        # Two-tier logic:
+        #   - Tier 1 (lexical_threshold): Gate - does this feature have a lexical pattern worth highlighting?
+        #   - Tier 2 (ngram_jaccard_threshold): Selection - pick the longest n-gram above this (lower) threshold
+        might_have_ngram = (
+            (pl.col("char_ngram_max_jaccard").fill_null(0) >= self.lexical_threshold) |
+            (pl.col("word_ngram_max_jaccard").fill_null(0) >= self.lexical_threshold)
+        )
+
+        # Add row index for later join
+        result_df = result_df.with_row_count("_row_idx")
+
+        # Filter to candidate rows only
+        candidate_df = result_df.filter(might_have_ngram)
+        candidate_count = len(candidate_df)
+        logger.info(f"Processing {candidate_count:,} candidate rows for n-gram selection (out of {total_rows:,})")
+
+        if candidate_count == 0:
+            logger.info("No candidate rows, all n-gram fields will be null")
+            return result_df.drop("_row_idx").with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(0).cast(pl.UInt8).alias("best_ngram_size"),
+            ])
+
+        # Process only candidate rows
+        candidate_rows = candidate_df.to_dicts()
+
+        best_ngram_types = []
+        best_ngram_texts = []
+        best_ngram_sizes = []
+        row_indices = []
+
+        for i, row in enumerate(candidate_rows):
+            if i % 5000 == 0 and i > 0:
+                logger.info(f"Processing candidate {i:,}/{candidate_count:,} ({100*i/candidate_count:.1f}%)")
+
+            word_per_k = row.get("word_ngram_per_k_jaccard") or {}
+            top_word_per_k = row.get("top_word_ngrams") or []
+            char_per_k = row.get("char_ngram_per_k_jaccard") or {}
+            top_char_per_k = row.get("top_char_ngrams") or []
+
+            best = select_best_ngram(
+                word_per_k_jaccard=word_per_k,
+                word_ngrams=top_word_per_k,
+                char_per_k_jaccard=char_per_k,
+                char_ngrams=top_char_per_k,
+                threshold=self.ngram_jaccard_threshold  # Tier 2: select longest n-gram above this threshold
+            )
+
+            if best["type"] is not None:
+                row_indices.append(row["_row_idx"])
+                best_ngram_types.append(best["type"])
+                best_ngram_texts.append(best["text"])
+                best_ngram_sizes.append(best["size"])
+
+        logger.info(f"Found {len(row_indices):,} rows with valid n-grams")
+
+        # Create DataFrame with n-gram results
+        if row_indices:
+            ngram_df = pl.DataFrame({
+                "_row_idx": row_indices,
+                "best_ngram_type": best_ngram_types,
+                "best_ngram_text": best_ngram_texts,
+                "best_ngram_size": best_ngram_sizes,
+            }).with_columns(pl.col("_row_idx").cast(pl.UInt32))  # Match type from with_row_count
+
+            # Join back to main DataFrame
+            result_df = result_df.join(ngram_df, on="_row_idx", how="left")
+        else:
+            result_df = result_df.with_columns([
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_type"),
+                pl.lit(None).cast(pl.Utf8).alias("best_ngram_text"),
+                pl.lit(0).cast(pl.UInt8).alias("best_ngram_size"),
+            ])
+
+        # Drop temporary index and ensure null handling for size
+        result_df = result_df.drop("_row_idx").with_columns([
+            pl.col("best_ngram_size").fill_null(0).cast(pl.UInt8),
+        ])
+
+        # Log n-gram type distribution
+        ngram_counts = result_df.group_by("best_ngram_type").agg(pl.count().alias("count")).sort("best_ngram_type")
+        logger.info(f"best_ngram_type distribution:\n{ngram_counts}")
+
+        return result_df
 
     def _load_data(self) -> None:
         """Load activation examples and similarity data."""
@@ -223,19 +361,22 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         return positions
 
-    def _process_feature(self, feature_id: int) -> Optional[Dict[str, Any]]:
-        """Process a single feature to create optimized display data.
+    def _process_feature_with_precomputed(
+        self, feature_id: int, precomputed_lookup: Dict[int, Dict]
+    ) -> Optional[Dict[str, Any]]:
+        """Process a single feature using pre-computed derived fields.
 
         Args:
             feature_id: Feature ID to process
+            precomputed_lookup: Dict mapping feature_id to precomputed row data
 
         Returns:
             Dictionary with processed data or None if invalid
         """
-        # Get similarity data for this feature
-        feature_sim = self.similarity_df.filter(pl.col("feature_id") == feature_id)
+        # Get precomputed data for this feature
+        sim_row = precomputed_lookup.get(feature_id)
 
-        if len(feature_sim) == 0:
+        if sim_row is None:
             self.stats["features_with_no_data"] += 1
             return {
                 "feature_id": feature_id,
@@ -255,8 +396,6 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "best_ngram_size": 0,
             }
 
-        sim_row = feature_sim.to_dicts()[0]
-
         # Extract metadata (support both new and legacy column names)
         prompt_ids = sim_row.get("prompt_ids") or sim_row.get("prompt_ids_for_display", [])
         semantic_sim = sim_row.get("avg_pairwise_semantic_similarity")
@@ -266,28 +405,24 @@ class ActivationDisplayProcessor(BaseProcessor):
         char_ngram_jaccard = sim_row.get("char_ngram_max_jaccard") or 0.0
         word_ngram_jaccard = sim_row.get("word_ngram_max_jaccard") or 0.0
 
-        # Extract top n-grams (overall)
+        # Extract top n-grams (overall) for backward compatibility
         top_char_ngram = sim_row.get("top_char_ngram")
         top_word_ngram = sim_row.get("top_word_ngram")
 
-        # NEW: Extract per-k Jaccard values (for longest n-gram selection)
+        # Use pre-computed derived fields
+        pattern_type = sim_row.get("pattern_type", "None")
+        best_ngram_type = sim_row.get("best_ngram_type")
+        best_ngram_text = sim_row.get("best_ngram_text")
+        best_ngram_size = sim_row.get("best_ngram_size", 0)
+
+        # For n-gram position extraction, we still need the full n-gram data
+        top_char_ngrams = sim_row.get("top_char_ngrams") or []
+        top_word_ngrams = sim_row.get("top_word_ngrams") or []
         char_per_k_jaccard = sim_row.get("char_ngram_per_k_jaccard") or {}
         word_per_k_jaccard = sim_row.get("word_ngram_per_k_jaccard") or {}
 
-        # NEW: Extract per-k top n-grams
-        top_char_ngrams = sim_row.get("top_char_ngrams") or []
-        top_word_ngrams = sim_row.get("top_word_ngrams") or []
-
         if not prompt_ids or len(prompt_ids) == 0:
             self.stats["features_with_no_data"] += 1
-            # Compute pattern_type even for empty features
-            pattern_type = self._compute_pattern_type(semantic_sim, char_ngram_jaccard, word_ngram_jaccard)
-            # Select best n-gram even for empty features
-            best_ngram = select_best_ngram(
-                word_per_k_jaccard, top_word_ngrams,
-                char_per_k_jaccard, top_char_ngrams,
-                self.ngram_jaccard_threshold
-            )
             return {
                 "feature_id": feature_id,
                 "sae_id": self.sae_id,
@@ -301,9 +436,9 @@ class ActivationDisplayProcessor(BaseProcessor):
                 # Pre-computed pattern_type
                 "pattern_type": pattern_type,
                 # Pre-computed best n-gram (unified display format)
-                "best_ngram_type": best_ngram["type"],
-                "best_ngram_text": best_ngram["text"],
-                "best_ngram_size": best_ngram["size"],
+                "best_ngram_type": best_ngram_type,
+                "best_ngram_text": best_ngram_text,
+                "best_ngram_size": best_ngram_size,
             }
 
         # Fetch activation examples for these prompt IDs
@@ -316,7 +451,7 @@ class ActivationDisplayProcessor(BaseProcessor):
             self.stats["features_with_no_data"] += 1
             return None
 
-        # Pre-compute best n-gram selection (word preferred over char)
+        # Get best n-gram data for position extraction (need full occurrences)
         best_ngram = select_best_ngram(
             word_per_k_jaccard, top_word_ngrams,
             char_per_k_jaccard, top_char_ngrams,
@@ -375,9 +510,6 @@ class ActivationDisplayProcessor(BaseProcessor):
         char_ngram_text = top_char_ngram.get("ngram") if top_char_ngram else None
         word_ngram_text = top_word_ngram.get("ngram") if top_word_ngram else None
 
-        # Pre-compute pattern_type
-        pattern_type = self._compute_pattern_type(semantic_sim, char_ngram_jaccard, word_ngram_jaccard)
-
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
@@ -393,9 +525,9 @@ class ActivationDisplayProcessor(BaseProcessor):
             # Pre-computed pattern_type
             "pattern_type": pattern_type,
             # Pre-computed best n-gram (unified display format)
-            "best_ngram_type": best_ngram["type"],
-            "best_ngram_text": best_ngram["text"],
-            "best_ngram_size": best_ngram["size"],
+            "best_ngram_type": best_ngram_type,
+            "best_ngram_text": best_ngram_text,
+            "best_ngram_size": best_ngram_size,
         }
 
     def process(self) -> pl.DataFrame:
@@ -427,10 +559,29 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         logger.info(f"Processing {len(unique_features):,} features")
 
-        # Process features
+        # ============================================================
+        # OPTIMIZATION: Pre-compute pattern_type and best n-gram for all features
+        # ============================================================
+        # Filter similarity_df to only features we're processing
+        filtered_sim_df = self.similarity_df.filter(
+            pl.col("feature_id").is_in(unique_features)
+        )
+        logger.info(f"Filtered similarity_df to {len(filtered_sim_df):,} rows for {len(unique_features):,} features")
+
+        # Pre-compute derived fields (vectorized pattern_type + batch n-gram selection)
+        precomputed_df = self._precompute_derived_fields(filtered_sim_df)
+
+        # Create lookup dict for fast access (feature_id -> precomputed row)
+        precomputed_lookup = {}
+        for row in precomputed_df.to_dicts():
+            precomputed_lookup[row["feature_id"]] = row
+
+        # ============================================================
+        # Process quantile examples per feature
+        # ============================================================
         results = []
         for feature_id in tqdm(unique_features, desc="Processing features"):
-            result = self._process_feature(feature_id)
+            result = self._process_feature_with_precomputed(feature_id, precomputed_lookup)
             if result is not None:
                 results.append(result)
                 self.stats["features_processed"] += 1

@@ -1,8 +1,8 @@
 """
 Embedding utilities for the SAE preprocessing pipeline.
 
-Provides functions for loading pre-computed embeddings and computing
-pairwise similarity metrics.
+Provides functions for loading pre-computed embeddings, computing
+pairwise similarity metrics, and applying EmbeddingGemma projection layers.
 """
 
 import logging
@@ -12,6 +12,56 @@ import numpy as np
 import polars as pl
 
 logger = logging.getLogger(__name__)
+
+
+def get_projection_modules(model):
+    """Get EmbeddingGemma projection modules from SentenceTransformer model.
+
+    EmbeddingGemma module structure:
+    [0] Transformer, [1] Pooling, [2] Dense(768→3072), [3] Dense(3072→768), [4] Normalize
+
+    Args:
+        model: SentenceTransformer model instance
+
+    Returns:
+        Tuple of (dense1, dense2, normalize) modules
+    """
+    return model[2], model[3], model[4]
+
+
+def apply_projection_layers(
+    embedding: np.ndarray,
+    model,
+    dense1,
+    dense2,
+    normalize
+) -> np.ndarray:
+    """Apply EmbeddingGemma's projection layers to pooled embedding.
+
+    After pooling token embeddings, this applies the Dense and Normalize
+    modules to transform the embedding into semantic similarity space.
+
+    Args:
+        embedding: Shape (embedding_dim,) - pooled embedding
+        model: SentenceTransformer model (for device detection)
+        dense1: First Dense module (768 → 3072)
+        dense2: Second Dense module (3072 → 768)
+        normalize: Normalize module (L2)
+
+    Returns:
+        L2-normalized embedding in semantic similarity space
+    """
+    import torch
+
+    device = next(model.parameters()).device
+    embedding_tensor = torch.tensor(embedding, dtype=torch.float32).unsqueeze(0).to(device)
+
+    features = {"sentence_embedding": embedding_tensor}
+    features = dense1(features)
+    features = dense2(features)
+    features = normalize(features)
+
+    return features["sentence_embedding"].squeeze(0).cpu().detach().numpy()
 
 
 def load_embeddings_for_feature(

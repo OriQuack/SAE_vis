@@ -251,25 +251,24 @@ backend/
 │   │   ├── requests.py           # Request models
 │   │   ├── responses.py          # Response models
 │   │   └── cold_start.py         # Cold start models
-│   └── services/                  # Business logic (18 files)
-│       ├── data_service.py           # Data loading + initialization
+│   └── services/                  # Business logic (17 files)
+│       ├── activation_cache_service.py # Cached activation data
+│       ├── alignment_service.py      # Explanation alignment
+│       ├── bimodality_service.py     # Bimodality detection
+│       ├── cause_service.py          # SVM-based cause classification (Stage 3)
+│       ├── cold_start_service.py     # Diversity-based representative sampling
+│       ├── committee_service.py      # QBC: RF + MLP committee
+│       ├── consensus_service.py      # HDBSCAN phrase clustering
+│       ├── consistency_service.py    # Consistency metrics
 │       ├── data_constants.py         # Metric definitions
+│       ├── data_service.py           # Data loading + initialization
 │       ├── feature_group_service.py  # Feature grouping
 │       ├── hierarchical_cluster_candidate_service.py # Clustering
-│       ├── similarity_sort_service.py # SVM scoring for features
-│       ├── pair_similarity_service.py # SVM scoring for pairs
-│       ├── committee_service.py      # QBC: RF + MLP committee
-│       ├── pytorch_mlp.py            # PyTorch MLP with sample weighting
-│       ├── bimodality_service.py     # Bimodality detection
 │       ├── histogram_service.py      # Histogram generation
-│       ├── table_data_service.py     # Table processing
-│       ├── alignment_service.py      # Explanation alignment
-│       ├── activation_cache_service.py # Cached activation data
-│       ├── cause_service.py          # SVM-based cause classification (Stage 3)
-│       ├── consistency_service.py    # Consistency metrics
-│       ├── cold_start_service.py     # Diversity-based representative sampling
-│       ├── consensus_service.py      # HDBSCAN phrase clustering
-│       └── pattern_utils.py          # Pattern type classification utilities
+│       ├── pair_similarity_service.py # SVM scoring for pairs
+│       ├── pytorch_mlp.py            # PyTorch MLP with sample weighting
+│       ├── similarity_sort_service.py # SVM scoring for features
+│       └── table_data_service.py     # Table processing
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
 └── requirements.txt               # Dependencies

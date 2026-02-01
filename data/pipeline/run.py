@@ -8,11 +8,12 @@ Usage:
     # Run full pipeline
     python data/pipeline/run.py
 
-    # Run specific steps (with dependencies)
+    # Run specific steps (with dependencies) - short or full names work
+    python data/pipeline/run.py --steps step_06 step_10
     python data/pipeline/run.py --steps step_06_features step_10_activation_display
 
     # Run from a step onwards
-    python data/pipeline/run.py --from step_06_features
+    python data/pipeline/run.py --from step_06
 
     # Dry run (show execution order)
     python data/pipeline/run.py --dry-run
@@ -284,6 +285,38 @@ def get_upstream_dependencies(
         add_with_deps(step)
 
     return to_run
+
+
+def resolve_step_name(partial_name: str, all_steps: List[str]) -> str:
+    """Resolve a partial step name to its full name.
+
+    Supports:
+    - Full names: "step_13_svm_metrics" -> "step_13_svm_metrics"
+    - Short names: "step_13" -> "step_13_svm_metrics"
+
+    Args:
+        partial_name: Partial or full step name
+        all_steps: List of all available step names
+
+    Returns:
+        Full step name
+
+    Raises:
+        ValueError: If step not found or ambiguous
+    """
+    # Exact match
+    if partial_name in all_steps:
+        return partial_name
+
+    # Prefix match (e.g., "step_13" matches "step_13_svm_metrics")
+    matches = [s for s in all_steps if s.startswith(partial_name + "_")]
+
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        raise ValueError(f"Ambiguous step name '{partial_name}', matches: {matches}")
+    else:
+        raise ValueError(f"Step '{partial_name}' not found. Use --list to see available steps.")
 
 
 def get_steps_to_run(
@@ -712,20 +745,33 @@ def main():
     dependencies = config.get("dependencies", {})
     all_steps = topological_sort(dependencies)
 
+    # Resolve step names (support short names like "step_13" -> "step_13_svm_metrics")
+    try:
+        resolved_steps = None
+        if args.steps:
+            resolved_steps = [resolve_step_name(s, all_steps) for s in args.steps]
+
+        resolved_from = None
+        if args.from_step:
+            resolved_from = resolve_step_name(args.from_step, all_steps)
+    except ValueError as e:
+        logger.error(str(e))
+        return 1
+
     # Determine which steps to run
     try:
-        if args.only and args.steps:
+        if args.only and resolved_steps:
             # Run only specified steps (no downstream or upstream)
-            steps_to_run = [s for s in all_steps if s in args.steps]
+            steps_to_run = [s for s in all_steps if s in resolved_steps]
             if not steps_to_run:
                 # Steps not in all_steps, use as-is
-                steps_to_run = args.steps
+                steps_to_run = resolved_steps
         else:
             steps_to_run = get_steps_to_run(
                 all_steps,
                 dependencies,
-                target_steps=args.steps,
-                from_step=args.from_step,
+                target_steps=resolved_steps,
+                from_step=resolved_from,
                 include_downstream=not args.only,  # Default: include downstream
                 include_upstream=args.with_upstream  # Default: no upstream
             )

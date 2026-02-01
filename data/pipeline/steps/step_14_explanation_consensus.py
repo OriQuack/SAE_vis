@@ -45,6 +45,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from core.base import BaseProcessor, load_yaml_config, resolve_variables
 from core.logging import setup_logging
 from core.phrases import chunk_text, extract_all_phrases
+from core.embeddings import get_projection_modules, apply_projection_layers
 
 # Lazy imports for heavy dependencies
 sentence_transformers = None
@@ -77,7 +78,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
     @property
     def version(self) -> str:
-        return "1.1"  # Updated to use token_embeddings + mean pooling for activation alignment
+        return "1.2"  # Fixed: Apply projection layers after mean pooling (same as step_05)
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -143,16 +144,18 @@ class ExplanationConsensusProcessor(BaseProcessor):
             model_name = self.proc_params["embedding_model"]
             logger.info(f"Loading sentence embedding model ({model_name})...")
             self.embedding_model = sentence_transformers.SentenceTransformer(model_name)
+            # Get EmbeddingGemma projection modules for applying after mean pooling
+            self.dense1, self.dense2, self.normalize = get_projection_modules(self.embedding_model)
 
     def _embed_phrases_aligned(self, texts: List[str]) -> np.ndarray:
-        """Embed phrases using token_embeddings + mean pooling.
+        """Embed phrases using token_embeddings + mean pooling + projection layers.
 
         This matches the embedding space used by activation embeddings (step_05),
-        which use token_embeddings + weighted pooling. Using the same base
-        (token_embeddings) ensures phrase-activation similarity is meaningful.
+        which use token_embeddings + weighted pooling + projection layers.
+        Using the same pipeline ensures phrase-activation similarity is meaningful.
 
-        The standard model.encode() uses a different projection that produces
-        embeddings in an incompatible space.
+        The standard model.encode() uses pooling which bypasses our custom pooling,
+        so we use output_value="token_embeddings" and apply projection manually.
 
         Args:
             texts: List of phrase texts to embed
@@ -180,12 +183,13 @@ class ExplanationConsensusProcessor(BaseProcessor):
             # for phrases since we don't have activation weights)
             pooled = np.mean(token_emb, axis=0)
 
-            # L2 normalize (same as step_05)
-            norm = np.linalg.norm(pooled)
-            if norm > 0:
-                pooled = pooled / norm
-
-            embeddings.append(pooled.astype(np.float32))
+            # Apply EmbeddingGemma's projection layers (Dense + Normalize)
+            # This transforms embeddings into semantic similarity space (same as step_05)
+            projected = apply_projection_layers(
+                pooled, self.embedding_model,
+                self.dense1, self.dense2, self.normalize
+            )
+            embeddings.append(projected.astype(np.float32))
 
         return np.array(embeddings)
 

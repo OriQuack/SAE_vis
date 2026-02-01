@@ -145,11 +145,13 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 pl.lit(None).alias("best_ngram_similar_positions"),
             ])
 
-        # Pre-filter: Only rows where max Jaccard >= threshold might have valid n-grams
-        threshold = self.NGRAM_JACCARD_THRESHOLD
+        # Pre-filter: Only rows where max Jaccard >= LEXICAL_THRESHOLD might have valid n-grams
+        # Two-tier logic:
+        #   - Tier 1 (LEXICAL_THRESHOLD): Gate - does this pair have a lexical pattern worth highlighting?
+        #   - Tier 2 (NGRAM_JACCARD_THRESHOLD): Selection - pick the longest n-gram above this (lower) threshold
         might_have_ngram = (
-            (pl.col("char_ngram_max_jaccard").fill_null(0) >= threshold) |
-            (pl.col("word_ngram_max_jaccard").fill_null(0) >= threshold)
+            (pl.col("char_ngram_max_jaccard").fill_null(0) >= self.LEXICAL_THRESHOLD) |
+            (pl.col("word_ngram_max_jaccard").fill_null(0) >= self.LEXICAL_THRESHOLD)
         )
 
         # Add row index for later join (use with_row_count for older Polars versions)
@@ -192,7 +194,7 @@ class InterfeatureDisplayProcessor(BaseProcessor):
                 word_ngrams=top_word_per_k,
                 char_per_k_jaccard=char_per_k,
                 char_ngrams=top_char_per_k,
-                threshold=threshold
+                threshold=self.NGRAM_JACCARD_THRESHOLD  # Tier 2: select longest n-gram above this threshold
             )
 
             if best["type"] is not None:

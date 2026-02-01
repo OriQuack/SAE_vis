@@ -351,9 +351,14 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
 
             if positions:
                 window_offset = calculate_window_offset(max_pos, window_size)
+                # Use consistent format with char n-grams: {token_position, char_offset}
+                # For word n-grams, char_offset is None (highlight entire token)
                 result.append({
                     'prompt_id': int(prompt_id),
-                    'positions': [int(window_offset + p) for p in positions]
+                    'positions': [
+                        {'token_position': int(window_offset + p), 'char_offset': None}
+                        for p in positions
+                    ]
                 })
 
         return result
@@ -668,19 +673,22 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
 
     def _get_target_schema(self) -> Dict:
         """Get the target schema with proper types."""
-        char_position_struct = pl.Struct([
+        # Unified position struct for both char and word n-grams
+        # char_offset is nullable (None for word n-grams, present for char n-grams)
+        position_struct = pl.Struct([
             pl.Field("token_position", pl.UInt16),
-            pl.Field("char_offset", pl.UInt8)
+            pl.Field("char_offset", pl.UInt8)  # Null for word n-grams
         ])
 
+        # Use same structure for both char and word n-gram positions
         char_ngram_positions_struct = pl.Struct([
             pl.Field("prompt_id", pl.UInt32),
-            pl.Field("positions", pl.List(char_position_struct))
+            pl.Field("positions", pl.List(position_struct))
         ])
 
         word_ngram_positions_struct = pl.Struct([
             pl.Field("prompt_id", pl.UInt32),
-            pl.Field("positions", pl.List(pl.UInt16))
+            pl.Field("positions", pl.List(position_struct))
         ])
 
         # NEW: Per-k Jaccard as struct

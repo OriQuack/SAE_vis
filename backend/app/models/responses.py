@@ -174,7 +174,7 @@ class InterFeatureSimilarityInfo(BaseModel):
     )
     semantic_similarity: Optional[float] = Field(
         None,
-        ge=0.0,
+        ge=-1.0,
         le=1.0,
         description="Semantic similarity score (activation embeddings)"
     )

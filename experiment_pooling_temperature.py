@@ -46,14 +46,14 @@ warnings.filterwarnings('ignore', category=FutureWarning)
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
-DATA_DIR = Path(__file__).parent / "data" / "master"
+DATA_DIR = Path(__file__).parent / "data" / "intermediate"
 ACTIVATION_EXAMPLES_PATH = DATA_DIR / "activation_examples.parquet"
 
 # Temperatures to test (None = mean pooling)
-TEMPERATURES: List[Optional[float]] = [None, 1.0, 5.0, 10.0, 20.0, 30.0, 40.0, 60.0, 80.0, 100.0, 150.0, 200.0, 500.0]
+TEMPERATURES: List[Optional[float]] = [None, 1.0, 10.0, 20.0, 40.0, 60.0, 80.0, 100.0, 200.0]
 
 # Experiment parameters
-DEFAULT_N_FEATURES = 500          # Number of features to sample
+DEFAULT_N_FEATURES = 2000          # Number of features to sample
 DEFAULT_N_BOOTSTRAP = 10000       # Bootstrap iterations
 DEFAULT_SEED = 42                 # Random seed for reproducibility
 TOKEN_WINDOW_SIZE = 32            # Token window around max activation
@@ -209,7 +209,12 @@ class TemperatureResult:
 
 
 def load_sentence_transformer():
-    """Load sentence-transformers model for embedding computation."""
+    """Load sentence-transformers model for embedding computation.
+
+    Returns:
+        Tuple of (model, dense1, dense2, normalize) where the last three
+        are the EmbeddingGemma projection modules.
+    """
     try:
         from sentence_transformers import SentenceTransformer
     except ImportError:
@@ -229,7 +234,12 @@ def load_sentence_transformer():
     else:
         print("  Using CPU")
 
-    return model
+    # Extract EmbeddingGemma projection modules
+    # Module structure: [0] Transformer, [1] Pooling, [2] Dense(768→3072), [3] Dense(3072→768), [4] Normalize
+    dense1, dense2, normalize = model[2], model[3], model[4]
+    print("  Extracted projection modules for proper semantic embeddings")
+
+    return model, dense1, dense2, normalize
 
 
 def reconstruct_text(tokens: List[str]) -> str:
@@ -252,19 +262,29 @@ def reconstruct_text(tokens: List[str]) -> str:
 def weighted_pooling(
     token_embeddings: np.ndarray,
     activation_weights: np.ndarray,
-    temperature: Optional[float]
+    temperature: Optional[float],
+    model,
+    dense1,
+    dense2,
+    normalize
 ) -> np.ndarray:
     """
-    Apply activation-weighted pooling with L2 normalization.
+    Apply activation-weighted pooling with EmbeddingGemma projection layers.
 
     Args:
         token_embeddings: Shape (num_tokens, embedding_dim)
         activation_weights: Shape (num_tokens,) - raw activation values
         temperature: Softmax temperature (None = mean pooling)
+        model: SentenceTransformer model (for device detection)
+        dense1: First Dense module (768 → 3072)
+        dense2: Second Dense module (3072 → 768)
+        normalize: Normalize module (L2)
 
     Returns:
-        L2-normalized embedding vector of shape (embedding_dim,)
+        L2-normalized embedding vector in semantic similarity space
     """
+    import torch
+
     if temperature is None or np.sum(activation_weights) == 0:
         # Mean pooling
         pooled = np.mean(token_embeddings, axis=0)
@@ -276,12 +296,17 @@ def weighted_pooling(
         weights = weights / np.sum(weights)
         pooled = np.sum(token_embeddings * weights[:, np.newaxis], axis=0)
 
-    # L2 normalize
-    norm = np.linalg.norm(pooled)
-    if norm > 0:
-        pooled = pooled / norm
+    # Apply EmbeddingGemma projection layers (Dense + Normalize)
+    # This transforms embeddings into semantic similarity space
+    device = next(model.parameters()).device
+    embedding_tensor = torch.tensor(pooled, dtype=torch.float32).unsqueeze(0).to(device)
 
-    return pooled.astype(np.float32)
+    features = {"sentence_embedding": embedding_tensor}
+    features = dense1(features)
+    features = dense2(features)
+    features = normalize(features)
+
+    return features["sentence_embedding"].squeeze(0).cpu().detach().numpy().astype(np.float32)
 
 
 def map_activations_to_tokens(
@@ -309,6 +334,9 @@ def map_activations_to_tokens(
 
 def compute_embeddings_for_temperature(
     model,
+    dense1,
+    dense2,
+    normalize,
     feature_data: Dict[int, List[Dict]],
     temperature: Optional[float],
     window_size: int = TOKEN_WINDOW_SIZE
@@ -318,6 +346,9 @@ def compute_embeddings_for_temperature(
 
     Args:
         model: SentenceTransformer model
+        dense1: First Dense projection module
+        dense2: Second Dense projection module
+        normalize: Normalize module
         feature_data: Dict mapping feature_id -> list of example dicts
         temperature: Pooling temperature (None = mean pooling)
         window_size: Token window size
@@ -372,8 +403,11 @@ def compute_embeddings_for_temperature(
                 activation_pairs, window_start, window_end, len(token_embs)
             )
 
-            # Apply pooling
-            embedding = weighted_pooling(token_embs, activation_weights, temperature)
+            # Apply pooling with projection layers
+            embedding = weighted_pooling(
+                token_embs, activation_weights, temperature,
+                model, dense1, dense2, normalize
+            )
             feature_embeddings.append(embedding)
 
         if feature_embeddings:
@@ -535,8 +569,8 @@ def run_experiment(
     print(f"Temperatures: {[t if t else 'mean' for t in TEMPERATURES]}")
     print()
 
-    # Load model
-    model = load_sentence_transformer()
+    # Load model and projection modules
+    model, dense1, dense2, normalize = load_sentence_transformer()
     print()
 
     # Load and prepare data
@@ -562,7 +596,7 @@ def run_experiment(
 
         # Compute embeddings
         embeddings_by_feature = compute_embeddings_for_temperature(
-            model, feature_data, temperature
+            model, dense1, dense2, normalize, feature_data, temperature
         )
 
         # Compute distances

@@ -202,11 +202,11 @@ export function formatTokensWithEllipsis(
 // ============================================================================
 
 /**
- * Determine n-gram type (char vs word) based on Jaccard scores
+ * Determine n-gram type (char vs word) from inter-feature similarity data
  * Returns the winning type and its score
  *
- * Used to decide whether to use char or word positions for inter-feature highlighting.
- * Chooses the type with the higher Jaccard similarity score.
+ * V5.0: First checks for pre-computed best_ngram_type from backend (unified selection).
+ * Falls back to Jaccard comparison for backward compatibility.
  *
  * @param interfeatureData - Inter-feature similarity data from decoder similarity
  * @returns Object with winning type and its Jaccard score, or null if no pattern
@@ -218,6 +218,16 @@ export function determineNgramType(
     return { type: null, jaccard: 0 }
   }
 
+  // V5.0: Use pre-computed best_ngram_type if available (unified backend selection)
+  if (interfeatureData.best_ngram_type) {
+    const type = interfeatureData.best_ngram_type as 'char' | 'word'
+    const jaccard = type === 'char'
+      ? (interfeatureData.char_jaccard || 0)
+      : (interfeatureData.word_jaccard || 0)
+    return { type, jaccard }
+  }
+
+  // Fallback: Choose type with higher Jaccard score (backward compatibility)
   const charJaccard = interfeatureData.char_jaccard || 0
   const wordJaccard = interfeatureData.word_jaccard || 0
 
@@ -225,7 +235,6 @@ export function determineNgramType(
     return { type: null, jaccard: 0 }
   }
 
-  // Choose type with higher Jaccard score
   return charJaccard >= wordJaccard
     ? { type: 'char', jaccard: charJaccard }
     : { type: 'word', jaccard: wordJaccard }
@@ -233,7 +242,9 @@ export function determineNgramType(
 
 /**
  * Extract n-gram positions for a feature pair from inter-feature similarity data
- * Automatically chooses char or word positions based on Jaccard scores
+ *
+ * V5.0: Uses unified main_ngram_positions and similar_ngram_positions from backend.
+ * Falls back to old separate char/word fields for backward compatibility.
  *
  * Use this function to extract highlighting positions when displaying feature pairs
  * with inter-feature pattern matching (e.g., in FeatureSplitTable).
@@ -255,7 +266,16 @@ export function extractInterFeaturePositions(
   const { type } = determineNgramType(interfeatureData)
   if (!type) return null
 
-  // Extract positions based on winning type
+  // V5.0: Use unified position fields if available
+  if (interfeatureData.main_ngram_positions && interfeatureData.similar_ngram_positions) {
+    return {
+      type,
+      mainPositions: interfeatureData.main_ngram_positions,
+      similarPositions: interfeatureData.similar_ngram_positions
+    }
+  }
+
+  // Fallback: Extract positions based on winning type (backward compatibility)
   const mainPositions = type === 'char'
     ? interfeatureData.main_char_ngram_positions
     : interfeatureData.main_word_ngram_positions

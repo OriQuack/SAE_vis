@@ -164,7 +164,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   │   ├── components/    # UI components (30 files)
 │   │   ├── lib/          # D3 utilities, helpers (21 files + 10 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (28 files)
+│   │   ├── styles/       # CSS files (29 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -172,7 +172,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   ├── app/
 │   │   ├── api/          # Endpoints (10 files)
 │   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (18 files)
+│   │   └── services/     # Business logic (17 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── input/            # Raw input data (run configs, activation examples)

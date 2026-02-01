@@ -114,37 +114,36 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 ```
 frontend/src/
 ├── components/                    # React Components (30 files)
-│   ├── App.tsx                   # Main application + stage routing (NOT in components/)
+│   ├── ActivationExamplePanel.tsx # Activation display panel with n-gram highlighting
 │   ├── AppHeader.tsx             # Header with logo
+│   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
+│   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
+│   ├── CauseRadViz.tsx           # RadViz scatter plot for cause categories (Stage 3)
+│   ├── CauseView.tsx             # Stage 3: Root cause analysis
+│   ├── ConsensusSection.tsx      # Consensus phrase clustering display
+│   ├── ConvergenceIndicator.tsx  # Decision Flip Rate sparkline
+│   ├── DecisionMarginHistogram.tsx # SVM decision margin histogram
+│   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
+│   ├── ExplanationPanel.tsx      # Explanation text with highlights
+│   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
+│   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
+│   ├── FlowPanel.tsx             # Flow panel for stage transitions
+│   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
+│   ├── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
+│   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
+│   ├── QualityView.tsx           # Stage 2: Quality assessment
+│   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
 │   ├── SankeyOverlay.tsx         # Stage addition interface
 │   ├── SankeyToSelectionFlowOverlay.tsx # Flow visualization overlay
-│   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
-│   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
-│   ├── QualityView.tsx           # Stage 2: Quality assessment
-│   ├── CauseView.tsx             # Stage 3: Root cause analysis
-│   ├── CauseRadViz.tsx           # RadViz scatter plot for cause categories (Stage 3)
-│   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
-│   ├── StageAccordionList.tsx    # Bootstrap → Learn → Apply workflow
-│   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
-│   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
-│   ├── ConvergenceIndicator.tsx  # Decision Flip Rate sparkline
-│   ├── SelectionPanel.tsx        # Unified selection panel
-│   ├── SelectionBar.tsx          # Selection state bar
-│   ├── TagStagePanel.tsx         # Stage navigation
-│   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
-│   ├── DecisionMarginHistogram.tsx # SVM decision margin histogram
-│   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ScrollableItemList.tsx    # Scrollable item list
-│   ├── ActivationExamplePanel.tsx # Activation display panel
-│   ├── ExplanationPanel.tsx      # Explanation text with highlights
-│   ├── ConsensusSection.tsx      # Consensus phrase clustering display
-│   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
-│   ├── Tooltip.tsx               # Reusable tooltip with composition pattern
-│   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
-│   ├── FlowPanel.tsx             # Flow panel for stage transitions
-│   ├── RegenerationView.tsx      # Stage 4: Summary overview
-│   └── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
+│   ├── SelectionBar.tsx          # Selection state bar
+│   ├── SelectionPanel.tsx        # Unified selection panel
+│   ├── StageAccordionList.tsx    # Bootstrap → Learn → Apply workflow
+│   ├── TagStagePanel.tsx         # Stage navigation
+│   ├── ThresholdHandles.tsx      # Draggable threshold handles
+│   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
+│   └── Tooltip.tsx               # Reusable tooltip with composition pattern
 ├── lib/                          # Utilities (21 files + 10 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
@@ -188,36 +187,36 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (28 files)
-│   ├── base.css                  # Base styles, CSS variables, unified styling
-│   ├── index.css                 # Global styles
+├── styles/                       # CSS Files (29 files)
+│   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── App.css                   # Main app layout
+│   ├── AppHeader.css             # Header styles
+│   ├── base.css                  # Base styles, CSS variables, unified styling
+│   ├── BatchTaggingPanel.css     # Batch tagging panel styles
+│   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
+│   ├── CauseRadViz.css           # RadViz scatter styles (Stage 3)
+│   ├── CauseView.css             # Stage 3 styles
+│   ├── ConsensusSection.css      # Consensus phrase clustering styles
+│   ├── ConvergenceIndicator.css  # Decision Flip Rate sparkline styles
+│   ├── DecisionMarginHistogram.css # Decision margin histogram styles
+│   ├── ExplainerComparisonGrid.css # Comparison grid styles
+│   ├── FeatureSplitPairViewer.css # Pair viewer styles
+│   ├── FeatureSplitView.css      # Stage 1 styles
+│   ├── FlowPanel.css             # Flow panel styles
+│   ├── OverviewSummary.css       # Stage 4 summary styles
+│   ├── ParallelCoordinates.css   # Parallel coordinates styles
+│   ├── QualityView.css           # Stage 2 styles
+│   ├── RegenerationView.css      # Stage 4 regeneration styles
 │   ├── SankeyDiagram.css         # Sankey styles
 │   ├── SankeyToSelectionFlowOverlay.css # Flow overlay styles
-│   ├── FeatureSplitView.css      # Stage 1 styles
-│   ├── FeatureSplitPairViewer.css # Pair viewer styles
-│   ├── QualityView.css           # Stage 2 styles
-│   ├── CauseView.css             # Stage 3 styles
-│   ├── CauseRadViz.css           # RadViz scatter styles (Stage 3)
-│   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
-│   ├── StageAccordionList.css    # Bootstrap/Learn/Apply workflow styles
-│   ├── BatchTaggingPanel.css     # Batch tagging panel styles
-│   ├── Tooltip.css               # Unified tooltip styles
-│   ├── ConvergenceIndicator.css  # Decision Flip Rate sparkline styles
-│   ├── SelectionPanel.css        # Selection panel styles
+│   ├── ScrollableItemList.css    # Scrollable list styles
 │   ├── SelectionBar.css          # Selection bar styles
+│   ├── SelectionPanel.css        # Selection panel styles
+│   ├── StageAccordionList.css    # Bootstrap/Learn/Apply workflow styles
+│   ├── TagAutomaticPopover.css   # Legacy popover styles
 │   ├── TagStagePanel.css         # Stage panel styles
 │   ├── ThresholdTaggingPanel.css # Bottom panel styles
-│   ├── DecisionMarginHistogram.css # Decision margin histogram styles
-│   ├── ScrollableItemList.css    # Scrollable list styles
-│   ├── ActivationExamplePanel.css # Activation panel styles
-│   ├── ConsensusSection.css      # Consensus phrase clustering styles
-│   ├── ExplainerComparisonGrid.css # Comparison grid styles
-│   ├── FlowPanel.css             # Flow panel styles
-│   ├── TagAutomaticPopover.css   # Legacy popover styles
-│   ├── AppHeader.css             # Header styles
-│   ├── RegenerationView.css      # Stage 4 regeneration styles
-│   └── OverviewSummary.css       # Stage 4 summary styles
+│   └── Tooltip.css               # Unified tooltip styles
 ├── types.ts                      # TypeScript types
 ├── api.ts                        # API client
 └── main.tsx                      # Entry point
@@ -357,6 +356,8 @@ frontend/src/
 **ActivationExamplePanel.tsx** - Activation Display
 - Shows activation examples for features
 - Token highlighting with activation values
+- Unified n-gram position handling (both char and word use same format)
+- N-gram highlighting using pre-computed positions from backend
 
 **ExplanationPanel.tsx** - Explanation Display
 - Explanation text with keyword highlights
