@@ -9,17 +9,16 @@ from contextlib import asynccontextmanager
 from .api import router as api_router
 from .services.data_service import DataService
 from .services.alignment_service import AlignmentService
-from .services.similarity_sort_service import SimilaritySortService
+from .services.classification_service import ClassificationService
 from .services.pair_similarity_service import PairSimilarityService
 from .services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .services.activation_cache_service import activation_cache_service
-from .services.cause_service import CauseService
 from .services.cold_start_service import ColdStartService
 from .services.consensus_service import ConsensusService
 from .services.table_data_service import TableDataService
 from .services.feature_group_service import FeatureGroupService
 from .services.histogram_service import HistogramService
-from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus, table, filters, histogram, activation_examples
+from .api import feature_groups, classification, cluster_candidates, cold_start, consensus, table, filters, histogram, activation_examples
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -46,17 +45,16 @@ logger = logging.getLogger(__name__)
 
 data_service = None
 alignment_service = None
-similarity_sort_service = None
+classification_service = None
 pair_similarity_service = None
 cluster_candidate_service = None
-cause_service = None
 cold_start_service = None
 consensus_service = None
 table_service = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global data_service, alignment_service, similarity_sort_service, pair_similarity_service, cluster_candidate_service, cause_service, cold_start_service, consensus_service, table_service
+    global data_service, alignment_service, classification_service, pair_similarity_service, cluster_candidate_service, cold_start_service, consensus_service, table_service
     try:
         data_service = DataService()
         await data_service.initialize()
@@ -89,16 +87,16 @@ async def lifespan(app: FastAPI):
         histogram.set_histogram_service(histogram_service)
         logger.info("Histogram service initialized successfully")
 
-        # Initialize hierarchical cluster candidate service (BEFORE similarity sort service)
+        # Initialize hierarchical cluster candidate service (BEFORE classification service)
         from pathlib import Path
         project_root = Path(__file__).parent.parent.parent
         cluster_candidate_service = HierarchicalClusterCandidateService(project_root=project_root)
         cluster_candidates.set_cluster_candidate_service(cluster_candidate_service)
         logger.info("Hierarchical cluster candidate service initialized successfully")
 
-        # Initialize similarity sort service (feature-level sorting)
-        similarity_sort_service = SimilaritySortService(data_service=data_service)
-        logger.info("Similarity sort service initialized successfully")
+        # Initialize classification service (binary + multi-class SVM)
+        classification_service = ClassificationService(data_service=data_service)
+        logger.info("Classification service initialized successfully")
 
         # Initialize pair similarity service (pair-level sorting)
         pair_similarity_service = PairSimilarityService(
@@ -107,14 +105,9 @@ async def lifespan(app: FastAPI):
         )
         logger.info("Pair similarity service initialized successfully")
 
-        # Pass both services to API layer
-        similarity_sort.set_similarity_sort_service(similarity_sort_service)
-        similarity_sort.set_pair_similarity_service(pair_similarity_service)
-
-        # Initialize Cause service for Stage 3 cause classification
-        cause_service = CauseService(data_service=data_service)
-        cause.set_cause_service(cause_service)
-        logger.info("Cause service initialized successfully")
+        # Pass services to API layer
+        classification.set_classification_service(classification_service)
+        classification.set_pair_similarity_service(pair_similarity_service)
 
         # Initialize cold-start suggestions service
         cold_start_service = ColdStartService(

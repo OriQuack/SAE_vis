@@ -1,22 +1,10 @@
 """
-Table data service for feature-level score visualization (v4.0 - PRE-COMPUTED).
+Table data service for feature-level score visualization.
 
-Optimizations in v4.0:
-- pattern_type and best_ngram fields are pre-computed in pipeline (step_11)
-- Eliminates 255s cold start caused by runtime computation
-- Removes 2.1GB pickle cache - no longer needed
-- Direct column reads from parquet (instant)
-
-Previous optimizations maintained:
-- Vectorized pairwise similarity extraction (explode/unnest instead of iter_rows)
-- Vectorized global stats calculation (group_by instead of nested loops)
-- Optimized lookup building (column extraction instead of iter_rows)
-- Performance monitoring with detailed timing logs
-
-Clean 4-step flow:
+Clean flow:
 1. Fetch scores from features.parquet
 2. Fetch explanations from features.parquet (explanation_text column)
-3. Extract pairwise similarity from nested semantic_similarity structure (VECTORIZED)
+3. Extract pairwise similarity from nested semantic_similarity structure
 4. Build response (pure assembly, no calculations)
 """
 
@@ -36,7 +24,6 @@ from .alignment_service import AlignmentService
 from .data_constants import (
     COL_DECODER_SIMILARITY,
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
-    DECODER_METRIC_FOR_AGGREGATION
 )
 from .data_service import DataService
 
@@ -51,14 +38,14 @@ MODEL_NAME_MAP = {
 
 
 def extract_scores_from_explainer_df(
-    explainer_data,  # Union[pl.DataFrame, list] - accepts both for compatibility
+    explainer_data: List[dict],
     scorer_map: Optional[Dict[str, str]] = None
 ) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]], Optional[float]]:
     """
-    Extract score dictionaries from explainer data - accepts list or DataFrame.
+    Extract score dictionaries from explainer data.
 
     Args:
-        explainer_data: DataFrame or list of dicts for one explainer
+        explainer_data: List of dicts for one explainer
         scorer_map: Optional mapping from scorer ID to s1/s2/s3.
                     If None, creates automatic mapping (s1, s2, s3)
 
@@ -72,74 +59,38 @@ def extract_scores_from_explainer_df(
     detection_dict = {'s1': None, 's2': None, 's3': None}
     embedding_score = None
 
-    if isinstance(explainer_data, list):
-        if len(explainer_data) == 0:
-            return fuzz_dict, detection_dict, embedding_score
+    if len(explainer_data) == 0:
+        return fuzz_dict, detection_dict, embedding_score
 
+    for score_dict in explainer_data:
+        score = score_dict.get("score_embedding")
+        if score is not None:
+            embedding_score = round(score, 3)
+            break
+
+    if scorer_map is None:
+        scorer_map = {}
+        for i, score_dict in enumerate(explainer_data):
+            scorer = score_dict["llm_scorer"]
+            scorer_key = f"s{i+1}"
+            scorer_map[scorer] = scorer_key
+
+            fuzz_val = score_dict.get("score_fuzz")
+            detection_val = score_dict.get("score_detection")
+
+            fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+            detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+    else:
         for score_dict in explainer_data:
-            score = score_dict.get("score_embedding")
-            if score is not None:
-                embedding_score = round(score, 3)
-                break
+            scorer = score_dict["llm_scorer"]
+            scorer_key = scorer_map.get(scorer)
 
-        if scorer_map is None:
-            scorer_map = {}
-            for i, score_dict in enumerate(explainer_data):
-                scorer = score_dict["llm_scorer"]
-                scorer_key = f"s{i+1}"
-                scorer_map[scorer] = scorer_key
-
+            if scorer_key:
                 fuzz_val = score_dict.get("score_fuzz")
                 detection_val = score_dict.get("score_detection")
 
                 fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
                 detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
-        else:
-            for score_dict in explainer_data:
-                scorer = score_dict["llm_scorer"]
-                scorer_key = scorer_map.get(scorer)
-
-                if scorer_key:
-                    fuzz_val = score_dict.get("score_fuzz")
-                    detection_val = score_dict.get("score_detection")
-
-                    fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
-                    detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
-
-    else:
-        explainer_df = explainer_data
-        if len(explainer_df) == 0:
-            return fuzz_dict, detection_dict, embedding_score
-
-        embedding_scores = explainer_df["score_embedding"].to_list()
-        for score in embedding_scores:
-            if score is not None:
-                embedding_score = round(score, 3)
-                break
-
-        if scorer_map is None:
-            scorer_map = {}
-            for i, row_dict in enumerate(explainer_df.iter_rows(named=True)):
-                scorer = row_dict["llm_scorer"]
-                scorer_key = f"s{i+1}"
-                scorer_map[scorer] = scorer_key
-
-                fuzz_val = row_dict.get("score_fuzz")
-                detection_val = row_dict.get("score_detection")
-
-                fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
-                detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
-        else:
-            for _, row in enumerate(explainer_df.iter_rows(named=True)):
-                scorer = row["llm_scorer"]
-                scorer_key = scorer_map.get(scorer)
-
-                if scorer_key:
-                    fuzz_val = row.get("score_fuzz")
-                    detection_val = row.get("score_detection")
-
-                    fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
-                    detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
 
     return fuzz_dict, detection_dict, embedding_score
 
@@ -202,9 +153,6 @@ class TableDataService:
             logger.warning(f"Could not load intra_feature_sim lookup: {e}")
             return {}
 
-    # NOTE: _load_disk_cache and _save_disk_cache removed in v4.0
-    # pattern_type and best_ngram are now pre-computed in pipeline step_11
-
     def _get_default_explainers(self) -> List[str]:
         """Get all unique explainers from the dataset."""
         if self._default_explainers is None:
@@ -228,7 +176,7 @@ class TableDataService:
 
     async def get_table_data(self, filters: Filters) -> FeatureTableDataResponse:
         """
-        Generate feature-level table data (v3.0 - OPTIMIZED with performance monitoring).
+        Generate feature-level table data.
 
         Clean 4-step flow:
         1. Fetch scores from features.parquet
@@ -245,9 +193,7 @@ class TableDataService:
             FeatureTableDataResponse with features and metadata
         """
         start_time = time.time()
-        logger.info("=" * 80)
-        logger.info("Starting table data generation (v3.0 OPTIMIZED)")
-        logger.info("=" * 80)
+        logger.info("Starting table data generation")
 
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
@@ -266,7 +212,7 @@ class TableDataService:
 
         # STEP 1: Fetch scores from features.parquet
         step_start = time.time()
-        scores_df = self._fetch_scores(filters)
+        scores_df = self._fetch_scores()
         logger.info(f"✓ Step 1 (Fetch scores): {time.time() - step_start:.3f}s")
 
         # Extract metadata
@@ -286,13 +232,13 @@ class TableDataService:
 
         # STEP 2: Fetch explanations from features.parquet
         step_start = time.time()
-        explanations_df = self._fetch_explanations(filters)
+        explanations_df = self._fetch_explanations()
         logger.info(f"✓ Step 2 (Fetch explanations): {time.time() - step_start:.3f}s")
 
         # STEP 3: Fetch pairwise semantic similarity data from nested structure
         step_start = time.time()
         pairwise_df = self._fetch_pairwise_similarity(feature_ids, explainer_ids)
-        logger.info(f"✓ Step 3 (Fetch pairwise similarity - VECTORIZED): {time.time() - step_start:.3f}s")
+        logger.info(f"✓ Step 3 (Fetch pairwise similarity): {time.time() - step_start:.3f}s")
 
         # STEP 4: Fetch inter-feature activation similarity data
         step_start = time.time()
@@ -310,12 +256,10 @@ class TableDataService:
         # Compute global stats for frontend normalization
         step_start = time.time()
         global_stats = self._compute_global_stats(scores_df, explainer_ids, feature_ids)
-        logger.info(f"✓ Global stats (VECTORIZED): {time.time() - step_start:.3f}s")
+        logger.info(f"✓ Global stats: {time.time() - step_start:.3f}s")
 
         total_time = time.time() - start_time
-        logger.info("=" * 80)
-        logger.info(f"✓ TOTAL TABLE DATA GENERATION TIME: {total_time:.3f}s ({len(features)} features)")
-        logger.info("=" * 80)
+        logger.info(f"✓ Table data generation complete: {total_time:.3f}s ({len(features)} features)")
 
         return FeatureTableDataResponse(
             features=features,
@@ -325,22 +269,17 @@ class TableDataService:
             global_stats=global_stats
         )
 
-    def _fetch_scores(self, filters: Filters) -> pl.DataFrame:
+    def _fetch_scores(self) -> pl.DataFrame:
         """
         STEP 1: Fetch scores from features.parquet (already flattened by DataService).
 
         NOTE: DataService already transforms nested schema to flat during initialization.
         Assumes default filters (all explainers, 1 scorer). Validation done in get_table_data().
 
-        Args:
-            filters: Filter criteria (validated to be default)
-
         Returns:
-            DataFrame with scores (feature_id, llm_explainer, llm_scorer, score_*, z_score_*)
+            DataFrame with scores (feature_id, llm_explainer, llm_scorer, score_*)
         """
         lf = self.data_service._df_lazy
-
-        logger.info(f"Available columns in lazy frame: {lf.columns}")
 
         # Filter to default explainers only
         default_explainers = self._get_default_explainers()
@@ -355,42 +294,14 @@ class TableDataService:
         # Add additional columns if available
         available_columns = lf.columns
 
-        # Always include decoder_similarity (List) for feature pair display
-        logger.info(f"Checking for {COL_DECODER_SIMILARITY}: {COL_DECODER_SIMILARITY in available_columns}")
         if COL_DECODER_SIMILARITY in available_columns:
             base_columns.append(COL_DECODER_SIMILARITY)
 
-        # Also include decoder_similarity_merge_threshold if available (for aggregate metric display)
-        logger.info(f"Checking for {COL_DECODER_SIMILARITY_MERGE_THRESHOLD}: {COL_DECODER_SIMILARITY_MERGE_THRESHOLD in available_columns}")
         if COL_DECODER_SIMILARITY_MERGE_THRESHOLD in available_columns:
             base_columns.append(COL_DECODER_SIMILARITY_MERGE_THRESHOLD)
-            logger.info(f"Including {COL_DECODER_SIMILARITY_MERGE_THRESHOLD} column for table display")
 
-        logger.info(f"Selecting columns: {base_columns}")
+        logger.debug(f"Selecting columns: {base_columns}")
         df = lf.select(base_columns).collect()
-
-        # Compute z-scores for each metric
-        # Z-score = (value - mean) / std
-        for score_col in ["score_embedding", "score_fuzz", "score_detection"]:
-            z_col = score_col.replace("score_", "z_score_")
-            mean = df[score_col].mean()
-            std = df[score_col].std()
-
-            if std is not None and std > 0:
-                df = df.with_columns([
-                    ((pl.col(score_col) - mean) / std).alias(z_col)
-                ])
-            else:
-                # If std is 0 or null, set z-score to 0
-                df = df.with_columns([
-                    pl.lit(0.0).alias(z_col)
-                ])
-
-        # Compute overall_score as average of z-scores
-        df = df.with_columns([
-            ((pl.col("z_score_embedding") + pl.col("z_score_fuzz") + pl.col("z_score_detection")) / 3.0)
-            .alias("overall_score")
-        ])
 
         logger.info(f"Fetched scores: {len(df)} rows, {df['feature_id'].n_unique()} unique features")
         return df
@@ -427,14 +338,11 @@ class TableDataService:
 
         return True
 
-    def _fetch_explanations(self, filters: Filters) -> Optional[pl.DataFrame]:
+    def _fetch_explanations(self) -> Optional[pl.DataFrame]:
         """
-        STEP 3: Fetch explanations from features.parquet (explanation_text column).
+        Fetch explanations from features.parquet (explanation_text column).
 
         NOTE: Assumes default filters, no filtering applied.
-
-        Args:
-            filters: Filter criteria (validated to be default)
 
         Returns:
             DataFrame with explanations (feature_id, llm_explainer, explanation_text)
@@ -469,13 +377,10 @@ class TableDataService:
         explainer_ids: List[str]
     ) -> Optional[pl.DataFrame]:
         """
-        Extract pairwise semantic similarity from nested semantic_similarity structure (v3.0 - VECTORIZED).
+        Extract pairwise semantic similarity from nested semantic_similarity structure.
 
         semantic_similarity is List(Struct([explainer: Categorical, cosine_similarity: Float32]))
         We need to transform this to pairwise format: (feature_id, explainer_1, explainer_2, cosine_similarity)
-
-        OPTIMIZATION: Uses Polars explode/unnest instead of Python iter_rows loop.
-        Expected ~40-50% performance improvement.
 
         Args:
             feature_ids: List of feature IDs to filter
@@ -500,27 +405,26 @@ class TableDataService:
             # Select only needed columns and collect
             df = lf.select(["feature_id", "llm_explainer", "semantic_similarity"]).collect()
 
-            # VECTORIZED TRANSFORMATION: Replace Python loop with Polars operations
-            # Step 1: Explode the list to create one row per semantic_similarity element
+            # Explode the list to create one row per semantic_similarity element
             df = df.explode("semantic_similarity")
 
-            # Step 2: Filter out null values
+            # Filter out null values
             df = df.filter(pl.col("semantic_similarity").is_not_null())
 
             if len(df) == 0:
                 logger.warning("No pairwise similarity data after exploding nested structure")
                 return None
 
-            # Step 3: Unnest the struct to flatten explainer and cosine_similarity fields
+            # Unnest the struct to flatten explainer and cosine_similarity fields
             df = df.unnest("semantic_similarity")
 
-            # Step 4: Rename columns to match expected format
+            # Rename columns to match expected format
             pairwise_df = df.rename({
                 "llm_explainer": "explainer_1",
                 "explainer": "explainer_2"
             })
 
-            # Step 5: Select final columns in correct order
+            # Select final columns
             pairwise_df = pairwise_df.select([
                 "feature_id",
                 "explainer_1",
@@ -540,7 +444,7 @@ class TableDataService:
         feature_ids: List[int]
     ) -> Optional[pl.DataFrame]:
         """
-        STEP 4: Fetch inter-feature activation similarity data (v5.0 - FLAT DataFrame).
+        Fetch inter-feature activation similarity data (flat DataFrame).
 
         Returns FLAT DataFrame (no nested aggregation) for efficient partition_by in lookup building.
         Note: pattern_type and best_ngram fields are PRE-COMPUTED in pipeline step_11.
@@ -578,12 +482,9 @@ class TableDataService:
         feature_ids: List[int]
     ) -> Dict[str, Dict[str, float]]:
         """
-        Compute global statistics for frontend min-max normalization (v3.0 - VECTORIZED).
+        Compute global statistics for frontend min-max normalization.
 
         Flow: simple scores -> min-max normalization -> average -> quality score
-
-        OPTIMIZATION: Uses Polars group_by instead of nested Python loops.
-        Expected ~15-20% performance improvement.
 
         Args:
             scores_df: Scores DataFrame
@@ -593,7 +494,7 @@ class TableDataService:
         Returns:
             Dict with global stats: {'metric_name': {'min': float, 'max': float}}
         """
-        # VECTORIZED APPROACH: Group by feature_id and explainer in one operation
+        # Group by feature_id and explainer
         grouped = scores_df.group_by(["feature_id", "llm_explainer"]).agg([
             # Embedding: take first non-null value per explainer
             pl.col("score_embedding").drop_nulls().first().alias("embedding"),
@@ -649,12 +550,7 @@ class TableDataService:
         scorer_map: Dict[str, str]
     ) -> List[FeatureTableRow]:
         """
-        STEP 5: Build feature rows (pure assembly, no calculations) - v2.0 OPTIMIZED.
-
-        Optimizations:
-        - Pre-compute all lookups before main loop (eliminates ~20,000 filter operations)
-        - Use dictionaries for O(1) access instead of repeated DataFrame filtering
-        - Replace Python list operations with Polars native methods
+        Build feature rows (pure assembly, no calculations).
 
         Args:
             scores_df: Scores DataFrame from features.parquet
@@ -668,61 +564,19 @@ class TableDataService:
         Returns:
             List of FeatureTableRow objects
         """
-        # OPTIMIZATION 1: Pre-compute all lookups (before main loop)
-        logger.info("Pre-computing lookups for fast access...")
-
-        try:
-            # Group scores by (feature_id, explainer) for O(1) access
-            logger.info("Building scores lookup...")
-            scores_lookup = self._build_scores_lookup(scores_df)
-            logger.info(f"Scores lookup built: {len(scores_lookup)} entries")
-        except Exception as e:
-            logger.error(f"Error building scores lookup: {e}", exc_info=True)
-            raise
-
-        try:
-            # Build explanations lookup: (feature_id, explainer) -> explanation_text
-            logger.info("Building explanations lookup...")
-            explanations_lookup = self._build_explanations_lookup(explanations_df) if explanations_df is not None else {}
-            logger.info(f"Explanations lookup built: {len(explanations_lookup)} entries")
-        except Exception as e:
-            logger.error(f"Error building explanations lookup: {e}", exc_info=True)
-            raise
-
-        try:
-            # Build pairwise lookup: (feature_id, explainer1, explainer2) -> cosine_similarity
-            logger.info("Building pairwise lookup...")
-            pairwise_lookup = self._build_pairwise_lookup(pairwise_df) if pairwise_df is not None else {}
-            logger.info(f"Pairwise lookup built: {len(pairwise_lookup)} entries")
-        except Exception as e:
-            logger.error(f"Error building pairwise lookup: {e}", exc_info=True)
-            raise
-
-        try:
-            # Build interfeature lookup ONCE for ALL features: feature_id -> {similar_feature_id -> info}
-            logger.info("Building interfeature lookup...")
-            interfeature_lookup = self._build_all_interfeature_lookups(interfeature_df) if interfeature_df is not None else {}
-            logger.info(f"Interfeature lookup built: {len(interfeature_lookup)} entries")
-        except Exception as e:
-            logger.error(f"Error building interfeature lookup: {e}", exc_info=True)
-            raise
-
-        try:
-            # ⚡ OPTIMIZED: Build both decoder and merge threshold lookups in ONE operation (6s faster!)
-            logger.info("Building decoder + merge threshold lookups (vectorized)...")
-            decoder_lookup, merge_threshold_lookup = self._build_decoder_and_merge_lookups(scores_df)
-            logger.info(f"Decoder lookup built: {len(decoder_lookup)} entries")
-            logger.info(f"Merge threshold lookup built: {len(merge_threshold_lookup)} entries")
-        except Exception as e:
-            logger.error(f"Error building decoder/merge lookups: {e}", exc_info=True)
-            raise
-
-        logger.info(f"All lookups pre-computed successfully")
+        # Pre-compute all lookups for O(1) access in main loop
+        scores_lookup = self._build_scores_lookup(scores_df)
+        explanations_lookup = self._build_explanations_lookup(explanations_df) if explanations_df is not None else {}
+        pairwise_lookup = self._build_pairwise_lookup(pairwise_df) if pairwise_df is not None else {}
+        interfeature_lookup = self._build_all_interfeature_lookups(interfeature_df) if interfeature_df is not None else {}
+        decoder_lookup, merge_threshold_lookup = self._build_decoder_and_merge_lookups(scores_df)
+        logger.debug(f"Lookups built: scores={len(scores_lookup)}, explanations={len(explanations_lookup)}, "
+                     f"pairwise={len(pairwise_lookup)}, interfeature={len(interfeature_lookup)}, "
+                     f"decoder={len(decoder_lookup)}, merge={len(merge_threshold_lookup)}")
 
         features = []
 
         for feature_id in feature_ids:
-            # OPTIMIZATION 2: Use decoder lookup instead of filtering
             decoder_sim_value = decoder_lookup.get(feature_id)
             decoder_similarity = None
 
@@ -751,37 +605,27 @@ class TableDataService:
                             "semantic_similarity": interf_info["semantic_similarity"],
                             "char_jaccard": interf_info["char_jaccard"],
                             "word_jaccard": interf_info["word_jaccard"],
-                            # Unified best n-gram (word preferred over char)
                             "best_ngram_type": interf_info.get("best_ngram_type"),
                             "best_ngram_text": interf_info.get("best_ngram_text"),
                             "main_ngram_positions": interf_info.get("main_ngram_positions"),
                             "similar_ngram_positions": interf_info.get("similar_ngram_positions"),
-                            # Legacy n-gram text (kept for backward compatibility)
-                            "max_char_ngram": interf_info.get("max_char_ngram"),
-                            "max_word_ngram": interf_info.get("max_word_ngram"),
                         }
                     else:
-                        # No inter-feature data, use None pattern
                         decoder_feature["inter_feature_similarity"] = {
                             "pattern_type": "None",
                             "semantic_similarity": None,
                             "char_jaccard": None,
                             "word_jaccard": None,
-                            # Unified best n-gram (null when no data)
                             "best_ngram_type": None,
                             "best_ngram_text": None,
                             "main_ngram_positions": None,
                             "similar_ngram_positions": None,
-                            # Legacy n-gram text (null when no data)
-                            "max_char_ngram": None,
-                            "max_word_ngram": None,
                         }
 
                     decoder_similarity.append(decoder_feature)
 
             explainers_dict = {}
             for explainer in explainer_ids:
-                # OPTIMIZATION 3: Use lookup instead of filtering
                 explainer_scores = scores_lookup.get((feature_id, explainer))
 
                 if explainer_scores is None:
@@ -792,7 +636,6 @@ class TableDataService:
                     explainer_scores, scorer_map
                 )
 
-                # OPTIMIZATION 4: Use pre-computed explanations lookup
                 explanation_text = explanations_lookup.get((feature_id, explainer))
 
                 # Get highlighted explanation if alignment service available
@@ -810,18 +653,14 @@ class TableDataService:
                 # Build explainer data
                 explainer_key = MODEL_NAME_MAP.get(explainer, explainer)
 
-                # OPTIMIZATION 5: Use pre-computed pairwise lookup instead of filtering
                 semantic_similarity = self._build_semantic_similarity_fast(
                     feature_id, explainer, explainer_ids, pairwise_lookup
                 )
 
-                # ⚡ OPTIMIZED: Extract quality_score from list of dicts
                 quality_score = None
-                if explainer_scores:  # Check if list is not empty
-                    # Extract quality_scores from list of dicts
+                if explainer_scores:
                     quality_scores = [s.get("quality_score") for s in explainer_scores if s.get("quality_score") is not None]
                     if quality_scores:
-                        # Calculate mean manually
                         quality_score = round(sum(quality_scores) / len(quality_scores), 3)
 
                 explainers_dict[explainer_key] = ExplainerScoreData(
@@ -862,17 +701,9 @@ class TableDataService:
     # ========================================================================
 
     def _build_scores_lookup(self, scores_df: pl.DataFrame) -> Dict[Tuple[int, str], list]:
-        """
-        ⚡ OPTIMIZED: Build lookup dict with lightweight lists instead of DataFrames (~4s faster!).
-
-        (feature_id, explainer) -> list of {scorer, score_embedding, score_fuzz, score_detection, quality_score}
-
-        Old: Stored 41,758 DataFrame objects with full metadata
-        New: Stores plain Python dicts with only needed columns
-        """
+        """Build lookup dict: (feature_id, explainer) -> list of score dicts."""
         lookup = {}
 
-        # Extract columns as lists for faster iteration
         feature_ids = scores_df["feature_id"].to_list()
         explainers = scores_df["llm_explainer"].to_list()
         scorers = scores_df["llm_scorer"].to_list()
@@ -880,11 +711,10 @@ class TableDataService:
         score_fuzz = scores_df["score_fuzz"].to_list()
         score_detection = scores_df["score_detection"].to_list()
 
-        # ⚡ Check if quality_score column exists
+        # Check if quality_score column exists
         has_quality = "quality_score" in scores_df.columns
         quality_scores = scores_df["quality_score"].to_list() if has_quality else [None] * len(feature_ids)
 
-        # Build lookup with lightweight dicts
         for i in range(len(feature_ids)):
             key = (feature_ids[i], explainers[i])
 
@@ -904,31 +734,24 @@ class TableDataService:
 
     def _build_explanations_lookup(self, explanations_df: pl.DataFrame) -> Dict[Tuple[int, str], str]:
         """
-        Build lookup dict: (feature_id, explainer) -> explanation_text (v3.0 - OPTIMIZED).
-        Uses vectorized column extraction instead of iter_rows.
+        Build lookup dict: (feature_id, explainer) -> explanation_text.
         """
-        # Extract columns as lists (faster than iter_rows)
         feature_ids = explanations_df["feature_id"].to_list()
         explainers = explanations_df["llm_explainer"].to_list()
         texts = explanations_df["explanation_text"].to_list()
 
-        # Build lookup using zip (faster than iterating dictionaries)
         lookup = {(fid, exp): text for fid, exp, text in zip(feature_ids, explainers, texts)}
         return lookup
 
     def _build_pairwise_lookup(self, pairwise_df: pl.DataFrame) -> Dict[Tuple[int, str, str], float]:
         """
-        Build lookup dict: (feature_id, explainer1, explainer2) -> cosine_similarity (v3.0 - OPTIMIZED).
+        Build lookup dict: (feature_id, explainer1, explainer2) -> cosine_similarity.
         Stores both orderings for fast bidirectional lookup.
-        Uses vectorized column extraction instead of iter_rows.
         """
-        # Extract columns as lists (faster than iter_rows)
         feature_ids = pairwise_df["feature_id"].to_list()
         exp1s = pairwise_df["explainer_1"].to_list()
         exp2s = pairwise_df["explainer_2"].to_list()
         sims = pairwise_df["cosine_similarity"].to_list()
-
-        # Build lookup using zip, storing both orderings
         lookup = {}
         for fid, e1, e2, sim in zip(feature_ids, exp1s, exp2s, sims):
             lookup[(fid, e1, e2)] = sim
@@ -936,12 +759,7 @@ class TableDataService:
         return lookup
 
     def _build_decoder_and_merge_lookups(self, scores_df: pl.DataFrame) -> tuple[Dict[int, List], Dict[int, float]]:
-        """
-        ⚡ OPTIMIZED: Build both decoder_similarity and merge_threshold lookups in ONE vectorized operation.
-        Uses group_by instead of O(n²) filtering - ~6s faster for 14k features!
-
-        Returns: (decoder_lookup, merge_threshold_lookup)
-        """
+        """Build both decoder_similarity and merge_threshold lookups in one vectorized operation."""
         decoder_lookup = {}
         merge_threshold_lookup = {}
 
@@ -952,9 +770,6 @@ class TableDataService:
         if not has_decoder and not has_merge:
             return decoder_lookup, merge_threshold_lookup
 
-        # ⚡ OPTIMIZATION: Use group_by + first() instead of repeated filtering
-        # Old: 14,316 iterations × filter(41,758 rows) = O(n²)
-        # New: Single group_by operation = O(n)
         agg_exprs = []
         if has_decoder:
             agg_exprs.append(pl.col("decoder_similarity").first().alias("decoder_sim"))
@@ -964,7 +779,6 @@ class TableDataService:
         if not agg_exprs:
             return decoder_lookup, merge_threshold_lookup
 
-        # Vectorized extraction: one pass through data
         unique_features = scores_df.group_by("feature_id").agg(agg_exprs)
 
         # Build lookups from aggregated results
@@ -984,17 +798,14 @@ class TableDataService:
     def _build_all_interfeature_lookups(
         self,
         interfeature_df: pl.DataFrame,
-        feature_ids_set: Optional[set] = None
     ) -> Dict[int, Dict[int, Dict]]:
         """
-        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info} (v6.0 - PARTITION_BY).
+        Build lookup for ALL features at once: feature_id -> {similar_feature_id -> info}.
 
-        Uses Polars partition_by() for efficient grouping instead of Python nested loops.
-        Expected speedup: 228s → <5s
+        Uses Polars partition_by() for efficient grouping.
 
         Args:
             interfeature_df: FLAT DataFrame with interfeature similarity rows
-            feature_ids_set: Optional set of feature IDs (unused, kept for API compatibility)
 
         Returns:
             Dict mapping feature_id -> {similar_feature_id -> info}
@@ -1033,23 +844,15 @@ class TableDataService:
                 best_ngram_main_pos = row.get("best_ngram_main_positions")
                 best_ngram_similar_pos = row.get("best_ngram_similar_positions")
 
-                # Legacy: Use separate best n-grams as fallback for max_char/word_ngram
-                best_char_text = row.get("best_char_ngram") or row.get("max_char_ngram")
-                best_word_text = row.get("best_word_ngram") or row.get("max_word_ngram")
-
                 feature_lookup[similar_feature_id] = {
                     "pattern_type": pattern_type,
                     "semantic_similarity": float(sem_sim) if sem_sim is not None else None,
                     "char_jaccard": float(char_jacc) if char_jacc is not None else None,
                     "word_jaccard": float(word_jacc) if word_jacc is not None else None,
-                    # Unified best n-gram (word preferred over char)
                     "best_ngram_type": best_ngram_type,
                     "best_ngram_text": best_ngram_text,
                     "main_ngram_positions": best_ngram_main_pos,
                     "similar_ngram_positions": best_ngram_similar_pos,
-                    # Legacy n-gram text (kept for backward compatibility)
-                    "max_char_ngram": best_char_text,
-                    "max_word_ngram": best_word_text,
                 }
 
             all_lookups[feature_id] = feature_lookup

@@ -21,7 +21,7 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
 from ..models.common import HistogramData
-from ..models.similarity_sort import (
+from ..models.classification import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     PairSimilarityHistogramRequest, SimilarityHistogramResponse,
     HistogramStatistics,
@@ -166,13 +166,15 @@ class PairSimilarityService:
 
         # Calculate similarity scores for pairs using SVM
         logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs with SVM")
-        pair_scores = self._calculate_pair_similarity_scores(
+        pair_scores, _ = self._calculate_pair_similarity_scores(
             metrics_df,
             pair_metrics_dict,
             pair_inter_metrics,
             request.selected_items,
             request.rejected_items,
-            pair_ids
+            pair_ids,
+            include_training_items=False,
+            train_committee=False,
         )
 
         # Sort by score (descending - higher is better)
@@ -302,14 +304,15 @@ class PairSimilarityService:
         # Calculate similarity scores for ALL pairs (including selected/rejected)
         # Also train committee (RF + MLP) for QBC approach
         logger.info(f"Calculating similarity scores for {len(pair_ids)} pairs for histogram with SVM + committee")
-        pair_scores, committee_votes = self._calculate_pair_similarity_scores_for_histogram(
+        pair_scores, committee_votes = self._calculate_pair_similarity_scores(
             metrics_df,
             pair_metrics_dict,
             pair_inter_metrics,
             request.selected_items,
             request.rejected_items,
             pair_ids,
-            train_committee=True  # Enable QBC committee training
+            include_training_items=True,
+            train_committee=True,
         )
 
         # Create scores dictionary
@@ -770,10 +773,12 @@ class PairSimilarityService:
         pair_inter_metrics: Dict[str, Tuple[float, float]],
         selected_items: List[WeightedPairKey],
         rejected_items: List[WeightedPairKey],
-        pair_ids: List[Tuple[int, int]]
-    ) -> List[PairScore]:
+        pair_ids: List[Tuple[int, int]],
+        include_training_items: bool = False,
+        train_committee: bool = False,
+    ) -> Tuple[List[PairScore], Optional[Dict[str, Dict]]]:
         """
-        Calculate similarity scores for all pairs using SVM.
+        Calculate similarity scores for pairs using SVM.
 
         9-dim pair vector:
         - [A+B (3)] intra-feature sum
@@ -782,11 +787,6 @@ class PairSimilarityService:
         - [inter_semantic(A,B)] pair-specific semantic similarity
         - [decoder_sim(A,B)] pair-specific decoder similarity
 
-        Optimized with:
-        - O(1) index lookups via dict instead of O(n) np.where per pair
-        - Vectorized pair vector construction
-        - Batch SVM scoring
-
         Args:
             metrics_df: DataFrame with 3 intra-feature metrics for all features
             pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
@@ -794,9 +794,14 @@ class PairSimilarityService:
             selected_items: Weighted pair items marked as selected (✓)
             rejected_items: Weighted pair items marked as rejected (✗)
             pair_ids: List of (main_id, similar_id) tuples
+            include_training_items: If True, score ALL pairs (for histogram).
+                                   If False, exclude selected/rejected (for sort).
+            train_committee: If True, also train RF/MLP and return committee votes.
 
         Returns:
-            List of PairScore objects
+            Tuple of (pair_scores, committee_votes)
+            - pair_scores: List of PairScore objects
+            - committee_votes: Dict of pair_key -> vote info (None unless train_committee=True)
         """
         # Extract keys from weighted items
         selected_pair_keys = [item.key for item in selected_items]
@@ -884,9 +889,25 @@ class PairSimilarityService:
         # Check cache (include weights in cache key for weighted training)
         cache_key = self._get_pair_cache_key_weighted(selected_items, rejected_items)
 
+        # Variables for committee training
+        X_train = None
+        y_train = None
+        sample_weights_arr = None
+
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
             logger.info(f"Using cached SVM model for pairs (key: {cache_key[:8]}...)")
+
+            # Still need training data for committee if requested
+            if train_committee:
+                sel_vecs = [pair_vectors[k] for k in selected_pair_keys if pair_vectors.get(k) is not None]
+                sel_w = [key_to_weight.get(k, CLICK_WEIGHT) for k in selected_pair_keys if pair_vectors.get(k) is not None]
+                rej_vecs = [pair_vectors[k] for k in rejected_pair_keys if pair_vectors.get(k) is not None]
+                rej_w = [key_to_weight.get(k, CLICK_WEIGHT) for k in rejected_pair_keys if pair_vectors.get(k) is not None]
+                if sel_vecs and rej_vecs:
+                    X_train = np.vstack([np.array(sel_vecs), np.array(rej_vecs)])
+                    y_train = np.array([1] * len(sel_vecs) + [0] * len(rej_vecs))
+                    sample_weights_arr = np.concatenate([np.array(sel_w), np.array(rej_w)])
         else:
             # Extract training vectors and weights
             logger.info(f"Building training vectors for {len(selected_pair_keys)} selected and {len(rejected_pair_keys)} rejected pairs")
@@ -918,12 +939,18 @@ class PairSimilarityService:
 
             if not selected_vectors or not rejected_vectors:
                 logger.warning(f"Insufficient training data for pair SVM: {len(selected_vectors)} selected, {len(rejected_vectors)} rejected")
-                return []
+                return [], None
 
             selected_vectors = np.array(selected_vectors)
             rejected_vectors = np.array(rejected_vectors)
             selected_weights_arr = np.array(selected_weights)
             rejected_weights_arr = np.array(rejected_weights)
+
+            # Prepare training data for committee
+            if train_committee:
+                X_train = np.vstack([selected_vectors, rejected_vectors])
+                y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+                sample_weights_arr = np.concatenate([selected_weights_arr, rejected_weights_arr])
 
             # Train SVM with weights
             model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
@@ -936,208 +963,20 @@ class PairSimilarityService:
             self._svm_cache[cache_key] = (model, scaler)
             logger.info(f"Pair SVM model cached (key: {cache_key[:8]}...)")
 
-        # Batch score all pairs (excluding selected and rejected)
-        # Use numpy boolean indexing instead of loop with append
-        excluded_set = set(selected_pair_keys) | set(rejected_pair_keys)
+        # Score pairs
         pair_key_arr = np.array(pair_key_list, dtype=object)
 
-        # Build combined mask: valid AND not in excluded set
-        not_excluded_mask = np.array([pk not in excluded_set for pk in pair_key_list], dtype=bool)
-        combined_mask = valid_mask & not_excluded_mask
-
-        # Use boolean indexing
-        valid_vector_indices = np.where(combined_mask)[0]
-        valid_pairs = pair_key_arr[combined_mask].tolist()
-
-        pair_scores = []
-        if len(valid_pairs) > 0:
-            valid_vectors = all_pair_vectors[valid_vector_indices]
-            scores = score_with_svm(model, scaler, valid_vectors)
-            pair_scores = [
-                PairScore(pair_key=pk, score=float(s))
-                for pk, s in zip(valid_pairs, scores)
-            ]
-
-        return pair_scores
-
-    def _calculate_pair_similarity_scores_for_histogram(
-        self,
-        metrics_df: pl.DataFrame,
-        pair_metrics: Dict[str, float],
-        pair_inter_metrics: Dict[str, Tuple[float, float]],
-        selected_items: List[WeightedPairKey],
-        rejected_items: List[WeightedPairKey],
-        pair_ids: List[Tuple[int, int]],
-        train_committee: bool = False
-    ) -> Tuple[List[PairScore], Optional[Dict[str, Dict]]]:
-        """
-        Calculate similarity scores for ALL pairs using SVM (including selected/rejected).
-
-        This is different from _calculate_pair_similarity_scores() which skips selected/rejected.
-        For histogram visualization, we need scores for everything.
-
-        9-dim pair vector:
-        - [A+B (3)] intra-feature sum
-        - [|A-B| (3)] intra-feature difference
-        - [inter_ngram(A,B)] pair-specific lexical similarity
-        - [inter_semantic(A,B)] pair-specific semantic similarity
-        - [decoder_sim(A,B)] pair-specific decoder similarity
-
-        Optimized with:
-        - O(1) index lookups via dict instead of O(n) np.where per pair
-        - Vectorized pair vector construction
-        - Batch SVM scoring
-
-        Args:
-            metrics_df: DataFrame with 3 intra-feature metrics for all features
-            pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
-            pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
-            selected_items: Weighted pair items marked as selected (✓)
-            rejected_items: Weighted pair items marked as rejected (✗)
-            pair_ids: List of (main_id, similar_id) tuples
-            train_committee: If True, also train RF/MLP and return vote info
-
-        Returns:
-            Tuple of (pair_scores, committee_votes)
-            - pair_scores: List of PairScore objects for ALL pairs
-            - committee_votes: Dict of pair_key -> vote info (only if train_committee=True)
-        """
-        # Extract keys from weighted items
-        selected_pair_keys = [item.key for item in selected_items]
-        rejected_pair_keys = [item.key for item in rejected_items]
-
-        # Build key to weight mapping
-        key_to_weight = {}
-        for item in selected_items:
-            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-        for item in rejected_items:
-            key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-
-        # Convert to numpy for SVM - use PAIR_METRICS (3 intra-feature metrics) for pairs
-        feature_ids = metrics_df["feature_id"].to_numpy()
-        metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
-        ])
-
-        # Build index lookup once - O(n) total instead of O(n) per pair
-        fid_to_idx = {int(fid): i for i, fid in enumerate(feature_ids)}
-
-        # Prepare arrays for vectorized construction (pre-allocate all arrays)
-        n_pairs = len(pair_ids)
-        main_indices = np.empty(n_pairs, dtype=np.int32)
-        similar_indices = np.empty(n_pairs, dtype=np.int32)
-        valid_mask = np.ones(n_pairs, dtype=bool)
-        pair_key_list = [""] * n_pairs  # Pre-allocate list
-        inter_ngrams = np.empty(n_pairs, dtype=np.float64)
-        inter_semantics = np.empty(n_pairs, dtype=np.float64)
-        decoder_sims = np.empty(n_pairs, dtype=np.float64)
-
-        # Single loop: build indices, pair keys, and extract metrics
-        for i, (main_id, similar_id) in enumerate(pair_ids):
-            # Canonical key (smaller ID first)
-            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
-            pair_key_list[i] = pair_key
-
-            # Index lookups
-            main_idx = fid_to_idx.get(main_id)
-            similar_idx = fid_to_idx.get(similar_id)
-
-            if main_idx is None or similar_idx is None:
-                valid_mask[i] = False
-                main_indices[i] = 0  # placeholder
-                similar_indices[i] = 0
-            else:
-                main_indices[i] = main_idx
-                similar_indices[i] = similar_idx
-
-            # Extract inter-feature and decoder metrics in same loop
-            inter_data = pair_inter_metrics.get(pair_key, (0.0, 0.0))
-            inter_ngrams[i] = inter_data[0]
-            inter_semantics[i] = inter_data[1]
-            decoder_sims[i] = pair_metrics.get(pair_key, 0.0)
-
-        # Log missing pairs
-        n_invalid = np.sum(~valid_mask)
-        if n_invalid > 0:
-            logger.warning(f"Missing metrics for {n_invalid} pairs (histogram)")
-
-        # Vectorized metric extraction for all pairs (3 intra-feature metrics)
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 3)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 3)
-
-        # Vectorized pair vector construction for intra-feature metrics
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 3)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 3)
-
-        # Concatenate: (n_pairs, 9)
-        # [A+B (3)] + [|A-B| (3)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
-        all_pair_vectors = np.hstack([
-            pair_sum,
-            pair_diff,
-            inter_ngrams.reshape(-1, 1),
-            inter_semantics.reshape(-1, 1),
-            decoder_sims.reshape(-1, 1)
-        ])
-
-        # Build pair_vectors dict for training vector extraction
-        pair_vectors = {
-            pk: all_pair_vectors[i] if valid_mask[i] else None
-            for i, pk in enumerate(pair_key_list)
-        }
-
-        # Check cache (include weights in cache key for weighted training)
-        cache_key = self._get_pair_cache_key_weighted(selected_items, rejected_items)
-
-        if cache_key in self._svm_cache:
-            model, scaler = self._svm_cache[cache_key]
-            logger.info(f"Using cached SVM model for pair histogram (key: {cache_key[:8]}...)")
+        if include_training_items:
+            # Score ALL valid pairs (for histogram)
+            valid_vector_indices = np.where(valid_mask)[0]
+            valid_pairs = pair_key_arr[valid_mask].tolist()
         else:
-            # Extract training vectors and weights
-            selected_vectors = []
-            selected_weights = []
-            for key in selected_pair_keys:
-                vec = pair_vectors.get(key)
-                if vec is not None:
-                    selected_vectors.append(vec)
-                    selected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
-
-            rejected_vectors = []
-            rejected_weights = []
-            for key in rejected_pair_keys:
-                vec = pair_vectors.get(key)
-                if vec is not None:
-                    rejected_vectors.append(vec)
-                    rejected_weights.append(key_to_weight.get(key, CLICK_WEIGHT))
-
-            if not selected_vectors or not rejected_vectors:
-                logger.warning("Insufficient training data for pair SVM histogram")
-                return [], None
-
-            selected_vectors = np.array(selected_vectors)
-            rejected_vectors = np.array(rejected_vectors)
-            selected_weights_arr = np.array(selected_weights)
-            rejected_weights_arr = np.array(rejected_weights)
-
-            # Prepare training data for committee (before SVM training modifies arrays)
-            X_train = np.vstack([selected_vectors, rejected_vectors])
-            y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
-            sample_weights_arr = np.concatenate([selected_weights_arr, rejected_weights_arr])
-
-            # Train SVM with weights
-            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
-
-            # Cache with size limit
-            if len(self._svm_cache) >= self._max_cache_size:
-                oldest_key = next(iter(self._svm_cache))
-                self._svm_cache.pop(oldest_key)
-
-            self._svm_cache[cache_key] = (model, scaler)
-
-        # Batch score ALL pairs (including selected and rejected for histogram)
-        # Use numpy boolean indexing instead of loop with append
-        pair_key_arr = np.array(pair_key_list, dtype=object)
-        valid_vector_indices = np.where(valid_mask)[0]
-        valid_pairs = pair_key_arr[valid_mask].tolist()
+            # Exclude selected/rejected (for sort)
+            excluded_set = set(selected_pair_keys) | set(rejected_pair_keys)
+            not_excluded_mask = np.array([pk not in excluded_set for pk in pair_key_list], dtype=bool)
+            combined_mask = valid_mask & not_excluded_mask
+            valid_vector_indices = np.where(combined_mask)[0]
+            valid_pairs = pair_key_arr[combined_mask].tolist()
 
         pair_scores = []
         scores = np.array([])
@@ -1152,75 +991,25 @@ class PairSimilarityService:
         # Train committee and get vote info if requested
         committee_votes = None
 
-        if train_committee and len(pair_scores) > 0:
-            # Need training data - check if we have it from above or need to rebuild
-            if 'X_train' not in locals() or X_train is None:
-                # Rebuild training data from cache scenario
-                selected_vectors_list = []
-                selected_weights_list = []
-                for key in selected_pair_keys:
-                    vec = pair_vectors.get(key)
-                    if vec is not None:
-                        selected_vectors_list.append(vec)
-                        selected_weights_list.append(key_to_weight.get(key, CLICK_WEIGHT))
+        if train_committee and X_train is not None and y_train is not None and len(pair_scores) > 0:
+            logger.info("[PairSimilarityService] Training committee (RF + MLP) for QBC...")
+            rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
+                X_train, y_train, sample_weights_arr
+            )
 
-                rejected_vectors_list = []
-                rejected_weights_list = []
-                for key in rejected_pair_keys:
-                    vec = pair_vectors.get(key)
-                    if vec is not None:
-                        rejected_vectors_list.append(vec)
-                        rejected_weights_list.append(key_to_weight.get(key, CLICK_WEIGHT))
-
-                if selected_vectors_list and rejected_vectors_list:
-                    X_train = np.vstack([np.array(selected_vectors_list), np.array(rejected_vectors_list)])
-                    y_train = np.array([1] * len(selected_vectors_list) + [0] * len(rejected_vectors_list))
-                    sample_weights_arr = np.concatenate([
-                        np.array(selected_weights_list),
-                        np.array(rejected_weights_list)
-                    ])
-                else:
-                    X_train = None
-
-            if X_train is not None:
-                logger.info("[PairSimilarityService] Training committee (RF + MLP) for QBC...")
-                rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
-                    X_train, y_train, sample_weights_arr
+            if rf_model is not None or mlp_model is not None:
+                valid_vectors = all_pair_vectors[valid_vector_indices]
+                committee_preds = self.committee_service.predict_with_committee(
+                    valid_vectors, scores, rf_model, mlp_model, committee_scaler
                 )
-
-                if rf_model is not None or mlp_model is not None:
-                    # Scale vectors and get committee predictions
-                    valid_vectors = all_pair_vectors[valid_vector_indices]
-
-                    # Get committee predictions
-                    committee_preds = self.committee_service.predict_with_committee(
-                        valid_vectors, scores, rf_model, mlp_model, committee_scaler
-                    )
-
-                    # Convert to API response format
-                    committee_votes = self.committee_service.get_vote_info_dict(valid_pairs, committee_preds)
-
-                    logger.info(f"[PairSimilarityService] Committee votes generated for {len(valid_pairs)} pairs")
+                committee_votes = self.committee_service.get_vote_info_dict(valid_pairs, committee_preds)
+                logger.info(f"[PairSimilarityService] Committee votes generated for {len(valid_pairs)} pairs")
 
         return pair_scores, committee_votes
 
     # =========================================================================
     # SVM HELPERS
     # =========================================================================
-
-    def _get_pair_cache_key(self, selected_pair_keys: List[str], rejected_pair_keys: List[str]) -> str:
-        """
-        Generate unique cache key from pair selections (legacy, unweighted).
-
-        Args:
-            selected_pair_keys: Pair keys marked as selected (✓) e.g., ["1-2", "3-4"]
-            rejected_pair_keys: Pair keys marked as rejected (✗)
-
-        Returns:
-            MD5 hash of sorted pair key lists
-        """
-        key_str = f"{sorted(selected_pair_keys)}_{sorted(rejected_pair_keys)}"
-        return hashlib.md5(key_str.encode()).hexdigest()
 
     def _get_pair_cache_key_weighted(
         self,

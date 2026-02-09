@@ -5,6 +5,6 @@ from .table import *
 from .feature_groups import *
 from .activation_examples import *
 from .cluster_candidates import *
-from .similarity_sort import *
+from .classification import *
 from .cold_start import *
 from .consensus import *

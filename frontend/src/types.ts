@@ -354,9 +354,7 @@ export interface InterFeatureSimilarityInfo {
   semantic_similarity?: number | null
   char_jaccard?: number | null
   word_jaccard?: number | null
-  max_char_ngram?: string | null
-  max_word_ngram?: string | null
-  // V5.0 unified n-gram fields (word preferred over char)
+  // Unified n-gram fields (word preferred over char)
   best_ngram_type?: 'word' | 'char' | null
   best_ngram_text?: string | null
   main_ngram_positions?: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}>}> | null

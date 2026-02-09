@@ -1,32 +1,41 @@
 """
-API endpoint for similarity-based feature sorting.
+API endpoints for SVM-based classification (binary + multi-class).
+
+Endpoints:
+- POST /similarity-sort           (binary, Stage 2)
+- POST /pair-similarity-sort      (binary, Stage 1)
+- POST /similarity-score-histogram (binary, Stage 2)
+- POST /pair-similarity-score-histogram (binary, Stage 1)
+- POST /stage3-quality-scores     (binary, Stage 2→3 bridge)
+- POST /cause-classification      (multi-class, Stage 3)
 """
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import Optional
 import logging
 
-from ..models.similarity_sort import (
+from ..models.classification import (
     SimilaritySortRequest, SimilaritySortResponse,
     PairSimilaritySortRequest, PairSimilaritySortResponse,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     PairSimilarityHistogramRequest,
-    Stage3QualityScoresRequest
+    Stage3QualityScoresRequest,
+    CauseClassificationRequest, CauseClassificationResponse,
 )
-from ..services.similarity_sort_service import SimilaritySortService
+from ..services.classification_service import ClassificationService
 from ..services.pair_similarity_service import PairSimilarityService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_similarity_sort_service: Optional[SimilaritySortService] = None
+_classification_service: Optional[ClassificationService] = None
 _pair_similarity_service: Optional[PairSimilarityService] = None
 
 
-def set_similarity_sort_service(service: SimilaritySortService) -> None:
-    """Set the similarity sort service instance."""
-    global _similarity_sort_service
-    _similarity_sort_service = service
+def set_classification_service(service: ClassificationService) -> None:
+    """Set the classification service instance."""
+    global _classification_service
+    _classification_service = service
 
 
 def set_pair_similarity_service(service: PairSimilarityService) -> None:
@@ -35,11 +44,11 @@ def set_pair_similarity_service(service: PairSimilarityService) -> None:
     _pair_similarity_service = service
 
 
-def get_similarity_sort_service() -> SimilaritySortService:
-    """Dependency to get similarity sort service."""
-    if _similarity_sort_service is None:
-        raise HTTPException(status_code=503, detail="SimilaritySortService not initialized")
-    return _similarity_sort_service
+def get_classification_service() -> ClassificationService:
+    """Dependency to get classification service."""
+    if _classification_service is None:
+        raise HTTPException(status_code=503, detail="ClassificationService not initialized")
+    return _classification_service
 
 
 def get_pair_similarity_service() -> PairSimilarityService:
@@ -52,7 +61,7 @@ def get_pair_similarity_service() -> PairSimilarityService:
 @router.post("/similarity-sort", response_model=SimilaritySortResponse)
 async def similarity_sort(
     request: SimilaritySortRequest,
-    service: SimilaritySortService = Depends(get_similarity_sort_service)
+    service: ClassificationService = Depends(get_classification_service)
 ) -> SimilaritySortResponse:
     """
     Sort features by SVM-based similarity scoring.
@@ -72,7 +81,7 @@ async def similarity_sort(
 
     Args:
         request: Request with selected_ids, rejected_ids, and feature_ids
-        service: Injected similarity sort service
+        service: Injected classification service
 
     Returns:
         Response with sorted features and scores
@@ -127,7 +136,7 @@ async def pair_similarity_sort(
     This endpoint extends similarity sorting to pairs of features (main + similar).
     It uses a 19-dimensional vector: 9 metrics (main) + 9 metrics (similar) + 1 pair metric (cosine_similarity).
 
-    Weights are calculated as: 10 dimensions × inverse of (std * 2), normalized to sum = 1.
+    Weights are calculated as: 10 dimensions x inverse of (std * 2), normalized to sum = 1.
     - 9 feature metric weights (applied to both main and similar features)
     - 1 pair metric weight (cosine_similarity between features)
 
@@ -136,7 +145,7 @@ async def pair_similarity_sort(
 
     Args:
         request: Request with selected_pair_keys, rejected_pair_keys, and pair_keys
-        service: Injected similarity sort service
+        service: Injected pair similarity service
 
     Returns:
         Response with sorted pairs and scores
@@ -183,7 +192,7 @@ async def pair_similarity_sort(
 @router.post("/similarity-score-histogram", response_model=SimilarityHistogramResponse)
 async def similarity_score_histogram(
     request: SimilarityHistogramRequest,
-    service: SimilaritySortService = Depends(get_similarity_sort_service)
+    service: ClassificationService = Depends(get_classification_service)
 ) -> SimilarityHistogramResponse:
     """
     Calculate similarity score distribution for automatic tagging (features).
@@ -196,7 +205,7 @@ async def similarity_score_histogram(
 
     Args:
         request: Request with selected_ids, rejected_ids, and feature_ids
-        service: Injected similarity sort service
+        service: Injected classification service
 
     Returns:
         Response with similarity scores and histogram data
@@ -262,7 +271,7 @@ async def pair_similarity_score_histogram(
 
     Args:
         request: Request with selected_pair_keys, rejected_pair_keys, and pair_keys
-        service: Injected similarity sort service
+        service: Injected pair similarity service
 
     Returns:
         Response with similarity scores and histogram data
@@ -322,7 +331,7 @@ async def pair_similarity_score_histogram(
 @router.post("/stage3-quality-scores", response_model=SimilarityHistogramResponse)
 async def stage3_quality_scores(
     request: Stage3QualityScoresRequest,
-    service: SimilaritySortService = Depends(get_similarity_sort_service)
+    service: ClassificationService = Depends(get_classification_service)
 ) -> SimilarityHistogramResponse:
     """
     Calculate quality scores for Stage 3 features using Stage 2's SVM model.
@@ -337,12 +346,9 @@ async def stage3_quality_scores(
     Features with higher scores are closer to the Well-Explained class,
     indicating they may have been borderline cases suitable for reconsideration.
 
-    This is used in Stage 3 to display a histogram overlay on the Sankey diagram,
-    allowing threshold-based splitting of Need Revision features.
-
     Args:
         request: Request with well_explained_ids, need_revision_ids, and feature_ids
-        service: Injected similarity sort service
+        service: Injected classification service
 
     Returns:
         Response with scores and histogram data
@@ -389,4 +395,53 @@ async def stage3_quality_scores(
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error during Stage 3 quality score calculation: {str(e)}"
+        )
+
+
+@router.post("/cause-classification", response_model=CauseClassificationResponse)
+async def cause_classification(
+    request: CauseClassificationRequest,
+    service: ClassificationService = Depends(get_classification_service)
+) -> CauseClassificationResponse:
+    """
+    Classify features into cause categories using OvR SVMs.
+
+    Trains One-vs-Rest SVMs for each category using mean metric vectors
+    per feature (averaged across 3 explainers). Returns predicted category
+    and decision scores for each feature.
+
+    Requires at least one manually tagged feature per category.
+
+    Args:
+        request: Request with feature_ids and cause_selections
+        service: Injected classification service
+
+    Returns:
+        Response with predicted category and decision scores for each feature
+    """
+    try:
+        logger.info(
+            f"Cause classification request: {len(request.feature_ids)} features, "
+            f"{len(request.cause_selections)} manual tags"
+        )
+
+        # Call service to classify features
+        response = await service.get_cause_classification(request)
+
+        logger.info(
+            f"Cause classification completed: {response.total_features} features, "
+            f"counts: {response.category_counts}"
+        )
+        return response
+
+    except HTTPException:
+        raise
+    except ValueError as e:
+        logger.error(f"Validation error: {e}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in cause classification: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Internal server error during cause classification: {str(e)}"
         )

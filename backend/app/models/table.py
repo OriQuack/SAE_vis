@@ -53,15 +53,6 @@ class InterFeatureSimilarityInfo(BaseModel):
         None,
         description="N-gram positions in similar feature"
     )
-    # Legacy n-gram text (kept for backward compatibility)
-    max_char_ngram: Optional[str] = Field(
-        None,
-        description="Most frequent character n-gram (legacy)"
-    )
-    max_word_ngram: Optional[str] = Field(
-        None,
-        description="Most frequent word n-gram (legacy)"
-    )
 
 
 class DecoderSimilarFeature(BaseModel):

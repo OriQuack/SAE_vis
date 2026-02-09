@@ -1,7 +1,7 @@
 """
 Shared SVM utility functions for similarity scoring services.
 
-Extracted from similarity_sort_service.py and pair_similarity_service.py
+Extracted from classification_service.py and pair_similarity_service.py
 to eliminate byte-for-byte duplicated train/score methods.
 """
 
@@ -13,7 +13,7 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
 from ..models.common import HistogramData
-from ..models.similarity_sort import (
+from ..models.classification import (
     SimilarityHistogramResponse,
     HistogramStatistics,
     CommitteeVoteInfo

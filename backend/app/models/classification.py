@@ -1,5 +1,5 @@
 """
-Pydantic models for similarity-based sorting feature.
+Pydantic models for SVM-based classification (binary + multi-class).
 """
 
 from pydantic import BaseModel, Field
