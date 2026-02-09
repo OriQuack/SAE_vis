@@ -8,13 +8,12 @@ Returns semantically aligned phrases with similarity >= 0.7.
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple
 from collections import defaultdict
 
 import polars as pl
 
-if TYPE_CHECKING:
-    from .data_service import DataService
+from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +69,7 @@ class AlignmentService:
     def __init__(
         self,
         data_path: str = "/home/dohyun/interface/data",
-        data_service: Optional["DataService"] = None
+        data_service: Optional[DataService] = None
     ):
         """
         Initialize AlignmentService.

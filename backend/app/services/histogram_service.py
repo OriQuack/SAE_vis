@@ -14,7 +14,7 @@ import polars as pl
 import numpy as np
 import logging
 import re
-from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
+from typing import Dict, List, Optional, Union, Any
 
 from ..models.common import Filters, MetricType
 from ..models.histogram import HistogramResponse, GroupedHistogramData
@@ -28,10 +28,7 @@ from .data_constants import (
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
     DECODER_METRIC_FOR_AGGREGATION
 )
-
-# Import for type hints only (avoids circular imports)
-if TYPE_CHECKING:
-    from .data_service import DataService
+from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +67,7 @@ def parse_range_label(range_label: str) -> tuple[Optional[float], Optional[float
 class HistogramService:
     """Service for generating histogram visualization data."""
 
-    def __init__(self, data_service: "DataService"):
+    def __init__(self, data_service: DataService):
         """
         Initialize HistogramService.
 

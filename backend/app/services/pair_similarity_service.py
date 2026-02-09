@@ -16,7 +16,7 @@ import polars as pl
 import numpy as np
 import logging
 import hashlib
-from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
+from typing import List, Dict, Tuple, Optional
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
@@ -24,25 +24,17 @@ from ..models.common import HistogramData
 from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     PairSimilarityHistogramRequest, SimilarityHistogramResponse,
-    HistogramStatistics, BimodalityInfo, GMMComponentInfo,
+    HistogramStatistics,
     WeightedPairKey, CommitteeVoteInfo
 )
 from .bimodality_service import BimodalityService
 from .committee_service import CommitteeService
-
-if TYPE_CHECKING:
-    from .data_service import DataService
-    from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
+from .data_constants import CLICK_WEIGHT, THRESHOLD_WEIGHT
+from .data_service import DataService
+from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
+from .svm_utils import train_svm_model, score_with_svm, build_similarity_histogram_response
 
 logger = logging.getLogger(__name__)
-
-# ============================================================================
-# SAMPLE WEIGHTS FOR SVM TRAINING
-# ============================================================================
-# 'click' (direct user clicks) get full weight
-# 'threshold' (batch Apply Tags) get reduced weight due to potential errors
-CLICK_WEIGHT = 1.0
-THRESHOLD_WEIGHT = 0.2
 
 
 class PairSimilarityService:
@@ -59,8 +51,8 @@ class PairSimilarityService:
 
     def __init__(
         self,
-        data_service: "DataService",
-        cluster_service: Optional["HierarchicalClusterCandidateService"] = None
+        data_service: DataService,
+        cluster_service: Optional[HierarchicalClusterCandidateService] = None
     ):
         """
         Initialize PairSimilarityService.
@@ -324,34 +316,7 @@ class PairSimilarityService:
 
         # Create scores dictionary
         scores_dict = {item.pair_key: item.score for item in pair_scores}
-
-        # Extract score values for histogram
         score_values = np.array([item.score for item in pair_scores])
-
-        if len(score_values) == 0:
-            return SimilarityHistogramResponse(
-                scores={},
-                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
-                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
-                total_items=0
-            )
-
-        # Compute histogram (60 bins for good resolution)
-        counts, bin_edges = np.histogram(score_values, bins=60)
-        bins = (bin_edges[:-1] + bin_edges[1:]) / 2  # Bin centers
-
-        # Compute statistics
-        statistics = HistogramStatistics(
-            min=float(np.min(score_values)),
-            max=float(np.max(score_values)),
-            mean=float(np.mean(score_values)),
-            median=float(np.median(score_values))
-        )
-
-        # Detect bimodality
-        bimodality_result = self.bimodality_service.detect_bimodality(score_values)
-
-        logger.info(f"Successfully generated histogram for {len(pair_scores)} pairs")
 
         # Convert committee votes to Pydantic models if available
         committee_votes_response = None
@@ -366,30 +331,11 @@ class PairSimilarityService:
                 for pk, info in committee_votes.items()
             }
 
-        return SimilarityHistogramResponse(
-            scores=scores_dict,
-            histogram=HistogramData(
-                bins=bins.tolist(),
-                counts=counts.tolist(),
-                bin_edges=bin_edges.tolist()
-            ),
-            statistics=statistics,
-            total_items=len(pair_scores),
-            bimodality=BimodalityInfo(
-                dip_pvalue=bimodality_result.dip_pvalue,
-                bic_k1=bimodality_result.bic_k1,
-                bic_k2=bimodality_result.bic_k2,
-                gmm_components=[
-                    GMMComponentInfo(
-                        mean=comp.mean,
-                        variance=comp.variance,
-                        weight=comp.weight
-                    )
-                    for comp in bimodality_result.gmm_components
-                ],
-                sample_size=bimodality_result.sample_size
-            ),
-            committee_votes=committee_votes_response
+        logger.info(f"Successfully generated histogram for {len(pair_scores)} pairs")
+
+        return build_similarity_histogram_response(
+            scores_dict, score_values, len(pair_scores),
+            self.bimodality_service, committee_votes_response
         )
 
     # =========================================================================
@@ -982,7 +928,7 @@ class PairSimilarityService:
             rejected_weights_arr = np.array(rejected_weights)
 
             # Train SVM with weights
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
+            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -1008,7 +954,7 @@ class PairSimilarityService:
         pair_scores = []
         if len(valid_pairs) > 0:
             valid_vectors = all_pair_vectors[valid_vector_indices]
-            scores = self._score_with_svm(model, scaler, valid_vectors)
+            scores = score_with_svm(model, scaler, valid_vectors)
             pair_scores = [
                 PairScore(pair_key=pk, score=float(s))
                 for pk, s in zip(valid_pairs, scores)
@@ -1180,7 +1126,7 @@ class PairSimilarityService:
             sample_weights_arr = np.concatenate([selected_weights_arr, rejected_weights_arr])
 
             # Train SVM with weights
-            model, scaler = self._train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
+            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -1199,7 +1145,7 @@ class PairSimilarityService:
         scores = np.array([])
         if len(valid_pairs) > 0:
             valid_vectors = all_pair_vectors[valid_vector_indices]
-            scores = self._score_with_svm(model, scaler, valid_vectors)
+            scores = score_with_svm(model, scaler, valid_vectors)
             pair_scores = [
                 PairScore(pair_key=pk, score=float(s))
                 for pk, s in zip(valid_pairs, scores)
@@ -1261,7 +1207,7 @@ class PairSimilarityService:
         return pair_scores, committee_votes
 
     # =========================================================================
-    # SVM HELPERS (duplicated from SimilaritySortService for independence)
+    # SVM HELPERS
     # =========================================================================
 
     def _get_pair_cache_key(self, selected_pair_keys: List[str], rejected_pair_keys: List[str]) -> str:
@@ -1299,78 +1245,6 @@ class PairSimilarityService:
         rejected_tuples = sorted([(item.key, item.source) for item in rejected_items])
         key_str = f"{selected_tuples}_{rejected_tuples}"
         return hashlib.md5(key_str.encode()).hexdigest()
-
-    def _train_svm_model(
-        self,
-        selected_vectors: np.ndarray,
-        rejected_vectors: np.ndarray,
-        selected_weights: Optional[np.ndarray] = None,
-        rejected_weights: Optional[np.ndarray] = None
-    ) -> Tuple[SVC, StandardScaler]:
-        """
-        Train binary SVM classifier with RBF kernel and optional sample weights.
-
-        Args:
-            selected_vectors: (N_pos, d) positive examples (✓)
-            rejected_vectors: (N_neg, d) negative examples (✗)
-            selected_weights: (N_pos,) sample weights for positive examples (default: all 1.0)
-            rejected_weights: (N_neg,) sample weights for negative examples (default: all 1.0)
-
-        Returns:
-            Tuple of (trained_model, fitted_scaler)
-        """
-        # Combine data
-        X = np.vstack([selected_vectors, rejected_vectors])
-        y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
-
-        # Build sample weights array
-        if selected_weights is None:
-            selected_weights = np.ones(len(selected_vectors))
-        if rejected_weights is None:
-            rejected_weights = np.ones(len(rejected_vectors))
-        sample_weights = np.concatenate([selected_weights, rejected_weights])
-
-        # Standardize features (critical for SVM)
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        # Train SVM with RBF kernel
-        model = SVC(
-            kernel='rbf',
-            C=1.0,
-            gamma='scale',
-            class_weight='balanced',  # Handle class imbalance
-            probability=False  # Faster without probability calibration
-        )
-        model.fit(X_scaled, y, sample_weight=sample_weights)
-
-        logger.info(f"SVM trained: {len(selected_vectors)} positive, {len(rejected_vectors)} negative, "
-                   f"{model.n_support_.sum()} support vectors, weighted training")
-
-        return model, scaler
-
-    def _score_with_svm(
-        self,
-        model: SVC,
-        scaler: StandardScaler,
-        feature_vectors: np.ndarray
-    ) -> np.ndarray:
-        """
-        Score features using SVM decision function.
-
-        Args:
-            model: Trained SVM model
-            scaler: Fitted StandardScaler
-            feature_vectors: (N, d) feature vectors to score
-
-        Returns:
-            (N,) array of scores (signed distance from decision boundary)
-            Positive scores = more similar to selected features
-            Negative scores = more similar to rejected features
-        """
-        X_scaled = scaler.transform(feature_vectors)
-        scores = model.decision_function(X_scaled)
-        return scores
 
     def clear_svm_cache(self):
         """Clear SVM model cache (call on data reload)."""

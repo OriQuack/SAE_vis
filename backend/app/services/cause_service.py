@@ -7,7 +7,7 @@ Provides SVM-based cause classification for Stage 3.
 import polars as pl
 import numpy as np
 import logging
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import List, Dict, Optional
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
@@ -19,44 +19,14 @@ from ..models.similarity_sort import (
     CauseSelectionItem,
     CauseCommitteeVoteInfo
 )
-from .data_constants import COL_FEATURE_ID
-
-# Categories for decision function space (3 categories)
-CAUSE_CATEGORIES = [
-    'noisy-activation',
-    'missed-N-gram',
-    'missed-context'
-]
-
-# ============================================================================
-# SAMPLE WEIGHTS FOR SVM TRAINING
-# ============================================================================
-# 'click' (direct user clicks) get full weight
-# 'threshold' (batch Apply Tags) get reduced weight due to potential errors
-CLICK_WEIGHT = 1.0
-THRESHOLD_WEIGHT = 0.2
-
-# 12 metrics used for SVM decision function
-# Same as Stage 2 (Quality) for uniformity - splits composite intra_feature_sim into components
-METRICS_FOR_SVM = [
-    # Mean metrics (7)
-    'intra_ngram_jaccard',       # Activation-level: max(char_ngram, word_ngram) - lexical consistency
-    'intra_semantic_sim',        # Activation-level: semantic_similarity - semantic consistency
-    'score_embedding',           # Score: embedding-based scoring
-    'score_fuzz',                # Score: fuzzy matching score
-    'score_detection',           # Score: detection score
-    'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations
-    'log_frac_nonzero',          # Neuronpedia: log(frac_nonzero + 1e-8) - sparse activation handling
-    # Std metrics (5) - captures cross-explainer disagreement and activation variability
-    'intra_semantic_sim_std',    # Activation-level: semantic consistency std (variability within feature)
-    'explanation_semantic_sim_std',  # Explanation-level: cross-explainer semantic disagreement
-    'score_embedding_std',
-    'score_fuzz_std',
-    'score_detection_std',
-]
-
-if TYPE_CHECKING:
-    from .data_service import DataService
+from .data_constants import (
+    COL_FEATURE_ID,
+    CLICK_WEIGHT,
+    THRESHOLD_WEIGHT,
+    SVM_FEATURE_METRICS,
+    CAUSE_CATEGORIES,
+)
+from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -64,7 +34,7 @@ logger = logging.getLogger(__name__)
 class CauseService:
     """Service for SVM-based cause classification."""
 
-    def __init__(self, data_service: "DataService"):
+    def __init__(self, data_service: DataService):
         """Initialize CauseService.
 
         Args:
@@ -117,7 +87,7 @@ class CauseService:
         # Build feature matrix
         feature_ids_ordered = metrics_df[COL_FEATURE_ID].to_numpy()
         metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in METRICS_FOR_SVM
+            metrics_df[metric].to_numpy() for metric in SVM_FEATURE_METRICS
         ])
 
         # Map feature_ids to indices for cause_selections lookup
@@ -389,13 +359,13 @@ class CauseService:
             ])
 
             # Fill null values for all metrics
-            for metric in METRICS_FOR_SVM:
+            for metric in SVM_FEATURE_METRICS:
                 if metric in df.columns:
                     df = df.with_columns(pl.col(metric).fill_null(0.0))
                 else:
                     df = df.with_columns(pl.lit(0.0).alias(metric))
 
-            logger.info(f"Extracted {len(METRICS_FOR_SVM)} metrics for {len(df)} features from svm_feature_metrics")
+            logger.info(f"Extracted {len(SVM_FEATURE_METRICS)} metrics for {len(df)} features from svm_feature_metrics")
             return df
 
         except Exception as e:

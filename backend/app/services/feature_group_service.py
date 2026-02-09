@@ -6,8 +6,7 @@ Replaces the complex classification engine with straightforward data operations.
 
 import polars as pl
 import logging
-from typing import List, Dict, Tuple
-from pathlib import Path
+from typing import List, Tuple
 
 from ..models.common import Filters
 from ..models.feature_groups import FeatureGroup, FeatureGroupResponse
@@ -18,14 +17,11 @@ from .data_constants import (
     COL_LLM_EXPLAINER,
     COL_LLM_SCORER,
     COL_DECODER_SIMILARITY,
-    COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
     DECODER_METRIC_FOR_AGGREGATION
 )
+from .data_service import DataService
 
 logger = logging.getLogger(__name__)
-
-# Data file paths
-FEATURES_PATH = Path(__file__).parent.parent.parent.parent / "data" / "output" / "features.parquet"
 
 
 class FeatureGroupService:
@@ -37,77 +33,10 @@ class FeatureGroupService:
     - 1 computed metric: quality_score
     """
 
-    def __init__(self):
-        """Initialize service and load data"""
+    def __init__(self, data_service: DataService):
+        """Initialize service with shared DataService."""
         logger.info("Initializing FeatureGroupService")
-
-        # Load master data
-        self.feature_df = pl.scan_parquet(str(FEATURES_PATH))
-
-        # Transform nested schema to flat schema
-        self.feature_df = self._transform_to_flat_schema(self.feature_df)
-        logger.info(f"Loaded features from {FEATURES_PATH}")
-
-    @staticmethod
-    def _get_actual_column_name(metric_name: str) -> str:
-        """
-        Map metric name to actual column name based on configuration.
-
-        When metric is "decoder_similarity", returns the actual column to use
-        based on DECODER_METRIC_FOR_AGGREGATION constant.
-
-        Args:
-            metric_name: Metric name from API request
-
-        Returns:
-            Actual column name to use in DataFrame operations
-        """
-        if metric_name == COL_DECODER_SIMILARITY:
-            return DECODER_METRIC_FOR_AGGREGATION
-        return metric_name
-
-    def _transform_to_flat_schema(self, df_lazy: pl.LazyFrame) -> pl.LazyFrame:
-        """
-        Transform nested features.parquet schema to flat schema expected by backend.
-
-        Explodes the nested scores structure and extracts individual columns.
-        """
-        # Explode scores to create one row per scorer
-        df_lazy = df_lazy.explode("scores")
-
-        # Extract scorer and individual score columns from the struct
-        df_lazy = df_lazy.with_columns([
-            pl.col("scores").struct.field("scorer").alias(COL_LLM_SCORER),
-            pl.col("scores").struct.field("fuzz").alias("score_fuzz"),
-            pl.col("scores").struct.field("simulation").alias("score_simulation"),
-            pl.col("scores").struct.field("detection").alias("score_detection"),
-            pl.col("scores").struct.field("embedding").alias("score_embedding"),
-        ])
-
-        # Compute quality_score as mean of embedding, fuzz, and detection scores
-        df_lazy = df_lazy.with_columns([
-            ((pl.col("score_embedding") + pl.col("score_fuzz") + pl.col("score_detection")) / 3.0)
-            .alias("quality_score")
-        ])
-
-        # Convert decoder_similarity list to max value for numeric operations
-        # Overwrites the list column with max cosine_similarity value
-        # NOTE: Only transform if using original decoder_similarity for aggregation
-        if DECODER_METRIC_FOR_AGGREGATION == COL_DECODER_SIMILARITY:
-            logger.info("Transforming decoder_similarity from List(Struct) to max float value")
-            df_lazy = df_lazy.with_columns([
-                pl.col(COL_DECODER_SIMILARITY)
-                  .list.eval(pl.element().struct.field("cosine_similarity"))
-                  .list.max()
-                  .alias(COL_DECODER_SIMILARITY)
-            ])
-        else:
-            logger.info(f"Using {DECODER_METRIC_FOR_AGGREGATION} for aggregation (no transformation needed)")
-
-        # Drop only scores and explanation_text, keep decoder_similarity
-        df_lazy = df_lazy.drop(["scores", "explanation_text"])
-
-        return df_lazy
+        self.data_service = data_service
 
     async def get_feature_groups(
         self,
@@ -132,19 +61,16 @@ class FeatureGroupService:
         """
         logger.info(f"Getting feature groups for metric={metric}, thresholds={thresholds}")
 
-        # Apply filters to get base dataframe
-        filtered_df = self._apply_filters(filters)
+        # Apply filters using DataService
+        filtered_df = self.data_service.apply_filters(self.data_service._df_lazy, filters)
 
         # Special case: Empty thresholds means "all features" (root node initialization)
         if len(thresholds) == 0:
             logger.info("Empty thresholds - returning all features as single group (root node)")
             return self._get_root_group(filtered_df, metric)
 
-        # Route to appropriate handler based on metric type
-        if metric == 'quality_score':
-            groups, total_features = self._get_quality_score_groups(filtered_df, thresholds)
-        else:
-            groups, total_features = self._get_standard_groups(filtered_df, metric, thresholds)
+        # Route to handler (quality_score is just a standard column after DataService transform)
+        groups, total_features = self._get_standard_groups(filtered_df, metric, thresholds)
 
         logger.info(f"Created {len(groups)} groups with {total_features} total features")
 
@@ -153,24 +79,6 @@ class FeatureGroupService:
             groups=groups,
             total_features=total_features
         )
-
-    def _apply_filters(self, filters: Filters) -> pl.LazyFrame:
-        """Apply user filters to feature dataframe"""
-        df = self.feature_df
-
-        if filters.sae_id:
-            df = df.filter(pl.col(COL_SAE_ID).is_in(filters.sae_id))
-
-        if filters.explanation_method:
-            df = df.filter(pl.col(COL_EXPLANATION_METHOD).is_in(filters.explanation_method))
-
-        if filters.llm_explainer:
-            df = df.filter(pl.col(COL_LLM_EXPLAINER).is_in(filters.llm_explainer))
-
-        if filters.llm_scorer:
-            df = df.filter(pl.col(COL_LLM_SCORER).is_in(filters.llm_scorer))
-
-        return df
 
     def _get_standard_groups(
         self,
@@ -184,8 +92,8 @@ class FeatureGroupService:
         Returns:
             Tuple of (groups, total_features)
         """
-        # Map metric name to actual column based on configuration
-        actual_metric = self._get_actual_column_name(metric)
+        # Map decoder_similarity to configured column
+        actual_metric = DECODER_METRIC_FOR_AGGREGATION if metric == COL_DECODER_SIMILARITY else metric
         logger.debug(f"Mapping metric '{metric}' to actual column '{actual_metric}'")
 
         # Collect dataframe for processing
@@ -267,22 +175,6 @@ class FeatureGroupService:
             logger.warning(f"Group sum ({group_sum}) != total features ({total_features}) for metric {metric}")
 
         return groups, total_features
-
-    def _get_quality_score_groups(
-        self,
-        df: pl.LazyFrame,
-        thresholds: List[float]
-    ) -> Tuple[List[FeatureGroup], int]:
-        """
-        Get groups for quality_score metric (computed from score components).
-
-        Quality score is computed as mean of embedding, fuzz, and detection scores.
-
-        Returns:
-            Tuple of (groups, total_features)
-        """
-        # quality_score is computed in _transform_to_flat_schema, just use it like any standard metric
-        return self._get_standard_groups(df, 'quality_score', thresholds)
 
     def _get_root_group(
         self,

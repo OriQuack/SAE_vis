@@ -11,7 +11,7 @@ import numpy as np
 import logging
 import hashlib
 import random
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import List, Dict, Optional
 from sklearn.preprocessing import StandardScaler
 
 from ..models.cold_start import (
@@ -19,10 +19,8 @@ from ..models.cold_start import (
     ColdStartSuggestionsResponse,
     ColdStartSuggestion
 )
-
-if TYPE_CHECKING:
-    from .data_service import DataService
-    from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
+from .data_service import DataService
+from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +49,8 @@ class ColdStartService:
 
     def __init__(
         self,
-        data_service: "DataService",
-        cluster_service: Optional["HierarchicalClusterCandidateService"] = None
+        data_service: DataService,
+        cluster_service: Optional[HierarchicalClusterCandidateService] = None
     ):
         """
         Initialize ColdStartService.

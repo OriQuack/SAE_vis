@@ -76,7 +76,7 @@ async def lifespan(app: FastAPI):
         logger.info("Table data service initialized successfully")
 
         # Initialize feature groups service
-        fg_service = FeatureGroupService()
+        fg_service = FeatureGroupService(data_service)
         feature_groups.set_feature_group_service(fg_service)
         logger.info("Feature groups service initialized successfully")
 

@@ -24,7 +24,7 @@ import polars as pl
 import numpy as np
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Tuple
 
 from ..models.common import Filters
 from ..models.table import (
@@ -38,10 +38,7 @@ from .data_constants import (
     COL_DECODER_SIMILARITY_MERGE_THRESHOLD,
     DECODER_METRIC_FOR_AGGREGATION
 )
-
-# Import for type hints only (avoids circular imports)
-if TYPE_CHECKING:
-    from .data_service import DataService
+from .data_service import DataService
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +147,7 @@ def extract_scores_from_explainer_df(
 class TableDataService:
     """Service for generating table visualization data."""
 
-    def __init__(self, data_service: "DataService", alignment_service: Optional[AlignmentService] = None):
+    def __init__(self, data_service: DataService, alignment_service: Optional[AlignmentService] = None):
         """
         Initialize TableDataService.
 
