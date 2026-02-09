@@ -229,24 +229,6 @@ export interface D3SankeyLink {
   y1?: number
 }
 
-export interface FeatureDetail {
-  feature_id: number
-  sae_id: string
-  explanation_method: string
-  llm_explainer: string
-  llm_scorer: string
-  decoder_similarity: number
-  semsim_mean: number
-  semsim_max: number
-  scores: {
-    fuzz: number
-    simulation: number
-    detection: number
-    embedding: number
-  }
-  details_path: string
-}
-
 // ============================================================================
 // UI AND STATE TYPES
 // ============================================================================

@@ -1,6 +1,5 @@
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional
-from .common import CategoryType
 
 class FilterOptionsResponse(BaseModel):
     """Response model for filter options endpoint"""
@@ -84,86 +83,6 @@ class HistogramResponse(BaseModel):
     grouped_data: Optional[List[GroupedHistogramData]] = Field(
         default=None,
         description="Grouped histogram data when groupBy is specified"
-    )
-
-class SankeyNode(BaseModel):
-    """Individual node in Sankey diagram"""
-    id: str = Field(
-        ...,
-        description="Unique node identifier"
-    )
-    name: str = Field(
-        ...,
-        description="Display name for the node"
-    )
-    stage: int = Field(
-        ...,
-        ge=0,
-        le=3,
-        description="Stage/level of the node (0=root, 1=splitting, 2=distance, 3=agreement)"
-    )
-    feature_count: int = Field(
-        ...,
-        ge=0,
-        description="Number of features in this node"
-    )
-    category: CategoryType = Field(
-        ...,
-        description="Category type of this node"
-    )
-    feature_ids: Optional[List[int]] = Field(
-        default=None,
-        description="List of feature IDs in this node (included only for leaf nodes to enable alluvial diagrams)"
-    )
-    node_type: Optional[str] = Field(
-        default="standard",
-        description="Node rendering type: 'standard' for regular nodes, 'vertical_bar' for three-column vertical bar visualization"
-    )
-
-class SankeyLink(BaseModel):
-    """Individual link in Sankey diagram"""
-    source: str = Field(
-        ...,
-        description="Source node ID"
-    )
-    target: str = Field(
-        ...,
-        description="Target node ID"
-    )
-    value: int = Field(
-        ...,
-        ge=0,
-        description="Flow value (number of features)"
-    )
-
-class SankeyMetadata(BaseModel):
-    """Metadata for Sankey diagram"""
-    total_features: int = Field(
-        ...,
-        description="Total number of features in the diagram"
-    )
-    applied_filters: Dict[str, List[str]] = Field(
-        ...,
-        description="Filters that were applied"
-    )
-    applied_thresholds: Dict[str, float] = Field(
-        ...,
-        description="Thresholds that were applied"
-    )
-
-class SankeyResponse(BaseModel):
-    """Response model for Sankey diagram data endpoint"""
-    nodes: List[SankeyNode] = Field(
-        ...,
-        description="Array of nodes in the Sankey diagram"
-    )
-    links: List[SankeyLink] = Field(
-        ...,
-        description="Array of links in the Sankey diagram"
-    )
-    metadata: SankeyMetadata = Field(
-        ...,
-        description="Metadata about the diagram"
     )
 
 class InterFeatureSimilarityInfo(BaseModel):
@@ -416,41 +335,6 @@ class ActivationExamplesResponse(BaseModel):
         description="Dictionary mapping feature_id to activation example data"
     )
 
-class ClusterGroup(BaseModel):
-    """Single cluster with its member features"""
-    cluster_id: int = Field(
-        ...,
-        description="Cluster identifier (1-indexed from scipy fcluster)"
-    )
-    feature_ids: List[int] = Field(
-        ...,
-        description="Feature IDs belonging to this cluster (sorted)"
-    )
-
-
-class ClusterCandidatesResponse(BaseModel):
-    """Response model for hierarchical clustering-based cluster selection"""
-    cluster_groups: List[ClusterGroup] = Field(
-        ...,
-        description="Selected clusters with their member features (only clusters with 2+ features)"
-    )
-    feature_to_cluster: Dict[int, int] = Field(
-        ...,
-        description="Mapping of ALL feature IDs (0-16383) to their cluster IDs at this threshold"
-    )
-    total_clusters: int = Field(
-        ...,
-        description="Total number of clusters formed at this distance threshold"
-    )
-    clusters_selected: int = Field(
-        ...,
-        description="Number of clusters selected (may be < n if not enough valid clusters)"
-    )
-    threshold_used: float = Field(
-        ...,
-        description="Distance threshold used for cutting the dendrogram"
-    )
-
 class ClusterPair(BaseModel):
     """Single cluster-based feature pair"""
     main_id: int = Field(..., description="First feature ID (smaller)")
@@ -463,38 +347,6 @@ class ClusterInfo(BaseModel):
     cluster_id: int = Field(..., description="Cluster ID")
     feature_ids: List[int] = Field(..., description="Feature IDs in this cluster")
     pair_count: int = Field(..., description="Number of pairs in this cluster")
-
-class SegmentClusterPairsResponse(BaseModel):
-    """Response model for segment cluster pairs (ALL pairs, no sampling)"""
-    pairs: List[ClusterPair] = Field(
-        ...,
-        description="Full pair objects with metadata for frontend use"
-    )
-    pair_keys: List[str] = Field(
-        ...,
-        description="List of all cluster-based pair keys (format: 'id1-id2') for backward compatibility"
-    )
-    clusters: List[ClusterInfo] = Field(
-        ...,
-        description="Cluster information with feature members and pair counts"
-    )
-    feature_to_cluster: Dict[int, int] = Field(
-        ...,
-        description="Mapping of ALL feature IDs to their cluster IDs"
-    )
-    total_clusters: int = Field(
-        ...,
-        description="Total number of clusters with 2+ features"
-    )
-    total_pairs: int = Field(
-        ...,
-        description="Total number of pairs generated from clusters"
-    )
-    threshold_used: float = Field(
-        ...,
-        description="Distance threshold used for clustering"
-    )
-
 
 class FilteringStats(BaseModel):
     """Statistics from the pair filtering process"""

@@ -2,13 +2,6 @@ from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any, Union, Set
 from enum import Enum
 
-# Import category constants for single source of truth
-from ..services.data_constants import (
-    CATEGORY_ROOT,
-    CATEGORY_FEATURE_SPLITTING,
-    CATEGORY_SEMANTIC_SIMILARITY
-)
-
 class MetricType(str, Enum):
     """Supported metric types for histogram analysis"""
     # Standard metrics
@@ -18,13 +11,6 @@ class MetricType(str, Enum):
     SCORE_DETECTION = "score_detection"
     SCORE_EMBEDDING = "score_embedding"
     QUALITY_SCORE = "quality_score"
-
-class CategoryType(str, Enum):
-    """Node category types for Sankey diagrams and visualization"""
-    ROOT = CATEGORY_ROOT
-    FEATURE_SPLITTING = CATEGORY_FEATURE_SPLITTING
-    SEMANTIC_SIMILARITY = CATEGORY_SEMANTIC_SIMILARITY
-    # Can be extended with new categories without code changes
 
 class ErrorResponse(BaseModel):
     """Standard error response format"""

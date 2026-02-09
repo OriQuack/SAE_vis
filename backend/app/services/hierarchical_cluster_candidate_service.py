@@ -10,7 +10,6 @@ import polars as pl
 from scipy.cluster.hierarchy import fcluster
 from pathlib import Path
 from typing import List, Dict, Optional, Set, Tuple
-import random
 import logging
 
 logger = logging.getLogger(__name__)
@@ -56,9 +55,6 @@ class HierarchicalClusterCandidateService:
         self.valid_feature_ids = list(range(self.n_features))
         self.feature_id_to_index = {i: i for i in range(self.n_features)}
         self.index_to_feature_id = {i: i for i in range(self.n_features)}
-
-        # Fixed random seed for deterministic cluster selection
-        self.random_seed = 42
 
         # Load interfeature similarity data for filtered pair generation
         interfeature_path = project_root / "data" / "output" / "interfeature_similarity.parquet"
@@ -151,111 +147,6 @@ class HierarchicalClusterCandidateService:
         )
 
         return feature_to_cluster, valid_clusters, total_clusters
-
-    async def get_cluster_candidates(
-        self,
-        feature_ids: List[int],
-        n: int,
-        threshold: float = 0.5
-    ) -> Dict:
-        """
-        Get n clusters (each with 2+ features) and return all features grouped by cluster.
-
-        Process:
-        1. Use shared clustering logic (_cluster_features_at_threshold)
-        2. Randomly select n clusters (with fixed seed for determinism)
-        3. Return selected clusters with their feature members
-
-        Args:
-            feature_ids: Available feature IDs to sample from
-            n: Number of clusters to select
-            threshold: Distance threshold for cutting dendrogram (0-1)
-
-        Returns:
-            Dictionary with:
-                - cluster_groups: List of {cluster_id, feature_ids} for selected clusters
-                - feature_to_cluster: Mapping of ALL feature IDs to cluster IDs
-                - total_clusters: Total clusters at this threshold
-                - clusters_selected: Number of clusters selected (may be < n if not enough valid clusters)
-                - threshold_used: The threshold value used
-
-        Raises:
-            ValueError: If inputs are invalid
-        """
-        # Validate inputs
-        if not feature_ids:
-            raise ValueError("feature_ids cannot be empty")
-
-        if n <= 0:
-            raise ValueError(f"n must be positive, got {n}")
-
-        if not (0.0 < threshold < 1.0):
-            raise ValueError(f"threshold must be in (0, 1), got {threshold}")
-
-        logger.info(
-            f"Getting cluster candidates: "
-            f"n_input={len(feature_ids)}, n_clusters={n}, threshold={threshold}"
-        )
-
-        # Use shared clustering logic
-        feature_to_cluster, valid_clusters, total_clusters = self._cluster_features_at_threshold(
-            feature_ids, threshold
-        )
-
-        # Randomly select n clusters (or all if fewer available)
-        cluster_groups = self._select_n_clusters(valid_clusters, n)
-
-        clusters_selected = len(cluster_groups)
-        logger.info(
-            f"Selected {clusters_selected} clusters "
-            f"(target was {n})"
-        )
-
-        return {
-            "cluster_groups": cluster_groups,
-            "feature_to_cluster": feature_to_cluster,
-            "total_clusters": total_clusters,
-            "clusters_selected": clusters_selected,
-            "threshold_used": threshold
-        }
-
-    def _select_n_clusters(
-        self,
-        cluster_to_features: Dict[int, List[int]],
-        n: int
-    ) -> List[Dict]:
-        """
-        Randomly select n clusters and return them as cluster groups.
-
-        Uses a fixed random seed for deterministic selection across calls.
-
-        Args:
-            cluster_to_features: Mapping of cluster ID to list of feature IDs
-            n: Number of clusters to select
-
-        Returns:
-            List of cluster groups: [{"cluster_id": int, "feature_ids": List[int]}, ...]
-        """
-        # Use fixed seed for deterministic selection
-        random.seed(self.random_seed)
-
-        # Get all cluster IDs and shuffle them
-        cluster_ids = list(cluster_to_features.keys())
-        random.shuffle(cluster_ids)
-
-        # Select up to n clusters (or all if fewer available)
-        selected_cluster_ids = cluster_ids[:n]
-
-        # Build cluster groups
-        cluster_groups = [
-            {
-                "cluster_id": cluster_id,
-                "feature_ids": sorted(cluster_to_features[cluster_id])
-            }
-            for cluster_id in selected_cluster_ids
-        ]
-
-        return cluster_groups
 
     async def get_all_cluster_pairs(
         self,

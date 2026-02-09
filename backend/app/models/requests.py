@@ -54,38 +54,6 @@ class FeatureGroupRequest(BaseModel):
         description="List of threshold values (N thresholds create N+1 groups). Empty list returns all features as single group (root node)."
     )
 
-class ClusterCandidatesRequest(BaseModel):
-    """Request model for hierarchical clustering-based cluster selection"""
-    feature_ids: List[int] = Field(
-        ...,
-        description="List of feature IDs to sample from"
-    )
-    n: int = Field(
-        ...,
-        gt=0,
-        description="Number of clusters to select (only clusters with 2+ features)"
-    )
-    threshold: Optional[float] = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Distance threshold for cutting dendrogram (0-1, higher=fewer clusters)"
-    )
-
-class SegmentClusterPairsRequest(BaseModel):
-    """Request model for getting ALL cluster-based pairs from a segment"""
-    feature_ids: List[int] = Field(
-        ...,
-        description="List of feature IDs from selected segment"
-    )
-    threshold: Optional[float] = Field(
-        default=0.5,
-        ge=0.0,
-        le=1.0,
-        description="Distance threshold for cutting dendrogram (0-1, higher=fewer clusters)"
-    )
-
-
 class FilteredClusterPairsRequest(BaseModel):
     """Request model for getting filtered cluster-based pairs"""
     feature_ids: List[int] = Field(

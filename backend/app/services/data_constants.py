@@ -4,11 +4,6 @@ Essential constants for data processing and visualization.
 This module contains the core constants used throughout the data service.
 """
 
-# Category types
-CATEGORY_ROOT = "root"
-CATEGORY_FEATURE_SPLITTING = "feature_splitting"
-CATEGORY_SEMANTIC_SIMILARITY = "semantic_similarity"
-
 # Column names
 COL_FEATURE_ID = "feature_id"
 COL_SAE_ID = "sae_id"
@@ -35,35 +30,5 @@ COL_DETAILS_PATH = "details_path"
 #   - "decoder_similarity_merge_threshold": Use merge threshold column (new)
 DECODER_METRIC_FOR_AGGREGATION = "decoder_similarity_merge_threshold"
 
-# Default values
-DEFAULT_HISTOGRAM_BINS = 20
-
-# Stage definitions
-STAGE_ROOT = 0
-
 # Filter columns
 FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM_SCORER]
-
-# Default threshold values
-DEFAULT_THRESHOLDS = {
-    "decoder_similarity": 0.5,
-    "decoder_similarity_merge_threshold": 0.4,
-    "semsim_mean": 0.2,
-    "score_fuzz": 0.5,
-    "score_detection": 0.5,
-    "score_embedding": 0.5
-}
-
-# ============================================================================
-# SCORE NAMES - Flexible for N Scores
-# ============================================================================
-SCORE_NAME_FUZZ = "fuzz"
-SCORE_NAME_DETECTION = "detection"
-SCORE_NAME_EMBEDDING = "embedding"
-
-# Score column mappings for flexible score handling
-SCORE_COLUMNS_MAPPING = {
-    SCORE_NAME_FUZZ: COL_SCORE_FUZZ,
-    SCORE_NAME_DETECTION: COL_SCORE_DETECTION,
-    SCORE_NAME_EMBEDDING: COL_SCORE_EMBEDDING
-}

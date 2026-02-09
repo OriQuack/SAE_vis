@@ -32,7 +32,6 @@ from ..models.responses import (
     ExplainerScoreData, ScorerScoreSet,
     HighlightedExplanation
 )
-from .consistency_service import ExplainerDataBuilder
 from .alignment_service import AlignmentService
 from .data_constants import (
     COL_DECODER_SIMILARITY,
@@ -52,6 +51,100 @@ MODEL_NAME_MAP = {
     'google/gemini-flash-2.5': 'gemini',
     'openai/gpt-4o-mini': 'openai'
 }
+
+
+def extract_scores_from_explainer_df(
+    explainer_data,  # Union[pl.DataFrame, list] - accepts both for compatibility
+    scorer_map: Optional[Dict[str, str]] = None
+) -> Tuple[Dict[str, Optional[float]], Dict[str, Optional[float]], Optional[float]]:
+    """
+    Extract score dictionaries from explainer data - accepts list or DataFrame.
+
+    Args:
+        explainer_data: DataFrame or list of dicts for one explainer
+        scorer_map: Optional mapping from scorer ID to s1/s2/s3.
+                    If None, creates automatic mapping (s1, s2, s3)
+
+    Returns:
+        Tuple of (fuzz_dict, detection_dict, embedding_score):
+        - fuzz_dict: {'s1': val, 's2': val, 's3': val}
+        - detection_dict: {'s1': val, 's2': val, 's3': val}
+        - embedding_score: float or None
+    """
+    fuzz_dict = {'s1': None, 's2': None, 's3': None}
+    detection_dict = {'s1': None, 's2': None, 's3': None}
+    embedding_score = None
+
+    if isinstance(explainer_data, list):
+        if len(explainer_data) == 0:
+            return fuzz_dict, detection_dict, embedding_score
+
+        for score_dict in explainer_data:
+            score = score_dict.get("score_embedding")
+            if score is not None:
+                embedding_score = round(score, 3)
+                break
+
+        if scorer_map is None:
+            scorer_map = {}
+            for i, score_dict in enumerate(explainer_data):
+                scorer = score_dict["llm_scorer"]
+                scorer_key = f"s{i+1}"
+                scorer_map[scorer] = scorer_key
+
+                fuzz_val = score_dict.get("score_fuzz")
+                detection_val = score_dict.get("score_detection")
+
+                fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+        else:
+            for score_dict in explainer_data:
+                scorer = score_dict["llm_scorer"]
+                scorer_key = scorer_map.get(scorer)
+
+                if scorer_key:
+                    fuzz_val = score_dict.get("score_fuzz")
+                    detection_val = score_dict.get("score_detection")
+
+                    fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                    detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+
+    else:
+        explainer_df = explainer_data
+        if len(explainer_df) == 0:
+            return fuzz_dict, detection_dict, embedding_score
+
+        embedding_scores = explainer_df["score_embedding"].to_list()
+        for score in embedding_scores:
+            if score is not None:
+                embedding_score = round(score, 3)
+                break
+
+        if scorer_map is None:
+            scorer_map = {}
+            for i, row_dict in enumerate(explainer_df.iter_rows(named=True)):
+                scorer = row_dict["llm_scorer"]
+                scorer_key = f"s{i+1}"
+                scorer_map[scorer] = scorer_key
+
+                fuzz_val = row_dict.get("score_fuzz")
+                detection_val = row_dict.get("score_detection")
+
+                fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+        else:
+            for _, row in enumerate(explainer_df.iter_rows(named=True)):
+                scorer = row["llm_scorer"]
+                scorer_key = scorer_map.get(scorer)
+
+                if scorer_key:
+                    fuzz_val = row.get("score_fuzz")
+                    detection_val = row.get("score_detection")
+
+                    fuzz_dict[scorer_key] = round(fuzz_val, 3) if fuzz_val is not None else None
+                    detection_dict[scorer_key] = round(detection_val, 3) if detection_val is not None else None
+
+    return fuzz_dict, detection_dict, embedding_score
 
 
 class TableDataService:
@@ -698,7 +791,7 @@ class TableDataService:
                     continue
 
                 # Extract scores using helper
-                fuzz_dict, detection_dict, embedding_score = ExplainerDataBuilder.extract_scores_from_explainer_df(
+                fuzz_dict, detection_dict, embedding_score = extract_scores_from_explainer_df(
                     explainer_scores, scorer_map
                 )
 

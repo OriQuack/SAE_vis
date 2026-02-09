@@ -4,7 +4,6 @@ import type {
   FilterOptions,
   HistogramData,
   HistogramDataRequest,
-  FeatureDetail,
   Filters,
   TableDataRequest,
   FeatureTableDataResponse,
@@ -53,7 +52,6 @@ const API_BASE_URL = "/api"
 const API_ENDPOINTS = {
   FILTER_OPTIONS: "/filter-options",
   HISTOGRAM_DATA: "/histogram-data",
-  FEATURE_DETAIL: "/feature",
   TABLE_DATA: "/table-data",
   FEATURE_GROUPS: "/feature-groups",
   ACTIVATION_EXAMPLES: "/activation-examples",
@@ -62,8 +60,6 @@ const API_ENDPOINTS = {
   PAIR_SIMILARITY_SORT: "/pair-similarity-sort",
   SIMILARITY_SCORE_HISTOGRAM: "/similarity-score-histogram",
   PAIR_SIMILARITY_SCORE_HISTOGRAM: "/pair-similarity-score-histogram",
-  CLUSTER_CANDIDATES: "/cluster-candidates",
-  SEGMENT_CLUSTER_PAIRS: "/segment-cluster-pairs",
   FILTERED_CLUSTER_PAIRS: "/filtered-cluster-pairs",
   CAUSE_CLASSIFICATION: "/cause-classification",
   MULTI_MODALITY_TEST: "/multi-modality-test",
@@ -103,21 +99,6 @@ export async function getHistogramData(request: HistogramDataRequest): Promise<H
     const errorText = await response.text()
     console.error('Histogram API error:', response.status, errorText)
     throw new Error(`Failed to fetch histogram data: ${response.status} - ${errorText}`)
-  }
-  return response.json()
-}
-
-export async function getFeatureDetail(featureId: number, params: Partial<Filters> = {}): Promise<FeatureDetail> {
-  const url = new URL(`${API_BASE}${API_ENDPOINTS.FEATURE_DETAIL}/${featureId}`, window.location.origin)
-  Object.entries(params).forEach(([key, value]) => {
-    if (value && Array.isArray(value) && value.length > 0) {
-      value.forEach(v => url.searchParams.append(key, v))
-    }
-  })
-
-  const response = await fetch(url.toString())
-  if (!response.ok) {
-    throw new Error(`Failed to fetch feature detail: ${response.status}`)
   }
   return response.json()
 }
