@@ -47,7 +47,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Zustand State Management (modularized by feature)                      │
 │  • D3.js Visualizations (Sankey, Histograms, Flow Overlay)               │
 │  • 4-Stage Tag Workflow: Feature Splitting → Quality → Cause → Summary   │
-│  • SVM-Based Similarity Scoring with Bimodality Detection                 │
+│  • SVM-Based Similarity Scoring                                          │
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
 │  • Decision Flip Rate Tracking for Convergence Monitoring                 │
 │  • RadViz Visualization for Multi-class Cause Analysis                    │
@@ -60,16 +60,16 @@ User Interaction → Frontend State Update → API Request → Backend Processin
                         POST /api/pair-similarity-sort
                         POST /api/similarity-score-histogram
                         POST /api/pair-similarity-score-histogram
-                        POST /api/cause-similarity-sort
+                        POST /api/cause-classification
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                         BACKEND (FastAPI + Polars)                        │
 │                                                                            │
 │  • Feature Grouping Service (filter → group by thresholds)                │
 │  • Hierarchical Clustering Service (decoder similarity)                   │
-│  • Similarity Sort Service (SVM-based scoring for features and pairs)     │
+│  • Classification Service (SVM binary + multi-class scoring)              │
+│  • Pair Similarity Service (SVM-based pair scoring)                       │
 │  • Committee Service (QBC: Random Forest + MLP for active learning)       │
-│  • Bimodality Service (Hartigan's Dip + GMM analysis)                     │
 │  • Alignment Service (semantic phrase matching)                           │
 │  • Consensus Service (HDBSCAN phrase clustering)                          │
 │  • Activation Cache Service (pre-computed msgpack+gzip)                   │
@@ -162,7 +162,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 ├── frontend/           # React application
 │   ├── src/
 │   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (21 files + 10 tagging hooks)
+│   │   ├── lib/          # D3 utilities, helpers (20 files + 9 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
 │   │   ├── styles/       # CSS files (29 files)
 │   │   ├── types.ts      # TypeScript types
@@ -170,9 +170,9 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (10 files)
-│   │   ├── models/       # Pydantic schemas
-│   │   └── services/     # Business logic (17 files)
+│   │   ├── api/          # Endpoints (9 files)
+│   │   ├── models/       # Pydantic schemas (10 files)
+│   │   └── services/     # Business logic (15 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── input/            # Raw input data (run configs, activation examples)
@@ -251,7 +251,7 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 2. **SVM Training**: Backend trains SVM on manual selections
 3. **Query by Committee**: RF + MLP trained alongside SVM to detect disagreement (outliers)
 4. **Scoring**: All items scored by distance from decision boundary
-5. **Histogram**: Scores displayed with bimodality detection
+5. **Histogram**: Scores displayed in histogram distribution
 6. **Decision Flip Rate**: Tracks prediction changes across iterations for convergence
 7. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
 8. **Commit History**: Each apply creates a restorable state snapshot
@@ -281,8 +281,8 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 | POST /api/segment-cluster-pairs | Get ALL cluster pairs (simplified flow) |
 | POST /api/similarity-sort | Sort features by SVM similarity |
 | POST /api/pair-similarity-sort | Sort pairs by SVM similarity |
-| POST /api/similarity-score-histogram | Feature similarity histogram with bimodality |
-| POST /api/pair-similarity-score-histogram | Pair similarity histogram with bimodality |
+| POST /api/similarity-score-histogram | Feature similarity histogram |
+| POST /api/pair-similarity-score-histogram | Pair similarity histogram |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
 | POST /api/cold-start/representative | Get representative features for cold start |
 | GET /api/consensus/{feature_id} | Get consensus phrases for a feature |

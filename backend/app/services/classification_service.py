@@ -297,10 +297,12 @@ class ClassificationService:
 
         # Calculate similarity scores using SVM
         logger.info(f"Calculating similarity scores with SVM")
-        feature_scores = self._calculate_similarity_scores(
+        feature_scores, _ = self._calculate_similarity_scores(
             metrics_df,
             request.selected_items,
-            request.rejected_items
+            request.rejected_items,
+            include_training_items=False,
+            train_committee=False,
         )
 
         # Sort by score (descending - higher is better)
@@ -346,11 +348,12 @@ class ClassificationService:
         # Calculate similarity scores for ALL features (including selected/rejected)
         # Also train committee (RF + MLP) for QBC approach
         logger.info(f"Calculating similarity scores for histogram with SVM + committee")
-        feature_scores, committee_votes = self._calculate_similarity_scores_for_histogram(
+        feature_scores, committee_votes = self._calculate_similarity_scores(
             metrics_df,
             request.selected_items,
             request.rejected_items,
-            train_committee=True  # Enable QBC committee training
+            include_training_items=True,
+            train_committee=True,
         )
 
         # Create scores dictionary
@@ -426,10 +429,12 @@ class ClassificationService:
 
         # Calculate similarity scores using SVM on ALL features (training + classification)
         logger.info("[Stage3QualityScores] Training SVM on Stage 2 selections")
-        all_feature_scores = self._calculate_similarity_scores_for_histogram(
+        all_feature_scores, _ = self._calculate_similarity_scores(
             metrics_df,  # Full dataframe with training + classification features
             request.well_explained_items,
-            request.need_revision_items
+            request.need_revision_items,
+            include_training_items=True,
+            train_committee=False,
         )
 
         # Filter to only return scores for classification features (request.feature_ids)
@@ -746,116 +751,22 @@ class ClassificationService:
         self,
         metrics_df: pl.DataFrame,
         selected_items: List[WeightedFeatureId],
-        rejected_items: List[WeightedFeatureId]
-    ) -> List[FeatureScore]:
-        """
-        Calculate similarity scores for all features using SVM.
-
-        Trains a binary SVM classifier on selected vs rejected features,
-        then scores all other features by their signed distance from the decision boundary.
-
-        Args:
-            metrics_df: DataFrame with metrics for all features
-            selected_items: Weighted feature items marked as selected
-            rejected_items: Weighted feature items marked as rejected
-
-        Returns:
-            List of FeatureScore objects (excluding selected and rejected)
-        """
-        # Extract IDs from weighted items
-        selected_ids = [item.id for item in selected_items]
-        rejected_ids = [item.id for item in rejected_items]
-
-        # Convert to numpy for SVM
-        feature_ids = metrics_df["feature_id"].to_numpy()
-        metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in SVM_FEATURE_METRICS
-        ])
-
-        # Build ID to weight mapping
-        id_to_weight = {}
-        for item in selected_items:
-            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-        for item in rejected_items:
-            id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-
-        # Check cache (include weights in cache key for weighted training)
-        cache_key = self._get_cache_key_weighted(selected_items, rejected_items)
-
-        if cache_key in self._svm_cache:
-            model, scaler = self._svm_cache[cache_key]
-            logger.info(f"Using cached SVM model (key: {cache_key[:8]}...)")
-        else:
-            # Extract training vectors and weights - single pass with set lookups
-            selected_set = set(selected_ids)
-            rejected_set = set(rejected_ids)
-            selected_indices = []
-            rejected_indices = []
-            for i, fid in enumerate(feature_ids):
-                if fid in selected_set:
-                    selected_indices.append(i)
-                elif fid in rejected_set:
-                    rejected_indices.append(i)
-
-            if not selected_indices or not rejected_indices:
-                logger.warning("Insufficient training data for SVM (need both selected and rejected)")
-                return []
-
-            selected_vectors = metrics_matrix[selected_indices]
-            rejected_vectors = metrics_matrix[rejected_indices]
-
-            # Build weight arrays
-            selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
-            rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
-
-            # Train SVM with weights
-            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights)
-
-            # Cache with size limit
-            if len(self._svm_cache) >= self._max_cache_size:
-                # Remove oldest entry (FIFO)
-                oldest_key = next(iter(self._svm_cache))
-                self._svm_cache.pop(oldest_key)
-                logger.info(f"SVM cache full, evicted oldest entry")
-
-            self._svm_cache[cache_key] = (model, scaler)
-            logger.info(f"SVM model cached (key: {cache_key[:8]}..., cache size: {len(self._svm_cache)})")
-
-        # Batch score all features (excluding selected and rejected)
-        selected_set = set(selected_ids)
-        rejected_set = set(rejected_ids)
-        score_mask = np.array([
-            fid not in selected_set and fid not in rejected_set
-            for fid in feature_ids
-        ])
-
-        feature_scores = []
-        if np.any(score_mask):
-            scores = score_with_svm(model, scaler, metrics_matrix[score_mask])
-            scored_ids = feature_ids[score_mask]
-            feature_scores = [
-                FeatureScore(feature_id=int(fid), score=float(s))
-                for fid, s in zip(scored_ids, scores)
-            ]
-
-        return feature_scores
-
-    def _calculate_similarity_scores_for_histogram(
-        self,
-        metrics_df: pl.DataFrame,
-        selected_items: List[WeightedFeatureId],
         rejected_items: List[WeightedFeatureId],
-        train_committee: bool = False
+        include_training_items: bool = False,
+        train_committee: bool = False,
     ) -> Tuple[List[FeatureScore], Optional[Dict[str, Dict]]]:
         """
-        Calculate similarity scores for ALL features using SVM (including selected/rejected).
+        Calculate similarity scores for features using SVM.
 
-        For histogram visualization, we need scores for everything.
+        Trains a binary SVM classifier on selected vs rejected features,
+        then scores features by their signed distance from the decision boundary.
 
         Args:
             metrics_df: DataFrame with metrics for all features
             selected_items: Weighted feature items marked as selected
             rejected_items: Weighted feature items marked as rejected
+            include_training_items: If True, score ALL features (histogram);
+                                   if False, exclude selected/rejected (sort)
             train_committee: If True, also train RF/MLP and return vote info
 
         Returns:
@@ -878,7 +789,7 @@ class ClassificationService:
         for item in rejected_items:
             id_to_weight[item.id] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
 
-        # Check cache (reuse model from main scoring)
+        # Check cache (include weights in cache key for weighted training)
         cache_key = self._get_cache_key_weighted(selected_items, rejected_items)
 
         # Variables for committee training
@@ -888,11 +799,10 @@ class ClassificationService:
 
         if cache_key in self._svm_cache:
             model, scaler = self._svm_cache[cache_key]
-            logger.info(f"Using cached SVM model for histogram (key: {cache_key[:8]}...)")
+            logger.info(f"Using cached SVM model (key: {cache_key[:8]}...)")
 
             # Still need training data for committee if requested
             if train_committee:
-                # Single pass with set lookups
                 selected_set = set(selected_ids)
                 rejected_set = set(rejected_ids)
                 selected_indices = []
@@ -907,9 +817,9 @@ class ClassificationService:
                     rejected_vectors = metrics_matrix[rejected_indices]
                     X_train = np.vstack([selected_vectors, rejected_vectors])
                     y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
-                    selected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
-                    rejected_weights = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
-                    sample_weights = np.concatenate([selected_weights, rejected_weights])
+                    sel_w = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in selected_indices])
+                    rej_w = np.array([id_to_weight.get(feature_ids[i], CLICK_WEIGHT) for i in rejected_indices])
+                    sample_weights = np.concatenate([sel_w, rej_w])
         else:
             # Extract training vectors and weights - single pass with set lookups
             selected_set = set(selected_ids)
@@ -923,7 +833,7 @@ class ClassificationService:
                     rejected_indices.append(i)
 
             if not selected_indices or not rejected_indices:
-                logger.warning("Insufficient training data for SVM histogram")
+                logger.warning("Insufficient training data for SVM (need both selected and rejected)")
                 return [], None
 
             selected_vectors = metrics_matrix[selected_indices]
@@ -945,17 +855,36 @@ class ClassificationService:
             if len(self._svm_cache) >= self._max_cache_size:
                 oldest_key = next(iter(self._svm_cache))
                 self._svm_cache.pop(oldest_key)
+                logger.info(f"SVM cache full, evicted oldest entry")
 
             self._svm_cache[cache_key] = (model, scaler)
+            logger.info(f"SVM model cached (key: {cache_key[:8]}..., cache size: {len(self._svm_cache)})")
 
-        # Score ALL features (including selected and rejected for histogram)
-        scores = score_with_svm(model, scaler, metrics_matrix)
-
-        # Create FeatureScore objects
-        feature_scores = [
-            FeatureScore(feature_id=int(fid), score=float(score))
-            for fid, score in zip(feature_ids, scores)
-        ]
+        # Score features
+        if include_training_items:
+            # Score ALL features (for histogram)
+            scores = score_with_svm(model, scaler, metrics_matrix)
+            feature_scores = [
+                FeatureScore(feature_id=int(fid), score=float(s))
+                for fid, s in zip(feature_ids, scores)
+            ]
+        else:
+            # Exclude selected/rejected (for sort)
+            selected_set = set(selected_ids)
+            rejected_set = set(rejected_ids)
+            score_mask = np.array([
+                fid not in selected_set and fid not in rejected_set
+                for fid in feature_ids
+            ])
+            feature_scores = []
+            scores = None
+            if np.any(score_mask):
+                masked_scores = score_with_svm(model, scaler, metrics_matrix[score_mask])
+                scored_ids = feature_ids[score_mask]
+                feature_scores = [
+                    FeatureScore(feature_id=int(fid), score=float(s))
+                    for fid, s in zip(scored_ids, masked_scores)
+                ]
 
         # Train committee and get vote info if requested
         committee_votes = None
@@ -967,6 +896,10 @@ class ClassificationService:
             )
 
             if rf_model is not None or mlp_model is not None:
+                # Score all features for committee (need full scores array)
+                if scores is None:
+                    scores = score_with_svm(model, scaler, metrics_matrix)
+
                 # Scale all features using the SVM scaler (consistent with SVM scoring)
                 X_scaled = scaler.transform(metrics_matrix)
 

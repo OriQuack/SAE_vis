@@ -4,10 +4,10 @@ Professional guidance for the FastAPI backend of the SAE Feature Visualization r
 
 ## Backend Architecture Overview
 
-**Purpose**: Provide stateless feature grouping, clustering, similarity scoring, and bimodality detection APIs for frontend visualization
+**Purpose**: Provide stateless feature grouping, clustering, and SVM-based classification APIs for frontend visualization
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: SVM-based similarity scoring + Query by Committee (QBC) active learning + hierarchical clustering + bimodality detection
+**Key Innovation**: SVM-based classification (binary + multi-class) + Query by Committee (QBC) active learning + hierarchical clustering
 
 ## Important Development Principles
 
@@ -83,25 +83,29 @@ def get_all_cluster_pairs(feature_ids, threshold):
     return pairs
 ```
 
-### 3. Similarity Sort Service (SVM-Based)
-Score and sort items based on SVM distance from decision boundary:
+### 3. Classification Service (SVM-Based)
+Unified SVM-based classification for binary (Stage 2) and multi-class (Stage 3):
 
 ```python
-# services/similarity_sort_service.py
-def get_similarity_scores(selected_ids, rejected_ids, all_ids):
-    # 1. Build feature vectors
-    X_train = build_feature_vectors(selected_ids + rejected_ids)
-    y_train = [1] * len(selected_ids) + [0] * len(rejected_ids)
+# services/classification_service.py
+class ClassificationService:
+    # Binary SVM (Stage 2): similarity sorting, histograms, quality scores
+    # Multi-class OvR SVM (Stage 3): cause classification
+    # Shared metric extraction (svm_feature_metrics fast path + legacy fallback)
+    # Single CommitteeService instance for QBC
 
-    # 2. Train LinearSVC
-    svm = LinearSVC(C=1.0, max_iter=10000)
-    svm.fit(X_train, y_train)
+    async def get_similarity_sorted_features(request)     # Stage 2 binary
+    async def get_similarity_score_histogram(request)      # Stage 2 histogram
+    async def get_stage3_quality_scores(request)           # Stage 2→3 bridge
+    async def get_cause_classification(request)            # Stage 3 multi-class
+```
 
-    # 3. Score all items by distance from decision boundary
-    X_all = build_feature_vectors(all_ids)
-    scores = svm.decision_function(X_all)
-
-    return sorted_by_score(all_ids, scores)
+Shared SVM train/score functions are in `svm_utils.py`:
+```python
+# services/svm_utils.py
+train_svm_model(selected_vectors, rejected_vectors, ...)  # RBF kernel SVM
+score_with_svm(model, scaler, feature_vectors)            # Decision function scoring
+build_similarity_histogram_response(scores, ...)          # Histogram response builder
 ```
 
 ### 4. Committee Service (QBC)
@@ -135,32 +139,7 @@ class CommitteeService:
 - Guide users toward uncertain samples during active learning
 - Support both binary (Stage 1/2) and multi-class (Stage 3) classification
 
-### 5. Bimodality Service
-Detect bimodal distributions using Hartigan's Dip test and GMM:
-
-```python
-# services/bimodality_service.py
-def detect_bimodality(scores):
-    # 1. Hartigan's Dip test
-    dip_stat, dip_pvalue = diptest.diptest(scores)
-
-    # 2. Fit GMM with 1 and 2 components
-    gmm_1 = GaussianMixture(n_components=1).fit(scores)
-    gmm_2 = GaussianMixture(n_components=2).fit(scores)
-
-    # 3. Compare BIC scores
-    bic_k1 = gmm_1.bic(scores)
-    bic_k2 = gmm_2.bic(scores)
-
-    return {
-        "dip_pvalue": dip_pvalue,
-        "bic_k1": bic_k1,
-        "bic_k2": bic_k2,
-        "gmm_components": extract_components(gmm_2)
-    }
-```
-
-### 6. Alignment Service
+### 5. Alignment Service
 Find semantically aligned phrases across LLM explanations:
 
 ```python
@@ -171,7 +150,7 @@ async def get_highlighted_explanations(feature_id):
     # 3. Return segments with highlight metadata
 ```
 
-### 7. Activation Cache Service
+### 6. Activation Cache Service
 Pre-computed activation data using MessagePack + gzip:
 
 ```python
@@ -181,32 +160,7 @@ async def get_cached_activation_blob():
     # ~15-25s load vs ~100s for chunked JSON
 ```
 
-### 8. Cause Service (Stage 3)
-SVM-based cause classification and flip rate tracking:
-
-```python
-# services/cause_service.py
-# Metrics used for SVM (6D feature space):
-METRICS_FOR_SVM = [
-    'intra_feature_sim',
-    'score_embedding',
-    'score_fuzz',
-    'score_detection',
-    'explanation_semantic_sim',
-    'frac_nonzero',  # Fraction of non-zero activations
-]
-
-async def get_cause_classification(feature_ids, cause_selections, prev_predictions=None):
-    # Trains One-vs-Rest SVMs for each cause category
-    # Uses 6D metric vectors per feature (averaged across 3 explainers)
-    # Returns predicted_category and decision_scores per feature
-    # Calculates flip_rate when prev_predictions provided
-    # Also trains RF + MLP committee for QBC (via CommitteeService)
-```
-
-**Decision Flip Rate**: When `prev_predictions` is provided, calculates the percentage of features whose predicted category changed compared to the previous iteration. Used for convergence monitoring.
-
-### 9. Cold Start Service
+### 7. Cold Start Service
 Diversity-based representative sampling for initializing tagging:
 
 ```python
@@ -218,7 +172,7 @@ async def get_representative_features(feature_ids, n_samples, method):
     # Returns representative feature IDs for cold start
 ```
 
-### 10. Consensus Service
+### 8. Consensus Service
 HDBSCAN-based phrase clustering for explanation consensus analysis:
 
 ```python
@@ -235,39 +189,43 @@ def get_feature_consensus(feature_id):
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (10 files)
+│   ├── api/                       # API endpoints (9 files)
 │   │   ├── __init__.py           # Router aggregation
-│   │   ├── feature_groups.py     # Feature grouping
+│   │   ├── activation_examples.py # Activation data
+│   │   ├── classification.py     # SVM classification (binary + multi-class, 6 endpoints)
 │   │   ├── cluster_candidates.py # Clustering endpoint
-│   │   ├── similarity_sort.py    # SVM similarity sorting (features, pairs, histograms)
+│   │   ├── cold_start.py         # Cold start representative sampling
+│   │   ├── consensus.py          # Consensus phrase clustering
+│   │   ├── feature_groups.py     # Feature grouping
 │   │   ├── filters.py            # Filter options
 │   │   ├── histogram.py          # Histogram data
-│   │   ├── table.py              # Table data
-│   │   ├── activation_examples.py # Activation data
-│   │   ├── cause.py              # Cause classification (Stage 3)
-│   │   ├── cold_start.py         # Cold start representative sampling
-│   │   └── consensus.py          # Consensus phrase clustering
-│   ├── models/                    # Pydantic schemas
-│   │   ├── requests.py           # Request models
-│   │   ├── responses.py          # Response models
-│   │   └── cold_start.py         # Cold start models
-│   └── services/                  # Business logic (17 files)
-│       ├── activation_cache_service.py # Cached activation data
+│   │   └── table.py              # Table data
+│   ├── models/                    # Pydantic schemas (10 files)
+│   │   ├── activation_examples.py # Activation example models
+│   │   ├── classification.py     # SVM classification models (binary + cause)
+│   │   ├── cluster_candidates.py # Clustering models
+│   │   ├── cold_start.py         # Cold start models
+│   │   ├── common.py             # Shared base models (Filters, HistogramData)
+│   │   ├── consensus.py          # Consensus models
+│   │   ├── feature_groups.py     # Feature group models
+│   │   ├── filters.py            # Filter option models
+│   │   ├── histogram.py          # Histogram models
+│   │   └── table.py              # Table data models
+│   └── services/                  # Business logic (15 files)
+│       ├── activation_cache_service.py # Cached activation data (msgpack+gzip)
 │       ├── alignment_service.py      # Explanation alignment
-│       ├── bimodality_service.py     # Bimodality detection
-│       ├── cause_service.py          # SVM-based cause classification (Stage 3)
+│       ├── classification_service.py # Unified SVM classification (binary + multi-class)
 │       ├── cold_start_service.py     # Diversity-based representative sampling
 │       ├── committee_service.py      # QBC: RF + MLP committee
 │       ├── consensus_service.py      # HDBSCAN phrase clustering
-│       ├── consistency_service.py    # Consistency metrics
-│       ├── data_constants.py         # Metric definitions
+│       ├── data_constants.py         # Metric definitions, SVM weights
 │       ├── data_service.py           # Data loading + initialization
 │       ├── feature_group_service.py  # Feature grouping
 │       ├── hierarchical_cluster_candidate_service.py # Clustering
 │       ├── histogram_service.py      # Histogram generation
 │       ├── pair_similarity_service.py # SVM scoring for pairs
 │       ├── pytorch_mlp.py            # PyTorch MLP with sample weighting
-│       ├── similarity_sort_service.py # SVM scoring for features
+│       ├── svm_utils.py              # Shared SVM train/score/histogram functions
 │       └── table_data_service.py     # Table processing
 ├── data/                          # Symlink to ../data
 ├── start.py                       # Startup script
@@ -374,13 +332,13 @@ Sort pairs by SVM similarity (19-dimensional vectors)
 ```
 
 #### POST /api/similarity-score-histogram
-Get similarity histogram with bimodality detection
+Get similarity histogram with committee votes
 
 **Request**:
 ```json
 {
-  "selected_ids": [1, 2, 3],
-  "rejected_ids": [4, 5, 6],
+  "selected_items": [{"id": 1, "source": "click"}, {"id": 2, "source": "click"}],
+  "rejected_items": [{"id": 4, "source": "click"}, {"id": 5, "source": "threshold"}],
   "feature_ids": [1, 2, 3, 4, 5, 6, 7, 8]
 }
 ```
@@ -392,16 +350,6 @@ Get similarity histogram with bimodality detection
   "histogram": {"bins": [...], "counts": [...], "bin_edges": [...]},
   "statistics": {"min": -1.2, "max": 1.5, "mean": 0.3, "median": 0.2},
   "total_items": 8,
-  "bimodality": {
-    "dip_pvalue": 0.02,
-    "bic_k1": 1234.5,
-    "bic_k2": 1200.3,
-    "gmm_components": [
-      {"mean": -0.5, "variance": 0.2, "weight": 0.4},
-      {"mean": 0.8, "variance": 0.3, "weight": 0.6}
-    ],
-    "sample_size": 100
-  },
   "committee_votes": {
     "1": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 0, "vote_entropy": 0.92},
     "2": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 1, "vote_entropy": 0.0}
@@ -423,14 +371,17 @@ Get pair similarity histogram (simplified flow)
 ```
 
 #### POST /api/cause-classification
-SVM cause classification for features (Stage 3) with QBC and flip rate tracking
+SVM cause classification for features (Stage 3) with QBC
 
 **Request**:
 ```json
 {
   "feature_ids": [1, 2, 3, 4, 5],
-  "cause_selections": {"1": "noisy-activation", "2": "missed-N-gram", "3": "missed-context"},
-  "prev_predictions": {"4": "missed-context", "5": "noisy-activation"}
+  "cause_selections": {
+    "1": {"category": "noisy-activation", "source": "click"},
+    "2": {"category": "missed-N-gram", "source": "click"},
+    "3": {"category": "missed-context", "source": "threshold"}
+  }
 }
 ```
 
@@ -446,18 +397,14 @@ SVM cause classification for features (Stage 3) with QBC and flip rate tracking
         "noisy-activation": 0.589,
         "missed-N-gram": 0.035,
         "missed-context": -0.999
-      },
-      "committee_vote": {
-        "svm_category": "noisy-activation",
-        "rf_category": "noisy-activation",
-        "mlp_category": "missed-context"
       }
     }
   ],
   "total_features": 5,
   "category_counts": {"noisy-activation": 2, "missed-N-gram": 2, "missed-context": 1},
-  "flip_rate": 0.15,
-  "flip_count": 1
+  "committee_votes": {
+    "4": {"svm_category": "noisy-activation", "rf_category": "noisy-activation", "mlp_category": "missed-context"}
+  }
 }
 ```
 
@@ -565,7 +512,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Purpose**: Pre-aggregated feature-level metrics for SVM (Stage 2/3)
 - **Size**: ~569KB
 - **Key Columns**: Mean metrics across explainers (score_embedding, score_fuzz, score_detection, etc.)
-- **Used by**: cause_service.py, similarity_sort_service.py
+- **Used by**: classification_service.py, pair_similarity_service.py
 
 #### svm_pair_metrics.parquet
 - **Location**: `/data/output/svm_pair_metrics.parquet`
@@ -629,28 +576,25 @@ with pl.StringCache():
 
 ### SVM Training Pattern
 ```python
-from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
-def train_and_score(selected, rejected, all_items):
-    # Build feature vectors
-    X_train = np.vstack([get_vector(id) for id in selected + rejected])
-    y_train = [1] * len(selected) + [0] * len(rejected)
+# Shared functions in svm_utils.py:
+def train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights):
+    X = np.vstack([selected_vectors, rejected_vectors])
+    y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
+    sample_weights = np.concatenate([selected_weights, rejected_weights])
 
-    # Scale features
     scaler = StandardScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
+    X_scaled = scaler.fit_transform(X)
 
-    # Train SVM
-    svm = LinearSVC(C=1.0, max_iter=10000)
-    svm.fit(X_train_scaled, y_train)
+    model = SVC(kernel='rbf', C=1.0, gamma='scale', class_weight='balanced')
+    model.fit(X_scaled, y, sample_weight=sample_weights)
+    return model, scaler
 
-    # Score all items
-    X_all = np.vstack([get_vector(id) for id in all_items])
-    X_all_scaled = scaler.transform(X_all)
-    scores = svm.decision_function(X_all_scaled)
-
-    return scores
+def score_with_svm(model, scaler, feature_vectors):
+    X_scaled = scaler.transform(feature_vectors)
+    return model.decision_function(X_scaled)
 ```
 
 ### Error Handling
@@ -689,12 +633,15 @@ app.add_middleware(
 Services are initialized in `main.py` lifespan in this order:
 1. **DataService** - Load parquet files
 2. **AlignmentService** - Load explanation alignments
-3. **ConsensusService** - Load phrase clustering data
+3. **TableDataService** - Table data (depends on DataService + AlignmentService)
 4. **FeatureGroupService** - Initialize grouping
-5. **HierarchicalClusterCandidateService** - Load decoder weights
-6. **SimilaritySortService** - Initialize with cluster service
-7. **ActivationCacheService** - Pre-compute msgpack blob
-8. **ColdStartService** - Load interfeature similarity data
+5. **HistogramService** - Histogram generation
+6. **HierarchicalClusterCandidateService** - Load decoder weights
+7. **ClassificationService** - Unified SVM classification (binary + multi-class)
+8. **PairSimilarityService** - SVM scoring for pairs (depends on cluster service)
+9. **ColdStartService** - Diversity-based representative sampling
+10. **ActivationCacheService** - Pre-compute msgpack blob
+11. **ConsensusService** - Load phrase clustering data
 
 ## Common Issues & Solutions
 
@@ -709,9 +656,6 @@ Services are initialized in `main.py` lifespan in this order:
 
 ### Issue: SVM not converging
 **Solution**: Increase max_iter, check for sufficient training examples
-
-### Issue: Bimodality detection failing
-**Solution**: Ensure minimum sample size (typically 10+)
 
 ---
 
