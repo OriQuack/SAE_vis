@@ -129,7 +129,6 @@ export interface ThresholdTaggingPanelProps {
   // State from parent
   activeListSource: ListSource
   currentIndex: number
-  isBimodal: boolean
 
   // Separate highlight indices for boundary lists (show selection in all lists)
   // If provided, these override the conditional logic based on activeListSource

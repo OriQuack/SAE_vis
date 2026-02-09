@@ -231,19 +231,6 @@ Matches .nav__button style: white background, 11px font
   border-color: #6b7280;
 }
 
-/* Active variant - Gray border, black text (when bimodal is detected) */
-.action-button--active {
-  background-color: white;
-  color: #000000;
-  border-color: #9ca3af;
-  font-weight: 600;
-}
-
-.action-button--active:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #6b7280;
-}
-
 /* Next stage variant - Blue background when enabled, gray when disabled */
 .action-button--next {
   background-color: #3b82f6;

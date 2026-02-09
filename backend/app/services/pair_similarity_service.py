@@ -27,7 +27,6 @@ from ..models.similarity_sort import (
     HistogramStatistics,
     WeightedPairKey, CommitteeVoteInfo
 )
-from .bimodality_service import BimodalityService
 from .committee_service import CommitteeService
 from .data_constants import CLICK_WEIGHT, THRESHOLD_WEIGHT
 from .data_service import DataService
@@ -63,7 +62,6 @@ class PairSimilarityService:
         """
         self.data_service = data_service
         self.cluster_service = cluster_service
-        self.bimodality_service = BimodalityService()
         self.committee_service = CommitteeService()
 
         # SVM model cache: (selected_pair_keys, rejected_pair_keys) hash -> (model, scaler)
@@ -335,7 +333,7 @@ class PairSimilarityService:
 
         return build_similarity_histogram_response(
             scores_dict, score_values, len(pair_scores),
-            self.bimodality_service, committee_votes_response
+            committee_votes_response
         )
 
     # =========================================================================

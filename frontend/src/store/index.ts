@@ -8,7 +8,6 @@ import type {
   ActivationExamples,
   SankeySegmentSelection,
   FlowPathData,
-  MultiModalityInfo,
   SimilarityScoreHistogramResponse,
   FlipTrackingInfo,
   CommitteeVoteInfo
@@ -341,11 +340,6 @@ interface AppState {
   causeFlipTracking: FlipTrackingInfo | null
   clearCauseFlipTracking: () => void
 
-  // Multi-modality state (for Stage 3 CauseView modality indicator)
-  causeMultiModality: MultiModalityInfo | null
-  causeMultiModalityLoading: boolean
-  fetchMultiModality: (featureIds: number[], causeSelections: Record<number, { category: string; source: 'click' | 'threshold' }>) => Promise<void>
-
   // Cached diversity/representative IDs (prevents refetch when navigating between views)
   // Stage 1: Pair diversity IDs
   stage1DiversityPairIds: Set<string>
@@ -500,10 +494,6 @@ const initialState = {
   // Stage 3 flip tracking (separate from tagAutomaticState.flipTracking)
   causeFlipTracking: null,
 
-  // Multi-modality state
-  causeMultiModality: null,
-  causeMultiModalityLoading: false,
-
   // Cached diversity/representative IDs
   stage1DiversityPairIds: new Set<string>(),
   stage1DiversitySignature: null,
@@ -631,9 +621,6 @@ export const useStore = create<AppState>((set, get) => {
   getCauseCounts: causeActions.getCauseCounts,
   fetchCauseClassification: causeActions.fetchCauseClassification,
   clearCauseFlipTracking: causeActions.clearCauseFlipTracking,
-
-  // Compose Multi-modality action (Stage 3)
-  fetchMultiModality: causeActions.fetchMultiModality,
 
   // Unified similarity tagging actions (route based on mode)
   ...unifiedSimilarityActions,

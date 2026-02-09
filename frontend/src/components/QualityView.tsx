@@ -6,7 +6,6 @@ import { getFeatureConsensus } from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton } from './Indicators'
-import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
@@ -952,10 +951,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   // TAG ALL HANDLERS
   // ============================================================================
 
-  const isBimodal = useMemo(() => {
-    return isBimodalScore(tagAutomaticState?.histogramData?.bimodality)
-  }, [tagAutomaticState?.histogramData?.bimodality])
-
   // Check if all features are tagged
   const allFeaturesTagged = useMemo(() => {
     if (featureList.length === 0) return false
@@ -1336,7 +1331,6 @@ const QualityView: React.FC<QualityViewProps> = ({
             currentIndex={currentFeatureIndex}
             leftHighlightIndex={leftBoundaryHighlightIndex}
             rightHighlightIndex={rightBoundaryHighlightIndex}
-            isBimodal={isBimodal}
             isTemplateSort={isTemplateSort}
             sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
           />

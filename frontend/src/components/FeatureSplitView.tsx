@@ -6,7 +6,6 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge } from './Indicators'
-import { isBimodalScore } from '../lib/modality-utils'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { useListNavigation } from '../lib/tagging-hooks'
@@ -938,12 +937,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // TAG ALL HANDLERS
   // ============================================================================
 
-  // Check if histogram is bimodal (enables Tag All button)
-  // Uses score >= 0.5 (Level 4: Likely Bimodal or higher)
-  const isBimodal = useMemo(() => {
-    return isBimodalScore(tagAutomaticState?.histogramData?.bimodality)
-  }, [tagAutomaticState?.histogramData?.bimodality])
-
   // Check if all pairs are tagged (no unsure remaining) - enables Move to Next Stage button
   const allPairsTagged = useMemo(() => {
     if (pairList.length === 0) return false
@@ -1178,7 +1171,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           currentIndex={currentPairIndex}
           leftHighlightIndex={leftBoundaryHighlightIndex}
           rightHighlightIndex={rightBoundaryHighlightIndex}
-          isBimodal={isBimodal}
           isTemplateSort={isTemplateSort}
           sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
         />

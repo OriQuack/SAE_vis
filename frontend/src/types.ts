@@ -548,50 +548,6 @@ export interface SimilarityHistogramStatistics {
 }
 
 /**
- * GMM Component - Single Gaussian Mixture Model component parameters
- */
-export interface GMMComponent {
-  mean: number
-  variance: number
-  weight: number
-}
-
-/**
- * Bimodality Info - Raw data from bimodality detection (state determined by frontend)
- */
-export interface BimodalityInfo {
-  dip_pvalue: number           // P-value from Hartigan's Dip test
-  bic_k1: number               // BIC for 1-component GMM
-  bic_k2: number               // BIC for 2-component GMM
-  gmm_components: [GMMComponent, GMMComponent]  // 2 components sorted by mean (ascending)
-  sample_size: number          // Number of data points used in analysis
-}
-
-/**
- * Category Bimodality Info - Bimodality info for a single category's SVM decision margins
- */
-export interface CategoryBimodalityInfo {
-  category: string
-  bimodality: BimodalityInfo
-}
-
-/**
- * Multi-Modality Info - Aggregate multi-modality across all categories
- */
-export interface MultiModalityInfo {
-  category_results: CategoryBimodalityInfo[]
-  aggregate_score: number  // Combined score (0-1 normalized)
-  sample_size: number
-}
-
-/**
- * Multi-Modality Response - Response from multi-modality test API
- */
-export interface MultiModalityResponse {
-  multimodality: MultiModalityInfo
-}
-
-/**
  * Committee Vote Info - Vote information from Query by Committee (QBC) approach
  */
 export interface CommitteeVoteInfo {
@@ -609,7 +565,6 @@ export interface SimilarityScoreHistogramResponse {
   histogram: SimilarityHistogramData
   statistics: SimilarityHistogramStatistics
   total_items: number
-  bimodality?: BimodalityInfo  // Bimodality detection results
   committee_votes?: Record<string, CommitteeVoteInfo> | null  // Vote info from RF/MLP committee (QBC)
 }
 
@@ -785,7 +740,7 @@ export interface Stage3QualityScoresRequest {
 }
 
 // Stage3QualityScoresResponse reuses SimilarityScoreHistogramResponse
-// (same structure: scores, histogram, statistics, bimodality, total_items)
+// (same structure: scores, histogram, statistics, total_items)
 
 // ============================================================================
 // CONSENSUS TYPES (for explanation consensus visualization)

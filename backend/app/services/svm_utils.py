@@ -15,10 +15,9 @@ from sklearn.preprocessing import StandardScaler
 from ..models.common import HistogramData
 from ..models.similarity_sort import (
     SimilarityHistogramResponse,
-    HistogramStatistics, BimodalityInfo, GMMComponentInfo,
+    HistogramStatistics,
     CommitteeVoteInfo
 )
-from .bimodality_service import BimodalityService
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +98,6 @@ def build_similarity_histogram_response(
     scores_dict: Dict[str, float],
     score_values: np.ndarray,
     total_items: int,
-    bimodality_service: BimodalityService,
     committee_votes: Optional[Dict[str, CommitteeVoteInfo]] = None,
 ) -> SimilarityHistogramResponse:
     """
@@ -111,7 +109,6 @@ def build_similarity_histogram_response(
         scores_dict: Mapping of item ID/key to score
         score_values: 1D array of scores for histogram
         total_items: Total number of items scored
-        bimodality_service: BimodalityService instance for dip test + GMM
         committee_votes: Optional committee vote info dict
 
     Returns:
@@ -137,9 +134,6 @@ def build_similarity_histogram_response(
         median=float(np.median(score_values))
     )
 
-    # Detect bimodality
-    bimodality_result = bimodality_service.detect_bimodality(score_values)
-
     return SimilarityHistogramResponse(
         scores=scores_dict,
         histogram=HistogramData(
@@ -149,19 +143,5 @@ def build_similarity_histogram_response(
         ),
         statistics=statistics,
         total_items=total_items,
-        bimodality=BimodalityInfo(
-            dip_pvalue=bimodality_result.dip_pvalue,
-            bic_k1=bimodality_result.bic_k1,
-            bic_k2=bimodality_result.bic_k2,
-            gmm_components=[
-                GMMComponentInfo(
-                    mean=comp.mean,
-                    variance=comp.variance,
-                    weight=comp.weight
-                )
-                for comp in bimodality_result.gmm_components
-            ],
-            sample_size=bimodality_result.sample_size
-        ),
         committee_votes=committee_votes
     )

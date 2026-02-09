@@ -1538,7 +1538,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                 onListItemClick={() => {}}
                 activeListSource="all"
                 currentIndex={-1}
-                isBimodal={false}
                 sortDirection={selectedSortDirection}
                 causeProps={{
                   featureIds: selectedFeatureIds || new Set(),

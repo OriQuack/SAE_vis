@@ -17,12 +17,10 @@ from ..models.common import HistogramData
 from ..models.similarity_sort import (
     SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
-    HistogramStatistics, BimodalityInfo, GMMComponentInfo,
-    MultiModalityRequest, MultiModalityResponse, MultiModalityInfo, CategoryBimodalityInfo,
+    HistogramStatistics,
     Stage3QualityScoresRequest,
-    WeightedFeatureId, CauseSelectionItem, CommitteeVoteInfo
+    WeightedFeatureId, CommitteeVoteInfo
 )
-from .bimodality_service import BimodalityService
 from .committee_service import CommitteeService
 from .data_constants import CLICK_WEIGHT, THRESHOLD_WEIGHT, SVM_FEATURE_METRICS
 from .data_service import DataService
@@ -42,7 +40,6 @@ class SimilaritySortService:
             data_service: Instance of DataService for data access
         """
         self.data_service = data_service
-        self.bimodality_service = BimodalityService()
         self.committee_service = CommitteeService()
 
         # SVM model cache: (selected_ids, rejected_ids) hash -> (model, scaler)
@@ -164,7 +161,7 @@ class SimilaritySortService:
 
         return build_similarity_histogram_response(
             scores_dict, score_values, len(feature_scores),
-            self.bimodality_service, committee_votes_response
+            committee_votes_response
         )
 
     async def get_stage3_quality_scores(
@@ -243,177 +240,7 @@ class SimilaritySortService:
         logger.info(f"[Stage3QualityScores] Generated histogram for {len(feature_scores)} features")
 
         return build_similarity_histogram_response(
-            scores_dict, score_values, len(feature_scores),
-            self.bimodality_service
-        )
-
-    # =========================================================================
-    # MULTI-MODALITY TEST
-    # =========================================================================
-
-    async def get_multi_modality_test(
-        self,
-        request: MultiModalityRequest
-    ) -> MultiModalityResponse:
-        """
-        Test multi-modality of SVM decision margins across cause categories.
-
-        For each cause category, trains a binary SVM (One-vs-Rest) and tests
-        the bimodality of the decision margins. Returns per-category bimodality
-        info and an aggregate score.
-
-        Args:
-            request: Request with feature_ids and cause_selections
-
-        Returns:
-            MultiModalityResponse with per-category bimodality and aggregate score
-        """
-        if not self.data_service.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        feature_ids = request.feature_ids
-        cause_selections = request.cause_selections
-
-        # Extract categories from CauseSelectionItem values
-        categories_set = set(item.category for item in cause_selections.values())
-
-        # Extract metrics for all features
-        logger.info(f"[multi_modality_test] Extracting metrics for {len(feature_ids)} features")
-        metrics_df = await self._extract_metrics(feature_ids)
-
-        if metrics_df is None or len(metrics_df) == 0:
-            raise ValueError("Failed to extract metrics for features")
-
-        # Build metrics matrix
-        feature_id_to_idx = {fid: idx for idx, fid in enumerate(metrics_df["feature_id"].to_list())}
-        metrics_matrix = metrics_df.select(SVM_FEATURE_METRICS).to_numpy()
-
-        # Standardize metrics for SVM training
-        scaler = StandardScaler()
-        metrics_scaled = scaler.fit_transform(metrics_matrix)
-
-        # Get unique categories from cause_selections
-        categories = sorted(categories_set)
-        logger.info(f"[multi_modality_test] Categories: {categories}")
-
-        # Build ID to weight mapping
-        id_to_weight = {}
-        for fid, item in cause_selections.items():
-            id_to_weight[fid] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-
-        # Train One-vs-Rest SVM for each category and compute bimodality
-        category_results = []
-
-        for category in categories:
-            # Build labels and weights: 1 for this category, 0 for all others
-            positive_indices = []
-            negative_indices = []
-            positive_weights = []
-            negative_weights = []
-
-            for fid, item in cause_selections.items():
-                if fid in feature_id_to_idx:
-                    idx = feature_id_to_idx[fid]
-                    weight = id_to_weight.get(fid, CLICK_WEIGHT)
-                    if item.category == category:
-                        positive_indices.append(idx)
-                        positive_weights.append(weight)
-                    else:
-                        negative_indices.append(idx)
-                        negative_weights.append(weight)
-
-            if len(positive_indices) == 0 or len(negative_indices) == 0:
-                logger.warning(f"[multi_modality_test] Skipping {category}: missing positive or negative samples")
-                continue
-
-            # Build training data and weights
-            train_indices = positive_indices + negative_indices
-            X_train = metrics_scaled[train_indices]
-            y_train = np.array([1] * len(positive_indices) + [0] * len(negative_indices))
-            sample_weights = np.array(positive_weights + negative_weights)
-
-            # Train SVM with sample weights
-            svm = SVC(
-                kernel='rbf',
-                C=1.0,
-                gamma='scale',
-                class_weight='balanced'
-            )
-            svm.fit(X_train, y_train, sample_weight=sample_weights)
-
-            # Compute decision function for ALL features
-            decision_values = svm.decision_function(metrics_scaled)
-
-            logger.info(f"[multi_modality_test] {category}: {len(positive_indices)} positive, {len(negative_indices)} negative")
-
-            # Run bimodality detection on decision margins
-            bimodality_result = self.bimodality_service.detect_bimodality(decision_values)
-
-            # Convert to Pydantic models
-            gmm_components = [
-                GMMComponentInfo(
-                    mean=comp.mean,
-                    variance=comp.variance,
-                    weight=comp.weight
-                )
-                for comp in bimodality_result.gmm_components
-            ]
-
-            bimodality_info = BimodalityInfo(
-                dip_pvalue=bimodality_result.dip_pvalue,
-                bic_k1=bimodality_result.bic_k1,
-                bic_k2=bimodality_result.bic_k2,
-                gmm_components=gmm_components,
-                sample_size=bimodality_result.sample_size
-            )
-
-            category_results.append(CategoryBimodalityInfo(
-                category=category,
-                bimodality=bimodality_info
-            ))
-
-        if not category_results:
-            raise ValueError("No categories had sufficient data for multi-modality test")
-
-        # Calculate aggregate score (average of category bimodality scores)
-        # Use the same scoring logic as frontend: geometric mean of dip, BIC, mean separation
-        total_score = 0.0
-        for cat_result in category_results:
-            bi = cat_result.bimodality
-            if bi.sample_size < 10:
-                score = 0.0
-            else:
-                # Dip score: lower p-value = more bimodal
-                dip_score = max(0, 1 - min(bi.dip_pvalue / 0.05, 1))
-
-                # BIC score: lower BIC for k=2 = more bimodal
-                bic_diff = bi.bic_k1 - bi.bic_k2
-                relative_bic_diff = bic_diff / abs(bi.bic_k1) if bi.bic_k1 != 0 else 0
-                bic_score = max(0, min(1, relative_bic_diff * 10))
-
-                # Mean separation score
-                if len(bi.gmm_components) >= 2:
-                    mean_diff = abs(bi.gmm_components[1].mean - bi.gmm_components[0].mean)
-                    avg_var = (bi.gmm_components[0].variance + bi.gmm_components[1].variance) / 2
-                    avg_std = np.sqrt(max(avg_var, 0.0001))
-                    mean_separation = mean_diff / avg_std
-                    mean_score = min(mean_separation / 2, 1)
-                else:
-                    mean_score = 0.0
-
-                # Geometric mean (all components must contribute)
-                score = (dip_score * bic_score * mean_score) ** (1/3)
-
-            total_score += score
-
-        aggregate_score = total_score / len(category_results) if category_results else 0.0
-
-        return MultiModalityResponse(
-            multimodality=MultiModalityInfo(
-                category_results=category_results,
-                aggregate_score=aggregate_score,
-                sample_size=len(feature_ids)
-            )
+            scores_dict, score_values, len(feature_scores)
         )
 
     # =========================================================================

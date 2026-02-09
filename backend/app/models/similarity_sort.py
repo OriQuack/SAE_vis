@@ -187,27 +187,6 @@ class HistogramStatistics(BaseModel):
     median: float = Field(..., description="Median score")
 
 
-class GMMComponentInfo(BaseModel):
-    """GMM component parameters."""
-
-    mean: float = Field(..., description="Component mean")
-    variance: float = Field(..., description="Component variance")
-    weight: float = Field(..., description="Component weight (0-1)")
-
-
-class BimodalityInfo(BaseModel):
-    """Raw bimodality detection data - state determined by frontend."""
-
-    dip_pvalue: float = Field(..., description="P-value from Hartigan's Dip test")
-    bic_k1: float = Field(..., description="BIC for 1-component GMM")
-    bic_k2: float = Field(..., description="BIC for 2-component GMM")
-    gmm_components: List[GMMComponentInfo] = Field(
-        ...,
-        description="2 GMM components sorted by mean (ascending): [{mean, variance, weight}, ...]"
-    )
-    sample_size: int = Field(..., description="Number of data points used in analysis")
-
-
 class CommitteeVoteInfo(BaseModel):
     """Vote information from Query by Committee (QBC) approach."""
 
@@ -233,10 +212,6 @@ class SimilarityHistogramResponse(BaseModel):
         description="Statistical summary of scores"
     )
     total_items: int = Field(..., description="Total number of items (features or pairs)")
-    bimodality: Optional[BimodalityInfo] = Field(
-        default=None,
-        description="Bimodality detection results (Dip Test + GMM BIC)"
-    )
     committee_votes: Optional[Dict[str, CommitteeVoteInfo]] = Field(
         default=None,
         description="Vote information from RF/MLP committee (QBC approach)"
@@ -306,58 +281,6 @@ class CauseClassificationResponse(BaseModel):
 
 
 # ============================================================================
-# MULTI-MODALITY MODELS (Per-category bimodality aggregation)
-# ============================================================================
-
-class CategoryBimodalityInfo(BaseModel):
-    """Bimodality info for a single category's SVM decision margins."""
-
-    category: str = Field(..., description="Cause category name")
-    bimodality: BimodalityInfo = Field(
-        ...,
-        description="Bimodality detection results for this category's decision margins"
-    )
-
-
-class MultiModalityInfo(BaseModel):
-    """Aggregate multi-modality info across all categories."""
-
-    category_results: List[CategoryBimodalityInfo] = Field(
-        ...,
-        description="Per-category bimodality results"
-    )
-    aggregate_score: float = Field(
-        ...,
-        description="Combined score (average of category bimodality scores, 0-1)"
-    )
-    sample_size: int = Field(..., description="Number of features analyzed")
-
-
-class MultiModalityRequest(BaseModel):
-    """Request model for multi-modality test."""
-
-    feature_ids: List[int] = Field(
-        ...,
-        description="All feature IDs to analyze",
-        min_length=3
-    )
-    cause_selections: Dict[int, CauseSelectionItem] = Field(
-        ...,
-        description="Map of feature_id to cause category with source (manual tags)",
-        min_length=1
-    )
-
-
-class MultiModalityResponse(BaseModel):
-    """Response model for multi-modality test."""
-
-    multimodality: MultiModalityInfo = Field(
-        ...,
-        description="Multi-modality analysis results"
-    )
-
-
-# ============================================================================
 # STAGE 3 QUALITY SCORES MODELS (Using Stage 2 SVM)
 # ============================================================================
 
@@ -387,4 +310,4 @@ class Stage3QualityScoresRequest(BaseModel):
 
 
 # Stage3QualityScoresResponse reuses SimilarityHistogramResponse
-# (same structure: scores, histogram, statistics, bimodality, total_items)
+# (same structure: scores, histogram, statistics, total_items)
