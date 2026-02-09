@@ -6,45 +6,38 @@ when users haven't tagged enough items yet.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 import logging
-from typing import TYPE_CHECKING
 
 from ..models.cold_start import (
     ColdStartSuggestionRequest,
     ColdStartSuggestionsResponse
 )
-
-if TYPE_CHECKING:
-    from ..services.cold_start_service import ColdStartService
+from ..services.cold_start_service import ColdStartService
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
-# Service instance will be injected
-_cold_start_service: "ColdStartService" = None
+_cold_start_service: Optional[ColdStartService] = None
 
 
-def set_cold_start_service(service: "ColdStartService"):
+def set_cold_start_service(service: ColdStartService) -> None:
     """Set the cold-start service instance."""
     global _cold_start_service
     _cold_start_service = service
 
 
-def get_cold_start_service() -> "ColdStartService":
+def get_cold_start_service() -> ColdStartService:
     """Dependency to get cold-start service."""
     if _cold_start_service is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Cold-start service not initialized"
-        )
+        raise HTTPException(status_code=503, detail="ColdStartService not initialized")
     return _cold_start_service
 
 
 @router.post("/cold-start-suggestions", response_model=ColdStartSuggestionsResponse)
 async def cold_start_suggestions(
     request: ColdStartSuggestionRequest,
-    service: "ColdStartService" = Depends(get_cold_start_service)
+    service: ColdStartService = Depends(get_cold_start_service)
 ) -> ColdStartSuggestionsResponse:
     """
     Get diverse suggestions for cold-start tagging.

@@ -17,7 +17,9 @@ from .services.cause_service import CauseService
 from .services.cold_start_service import ColdStartService
 from .services.consensus_service import ConsensusService
 from .services.table_data_service import TableDataService
-from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus, table
+from .services.feature_group_service import FeatureGroupService
+from .services.histogram_service import HistogramService
+from .api import feature_groups, similarity_sort, cluster_candidates, cause, cold_start, consensus, table, filters, histogram, activation_examples
 
 # Configure logging for the application
 log_level = os.getenv("LOG_LEVEL", "INFO").upper()
@@ -74,8 +76,18 @@ async def lifespan(app: FastAPI):
         logger.info("Table data service initialized successfully")
 
         # Initialize feature groups service
-        feature_groups.initialize_service()
+        fg_service = FeatureGroupService()
+        feature_groups.set_feature_group_service(fg_service)
         logger.info("Feature groups service initialized successfully")
+
+        # Inject data service into filters and activation_examples
+        filters.set_data_service(data_service)
+        activation_examples.set_data_service(data_service)
+
+        # Initialize histogram service
+        histogram_service = HistogramService(data_service)
+        histogram.set_histogram_service(histogram_service)
+        logger.info("Histogram service initialized successfully")
 
         # Initialize hierarchical cluster candidate service (BEFORE similarity sort service)
         from pathlib import Path

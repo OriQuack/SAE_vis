@@ -10,7 +10,7 @@ from typing import List, Dict, Tuple
 from pathlib import Path
 
 from ..models.common import Filters
-from ..models.responses import FeatureGroup, FeatureGroupResponse
+from ..models.feature_groups import FeatureGroup, FeatureGroupResponse
 from .data_constants import (
     COL_FEATURE_ID,
     COL_SAE_ID,

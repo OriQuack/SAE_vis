@@ -20,10 +20,11 @@ from typing import List, Dict, Tuple, Optional, TYPE_CHECKING
 from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
+from ..models.common import HistogramData
 from ..models.similarity_sort import (
     PairSimilaritySortRequest, PairSimilaritySortResponse, PairScore,
     PairSimilarityHistogramRequest, SimilarityHistogramResponse,
-    HistogramData, HistogramStatistics, BimodalityInfo, GMMComponentInfo,
+    HistogramStatistics, BimodalityInfo, GMMComponentInfo,
     WeightedPairKey, CommitteeVoteInfo
 )
 from .bimodality_service import BimodalityService

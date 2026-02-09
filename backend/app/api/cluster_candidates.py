@@ -5,38 +5,36 @@ Provides endpoint to get filtered cluster-based pairs using pre-computed
 agglomerative clustering.
 """
 
-from fastapi import APIRouter, Depends, HTTPException
-from typing import TYPE_CHECKING
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
+import logging
 
-from app.models.requests import FilteredClusterPairsRequest
-from app.models.responses import FilteredClusterPairsResponse
+from ..models.cluster_candidates import FilteredClusterPairsRequest, FilteredClusterPairsResponse
+from ..services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 
-if TYPE_CHECKING:
-    from app.services.hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
-
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
-# Module-level service instance
-_cluster_candidate_service: "HierarchicalClusterCandidateService" = None
+_cluster_candidate_service: Optional[HierarchicalClusterCandidateService] = None
 
 
-def set_cluster_candidate_service(service: "HierarchicalClusterCandidateService"):
+def set_cluster_candidate_service(service: HierarchicalClusterCandidateService) -> None:
     """Set the cluster candidate service instance."""
     global _cluster_candidate_service
     _cluster_candidate_service = service
 
 
-def get_cluster_candidate_service() -> "HierarchicalClusterCandidateService":
+def get_cluster_candidate_service() -> HierarchicalClusterCandidateService:
     """Dependency to get the cluster candidate service instance."""
     if _cluster_candidate_service is None:
-        raise RuntimeError("Cluster candidate service not initialized")
+        raise HTTPException(status_code=503, detail="HierarchicalClusterCandidateService not initialized")
     return _cluster_candidate_service
 
 
 @router.post("/filtered-cluster-pairs", response_model=FilteredClusterPairsResponse)
 async def get_filtered_cluster_pairs(
     request: FilteredClusterPairsRequest,
-    service: "HierarchicalClusterCandidateService" = Depends(get_cluster_candidate_service)
+    service: HierarchicalClusterCandidateService = Depends(get_cluster_candidate_service)
 ) -> FilteredClusterPairsResponse:
     """
     Get cluster-based pairs filtered by decoder similarity and ranking criteria.
@@ -69,13 +67,13 @@ async def get_filtered_cluster_pairs(
         )
         return FilteredClusterPairsResponse(**result)
 
+    except HTTPException:
+        raise
     except ValueError as e:
-        # Client error - invalid inputs
         raise HTTPException(status_code=400, detail=str(e))
-
     except Exception as e:
-        # Server error - unexpected failure
+        logger.error(f"Error in get_filtered_cluster_pairs: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Internal server error while getting filtered cluster pairs: {str(e)}"
+            detail=f"Internal server error: {str(e)}"
         )

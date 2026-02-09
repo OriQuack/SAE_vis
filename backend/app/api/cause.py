@@ -3,45 +3,38 @@ API endpoint for cause classification.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 import logging
-from typing import TYPE_CHECKING
 
 from ..models.similarity_sort import (
     CauseClassificationRequest,
     CauseClassificationResponse
 )
-
-if TYPE_CHECKING:
-    from ..services.cause_service import CauseService
+from ..services.cause_service import CauseService
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
 
-# Service instance will be injected
-_cause_service: "CauseService" = None
+_cause_service: Optional[CauseService] = None
 
 
-def set_cause_service(service: "CauseService"):
+def set_cause_service(service: CauseService) -> None:
     """Set the Cause service instance."""
     global _cause_service
     _cause_service = service
 
 
-def get_cause_service() -> "CauseService":
+def get_cause_service() -> CauseService:
     """Dependency to get Cause service."""
     if _cause_service is None:
-        raise HTTPException(
-            status_code=500,
-            detail="Cause service not initialized"
-        )
+        raise HTTPException(status_code=503, detail="CauseService not initialized")
     return _cause_service
 
 
 @router.post("/cause-classification", response_model=CauseClassificationResponse)
 async def cause_classification(
     request: CauseClassificationRequest,
-    service: "CauseService" = Depends(get_cause_service)
+    service: CauseService = Depends(get_cause_service)
 ) -> CauseClassificationResponse:
     """
     Classify features into cause categories using OvR SVMs.

@@ -6,37 +6,37 @@ returns feature IDs grouped by threshold ranges. The frontend performs
 local intersections for fast updates.
 """
 
+from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 import logging
-from fastapi import APIRouter, HTTPException
 
-from ..models.requests import FeatureGroupRequest
-from ..models.responses import FeatureGroupResponse
+from ..models.feature_groups import FeatureGroupRequest, FeatureGroupResponse
 from ..services.feature_group_service import FeatureGroupService
 
-router = APIRouter()
 logger = logging.getLogger(__name__)
+router = APIRouter()
 
-# Global service instance (initialized on app startup)
-_service: FeatureGroupService | None = None
-
-
-def initialize_service():
-    """Initialize the feature group service"""
-    global _service
-    if _service is None:
-        _service = FeatureGroupService()
-        logger.info("FeatureGroupService initialized")
+_feature_group_service: Optional[FeatureGroupService] = None
 
 
-def get_service() -> FeatureGroupService:
-    """Get the initialized service instance"""
-    if _service is None:
-        raise RuntimeError("FeatureGroupService not initialized")
-    return _service
+def set_feature_group_service(service: FeatureGroupService) -> None:
+    """Set the feature group service instance."""
+    global _feature_group_service
+    _feature_group_service = service
+
+
+def get_feature_group_service() -> FeatureGroupService:
+    """Dependency to get the feature group service instance."""
+    if _feature_group_service is None:
+        raise HTTPException(status_code=503, detail="FeatureGroupService not initialized")
+    return _feature_group_service
 
 
 @router.post("/feature-groups", response_model=FeatureGroupResponse)
-async def get_feature_groups(request: FeatureGroupRequest) -> FeatureGroupResponse:
+async def get_feature_groups(
+    request: FeatureGroupRequest,
+    service: FeatureGroupService = Depends(get_feature_group_service)
+) -> FeatureGroupResponse:
     """
     Get feature IDs grouped by threshold ranges for a single metric.
 
@@ -52,13 +52,8 @@ async def get_feature_groups(request: FeatureGroupRequest) -> FeatureGroupRespon
 
     Returns:
         FeatureGroupResponse with groups containing feature IDs
-
-    Raises:
-        HTTPException: 400 for invalid metric or thresholds
-        HTTPException: 500 for internal server errors
     """
     try:
-        service = get_service()
         response = await service.get_feature_groups(
             filters=request.filters,
             metric=request.metric,
@@ -66,12 +61,12 @@ async def get_feature_groups(request: FeatureGroupRequest) -> FeatureGroupRespon
         )
         return response
 
+    except HTTPException:
+        raise
     except ValueError as e:
-        logger.error(f"Validation error in feature groups: {e}")
         raise HTTPException(status_code=400, detail=str(e))
-
     except Exception as e:
-        logger.error(f"Failed to get feature groups: {e}", exc_info=True)
+        logger.error(f"Error in get_feature_groups: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Internal server error: {str(e)}"

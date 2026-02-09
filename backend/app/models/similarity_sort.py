@@ -5,6 +5,8 @@ Pydantic models for similarity-based sorting feature.
 from pydantic import BaseModel, Field
 from typing import List, Dict, Optional, Literal
 
+from .common import HistogramData
+
 
 # ============================================================================
 # WEIGHTED ITEM TYPES (for SVM sample weighting)
@@ -174,14 +176,6 @@ class PairSimilarityHistogramRequest(BaseModel):
         description="All pair keys to compute scores for (legacy flow, optional if feature_ids+threshold provided)",
         min_length=1
     )
-
-
-class HistogramData(BaseModel):
-    """Histogram data structure."""
-
-    bins: List[float] = Field(..., description="Bin centers")
-    counts: List[int] = Field(..., description="Count in each bin")
-    bin_edges: List[float] = Field(..., description="Bin edge values (length = bins + 1)")
 
 
 class HistogramStatistics(BaseModel):

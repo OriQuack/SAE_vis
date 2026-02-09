@@ -1,71 +1,43 @@
+"""API endpoint for histogram data."""
+
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 import logging
-from ..services.data_service import DataService
+
+from ..models.histogram import HistogramRequest, HistogramResponse
 from ..services.histogram_service import HistogramService
-from ..models.requests import HistogramRequest
-from ..models.responses import HistogramResponse
-from ..models.common import ErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-def get_data_service():
-    """Dependency to get data service instance"""
-    from ..main import data_service
-    if not data_service or not data_service.is_ready():
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": {
-                    "code": "SERVICE_UNAVAILABLE",
-                    "message": "Data service is not available",
-                    "details": {}
-                }
-            }
-        )
-    return data_service
+_histogram_service: Optional[HistogramService] = None
 
-def get_histogram_service(data_service: DataService = Depends(get_data_service)) -> HistogramService:
-    """Dependency to get histogram service instance"""
-    return HistogramService(data_service)
 
-@router.post(
-    "/histogram-data",
-    response_model=HistogramResponse,
-    responses={
-        200: {"description": "Histogram data generated successfully"},
-        400: {"model": ErrorResponse, "description": "Invalid request parameters"},
-        500: {"model": ErrorResponse, "description": "Server error"}
-    },
-    summary="Get Histogram Data",
-    description="Returns histogram data for a specific metric to render distribution visualization with threshold controls."
-)
+def set_histogram_service(service: HistogramService) -> None:
+    """Set the histogram service instance."""
+    global _histogram_service
+    _histogram_service = service
+
+
+def get_histogram_service() -> HistogramService:
+    """Dependency to get the histogram service instance."""
+    if _histogram_service is None:
+        raise HTTPException(status_code=503, detail="HistogramService not initialized")
+    return _histogram_service
+
+
+@router.post("/histogram-data", response_model=HistogramResponse)
 async def get_histogram_data(
     request: HistogramRequest,
-    histogram_service: HistogramService = Depends(get_histogram_service)
+    service: HistogramService = Depends(get_histogram_service)
 ):
     """
     Generate histogram data for a specific metric.
 
-    This endpoint takes a set of filters and a metric name, then returns
-    histogram data including bins, counts, and statistical summary.
-
-    The histogram is used to render distribution visualizations that help
-    users set appropriate threshold values for the Sankey diagrams.
-
-    Args:
-        request: Histogram request containing filters, metric, and bin count
-        histogram_service: Histogram service dependency
-
-    Returns:
-        HistogramResponse: Histogram data, statistics, and metadata
-
-    Raises:
-        HTTPException: For various error conditions including invalid filters,
-                      insufficient data, or server errors
+    Takes filters and a metric name, returns histogram data including
+    bins, counts, and statistical summary for distribution visualization.
     """
     try:
-        # Convert thresholdPath from Pydantic models to dicts if present
         threshold_path = None
         if request.thresholdPath:
             threshold_path = [
@@ -73,7 +45,7 @@ async def get_histogram_data(
                 for constraint in request.thresholdPath
             ]
 
-        return await histogram_service.get_histogram_data(
+        return await service.get_histogram_data(
             filters=request.filters,
             metric=request.metric,
             bins=request.bins,
@@ -82,6 +54,8 @@ async def get_histogram_data(
             threshold_path=threshold_path
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         error_msg = str(e)
         if "No data available" in error_msg:
@@ -107,26 +81,10 @@ async def get_histogram_data(
                 }
             )
         else:
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": {
-                        "code": "INVALID_REQUEST",
-                        "message": error_msg,
-                        "details": {}
-                    }
-                }
-            )
-
+            raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        logger.error(f"Error generating histogram data: {e}")
+        logger.error(f"Error in get_histogram_data: {e}")
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Failed to generate histogram data",
-                    "details": {"error": str(e)}
-                }
-            }
+            detail=f"Failed to generate histogram data: {str(e)}"
         )

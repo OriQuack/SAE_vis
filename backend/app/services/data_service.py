@@ -13,9 +13,7 @@ from pathlib import Path
 # Enable Polars string cache for categorical operations
 pl.enable_string_cache()
 
-from ..models.responses import (
-    FilterOptionsResponse,
-)
+from ..models.filters import FilterOptionsResponse
 from ..models.common import Filters
 from .data_constants import *
 

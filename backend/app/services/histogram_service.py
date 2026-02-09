@@ -17,7 +17,7 @@ import re
 from typing import Dict, List, Optional, Union, Any, TYPE_CHECKING
 
 from ..models.common import Filters, MetricType
-from ..models.responses import HistogramResponse, GroupedHistogramData
+from ..models.histogram import HistogramResponse, GroupedHistogramData
 from .data_constants import (
     COL_FEATURE_ID,
     COL_SAE_ID,

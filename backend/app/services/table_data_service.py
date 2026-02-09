@@ -27,7 +27,7 @@ import time
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from ..models.common import Filters
-from ..models.responses import (
+from ..models.table import (
     FeatureTableDataResponse, FeatureTableRow,
     ExplainerScoreData, ScorerScoreSet,
     HighlightedExplanation

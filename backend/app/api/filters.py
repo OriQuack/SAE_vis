@@ -1,62 +1,52 @@
+"""API endpoint for filter options."""
+
 from fastapi import APIRouter, HTTPException, Depends
+from typing import Optional
 import logging
+
+from ..models.filters import FilterOptionsResponse
 from ..services.data_service import DataService
-from ..models.responses import FilterOptionsResponse
-from ..models.common import ErrorResponse
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-def get_data_service():
-    """Dependency to get data service instance"""
-    from ..main import data_service
-    if not data_service or not data_service.is_ready():
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": {
-                    "code": "SERVICE_UNAVAILABLE",
-                    "message": "Data service is not available",
-                    "details": {}
-                }
-            }
-        )
-    return data_service
+_data_service: Optional[DataService] = None
 
-@router.get(
-    "/filter-options",
-    response_model=FilterOptionsResponse,
-    responses={
-        200: {"description": "Filter options retrieved successfully"},
-        500: {"model": ErrorResponse, "description": "Server error"}
-    },
-    summary="Get Filter Options",
-    description="Returns all unique values for each filterable field to populate UI dropdown controls."
-)
-async def get_filter_options(data_service: DataService = Depends(get_data_service)):
+
+def set_data_service(service: DataService) -> None:
+    """Set the data service instance."""
+    global _data_service
+    _data_service = service
+
+
+def get_data_service() -> DataService:
+    """Dependency to get the data service instance."""
+    if _data_service is None:
+        raise HTTPException(status_code=503, detail="DataService not initialized")
+    return _data_service
+
+
+@router.get("/filter-options", response_model=FilterOptionsResponse)
+async def get_filter_options(
+    service: DataService = Depends(get_data_service)
+):
     """
     Get all available filter options for the UI controls.
 
-    This endpoint returns the unique values for each filterable field:
+    Returns the unique values for each filterable field:
     - sae_id: Available SAE model identifiers
     - explanation_method: Available explanation methods
     - llm_explainer: Available LLM explainer models
     - llm_scorer: Available LLM scorer models
-
-    The response is cached for performance and refreshed periodically.
     """
     try:
-        return await data_service.get_filter_options()
+        return await service.get_filter_options()
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error retrieving filter options: {e}")
+        logger.error(f"Error in get_filter_options: {e}")
         raise HTTPException(
             status_code=500,
-            detail={
-                "error": {
-                    "code": "INTERNAL_ERROR",
-                    "message": "Failed to retrieve filter options",
-                    "details": {"error": str(e)}
-                }
-            }
+            detail=f"Failed to retrieve filter options: {str(e)}"
         )

@@ -62,3 +62,26 @@ class Filters(BaseModel):
         description="LLM scorer models to filter by",
         example=["gpt-4-turbo"]
     )
+
+class HistogramData(BaseModel):
+    """Histogram data structure"""
+    bins: List[float] = Field(
+        ...,
+        description="Histogram bin centers"
+    )
+    counts: List[int] = Field(
+        ...,
+        description="Count of features in each bin"
+    )
+    bin_edges: List[float] = Field(
+        ...,
+        description="Histogram bin edges (length = bins + 1)"
+    )
+
+class StatisticsData(BaseModel):
+    """Statistical summary data"""
+    min: float = Field(..., description="Minimum value")
+    max: float = Field(..., description="Maximum value")
+    mean: float = Field(..., description="Mean value")
+    median: float = Field(..., description="Median value")
+    std: float = Field(..., description="Standard deviation")
