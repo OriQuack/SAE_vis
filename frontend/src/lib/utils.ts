@@ -239,7 +239,7 @@ export function parseSAEId(saeId: string): {
   width: string | null
   organization: string
 } {
-  const parts = saeId.split('/')
+  const parts = saeId.includes('--') ? saeId.split('--') : saeId.split('/')
 
   // Extract model name (e.g., "gemma-scope-9b-pt-res" → "Gemma Scope 9B")
   const modelRaw = parts[1] || ''

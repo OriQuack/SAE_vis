@@ -191,125 +191,81 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return grouped;
   }, [stages, allTagCounts]);
 
-  // Measure badge positions after render
+  // Measure badge + stage number positions after render
   useLayoutEffect(() => {
-    if (!containerRef.current) return;
+    function measurePositions() {
+      if (!containerRef.current) return;
 
-    const positions: Record<string, { left: number; right: number; y: number }> = {};
-    const container = containerRef.current;
-    const containerRect = container.getBoundingClientRect();
+      const positions: Record<string, { left: number; right: number; y: number }> = {};
+      const container = containerRef.current;
+      const containerRect = container.getBoundingClientRect();
 
-    container.querySelectorAll('[data-node-id]').forEach((el) => {
-      const nodeId = el.getAttribute('data-node-id');
-      if (!nodeId) return;
-      const rect = el.getBoundingClientRect();
-      positions[nodeId] = {
-        left: rect.left - containerRect.left,
-        right: rect.right - containerRect.left,
-        y: rect.top - containerRect.top + rect.height / 2,
-      };
-    });
+      container.querySelectorAll('[data-node-id]').forEach((el) => {
+        const nodeId = el.getAttribute('data-node-id');
+        if (!nodeId) return;
+        const rect = el.getBoundingClientRect();
+        positions[nodeId] = {
+          left: rect.left - containerRect.left,
+          right: rect.right - containerRect.left,
+          y: rect.top - containerRect.top + rect.height / 2,
+        };
+      });
 
-    setBadgePositions(positions);
+      container.querySelectorAll('[data-stage-number]').forEach((el) => {
+        const stageNum = el.getAttribute('data-stage-number');
+        if (!stageNum) return;
+        const rect = el.getBoundingClientRect();
+        positions[`stage-number-${stageNum}`] = {
+          left: rect.left - containerRect.left,
+          right: rect.right - containerRect.left,
+          y: rect.top - containerRect.top + rect.height / 2,
+        };
+      });
+
+      setBadgePositions(positions);
+    }
+
+    measurePositions();
+    window.addEventListener('resize', measurePositions);
+    return () => window.removeEventListener('resize', measurePositions);
   }, [nodesByStage, allTagCounts]);
 
-  // Generate SVG paths for flow connections (currently unused - for future flow visualization)
-  // @ts-expect-error Unused variable kept for future flow visualization feature
-  const _svgPaths = useMemo(() => {
-    const paths: Array<{
-      d: string;
-      key: string;
-      gradientId: string;
-      sourceColor: string;
-      targetColor: string;
-      x1: number;
-      x2: number;
-      y1: number;
-      y2: number;
-    }> = [];
-
+  // Generate SVG paths: Monosemantic → Stage 2 number, Need Revision → Stage 3 number
+  const flowPaths = useMemo(() => {
+    const paths: Array<{ d: string; key: string; color: string }> = [];
     const stage1 = nodesByStage[1] || [];
     const stage2 = nodesByStage[2] || [];
-    const stage3 = nodesByStage[3] || [];
 
-    // Find the Monosemantic node (first node in stage 1)
-    const monosematicNode = stage1.find(n => n.tag === 'Monosemantic');
-
-    // Connector 1→2: Monosemantic → Stage 2 tags
-    if (monosematicNode && stage2.length > 0) {
-      const source = badgePositions[monosematicNode.id];
-
-      if (source) {
-        stage2.forEach((target, idx) => {
-          const targetPos = badgePositions[target.id];
-          if (targetPos) {
-            const x1 = source.right;
-            const x2 = targetPos.left;
-            const midX = (x1 + x2) / 2;
-            paths.push({
-              key: `c1-${idx}`,
-              gradientId: `grad-c1-${idx}`,
-              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
-              sourceColor: monosematicNode.color,
-              targetColor: target.color,
-              x1,
-              x2,
-              y1: 0,
-              y2: 0,
-            });
-          }
-        });
-      }
-    }
-
-    // Connector 2→3: Need Revision → Stage 3 tags
-    const needRevisionNode = stage2.find(n => n.tag === 'Need Revision');
-    if (needRevisionNode && stage3.length > 0) {
-      const source = badgePositions[needRevisionNode.id];
-
-      if (source) {
-        stage3.forEach((target, idx) => {
-          const targetPos = badgePositions[target.id];
-          if (targetPos) {
-            const x1 = source.right;
-            const x2 = targetPos.left;
-            const midX = (x1 + x2) / 2;
-            paths.push({
-              key: `c2-${idx}`,
-              gradientId: `grad-c2-${idx}`,
-              d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${targetPos.y}, ${x2} ${targetPos.y}`,
-              sourceColor: needRevisionNode.color,
-              targetColor: target.color,
-              x1,
-              x2,
-              y1: 0,
-              y2: 0,
-            });
-          }
-        });
-      }
-    }
-
-    // Special connector: Need Revision → Well-Explained (within Stage 2)
-    const wellExplainedNode = stage2.find(n => n.tag === 'Well-Explained');
-    if (needRevisionNode && wellExplainedNode) {
-      const sourcePos = badgePositions[needRevisionNode.id];
-      const targetPos = badgePositions[wellExplainedNode.id];
-
-      if (sourcePos && targetPos) {
-        const x1 = sourcePos.right;
-        const x2 = targetPos.right;
-        const controlOffset = 40;
+    // Monosemantic badge → Stage 2 number
+    const monoNode = stage1.find(n => n.tag === 'Monosemantic');
+    const stage2Num = badgePositions['stage-number-2'];
+    if (monoNode) {
+      const source = badgePositions[monoNode.id];
+      if (source && stage2Num) {
+        const x1 = source.right;
+        const x2 = stage2Num.left;
+        const midX = (x1 + x2) / 2;
         paths.push({
-          key: 'c-need-to-well',
-          gradientId: 'grad-need-to-well',
-          d: `M ${x1} ${sourcePos.y} C ${x1 + controlOffset} ${sourcePos.y}, ${x2 + controlOffset} ${targetPos.y}, ${x2} ${targetPos.y}`,
-          sourceColor: needRevisionNode.color,
-          targetColor: wellExplainedNode.color,
-          x1: 0,
-          x2: 0,
-          y1: sourcePos.y,
-          y2: targetPos.y,
+          key: 'mono-to-s2',
+          d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage2Num.y}, ${x2} ${stage2Num.y}`,
+          color: monoNode.color,
+        });
+      }
+    }
+
+    // Need Revision badge → Stage 3 number
+    const nrNode = stage2.find(n => n.tag === 'Need Revision');
+    const stage3Num = badgePositions['stage-number-3'];
+    if (nrNode) {
+      const source = badgePositions[nrNode.id];
+      if (source && stage3Num) {
+        const x1 = source.right;
+        const x2 = stage3Num.left;
+        const midX = (x1 + x2) / 2;
+        paths.push({
+          key: 'nr-to-s3',
+          d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage3Num.y}, ${x2} ${stage3Num.y}`,
+          color: nrNode.color,
         });
       }
     }
@@ -360,34 +316,19 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         </div>
       )}
 
-      {/* TODO: Flow lines between tags - trying different visualization methods
-      <svg className="tag-category-panel__flow-svg">
-        <defs>
-          {_svgPaths.map(({ gradientId, sourceColor, targetColor, x1, x2, y1, y2 }) => (
-            <linearGradient
-              key={gradientId}
-              id={gradientId}
-              x1={x1}
-              x2={x2}
-              y1={y1}
-              y2={y2}
-              gradientUnits="userSpaceOnUse"
-            >
-              <stop offset="0%" stopColor={sourceColor} />
-              <stop offset="100%" stopColor={targetColor} />
-            </linearGradient>
+      {/* Flow lines: Monosemantic → Stage 2, Need Revision → Stage 3 */}
+      {flowPaths.length > 0 && (
+        <svg className="tag-category-panel__flow-svg">
+          {flowPaths.map(({ key, d, color }) => (
+            <path
+              key={key}
+              d={d}
+              className="tag-category-panel__flow-path"
+              stroke={color}
+            />
           ))}
-        </defs>
-        {_svgPaths.map(({ key, d, gradientId }) => (
-          <path
-            key={key}
-            d={d}
-            className="tag-category-panel__flow-path"
-            stroke={`url(#${gradientId})`}
-          />
-        ))}
-      </svg>
-      */}
+        </svg>
+      )}
 
       {/* Main content: Stage tabs with inline tags */}
       <div className="tag-category-panel__main-content">
@@ -395,12 +336,13 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
           const isFuture = isStageFuture(stage.stageOrder);
-          const stageTags = nodesByStage[stage.stageOrder] || [];
+          // Reverse display order for stages 1 & 2 so positive tag appears left
+          const stageTags = (nodesByStage[stage.stageOrder] || []).slice();
+          if (stage.stageOrder === 1 || stage.stageOrder === 2) stageTags.reverse();
 
           return (
-            <React.Fragment key={stage.id}>
-              {/* Stage Tab */}
               <button
+                key={stage.id}
                 className={`stage-tab ${
                   isActive ? 'stage-tab--active' : ''
                 } ${
@@ -415,30 +357,29 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
               >
                 <div className="stage-tab__header">
-                  <div className="stage-tab__number">
+                  <div className="stage-tab__number" data-stage-number={stage.stageOrder}>
                     {isCompleted ? '✓' : stage.stageOrder}
                   </div>
                   <div className="stage-tab__label">{stage.label}</div>
                 </div>
                 {stage.instruction && <div className="stage-tab__instruction">{stage.instruction}</div>}
-              </button>
-
-              {/* Inline Tags for this stage */}
-              <div className="stage-tags">
-                {stageTags.map((node) => (
-                  <div
-                    key={node.id}
-                    data-node-id={node.id}
-                    className="stage-tag-badge"
-                    style={{ backgroundColor: node.color, borderColor: node.color }}
-                    title={`${node.tag}: ${node.count.toLocaleString()} features`}
-                  >
-                    <span className="stage-tag-badge__label">{node.tag}</span>
-                    <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
+                {stageTags.length > 0 && (
+                  <div className="stage-tab__tags">
+                    {stageTags.map((node) => (
+                      <div
+                        key={node.id}
+                        data-node-id={node.id}
+                        className="stage-tag-badge"
+                        style={{ backgroundColor: node.color, borderColor: node.color }}
+                        title={`${node.tag}: ${node.count.toLocaleString()} features`}
+                      >
+                        <span className="stage-tag-badge__label">{node.tag}</span>
+                        <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </React.Fragment>
+                )}
+              </button>
           );
         })}
       </div>
