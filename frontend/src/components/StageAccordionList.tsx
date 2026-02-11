@@ -208,7 +208,7 @@ export function StageAccordionList<T>({
           onClick={() => handleStageClick('bootstrap')}
         >
           <span className="stage-selector__number">1</span>
-          <span className="stage-selector__label">Bootstrap</span>
+          <span className="stage-selector__label">Prototype</span>
         </button>
         <button
           className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseLearn && activeStage === 'bootstrap' && !learnDisabled ? 'stage-selector__tab--pulsing' : ''}`}
@@ -217,7 +217,7 @@ export function StageAccordionList<T>({
           title={learnDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
           <span className="stage-selector__number">2</span>
-          <span className="stage-selector__label">Train</span>
+          <span className="stage-selector__label">Uncertainty</span>
         </button>
         <button
           className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseApply && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
@@ -226,7 +226,7 @@ export function StageAccordionList<T>({
           title={applyDisabled ? 'Tag 3+ items per category to enable' : undefined}
         >
           <span className="stage-selector__number">3</span>
-          <span className="stage-selector__label">Apply</span>
+          <span className="stage-selector__label">Disagreement</span>
         </button>
       </div>
 

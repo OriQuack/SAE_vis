@@ -341,7 +341,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               histogramData,
               selectThreshold,
               rejectThreshold,
-              tagLabel: 'Fragmented',
+              tagLabel: 'Incoherent Splitting',
               isLoading: false,
               flipTracking: flipTracking ?? null,
               committeeVotes: null
@@ -753,7 +753,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [boundaryItems.selectAbove])
 
   // Get tag color for header badge
-  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
+  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442'
 
   // ============================================================================
   // ACTIVE PAIR LIST - Determines which list the viewer shows
@@ -1039,11 +1039,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // Determine tag name based on selection state OR preview state
     let tagName = 'Unsure'
     if (selectionState === 'selected') {
-      tagName = 'Fragmented'
+      tagName = 'Incoherent Splitting'
     } else if (selectionState === 'rejected') {
       tagName = 'Monosemantic'
     } else if (inPreviewSelect) {
-      tagName = 'Fragmented'
+      tagName = 'Incoherent Splitting'
     } else if (inPreviewReject) {
       tagName = 'Monosemantic'
     }
@@ -1085,7 +1085,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             className="view-tag-badge"
             style={{ backgroundColor: fragmentedColor }}
           >
-            Fragmented
+            Incoherent Splitting
           </span>
           {' '}pair that represents the same concept.
         </span>
@@ -1158,7 +1158,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           leftItems={boundaryItems.rejectBelow}
           rightItems={boundaryItems.selectAbove}
           leftListLabel="Monosemantic"
-          rightListLabel="Fragmented"
+          rightListLabel="Incoherent Splitting"
           histogramProps={{
             availablePairs: rawPairList,
             filteredFeatureIds: selectedFeatureIds || undefined,

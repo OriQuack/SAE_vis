@@ -272,7 +272,7 @@ export async function buildStage2(
     value: monosematicSegment.featureCount
   })
 
-  // 2. Create Fragmented terminal node
+  // 2. Create Incoherent Splitting terminal node
   const fragmentedNode: TerminalSankeyNode = {
     id: 'fragmented_terminal',
     type: 'terminal',
@@ -281,7 +281,7 @@ export async function buildStage2(
     featureCount: fragmentedSegment.featureCount,
     parentId: 'root',
     depth: 1,
-    tagName: 'Fragmented',
+    tagName: 'Incoherent Splitting',
     color: fragmentedSegment.color
   }
   nodes.push(fragmentedNode)
@@ -411,7 +411,7 @@ export async function buildStage2FromTaggedStates(
     value: monosematicIds.size
   })
 
-  // 2. Create Fragmented terminal node
+  // 2. Create Incoherent Splitting terminal node
   const fragmentedNode: TerminalSankeyNode = {
     id: 'fragmented_terminal',
     type: 'terminal',
@@ -420,8 +420,8 @@ export async function buildStage2FromTaggedStates(
     featureCount: fragmentedIds.size,
     parentId: 'root',
     depth: 1,
-    tagName: 'Fragmented',
-    color: featureSplittingColors['Fragmented'] || '#F0E442'
+    tagName: 'Incoherent Splitting',
+    color: featureSplittingColors['Incoherent Splitting'] || '#F0E442'
   }
   nodes.push(fragmentedNode)
 
@@ -984,8 +984,8 @@ export function buildStage4FromTaggedStates(
 
   // Create terminal nodes for cause categories (excluding well-explained, which merges to Stage 2)
   const causeCategories = [
-    { id: 'pattern_miss_terminal', tagName: 'Pattern Miss', key: 'missed-N-gram' },
-    { id: 'context_miss_terminal', tagName: 'Context Miss', key: 'missed-context' },
+    { id: 'pattern_miss_terminal', tagName: 'Missed Syntax', key: 'missed-N-gram' },
+    { id: 'context_miss_terminal', tagName: 'Missed Context', key: 'missed-context' },
     { id: 'noisy_activation_terminal', tagName: 'Noisy Activation', key: 'noisy-activation' }
   ]
 

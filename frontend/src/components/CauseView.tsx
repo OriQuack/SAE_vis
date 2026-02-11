@@ -52,8 +52,8 @@ export interface CauseCommitCounts {
 // Map CauseCategory to display tag names
 const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
-  'missed-N-gram': 'Pattern Miss',
-  'missed-context': 'Context Miss',
+  'missed-N-gram': 'Missed Syntax',
+  'missed-context': 'Missed Context',
   'well-explained': 'Well-Explained'
 }
 
@@ -1198,8 +1198,8 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
-  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
   const unsureColor = UNSURE_GRAY
 
@@ -1473,14 +1473,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                         onClick={handleUnsureClick}
                       />
                       <TagButton
-                        label="Pattern Miss"
+                        label="Missed Syntax"
                         variant="missed-N-gram"
                         color={missedNgramColor}
                         isSelected={currentCauseCategory === 'missed-N-gram'}
                         onClick={() => handleTagClick('missed-N-gram')}
                       />
                       <TagButton
-                        label="Context Miss"
+                        label="Missed Context"
                         variant="missed-context"
                         color={missedContextColor}
                         isSelected={currentCauseCategory === 'missed-context'}
@@ -1561,7 +1561,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   categories: [
                     {
                       id: 'missed-N-gram',
-                      label: 'Pattern Miss',
+                      label: 'Missed Syntax',
                       color: missedNgramColor,
                       count: filteredBatchComposition.patternMiss,
                       inputCount: remainingComposition.patternMiss,
@@ -1569,7 +1569,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     },
                     {
                       id: 'missed-context',
-                      label: 'Context Miss',
+                      label: 'Missed Context',
                       color: missedContextColor,
                       count: filteredBatchComposition.contextMiss,
                       inputCount: remainingComposition.contextMiss,

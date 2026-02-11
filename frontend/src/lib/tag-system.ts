@@ -106,7 +106,7 @@ function buildVirtualTagTree(): Map<string, SankeyTreeNode> {
  *
  * Color Semantics:
  * - GREEN: Positive quality (Monosemantic, Well-Explained)
- * - RED: Needs attention (Fragmented, Need Revision)
+ * - RED: Needs attention (Incoherent Splitting, Need Revision)
  * - BLUE/ORANGE/PURPLE: Categorical distinctions (Cause tags)
  *
  * All colors are colorblind-friendly (Okabe-Ito and Paul Tol palettes)
@@ -126,7 +126,7 @@ function assignConstantColors(): void {
         case 'Monosemantic':
           colors[tag] = D3_SCHEME_TABLEAU10.BLUE  // #009E73 - Green (good: single concept)
           break
-        case 'Fragmented':
+        case 'Incoherent Splitting':
           colors[tag] = D3_SCHEME_TABLEAU10.PINK  // #EE6677 - Red (bad: split features)
           break
 
@@ -144,10 +144,10 @@ function assignConstantColors(): void {
         // Cause Category (Categorical colors)
         // Note: 'Well-Explained' in Quality uses GREEN, so Cause uses TEAL for distinction
         // ========================================
-        case 'Context Miss':
+        case 'Missed Context':
           colors[tag] = D3_SCHEME_TABLEAU10.YELLOW  // #ff9da7 - Pink
           break
-        case 'Pattern Miss':
+        case 'Missed Syntax':
           colors[tag] = D3_SCHEME_TABLEAU10.PURPLE  // #edc949 - Yellow
           break
         case 'Noisy Activation':
@@ -199,9 +199,9 @@ function assignTreeColors(): void {
   const stage1Category = categoriesInOrder.find(c => c.stageOrder === 1)
   if (!stage1Category) return
 
-  // Reorder stage 1 tags: Fragmented first (bad → red), Monosemantic second (→ green)
+  // Reorder stage 1 tags: Incoherent Splitting first (bad → red), Monosemantic second (→ green)
   // This controls hue assignment since treecolors assigns lower hues to earlier children
-  const stage1TagsOrdered = ['Fragmented', 'Monosemantic']
+  const stage1TagsOrdered = ['Incoherent Splitting', 'Monosemantic']
     .filter(t => stage1Category.tags.includes(t))
 
   for (const tag of stage1TagsOrdered) {
@@ -352,7 +352,7 @@ export function getTagCategoriesInOrder(): TagCategoryConfig[] {
  * Get color for a specific tag
  *
  * @param categoryId - Category ID (e.g., 'quality', 'cause')
- * @param tagName - Tag name (e.g., 'Well-Explained', 'Context Miss')
+ * @param tagName - Tag name (e.g., 'Well-Explained', 'Missed Context')
  * @returns Hex color string or null if not found
  */
 export function getTagColor(categoryId: string, tagName: string): string | null {

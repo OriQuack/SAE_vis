@@ -77,14 +77,14 @@ export interface TagCategoryConfig {
 export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]: {
     id: TAG_CATEGORY_FEATURE_SPLITTING,
-    label: "Detect Feature Splitting",
+    label: "Incoherent Splitting Detection",
     stageOrder: 1,
     metric: METRIC_DECODER_SIMILARITY,
     defaultThresholds: [0.4],
     showHistogram: true,
     tags: [
       "Monosemantic",       // Group 0 (< 0.4, LOW decoder similarity)
-      "Fragmented"    // Group 1 (≥ 0.4, HIGH decoder similarity)
+      "Incoherent Splitting"    // Group 1 (≥ 0.4, HIGH decoder similarity)
     ],
     relatedMetrics: [
       METRIC_DECODER_SIMILARITY,
@@ -92,14 +92,14 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Fragmented or Monosemantic Feature?",
+    instruction: "Incoherent Splitting or Monosemantic Feature?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: null  // Stage 1 has no parent
   },
 
   [TAG_CATEGORY_QUALITY]: {
     id: TAG_CATEGORY_QUALITY,
-    label: "Check Quality",
+    label: "Explanation Faithfulness Assessment",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
     defaultThresholds: [0.5],
@@ -117,22 +117,22 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Assess LLM generated explanation quality",
+    instruction: "Assess generated explanation faithfulness",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
 
   [TAG_CATEGORY_CAUSE]: {
     id: TAG_CATEGORY_CAUSE,
-    label: "Cause Analysis",
+    label: "Root Cause Diagnosis",
     stageOrder: 3,
     metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for threshold-based splitting
     defaultThresholds: [],
     showHistogram: true,
     tags: [
       "Well-Explained",
-      "Pattern Miss",
-      "Context Miss",
+      "Missed Syntax",
+      "Missed Context",
       "Noisy Activation"
     ],
     relatedMetrics: [
@@ -145,7 +145,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
       // Missed N-gram indicators
       METRIC_SCORE_FUZZ
     ],
-    description: "Categorizes the root cause of explanation issues for features that need revision",
+    description: "Diagnose the root cause of misinterpretation for features that need revision",
     parentTagForNextStage: null,
     instruction: "Identify root cause of explanation failure",
     tagColors: {},  // Populated by tag-system.ts
@@ -207,7 +207,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     defaultThreshold: getDefaultThreshold(TAG_CATEGORY_FEATURE_SPLITTING),
     tags: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].tags as unknown as string[],
     parentTag: TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].parentTag,
-    terminalTags: ['Fragmented']  // Fragmented doesn't continue
+    terminalTags: ['Incoherent Splitting']  // Incoherent Splitting doesn't continue
   },
   {
     stageNumber: 2,
@@ -236,7 +236,7 @@ export const STAGE_CONFIGS: StageConfig[] = [
     metric: null,
     defaultThreshold: null,
     tags: [],
-    parentTag: 'NeedRevision',  // Continues from need_revision node
+    parentTag: 'Need Revision',  // Continues from need_revision node
     terminalTags: []  // All cause category nodes are terminal in Stage 4
   }
 ]

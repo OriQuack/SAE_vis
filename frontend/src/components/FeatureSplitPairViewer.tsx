@@ -262,7 +262,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   }
 
   // Get tag colors for buttons
-  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442'
+  const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442'
   const monosemanticColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || UNSURE_GRAY
   const unsureColor = UNSURE_GRAY  // Gray for unsure state
 
@@ -397,7 +397,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 onClick={handleUnsureClick}
               />
               <TagButton
-                label="Fragmented"
+                label="Incoherent Splitting"
                 variant="fragmented"
                 color={fragmentedColor}
                 isSelected={pairSelectionState === 'selected'}

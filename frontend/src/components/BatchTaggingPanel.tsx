@@ -16,7 +16,7 @@ const formatCount = (n: number): string => n >= 1000 ? n.toLocaleString() : Stri
 
 export interface BatchTagCategory {
   id: string            // e.g., 'missed-N-gram'
-  label: string         // e.g., 'Pattern Miss'
+  label: string         // e.g., 'Missed Syntax'
   color: string         // Tag color
   count: number         // Preview count (striped) - for confirm buttons
   inputCount?: number   // Input count for "Tag All Unsure" button (defaults to count)

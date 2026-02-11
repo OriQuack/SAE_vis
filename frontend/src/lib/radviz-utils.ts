@@ -24,8 +24,8 @@ export const RADVIZ_CIRCLE = {
 /**
  * RadViz anchor positions at 120° intervals on a circle.
  * - Top (90°): Noisy Activation
- * - Bottom-left (210°): Pattern Miss
- * - Bottom-right (330°): Context Miss
+ * - Bottom-left (210°): Missed Syntax
+ * - Bottom-right (330°): Missed Context
  *
  * Formula: (cx + r*cos(θ), cy + r*sin(θ)) where θ is in radians
  */
@@ -255,8 +255,8 @@ export function computeRadVizPositions(
 export function getAnchorDisplayName(category: string): string {
   switch (category) {
     case 'noisy-activation': return 'Noisy Activation'
-    case 'missed-N-gram': return 'Pattern Miss'
-    case 'missed-context': return 'Context Miss'
+    case 'missed-N-gram': return 'Missed Syntax'
+    case 'missed-context': return 'Missed Context'
     default: return category
   }
 }

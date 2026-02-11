@@ -20,7 +20,7 @@ import { ThresholdHandles } from './ThresholdHandles'
  * Terminal segments get striped pattern overlay
  */
 const isTerminalSegment = (tagName: string): boolean => {
-  const terminalTags = ['Fragmented', 'Well-Explained']
+  const terminalTags = ['Incoherent Splitting', 'Well-Explained']
   return terminalTags.includes(tagName)
 }
 
@@ -191,7 +191,7 @@ const SankeyNodeHistogram: React.FC<SankeyNodeHistogramProps> = ({
               const baseFill = isTerminal ? UNSURE_GRAY : fillColor
 
               // Get the appropriate stripe pattern based on tag name
-              const stripePattern = segmentTagName === 'Fragmented'
+              const stripePattern = segmentTagName === 'Incoherent Splitting'
                 ? 'url(#terminal-stripes-fragmented)'
                 : segmentTagName === 'Well-Explained'
                   ? 'url(#terminal-stripes-well-explained)'

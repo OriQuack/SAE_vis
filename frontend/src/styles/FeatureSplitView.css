@@ -7,7 +7,7 @@
  *     Main column:
  *       Content area (2 rows):
  *         Row 1 (top 50%): [StageAccordionList][FeatureSplitPairViewer]
- *         Row 2 (bottom 50%): [Monosemantic list][Histogram][Fragmented list]
+ *         Row 2 (bottom 50%): [Monosemantic list][Histogram][Incoherent Splitting list]
  *     Next Stage column: spans full height
  *   Note: SelectionPanel is rendered at App level (left column alongside Sankey)
  * ============================================================================ */

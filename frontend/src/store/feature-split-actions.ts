@@ -476,7 +476,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
               histogramData,
               selectThreshold,
               rejectThreshold,
-              tagLabel: 'Fragmented',
+              tagLabel: 'Incoherent Splitting',
               isLoading: false,
               flipTracking: updatedFlipTracking,
               committeeVotes
@@ -656,7 +656,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           histogramData: null,
           selectThreshold,
           rejectThreshold,
-          tagLabel: 'Fragmented',
+          tagLabel: 'Incoherent Splitting',
           isLoading: false,
           flipTracking: null,
           committeeVotes: null

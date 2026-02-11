@@ -98,8 +98,8 @@ export function getSelectionColors(stage: TableStage): {
     // Stage 1: Feature Splitting (pairs)
     const colors = getBadgeColors(TAG_CATEGORY_FEATURE_SPLITTING)
     return {
-      confirmed: colors['Fragmented'] || '#F0E442',          // Yellow
-      autoSelected: colors['Fragmented'] || '#F0E442',       // Yellow (stripe added in render)
+      confirmed: colors['Incoherent Splitting'] || '#F0E442',          // Yellow
+      autoSelected: colors['Incoherent Splitting'] || '#F0E442',       // Yellow (stripe added in render)
       rejected: colors['Monosemantic'] || '#999999',         // Gray
       autoRejected: colors['Monosemantic'] || '#999999',     // Gray (stripe added in render)
       unsure: UNSURE_GRAY
@@ -119,9 +119,9 @@ export function getSelectionColors(stage: TableStage): {
     const colors = getBadgeColors(TAG_CATEGORY_CAUSE)
     return {
       confirmed: colors['Noisy Activation'] || '#CC79A7',    // Purple
-      autoSelected: colors['Pattern Miss'] || '#E69F00',    // Orange (stripe added in render)
-      rejected: colors['Context Miss'] || '#D55E00',       // Vermillion
-      autoRejected: colors['Context Miss'] || '#D55E00',   // Vermillion
+      autoSelected: colors['Missed Syntax'] || '#E69F00',    // Orange (stripe added in render)
+      rejected: colors['Missed Context'] || '#D55E00',       // Vermillion
+      autoRejected: colors['Missed Context'] || '#D55E00',   // Vermillion
       unsure: UNSURE_GRAY
     }
   }

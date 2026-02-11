@@ -112,7 +112,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     // Stage-specific tag names
     const tagNames: Record<TableStage, { confirmed: string; rejected: string }> = {
       stage1: {
-        confirmed: 'Fragmented',
+        confirmed: 'Incoherent Splitting',
         rejected: 'Monosemantic'
       },
       stage2: {
@@ -389,16 +389,16 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     // Get colors for each cause category from tag-system
     const causeColors = {
       noisyActivation: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#CC79A7',
-      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#E69F00',
-      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#D55E00',
+      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#E69F00',
+      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#D55E00',
       wellExplained: getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#009E73',
       unsure: stageColors.unsure
     }
 
     // Define cause categories in render order
     const causeCategories = [
-      { key: 'missedNgram', label: 'Pattern Miss', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
-      { key: 'missedContext', label: 'Context Miss', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
+      { key: 'missedNgram', label: 'Missed Syntax', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
+      { key: 'missedContext', label: 'Missed Context', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
       { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
       { key: 'wellExplained', label: 'Well-Explained', manual: causeCounts.wellExplained, auto: causeCounts.wellExplainedAuto },
     ]

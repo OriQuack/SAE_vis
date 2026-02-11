@@ -112,7 +112,7 @@ export interface ThresholdTaggingPanelProps {
 
   // List configuration (labels differ per stage)
   leftListLabel: string    // e.g., "Monosemantic" or "Need Revision"
-  rightListLabel: string   // e.g., "Fragmented" or "Well-Explained"
+  rightListLabel: string   // e.g., "Incoherent Splitting" or "Well-Explained"
 
   // Histogram passthrough
   histogramProps: {
@@ -373,7 +373,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     // Left list = will be rejected, Right list = will be selected
     let tagName: string
     if (selectionState === 'selected') {
-      tagName = rightListLabel  // Already Fragmented
+      tagName = rightListLabel  // Already tagged (e.g., Incoherent Splitting)
     } else if (selectionState === 'rejected') {
       tagName = leftListLabel   // Already Monosemantic
     } else {
@@ -458,8 +458,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   // Map CauseCategory to display tag names
   const CAUSE_TAG_NAMES: Record<CauseCategory, string> = {
     'noisy-activation': 'Noisy Activation',
-    'missed-N-gram': 'Pattern Miss',
-    'missed-context': 'Context Miss',
+    'missed-N-gram': 'Missed Syntax',
+    'missed-context': 'Missed Context',
     'well-explained': 'Well-Explained'
   }
 

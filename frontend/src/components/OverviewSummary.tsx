@@ -14,8 +14,8 @@ interface OverviewSummaryProps {
 
 // Tag display names for Stage 3 causes (well-explained merges to Stage 2)
 const CAUSE_TAG_CONFIG: Record<string, { display: string }> = {
-  'missed-N-gram': { display: 'Pattern Miss' },
-  'missed-context': { display: 'Context Miss' },
+  'missed-N-gram': { display: 'Missed Syntax' },
+  'missed-context': { display: 'Missed Context' },
   'noisy-activation': { display: 'Noisy Activation' }
 }
 
@@ -36,11 +36,11 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
   // Manual = click source (direct user clicks), Auto = threshold or predicted
   const stage1Counts = useMemo(() => {
     const counts = {
-      Fragmented: { manual: 0, auto: 0 },
+      'Incoherent Splitting': { manual: 0, auto: 0 },
       Monosemantic: { manual: 0, auto: 0 }
     }
     pairSelectionStates.forEach((state, key) => {
-      const tag = state === 'selected' ? 'Fragmented' : 'Monosemantic'
+      const tag = state === 'selected' ? 'Incoherent Splitting' : 'Monosemantic'
       const isManual = pairSelectionSources.get(key) === 'click'
       counts[tag][isManual ? 'manual' : 'auto']++
     })
@@ -119,9 +119,9 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
           <div className="subheader">1. Detect Feature Splitting</div>
           <div className="overview-summary__tags">
             {renderTagRow(
-              'Fragmented',
-              getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#9ca3af',
-              stage1Counts.Fragmented
+              'Incoherent Splitting',
+              getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#9ca3af',
+              stage1Counts['Incoherent Splitting']
             )}
             {renderTagRow(
               'Monosemantic',

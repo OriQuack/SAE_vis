@@ -654,7 +654,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />
-                              Fragmented: {fragmentedCount}
+                              Incoherent Splitting: {fragmentedCount}
                             </span>
                           </div>
                         </div>
@@ -755,11 +755,11 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                           <div className="commit-hover-tooltip__counts">
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.autoSelected }} />
-                              Pattern Miss: {missedNgramCount}
+                              Missed Syntax: {missedNgramCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
-                              Context Miss: {missedContextCount}
+                              Missed Context: {missedContextCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.confirmed }} />

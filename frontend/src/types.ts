@@ -76,7 +76,7 @@ export type SankeyNodeType = 'regular' | 'segment' | 'terminal'
  * Node segment for progressive reveal - represents a hidden child in a segment node
  */
 export interface NodeSegment {
-  tagName: string         // Tag name (e.g., "Monosemantic", "Fragmented")
+  tagName: string         // Tag name (e.g., "Monosemantic", "Incoherent Splitting")
   featureIds: Set<number> // Features in this segment
   featureCount: number    // Number of features
   color: string          // Hex color for this tag

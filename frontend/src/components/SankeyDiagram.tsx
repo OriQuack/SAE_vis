@@ -34,7 +34,7 @@ import '../styles/SankeyDiagram.css'
  * Terminal segments get striped pattern overlay
  */
 const isTerminalSegment = (tagName: string): boolean => {
-  const terminalTags = ['Fragmented', 'Well-Explained']
+  const terminalTags = ['Incoherent Splitting', 'Well-Explained']
   return terminalTags.includes(tagName)
 }
 
@@ -279,7 +279,7 @@ const VerticalBarSankeyNode: React.FC<{
                   width={(node.x1 || 0) - (node.x0 || 0)}
                   height={segment.height}
                   rx={2}
-                  fill={segment.label === 'Fragmented'
+                  fill={segment.label === 'Incoherent Splitting'
                     ? 'url(#terminal-stripes-fragmented)'
                     : 'url(#terminal-stripes-well-explained)'}
                   stroke="none"
@@ -606,7 +606,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
     tagName = 'Well-Explained'
   } else {
     tagCategory = TAG_CATEGORY_FEATURE_SPLITTING
-    tagName = 'Fragmented'
+    tagName = 'Incoherent Splitting'
   }
   const tagColor = getTagColor(tagCategory, tagName) || (currentStage >= 2 ? SANKEY_COLORS.FALLBACK_TAG_STAGE2 : SANKEY_COLORS.FALLBACK_TAG_STAGE1)
 
@@ -695,7 +695,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
             {/* Stripe patterns for terminal segments - colored stripes on gray background */}
             {/* Uses STRIPE_PATTERN constants for unified styling */}
             {/* SVG patternTransform uses negative rotation to match CSS gradient visually */}
-            {/* Pattern for Fragmented (Stage 1 terminal) */}
+            {/* Pattern for Incoherent Splitting (Stage 1 terminal) */}
             <pattern
               id="terminal-stripes-fragmented"
               patternUnits="userSpaceOnUse"
@@ -706,7 +706,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               <rect
                 width={STRIPE_PATTERN.stripeWidth}
                 height={STRIPE_PATTERN.height}
-                fill={addOpacityToHex(getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442', STRIPE_PATTERN.opacity)}
+                fill={addOpacityToHex(getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442', STRIPE_PATTERN.opacity)}
               />
             </pattern>
             {/* Pattern for Well-Explained (Stage 2 terminal) */}
@@ -982,9 +982,9 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
                 // Check if this is a previous stage terminal node
-                // Stage 1 terminals (Fragmented, Monosemantic) → smaller at Stage 2+
+                // Stage 1 terminals (Incoherent Splitting, Monosemantic) → smaller at Stage 2+
                 // Stage 2 terminals (Well-Explained, Need Revision) → smaller at Stage 3+
-                const regularIsStage1Terminal = node.name.includes('Fragmented') || node.name.includes('Monosemantic')
+                const regularIsStage1Terminal = node.name.includes('Incoherent Splitting') || node.name.includes('Monosemantic')
                 const regularIsStage2Terminal = node.name.includes('Well-Explained') || node.name.includes('Need Revision')
                 const regularIsPreviousStageTerminal =
                   (regularIsStage1Terminal && maxStage >= 2) ||

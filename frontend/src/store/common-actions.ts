@@ -534,7 +534,7 @@ export const createCommonActions = (set: any, get: any) => ({
         histogramData: hs.histogramData,
         selectThreshold: hs.selectThreshold,
         rejectThreshold: hs.rejectThreshold,
-        tagLabel: 'Fragmented',
+        tagLabel: 'Incoherent Splitting',
         isLoading: false,
         flipTracking: hs.flipTracking
       }
@@ -609,7 +609,7 @@ export const createCommonActions = (set: any, get: any) => ({
         console.log('[Store.activateCategoryTable] Returning to Stage 1 from Stage 2+, selecting root, setting revisiting flag')
       } else {
         selectedNodeId = 'stage1_segment'
-        segmentIndex = 1  // Fragmented (second segment, >= 0.4)
+        segmentIndex = 1  // Incoherent Splitting (second segment, >= 0.4)
         // Clear flag when in normal Stage 1
         set({ isRevisitingStage1: false })
       }

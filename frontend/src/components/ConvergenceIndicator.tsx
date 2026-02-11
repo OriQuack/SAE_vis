@@ -66,24 +66,24 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
   // Color and label configuration for stacked bars based on stage
   const categoryConfig = useMemo((): { order: string[]; colors: Record<string, string>; labels: Record<string, string> } => {
     if (stage === 'stage3') {
-      // Order is bottom-to-top; visual top-to-bottom: Pattern Miss, Context Miss, Noisy Activation
+      // Order is bottom-to-top; visual top-to-bottom: Missed Syntax, Missed Context, Noisy Activation
       return {
         order: ['noisy-activation', 'missed-context', 'missed-N-gram', 'well-explained'],
         colors: {
           'well-explained': getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#4CAF50',
           'noisy-activation': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#FF5722',
-          'missed-N-gram': getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9C27B0',
-          'missed-context': getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#2196F3'
+          'missed-N-gram': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9C27B0',
+          'missed-context': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#2196F3'
         },
         labels: {
           'well-explained': 'Well-Explained',
           'noisy-activation': 'Noisy Activation',
-          'missed-N-gram': 'Pattern Miss',
-          'missed-context': 'Context Miss'
+          'missed-N-gram': 'Missed Syntax',
+          'missed-context': 'Missed Context'
         }
       }
     }
-    const selectedTag = stage === 'stage1' ? 'Fragmented' : 'Well-Explained'
+    const selectedTag = stage === 'stage1' ? 'Incoherent Splitting' : 'Well-Explained'
     const rejectedTag = stage === 'stage1' ? 'Monosemantic' : 'Need Revision'
     const categoryId = stage === 'stage1' ? TAG_CATEGORY_FEATURE_SPLITTING : TAG_CATEGORY_QUALITY
     return {

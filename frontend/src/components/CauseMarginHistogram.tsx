@@ -128,7 +128,7 @@ const HISTOGRAM_STRIPE = {
 }
 
 // Category order for stacking (bottom to top)
-// Visual top-to-bottom: unsure, well-explained, Pattern Miss, Context Miss, Noisy Activation
+// Visual top-to-bottom: unsure, well-explained, Missed Syntax, Missed Context, Noisy Activation
 const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
   'noisy-activation',
   'missed-context',
@@ -140,8 +140,8 @@ const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
 // Map internal category names to display tag names for color lookup
 const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
   'noisy-activation': 'Noisy Activation',
-  'missed-N-gram': 'Pattern Miss',
-  'missed-context': 'Context Miss',
+  'missed-N-gram': 'Missed Syntax',
+  'missed-context': 'Missed Context',
   'well-explained': 'Well-Explained'
 }
 
@@ -487,8 +487,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
   // Get category colors for placeholder display
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
-  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
 
   // Show placeholder when not enough tags for SVM training
   if (!canTrainSVM) {
@@ -504,10 +504,10 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               Noisy Activation: {manualTagCountsByCategory?.['noisy-activation'] || 0}/2
             </span>
             <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedNgramColor }}>
-              Pattern Miss: {manualTagCountsByCategory?.['missed-N-gram'] || 0}/2
+              Missed Syntax: {manualTagCountsByCategory?.['missed-N-gram'] || 0}/2
             </span>
             <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedContextColor }}>
-              Context Miss: {manualTagCountsByCategory?.['missed-context'] || 0}/2
+              Missed Context: {manualTagCountsByCategory?.['missed-context'] || 0}/2
             </span>
           </div>
         </div>

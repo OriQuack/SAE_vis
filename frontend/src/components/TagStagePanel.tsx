@@ -88,7 +88,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       if (hasSegments) {
         // Stage 1 active: Monosemantic segment (below threshold) is auto-considered
         return {
-          'Fragmented': fsCounts.fragmented,
+          'Incoherent Splitting': fsCounts.fragmented,
           'Monosemantic': fsCounts.monosemantic + (segmentCounts['Monosemantic'] || 0)
         };
       } else {
@@ -96,7 +96,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
         // Don't add fsCounts because when revisiting Stage 1, getSelectedNodeFeatures()
         // returns restored feature IDs, causing double-counting
         return {
-          'Fragmented': getNodeFeatureCount('fragmented_terminal'),
+          'Incoherent Splitting': getNodeFeatureCount('fragmented_terminal'),
           'Monosemantic': getNodeFeatureCount('monosemantic')
         };
       }
@@ -128,8 +128,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
       // Use cause counts from causeSelectionStates for all cause categories
       const cCounts = getCauseCounts();
       return {
-        'Pattern Miss': cCounts.missedNgram,
-        'Context Miss': cCounts.missedContext,
+        'Missed Syntax': cCounts.missedNgram,
+        'Missed Context': cCounts.missedContext,
         'Noisy Activation': cCounts.noisyActivation,
         'Well-Explained': cCounts.wellExplained
       };

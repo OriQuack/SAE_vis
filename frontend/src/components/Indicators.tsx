@@ -165,7 +165,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 // - Color controlled via --tag-color CSS variable
 
 interface TagButtonProps {
-  label: string              // Button text (e.g., "Fragmented", "Well-Explained")
+  label: string              // Button text (e.g., "Incoherent Splitting", "Well-Explained")
   variant: string            // CSS variant suffix (e.g., "fragmented", "well-explained")
   color: string              // Tag color for --tag-color CSS variable
   isSelected: boolean        // Whether button shows selected state
@@ -218,8 +218,8 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
 }) => {
   // Get colors from tag system
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
-  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Context Miss') || '#9ca3af'
-  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Pattern Miss') || '#9ca3af'
+  const missedContextColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
+  const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9ca3af'
 
   // Handle null scores - render placeholder
   if (!scores) {

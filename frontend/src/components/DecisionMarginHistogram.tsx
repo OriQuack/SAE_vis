@@ -74,7 +74,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   // Get mode-specific labels for threshold display
   const modeLabels = useMemo(() => {
     if (mode === 'pair') {
-      return { selected: 'Fragmented', rejected: 'Monosemantic' }
+      return { selected: 'Incoherent Splitting', rejected: 'Monosemantic' }
     } else {
       return { selected: 'Well-Explained', rejected: 'Need Revision' }
     }
@@ -517,12 +517,12 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   if (!histogramData && !isLoading) {
     // Get tag colors for highlighting based on mode
     const selectedColor = mode === 'pair'
-      ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Fragmented') || '#F0E442')
+      ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442')
       : (getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50')
     const rejectedColor = mode === 'pair'
       ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#D3D3D3')
       : (getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#FF9800')
-    const selectedLabel = mode === 'pair' ? 'Fragmented' : 'Well-Explained'
+    const selectedLabel = mode === 'pair' ? 'Incoherent Splitting' : 'Well-Explained'
     const rejectedLabel = mode === 'pair' ? 'Monosemantic' : 'Need Revision'
     const itemType = mode === 'pair' ? 'pairs' : 'features'
 
