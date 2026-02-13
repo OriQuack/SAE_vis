@@ -53,7 +53,6 @@ export interface CauseModeProps {
   }>
   unsureCount: number
   // Batch tagging handlers
-  onConfirmCategory: (categoryId: string) => void
   onConfirmAll: () => void
   onTagAllUnsure: () => void
 }
@@ -267,7 +266,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
                   disabled={!causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
-                  onConfirmCategory={causeProps.onConfirmCategory}
                   onConfirmAll={causeProps.onConfirmAll}
                   onTagAllUnsure={causeProps.onTagAllUnsure}
                 />

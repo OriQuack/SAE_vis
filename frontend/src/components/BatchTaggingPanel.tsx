@@ -32,9 +32,7 @@ export interface BatchTaggingPanelProps {
   disabled: boolean
 
   // Multi-class mode handlers (CauseView)
-  /** Handler for per-category confirm buttons */
-  onConfirmCategory?: (categoryId: string) => void
-  /** Handler for "Confirm All" bu  tton */
+  /** Handler for "Confirm All" button */
   onConfirmAll?: () => void
 
   // Binary mode handlers (ThresholdTaggingPanel)
@@ -58,7 +56,6 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
   categories,
   unsureCount,
   disabled,
-  onConfirmCategory,
   onConfirmAll,
   onApplyThreshold,
   thresholdCounts,
@@ -103,50 +100,6 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
       {/* Action Buttons */}
       <div className="batch-tagging__action-section">
         <div className="batch-tagging__action-row">
-          {/* Per-category confirm buttons */}
-          {onConfirmCategory && categories.map(cat => (
-            <button
-              key={cat.id}
-              className="batch-tagging__button batch-tagging__button--category"
-              onClick={() => onConfirmCategory(cat.id)}
-              disabled={disabled || cat.count === 0}
-              title={`Confirm all ${cat.label} predictions`}
-            >
-              <div className="batch-tagging__button-content">
-                <ThresholdHandleIcon
-                  className="batch-tagging__button-icon"
-                  orientation="horizontal"
-                  width={24}
-                  height={20}
-                />
-                <span className="batch-tagging__button-text">Confirm Confident {cat.label}</span>
-              </div>
-              <div className="batch-tagging__button-legend">
-                {cat.count > 0 ? (
-                  <>
-                    <span className="batch-tagging__legend-item">
-                      <span
-                        className="action-button__legend-swatch action-button__legend-swatch--striped"
-                        style={{ '--swatch-color': cat.color } as React.CSSProperties}
-                      />
-                      <span className="batch-tagging__legend-count">{formatCount(cat.count)}</span>
-                    </span>
-                    <span className="batch-tagging__legend-arrow">→</span>
-                    <span className="batch-tagging__legend-item">
-                      <span
-                        className="action-button__legend-swatch"
-                        style={{ backgroundColor: cat.color }}
-                      />
-                      <span className="batch-tagging__legend-count">{formatCount(cat.count)}</span>
-                    </span>
-                  </>
-                ) : (
-                  <span className="batch-tagging__legend-empty">&nbsp;</span>
-                )}
-              </div>
-            </button>
-          ))}
-
           {/* Confirm All button (multi-class mode) */}
           {onConfirmAll && (
             <button

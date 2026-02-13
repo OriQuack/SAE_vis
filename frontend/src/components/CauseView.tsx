@@ -952,26 +952,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
 
-  // Tag confident features that are predicted as the specified category
-  // Only confirms features already predicted as that category (doesn't retag other categories)
-  const handleTagSelectedAs = useCallback((category: 'noisy-activation' | 'missed-context' | 'missed-N-gram') => {
-    console.log('[CauseView] Confirm Confident Features As:', category)
-
-    // 1. Create new commit FIRST (copies current state with manual tags only)
-    createCommit('tagAll')
-
-    // 2. Apply tags only to features that are already predicted as this category
-    filteredFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      // Skip user-confirmed features - preserve user's explicit choices
-      if (isUserConfirmed(source)) return
-      // Only tag features that match the target category
-      const predictedCategory = causeSelectionStates.get(featureId)
-      if (predictedCategory !== category) return
-      setCauseCategory(featureId, category)
-    })
-  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
-
   // Tag remaining untagged features by decision boundary (highest margin category)
   // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
   // Well-Explained is tagged individually, not by SVM batch tagging
@@ -1517,7 +1497,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                     }
                   ],
                   unsureCount: remainingComposition.unsure,
-                  onConfirmCategory: (categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram'),
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
                 }}

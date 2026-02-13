@@ -90,6 +90,17 @@
   flex-shrink: 0;
 }
 
+/* Non-cause mode: batch-column is direct child, fill available height */
+.threshold-tagging-panel__batch-section > .threshold-tagging-panel__batch-column {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Cause mode: single-column layout for batch buttons */
+.threshold-tagging-panel__cause-batch-row .batch-tagging__action-row {
+  grid-template-columns: 1fr;
+}
+
 /* Subheader uses shared .subheader class from base.css */
 .threshold-tagging-panel__batch-column .subheader {
   padding: 0;
