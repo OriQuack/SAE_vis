@@ -5,9 +5,9 @@ import * as api from '../api'
 import { getFeatureConsensus } from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
-import { TagBadge, TagButton } from './Indicators'
+import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
-import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useListNavigation, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
+import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
@@ -72,6 +72,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
 
+  // Show only QBC disagreement items toggle
+  const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
+
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
@@ -90,12 +93,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Track visited representative features for smart pulsing
   const [visitedRepIds, setVisitedRepIds] = useState<Set<number>>(new Set())
 
-  // List navigation hook - handles switching between all/reject/select lists
-  const resetFeatureIndex = useCallback(() => setCurrentFeatureIndex(0), [])
-  const { activeListSource, setActiveListSource } = useListNavigation({
-    isDraggingThreshold,
-    onReset: resetFeatureIndex
-  })
+  // Active list source is always 'all' (boundary lists removed)
+  const activeListSource = 'all' as const
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -226,8 +225,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     setSortDirection,
     sortedItems: sortedFeatures,
     columnHeaderProps,
-    getDisplayScore,
-    isTemplateSort
+    getDisplayScore
   } = useSortableList({
     items: featureList,
     getItemKey: (f: typeof featureList[0]) => f.featureId,
@@ -253,25 +251,22 @@ const QualityView: React.FC<QualityViewProps> = ({
     setSortMode(newMode)
     setSortDirection(newDir)
     setCurrentFeatureIndex(0)
-    setActiveListSource('all')
     setSelectedFeatureIdState(null)  // Reset stored state on manual stage change
-  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection])
 
   const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
     const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
     setSortMode(newMode)
     setSortDirection(newDir)
     setCurrentFeatureIndex(0)
-    setActiveListSource('all')
-  }, [bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+  }, [bootstrapDirection, setSortMode, setSortDirection])
 
   const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
     if (bootstrapMode === 'byScore') {
       setSortDirection(direction)
       setCurrentFeatureIndex(0)
-      setActiveListSource('all')
     }
-  }, [bootstrapMode, setSortDirection, setActiveListSource])
+  }, [bootstrapMode, setSortDirection])
 
   // Combined handler for bootstrap option cycling - receives mode only (direction controlled by column header)
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
@@ -279,18 +274,40 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSortMode('diversity')
     } else {
       setSortMode('default')
-      // Set default direction for Quality Score: asc (lowest quality first)
       setSortDirection('asc')
     }
     setCurrentFeatureIndex(0)
-    setActiveListSource('all')
-  }, [setSortMode, setSortDirection, setActiveListSource])
+  }, [setSortMode, setSortDirection])
 
-  // Filter features based on hideTagged toggle
+  // Memoized QBC disagreement lookup - identifies features where RF/MLP disagree with SVM
+  const disagreementLookup = useMemo(() => {
+    const lookup = new Map<string, { isDisagreement: boolean; tooltipText: string }>()
+    const votes = tagAutomaticState?.committeeVotes
+    if (!votes) return lookup
+    votes.forEach((info, key) => {
+      const disagreeing: string[] = []
+      if (info.rf_prediction !== info.svm_prediction) disagreeing.push('RF')
+      if (info.mlp_prediction !== info.svm_prediction) disagreeing.push('MLP')
+      if (disagreeing.length > 0) {
+        lookup.set(key, {
+          isDisagreement: true,
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\n${disagreeing.join(', ')}: ${info.svm_prediction === 1 ? 'Rejected' : 'Selected'}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+        })
+      }
+    })
+    return lookup
+  }, [tagAutomaticState?.committeeVotes])
+
+  const disagreementIds = useMemo(() => new Set(disagreementLookup.keys()), [disagreementLookup])
+
+  // Filter features based on hideTagged and showDisagreementOnly toggles
   const displayFeatures = useMemo(() => {
-    if (!hideTagged) return sortedFeatures
-    return sortedFeatures.filter(f => !featureSelectionStates.has(f.featureId))
-  }, [sortedFeatures, hideTagged, featureSelectionStates])
+    return sortedFeatures.filter(f => {
+      if (hideTagged && featureSelectionStates.has(f.featureId)) return false
+      if (showDisagreementOnly && !disagreementIds.has(String(f.featureId))) return false
+      return true
+    })
+  }, [sortedFeatures, hideTagged, featureSelectionStates, showDisagreementOnly, disagreementIds])
 
   // Extract feature IDs from displayFeatures for scroll hook
   const sortedFilteredFeatureIds = useMemo(() => {
@@ -298,7 +315,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [displayFeatures])
 
   // Main list scroll hook - scroll to item when clicked in subviews
-  const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
+  const { scrollTargetIndex } = useMainListScroll({
     sortedFilteredList: sortedFilteredFeatureIds,
     sortMode,
     setSortMode,
@@ -310,10 +327,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   useEffect(() => {
     if (prevHideTaggedRef.current !== hideTagged) {
       setCurrentFeatureIndex(0)
-      setActiveListSource('all')
       prevHideTaggedRef.current = hideTagged
     }
-  }, [hideTagged, setActiveListSource])
+  }, [hideTagged])
 
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting
@@ -321,10 +337,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   useEffect(() => {
     if (prevSortRef.current.sortMode !== sortMode || prevSortRef.current.sortDirection !== sortDirection) {
       setCurrentFeatureIndex(0)
-      setActiveListSource('all')
       prevSortRef.current = { sortMode, sortDirection }
     }
-  }, [sortMode, sortDirection, setActiveListSource])
+  }, [sortMode, sortDirection])
 
   // Helper function to compute quality counts from featureSelectionStates
   const getQualityCounts = useCallback((): QualityCommitCounts => {
@@ -476,110 +491,53 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [tagAutomaticState?.flipTracking?.flipHistory])
 
   // ============================================================================
-  // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
+  // PREVIEW KEYS - Items past threshold handles that will be auto-tagged
   // ============================================================================
 
-  type FeatureWithMetadata = {
-    featureId: number
-    qualityScore: number
-    row: FeatureTableRow | null
-  }
-
-  // Keep previous boundary items during histogram reload
-  const prevBoundaryItemsRef = useRef<{ rejectBelow: FeatureWithMetadata[], selectAbove: FeatureWithMetadata[] }>({ rejectBelow: [], selectAbove: [] })
-
-  const boundaryItems = useMemo(() => {
-    if (!tagAutomaticState?.histogramData) {
-      if (prevBoundaryItemsRef.current.rejectBelow.length > 0 || prevBoundaryItemsRef.current.selectAbove.length > 0) {
-        return prevBoundaryItemsRef.current
-      }
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
-
-    if (featureList.length === 0) {
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    // Filter features that have SVM similarity scores
-    const featuresWithScores = featureList.filter((f: FeatureWithMetadata) => similarityScores.has(f.featureId))
-
-    if (featuresWithScores.length === 0) {
-      return { rejectBelow: [] as FeatureWithMetadata[], selectAbove: [] as FeatureWithMetadata[] }
-    }
-
-    // REJECT THRESHOLD - Below reject: features < rejectThreshold, sorted descending (closest to threshold first)
-    const rejectBelow = featuresWithScores
-      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! < rejectThreshold)
-      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(b.featureId)! - similarityScores.get(a.featureId)!)
-
-    // SELECT THRESHOLD - Above select: features >= selectThreshold, sorted ascending (closest to threshold first)
-    const selectAbove = featuresWithScores
-      .filter((f: FeatureWithMetadata) => similarityScores.get(f.featureId)! >= selectThreshold)
-      .sort((a: FeatureWithMetadata, b: FeatureWithMetadata) => similarityScores.get(a.featureId)! - similarityScores.get(b.featureId)!)
-
-    const result = { rejectBelow, selectAbove }
-    prevBoundaryItemsRef.current = result
-    return result
-  }, [featureList, tagAutomaticState, similarityScores])
-
-  // Create Sets of preview feature IDs (items in threshold regions that will be auto-tagged)
-  // Separate sets to know which direction they'll be tagged
   const previewRejectIds = useMemo(() => {
     const ids = new Set<number>()
-    boundaryItems.rejectBelow.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
+    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
+    if (!tagAutomaticState?.histogramData) return ids
+    featureList.forEach((f: { featureId: number }) => {
+      const score = similarityScores.get(f.featureId)
+      if (score !== undefined && score < rejectThreshold) ids.add(f.featureId)
+    })
     return ids
-  }, [boundaryItems.rejectBelow])
+  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold])
 
   const previewSelectIds = useMemo(() => {
     const ids = new Set<number>()
-    boundaryItems.selectAbove.forEach((f: FeatureWithMetadata) => ids.add(f.featureId))
+    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
+    if (!tagAutomaticState?.histogramData) return ids
+    featureList.forEach((f: { featureId: number }) => {
+      const score = similarityScores.get(f.featureId)
+      if (score !== undefined && score >= selectThreshold) ids.add(f.featureId)
+    })
     return ids
-  }, [boundaryItems.selectAbove])
+  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold])
 
   // ============================================================================
   // SELECTED FEATURE DATA (for right panel)
   // ============================================================================
 
-  // Compute the active feature list based on which list has focus
-  const activeFeatureList = useMemo(() => {
-    if (activeListSource === 'reject') {
-      return boundaryItems.rejectBelow
-    }
-    if (activeListSource === 'select') {
-      return boundaryItems.selectAbove
-    }
-    return displayFeatures
-  }, [activeListSource, displayFeatures, boundaryItems.rejectBelow, boundaryItems.selectAbove])
-
   // Compute selected feature ID - prefer stored state, fallback to index-based
-  // This is the source of truth for which feature is selected
   const selectedFeatureId = useMemo(() => {
-    // Prefer stored state when available (survives mode switches)
     if (selectedFeatureIdState !== null) {
       return selectedFeatureIdState
     }
-    // Fallback to index-based selection
-    const item = activeFeatureList[currentFeatureIndex]
+    const item = displayFeatures[currentFeatureIndex]
     if (!item) return null
-    return 'featureId' in item ? item.featureId : null
-  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+    return item.featureId
+  }, [selectedFeatureIdState, displayFeatures, currentFeatureIndex])
 
   // Sync currentFeatureIndex when lists change (after mode switch)
-  // This keeps the index pointing to the stored selected item
   useEffect(() => {
     if (selectedFeatureIdState === null) return
-
-    // Find the stored item in the current active list
-    const newIndex = activeFeatureList.findIndex(
-      (item: FeatureWithMetadata) => item.featureId === selectedFeatureIdState
-    )
+    const newIndex = displayFeatures.findIndex(item => item.featureId === selectedFeatureIdState)
     if (newIndex !== -1 && newIndex !== currentFeatureIndex) {
       setCurrentFeatureIndex(newIndex)
     }
-  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+  }, [selectedFeatureIdState, displayFeatures, currentFeatureIndex])
 
   // Fetch consensus data when selected feature changes
   useEffect(() => {
@@ -593,32 +551,16 @@ const QualityView: React.FC<QualityViewProps> = ({
       .catch(() => setConsensus(null))
   }, [selectedFeatureId])
 
-  // Compute highlight index for main list (always show where selected item is)
+  // Compute highlight index for main list
   const mainListHighlightIndex = useMemo(() => {
     if (selectedFeatureId === null) return -1
-    return displayFeatures.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
+    return displayFeatures.findIndex(f => f.featureId === selectedFeatureId)
   }, [selectedFeatureId, displayFeatures])
 
-  // Compute highlight index for left boundary list (reject/Need Revision)
-  const leftBoundaryHighlightIndex = useMemo(() => {
-    if (selectedFeatureId === null) return -1
-    return boundaryItems.rejectBelow.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
-  }, [selectedFeatureId, boundaryItems.rejectBelow])
-
-  // Compute highlight index for right boundary list (select/Well-Explained)
-  const rightBoundaryHighlightIndex = useMemo(() => {
-    if (selectedFeatureId === null) return -1
-    return boundaryItems.selectAbove.findIndex((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
-  }, [selectedFeatureId, boundaryItems.selectAbove])
-
-  // Effect: Auto-switch from diversity mode when selected feature is not visible in main list
-  // This ensures the highlight always appears when a feature is selected from subviews
+  // Effect: Auto-switch from diversity mode when selected feature is not visible
   useEffect(() => {
     if (selectedFeatureId === null || sortMode !== 'diversity') return
-
-    const indexInMainList = mainListHighlightIndex
-    if (indexInMainList === -1) {
-      // Selected feature not visible in medoids list, switch to Learn mode
+    if (mainListHighlightIndex === -1) {
       setSortMode('decisionMargin')
       setSortDirection('asc')
     }
@@ -627,25 +569,16 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Get the currently selected feature's data
   const selectedFeatureData = useMemo(() => {
     if (selectedFeatureId === null) return null
-    const feature = displayFeatures.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
-    if (!feature) {
-      // Feature might be in boundary lists but not in displayFeatures (e.g., when hideTagged is on)
-      const boundaryFeature = boundaryItems.rejectBelow.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
-        || boundaryItems.selectAbove.find((f: FeatureWithMetadata) => f.featureId === selectedFeatureId)
-      if (!boundaryFeature) return null
-      return {
-        featureId: boundaryFeature.featureId,
-        row: boundaryFeature.row,
-        activation: activationExamples[boundaryFeature.featureId] || null
-      }
-    }
+    const feature = displayFeatures.find(f => f.featureId === selectedFeatureId)
+      || sortedFeatures.find(f => f.featureId === selectedFeatureId)
+    if (!feature) return null
 
     return {
       featureId: feature.featureId,
       row: feature.row,
       activation: activationExamples[feature.featureId] || null
     }
-  }, [selectedFeatureId, displayFeatures, boundaryItems.rejectBelow, boundaryItems.selectAbove, activationExamples])
+  }, [selectedFeatureId, displayFeatures, sortedFeatures, activationExamples])
 
   // Compute pairwise similarities for ExplainerComparisonGrid
   const pairwiseSimilarities = useMemo(() => {
@@ -777,8 +710,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleResetToFirst = useCallback(() => {
     setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(0)
-    setActiveListSource('all')
-  }, [setActiveListSource])
+  }, [])
 
   // Post-tagging navigation hook - centralized logic matching FeatureSplitView
   const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
@@ -876,8 +808,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSelectedFeatureIdState(feature.featureId)
     }
     setCurrentFeatureIndex(index)
-    setActiveListSource('all')
-  }, [displayFeatures, setActiveListSource])
+  }, [displayFeatures])
 
   // Render feature item for the ScrollableItemList
   // Score display is handled by ScrollableItemList's sortConfig
@@ -904,29 +835,27 @@ const QualityView: React.FC<QualityViewProps> = ({
     // Show stripe for: already auto-tagged OR in preview threshold regions
     const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
-    return (
-      <TagBadge
-        featureId={feature.featureId}
-        tagName={tagName}
-        tagCategoryId={TAG_CATEGORY_QUALITY}
-        onClick={() => handleFeatureListClick(index)}
-        fullWidth={true}
-        isAuto={isAutoOrPreview}
-      />
-    )
-  }, [featureSelectionStates, featureSelectionSources, previewRejectIds, previewSelectIds, handleFeatureListClick])
+    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(String(feature.featureId)) : undefined
 
-  const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
-    const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
-    if (index >= 0 && index < items.length) {
-      const featureId = items[index].featureId
-      // Set feature ID first (survives mode switches)
-      setSelectedFeatureIdState(featureId)
-      setActiveListSource(listType === 'left' ? 'reject' : 'select')
-      setCurrentFeatureIndex(index)
-      scrollToItemInMainList(featureId)
-    }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, setActiveListSource, scrollToItemInMainList])
+    return (
+      <>
+        {disagreementInfo && (
+          <DisagreementIndicator
+            isDisagreement={disagreementInfo.isDisagreement}
+            tooltipText={disagreementInfo.tooltipText}
+          />
+        )}
+        <TagBadge
+          featureId={feature.featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_QUALITY}
+          onClick={() => handleFeatureListClick(index)}
+          fullWidth={true}
+          isAuto={isAutoOrPreview}
+        />
+      </>
+    )
+  }, [featureSelectionStates, featureSelectionSources, previewRejectIds, previewSelectIds, handleFeatureListClick, disagreementLookup, activeStage])
 
   // ============================================================================
   // APPLY TAGS HANDLER
@@ -944,8 +873,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     // 3. Switch to decision margin sort and reset
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
-    setActiveListSource('all')
-  }, [createCommit, applySimilarityTags, setSortMode, setActiveListSource])
+  }, [createCommit, applySimilarityTags, setSortMode])
 
   // ============================================================================
   // TAG ALL HANDLERS
@@ -1085,12 +1013,17 @@ const QualityView: React.FC<QualityViewProps> = ({
               byScoreLabel="Quality Score"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
+              showDisagreementOnly={showDisagreementOnly}
+              onShowDisagreementOnlyChange={setShowDisagreementOnly}
+              hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
-                label: sortMode === 'diversity' && !svmTrainingStarted
-                  ? 'Most Critical Features'
-                  : hideTagged
-                    ? 'Untagged Features'
-                    : 'All Features',
+                label: showDisagreementOnly
+                  ? 'Disagreement Features'
+                  : sortMode === 'diversity' && !svmTrainingStarted
+                    ? 'Most Critical Features'
+                    : hideTagged
+                      ? 'Untagged Features'
+                      : 'All Features',
                 count: displayFeatures.length
               }]}
               columnHeader={columnHeaderProps}
@@ -1317,8 +1250,6 @@ const QualityView: React.FC<QualityViewProps> = ({
           <ThresholdTaggingPanel
             mode="feature"
             tagCategoryId={TAG_CATEGORY_QUALITY}
-            leftFeatures={boundaryItems.rejectBelow}
-            rightFeatures={boundaryItems.selectAbove}
             leftListLabel="Need Revision"
             rightListLabel="Well-Explained"
             histogramProps={{
@@ -1326,13 +1257,6 @@ const QualityView: React.FC<QualityViewProps> = ({
             }}
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}
-            onListItemClick={handleBoundaryListClick}
-            activeListSource={activeListSource}
-            currentIndex={currentFeatureIndex}
-            leftHighlightIndex={leftBoundaryHighlightIndex}
-            rightHighlightIndex={rightBoundaryHighlightIndex}
-            isTemplateSort={isTemplateSort}
-            sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
           />
           </div>
         </div>

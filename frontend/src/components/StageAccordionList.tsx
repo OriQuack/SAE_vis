@@ -49,6 +49,11 @@ interface StageAccordionListProps<T> {
   hideTagged?: boolean
   onHideTaggedChange?: (value: boolean) => void
 
+  // QBC disagreement filter
+  showDisagreementOnly?: boolean
+  onShowDisagreementOnlyChange?: (value: boolean) => void
+  hasDisagreementData?: boolean  // Only show when committee votes available
+
   // List props (passed through to ScrollableItemList)
   variant?: ListVariant
   badges: { label: string; count: number | string }[]
@@ -92,6 +97,9 @@ export function StageAccordionList<T>({
   byScoreLabel = 'Score',
   hideTagged,
   onHideTaggedChange,
+  showDisagreementOnly,
+  onShowDisagreementOnlyChange,
+  hasDisagreementData = false,
   // List props
   variant,
   badges,
@@ -296,6 +304,18 @@ export function StageAccordionList<T>({
               ▶
             </button>
           </div>
+        )}
+
+        {/* QBC Disagreement filter (before spacer) */}
+        {activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange !== undefined && (
+          <label className="stage-selector__checkbox-label">
+            <input
+              type="checkbox"
+              checked={showDisagreementOnly ?? false}
+              onChange={(e) => onShowDisagreementOnlyChange(e.target.checked)}
+            />
+            Disagreement
+          </label>
         )}
 
         {/* Spacer + Hide Tagged (always on right) */}

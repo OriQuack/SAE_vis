@@ -3,7 +3,6 @@ import { getTagColor } from '../lib/tag-system'
 import { getStripeGradient } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
-import type { CommitteeVoteInfo } from '../types'
 
 // ============================================================================
 // TAG BADGE COMPONENT
@@ -115,6 +114,8 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
         fontWeight: 500,
         cursor: isClickable ? 'pointer' : 'default',
         transition: 'all 0.15s ease',
+        position: 'relative',
+        zIndex: 1,
         ...selectionStyle
       }}
       onMouseEnter={(e) => {
@@ -125,7 +126,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
       }}
       onMouseLeave={(e) => {
         if (isClickable) {
-          e.currentTarget.style.transform = 'scale(1)'
+          e.currentTarget.style.transform = ''
           e.currentTarget.style.boxShadow = '0 1px 2px rgba(0, 0, 0, 0.05)'
         }
       }}
@@ -286,31 +287,19 @@ export const CauseMetricBars: React.FC<CauseMetricBarsProps> = ({
 // Used in boundary lists to highlight potential outliers (QBC approach)
 
 interface DisagreementIndicatorProps {
-  voteInfo: CommitteeVoteInfo | null | undefined
-  isDisagreement: boolean  // Computed by parent based on list type
+  isDisagreement: boolean
+  tooltipText?: string    // Parent computes tooltip (works for binary & multi-class)
   className?: string
 }
 
 export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
-  voteInfo,
   isDisagreement,
+  tooltipText,
   className = ''
 }) => {
-  // Render nothing when no disagreement
-  if (!voteInfo || !isDisagreement) {
+  if (!isDisagreement) {
     return null
   }
-
-  // Determine which models disagree with SVM
-  const disagreeing: string[] = []
-  if (voteInfo.rf_prediction !== voteInfo.svm_prediction) {
-    disagreeing.push('RF')
-  }
-  if (voteInfo.mlp_prediction !== voteInfo.svm_prediction) {
-    disagreeing.push('MLP')
-  }
-
-  const tooltipText = `Models disagree: ${disagreeing.join(', ')} votes opposite to SVM\nVote entropy: ${voteInfo.vote_entropy.toFixed(3)}`
 
   // Render two layers: background (behind TagBadge) and left border (in front)
   return (

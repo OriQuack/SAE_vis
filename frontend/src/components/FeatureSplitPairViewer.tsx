@@ -8,7 +8,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
-import { useTaggingNavigation, type ListSource, type SortMode } from '../lib/tagging-hooks'
+import { useTaggingNavigation, type SortMode } from '../lib/tagging-hooks'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -92,7 +92,7 @@ interface FeatureSplitPairViewerProps {
   currentPair?: PairData | null  // Optional: pass directly to avoid recomputation during drag
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
-  activeListSource?: ListSource  // Current active list source for auto-advance logic
+  activeListSource?: string  // Current active list source for auto-advance logic
   sortMode?: SortMode  // Current sort mode
   isLoading?: boolean  // Whether similarity scores are being calculated
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort

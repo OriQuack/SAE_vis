@@ -67,11 +67,13 @@
 
 .batch-tagging__action-row {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
+  flex-wrap: wrap;
   gap: 8px;
   flex: 1;
   min-height: 0;
   justify-content: flex-start;
+  align-items: flex-start;
 }
 
 /* ============================================================================
@@ -82,9 +84,9 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  flex: 0 0 auto;
   height: 60px;
-  width: 100%;
+  flex: 1 1 calc(50% - 4px);
+  min-width: 140px;
   padding: 6px 10px;
   background: linear-gradient(to bottom, #ffffff, #f8f9fa);
   border: 1px solid #d1d5db;
@@ -117,6 +119,12 @@
 .batch-tagging__button:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* Per-category buttons: 3 per row in cause mode */
+.batch-tagging__button--category {
+  flex: 1 1 calc(33.33% - 6px);
+  min-width: 100px;
 }
 
 /* Button content row (icon + text) */

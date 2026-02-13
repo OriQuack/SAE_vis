@@ -5,17 +5,17 @@ import * as api from '../api'
 import { getFeatureConsensus } from '../api'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import StageAccordionList from './StageAccordionList'
-import { TagBadge, TagButton } from './Indicators'
+import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import { HighlightedExplanation } from './ExplanationPanel'
 import ConsensusSection from './ConsensusSection'
-import ThresholdTaggingPanel, { type CauseFeatureItem } from './ThresholdTaggingPanel'
+import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
-import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useListNavigation, useMainListScroll } from '../lib/tagging-hooks'
+import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import {
   calculateCauseMetricScores,
@@ -98,7 +98,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const causeFlipTracking = useVisualizationStore(state => state.causeFlipTracking)
   const causeCommitteeVotes = useVisualizationStore(state => state.causeCommitteeVotes)
-  const isDraggingThreshold = useVisualizationStore(state => state.isDraggingThreshold)
 
   // Stage navigation
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
@@ -112,17 +111,16 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
+  // Show only QBC disagreement features toggle
+  const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
   // Consensus data for selected feature
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
 
-  // Multi-list navigation: main list (all) or boundary list
-  const { activeListSource, setActiveListSource } = useListNavigation({
-    isDraggingThreshold,
-    onReset: () => setCurrentFeatureIndex(0)
-  })
+  // Active list source is always 'all' (boundary lists removed)
+  const activeListSource = 'all' as const
 
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
@@ -515,13 +513,36 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, causeSelectionSources, hideTagged])
 
+  // Memoized QBC disagreement lookup - identifies features where RF/MLP disagree with SVM
+  const disagreementLookup = useMemo(() => {
+    const lookup = new Map<number, { isDisagreement: boolean; tooltipText: string }>()
+    if (!causeCommitteeVotes) return lookup
+    causeCommitteeVotes.forEach((votes, featureId) => {
+      const disagreeing: string[] = []
+      if (votes.rf_category !== votes.svm_category) disagreeing.push(`RF: ${votes.rf_category}`)
+      if (votes.mlp_category !== votes.svm_category) disagreeing.push(`MLP: ${votes.mlp_category}`)
+      if (disagreeing.length > 0) {
+        lookup.set(featureId, {
+          isDisagreement: true,
+          tooltipText: `SVM: ${votes.svm_category}\n${disagreeing.join('\n')}`
+        })
+      }
+    })
+    return lookup
+  }, [causeCommitteeVotes])
+
+  const disagreementFeatureIds = useMemo(() => new Set(disagreementLookup.keys()), [disagreementLookup])
+
   // Apply visibility filters AFTER sorting
   const sortedFilteredFeatureList = useMemo(() => {
     if (sortMode === 'diversity') {
       // Diversity mode: hook already filtered to medoids, but still apply hideTagged filter
       const featureIds = sortedFeatureItems.map(item => item.featureId)
-      if (!hideTagged) return featureIds
-      return featureIds.filter(featureId => !isUserConfirmed(causeSelectionSources.get(featureId)))
+      return featureIds.filter(featureId => {
+        if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
+        if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
+        return true
+      })
     }
 
     // Other modes: apply visibility filters
@@ -529,6 +550,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       .map(item => item.featureId)
       .filter(featureId => {
         if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
+        if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
         // In decision margin mode (Top or Low), show all features regardless of threshold
         if (sortMode === 'decisionMargin') {
           return true
@@ -536,7 +558,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         if (!isVisibleInCurrentMode(featureId)) return false
         return visibleCategories.has(getEffectiveCategory(featureId))
       })
-  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, visibleCategories, getEffectiveCategory])
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, visibleCategories, getEffectiveCategory, showDisagreementOnly, disagreementFeatureIds])
 
   // Main list scroll hook - scroll to item when clicked in subviews
   const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
@@ -563,75 +585,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const hasVisitedMostReps = useMemo(() => {
     return diversityFeatureIds.size > 0 && visitedRepIds.size >= diversityFeatureIds.size * 0.8
   }, [diversityFeatureIds, visitedRepIds])
-
-  // Compute boundary items for ThresholdTaggingPanel
-  // NOTE: Don't show anything until histogram is displayed (SVM data available)
-  // Apply stage: show confident features (margin >= threshold)
-  // Bootstrap/Train stage: show unsure features (margin < threshold)
-  const causeBoundaryItems = useMemo((): CauseFeatureItem[] => {
-    if (!selectedFeatureIds) {
-      return []
-    }
-
-    const hasSVMData = causeCategoryDecisionMargins && causeCategoryDecisionMargins.size > 0
-
-    // Don't show thresholded features until histogram is displayed (SVM data available)
-    if (!hasSVMData) {
-      return []
-    }
-
-    const items: CauseFeatureItem[] = []
-    const isApplyStage = activeStage === 'apply'
-
-    selectedFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      if (isUserConfirmed(source)) return  // Skip manually tagged
-
-      const margins = causeCategoryDecisionMargins.get(featureId)
-      if (!margins) return
-
-      const entries = Object.entries(margins)
-      if (entries.length === 0) return
-      const [predicted] = entries.reduce((a, b) => b[1] > a[1] ? b : a)
-      const margin = Math.min(...Object.values(margins).map(Math.abs))
-
-      if (isApplyStage) {
-        // Apply stage: show confident features (above threshold)
-        if (margin >= causeMarginThreshold) {
-          items.push({
-            featureId,
-            margin,
-            predictedCategory: predicted as CauseCategory,
-            row: tableData?.features?.find((f: FeatureTableRow) => f.feature_id === featureId) || null
-          })
-        }
-      } else {
-        // Bootstrap/Train stage: show unsure features (below threshold)
-        if (margin < causeMarginThreshold) {
-          items.push({
-            featureId,
-            margin,
-            predictedCategory: predicted as CauseCategory,
-            row: tableData?.features?.find((f: FeatureTableRow) => f.feature_id === featureId) || null
-          })
-        }
-      }
-    })
-
-    // Sort by margin: ascending for apply (closest to threshold first), descending for bootstrap/train (most unsure first)
-    return isApplyStage
-      ? items.sort((a, b) => a.margin - b.margin)
-      : items.sort((a, b) => a.margin - b.margin)  // Ascending: lowest margin (most unsure) first
-  }, [selectedFeatureIds, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, tableData, activeStage])
-
-  // Compute the active feature list based on which list has focus
-  // 'all' = main StageAccordionList, 'boundary' = ThresholdTaggingPanel boundary list
-  const activeFeatureList = useMemo(() => {
-    if (activeListSource === 'boundary') {
-      return causeBoundaryItems.map(item => item.featureId)
-    }
-    return sortedFilteredFeatureList
-  }, [activeListSource, causeBoundaryItems, sortedFilteredFeatureList])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -694,8 +647,8 @@ const CauseView: React.FC<CauseViewProps> = ({
       return selectedFeatureIdState
     }
     // Fallback to index-based selection
-    return activeFeatureList[currentFeatureIndex] ?? null
-  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+    return sortedFilteredFeatureList[currentFeatureIndex] ?? null
+  }, [selectedFeatureIdState, sortedFilteredFeatureList, currentFeatureIndex])
 
   // Sync currentFeatureIndex when lists change (after mode switch)
   // This keeps the index pointing to the stored selected item
@@ -703,11 +656,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (selectedFeatureIdState === null) return
 
     // Find the stored item in the current active list
-    const newIndex = activeFeatureList.indexOf(selectedFeatureIdState)
+    const newIndex = sortedFilteredFeatureList.indexOf(selectedFeatureIdState)
     if (newIndex !== -1 && newIndex !== currentFeatureIndex) {
       setCurrentFeatureIndex(newIndex)
     }
-  }, [selectedFeatureIdState, activeFeatureList, currentFeatureIndex])
+  }, [selectedFeatureIdState, sortedFilteredFeatureList, currentFeatureIndex])
 
   // Fetch consensus data when selected feature changes
   useEffect(() => {
@@ -726,12 +679,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (selectedFeatureId === null) return -1
     return sortedFilteredFeatureList.indexOf(selectedFeatureId)
   }, [selectedFeatureId, sortedFilteredFeatureList])
-
-  // Compute highlight index for boundary list (always show where selected item is)
-  const boundaryListHighlightIndex = useMemo(() => {
-    if (selectedFeatureId === null) return -1
-    return causeBoundaryItems.findIndex(item => item.featureId === selectedFeatureId)
-  }, [selectedFeatureId, causeBoundaryItems])
 
   // Effect: Auto-switch from diversity mode when selected feature is not visible in main list
   // This ensures the highlight always appears when a feature is selected from subviews
@@ -799,47 +746,22 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (featureId !== undefined) {
       setSelectedFeatureIdState(featureId)
     }
-    setActiveListSource('all')
     setCurrentFeatureIndex(index)
-  }, [sortedFilteredFeatureList, setActiveListSource])
-
-  // Handle click on boundary list item (ThresholdTaggingPanel)
-  const handleBoundaryListItemClick = useCallback((featureId: number) => {
-    // Set feature ID first (survives mode switches)
-    setSelectedFeatureIdState(featureId)
-    const index = causeBoundaryItems.findIndex(item => item.featureId === featureId)
-    if (index !== -1) {
-      setActiveListSource('boundary')
-      setCurrentFeatureIndex(index)
-      scrollToItemInMainList(featureId)
-    }
-  }, [causeBoundaryItems, setActiveListSource, scrollToItemInMainList])
+  }, [sortedFilteredFeatureList])
 
   // Handle click on a point in RadViz scatter or histogram
   const handleUMAPFeatureSelect = useCallback((featureId: number) => {
     // Set feature ID first (survives mode switches)
     setSelectedFeatureIdState(featureId)
-    // Try to find in main list first
+    // Try to find in main list
     const mainIndex = sortedFilteredFeatureList.indexOf(featureId)
     if (mainIndex !== -1) {
-      // Feature is in main list, select it there
-      setActiveListSource('all')
       setCurrentFeatureIndex(mainIndex)
-    } else {
-      // Feature not in main list (e.g., in diversity mode and not a medoid)
-      // Try boundary list
-      const boundaryIndex = causeBoundaryItems.findIndex(item => item.featureId === featureId)
-      if (boundaryIndex !== -1) {
-        // Feature is in boundary list, select it there
-        // The auto-switch effect will handle switching out of diversity mode
-        setActiveListSource('boundary')
-        setCurrentFeatureIndex(boundaryIndex)
-      }
-      // If not found in either list, the auto-switch effect will trigger when
-      // we try to scroll, which will update sortedFilteredFeatureList
     }
+    // If not found, the auto-switch effect will trigger when
+    // we try to scroll, which will update sortedFilteredFeatureList
     scrollToItemInMainList(featureId)
-  }, [sortedFilteredFeatureList, causeBoundaryItems, setActiveListSource, scrollToItemInMainList])
+  }, [sortedFilteredFeatureList, scrollToItemInMainList])
 
   // ============================================================================
   // COMMIT HISTORY HELPERS
@@ -941,20 +863,19 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   const handleNavigateNext = useCallback(() => {
     setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
-    setCurrentFeatureIndex(i => Math.min(activeFeatureList.length - 1, i + 1))
-  }, [activeFeatureList.length])
+    setCurrentFeatureIndex(i => Math.min(sortedFilteredFeatureList.length - 1, i + 1))
+  }, [sortedFilteredFeatureList.length])
 
   // Post-tagging navigation hook (same pattern as FeatureSplitView and QualityView)
   const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
-    activeListSource: activeListSource === 'boundary' ? 'select' : 'all',  // Map 'boundary' to existing type
+    activeListSource,
     sortMode,
     currentIndex: currentFeatureIndex,
-    listLength: activeFeatureList.length,
+    listLength: sortedFilteredFeatureList.length,
     onNavigateNext: handleNavigateNext,
     onResetToFirst: () => {
       setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
       setCurrentFeatureIndex(0)
-      setActiveListSource('all')
     },
     isHistogramReady: causeCategoryDecisionMargins.size > 0,
     hideTagged
@@ -1241,17 +1162,27 @@ const CauseView: React.FC<CauseViewProps> = ({
       isAuto = sortMode === 'decisionMargin' && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
     }
 
+    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(featureId) : undefined
+
     return (
-      <TagBadge
-        featureId={featureId}
-        tagName={tagName}
-        tagCategoryId={TAG_CATEGORY_CAUSE}
-        onClick={() => handleListItemClick(index)}
-        fullWidth={true}
-        isAuto={isAuto}
-      />
+      <>
+        {disagreementInfo && (
+          <DisagreementIndicator
+            isDisagreement={disagreementInfo.isDisagreement}
+            tooltipText={disagreementInfo.tooltipText}
+          />
+        )}
+        <TagBadge
+          featureId={featureId}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_CAUSE}
+          onClick={() => handleListItemClick(index)}
+          fullWidth={true}
+          isAuto={isAuto}
+        />
+      </>
     )
-  }, [sortMode, getEffectiveCategory, causeSelectionStates, causeSelectionSources, handleListItemClick])
+  }, [sortMode, getEffectiveCategory, causeSelectionStates, causeSelectionSources, handleListItemClick, disagreementLookup, activeStage])
 
   // ============================================================================
   // RENDER
@@ -1300,12 +1231,17 @@ const CauseView: React.FC<CauseViewProps> = ({
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
                   onHideTaggedChange={setHideTagged}
+                  showDisagreementOnly={showDisagreementOnly}
+                  onShowDisagreementOnlyChange={setShowDisagreementOnly}
+                  hasDisagreementData={causeCommitteeVotes !== null && causeCommitteeVotes.size > 0}
                   badges={[{
-                    label: sortMode === 'diversity' && !svmTrainingStarted
-                      ? 'Representative Features'
-                      : hideTagged
-                        ? 'Untagged Features'
-                        : 'All Features',
+                    label: showDisagreementOnly
+                      ? 'Disagreement Features'
+                      : sortMode === 'diversity' && !svmTrainingStarted
+                        ? 'Representative Features'
+                        : hideTagged
+                          ? 'Untagged Features'
+                          : 'All Features',
                     count: sortedFilteredFeatureList.length
                   }]}
                   columnHeader={columnHeaderProps}
@@ -1459,7 +1395,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigatePrevious}
-                        disabled={currentFeatureIndex === 0 || activeFeatureList.length === 0}
+                        disabled={currentFeatureIndex === 0 || sortedFilteredFeatureList.length === 0}
                       >
                         ← Prev
                       </button>
@@ -1505,7 +1441,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <button
                         className="nav__button"
                         onClick={handleNavigateNext}
-                        disabled={currentFeatureIndex >= activeFeatureList.length - 1 || activeFeatureList.length === 0}
+                        disabled={currentFeatureIndex >= sortedFilteredFeatureList.length - 1 || sortedFilteredFeatureList.length === 0}
                       >
                         Next →
                       </button>
@@ -1535,10 +1471,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                 histogramProps={{}}
                 onApplyTags={() => {}}
                 onTagAll={() => {}}
-                onListItemClick={() => {}}
-                activeListSource="all"
-                currentIndex={-1}
-                sortDirection={selectedSortDirection}
                 causeProps={{
                   featureIds: selectedFeatureIds || new Set(),
                   causeCategoryDecisionMargins,
@@ -1588,12 +1520,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onConfirmCategory: (categoryId) => handleTagSelectedAs(categoryId as 'noisy-activation' | 'missed-context' | 'missed-N-gram'),
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
-                  causeCommitteeVotes: causeCommitteeVotes ?? undefined,
-                  boundaryListActiveIndex: boundaryListHighlightIndex,
-                  isBoundaryListActive: activeListSource === 'boundary'
                 }}
-                causeBoundaryItems={causeBoundaryItems}
-                onCauseListItemClick={handleBoundaryListItemClick}
               />
             </div>
           </div>

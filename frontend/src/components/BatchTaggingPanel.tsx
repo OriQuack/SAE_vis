@@ -107,7 +107,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
           {onConfirmCategory && categories.map(cat => (
             <button
               key={cat.id}
-              className="batch-tagging__button"
+              className="batch-tagging__button batch-tagging__button--category"
               onClick={() => onConfirmCategory(cat.id)}
               disabled={disabled || cat.count === 0}
               title={`Confirm all ${cat.label} predictions`}

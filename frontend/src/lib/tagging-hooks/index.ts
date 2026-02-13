@@ -3,11 +3,6 @@
 // ============================================================================
 // These hooks extract common logic from FeatureSplitView and QualityView
 
-export { useListNavigation } from './useListNavigation'
-export type { ListSource } from './useListNavigation'
-
-export { useBoundaryItems } from './useBoundaryItems'
-
 export { useSortableList, stageToSortConfig, sortConfigToStage } from './useSortableList'
 export type { SortMode, ActiveStage, BootstrapMode } from './useSortableList'
 

@@ -5,10 +5,9 @@ import * as api from '../api'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
-import { TagBadge } from './Indicators'
+import { TagBadge, DisagreementIndicator } from './Indicators'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
-import { useListNavigation } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import '../styles/FeatureSplitView.css'
@@ -63,6 +62,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
 
+  // Show only QBC disagreement items toggle
+  const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
+
   // Store selected pair key directly to preserve highlight across mode switches
   const [selectedPairKeyState, setSelectedPairKeyState] = useState<string | null>(null)
 
@@ -103,14 +105,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
 
-  // ============================================================================
-  // LIST NAVIGATION - Using centralized hook
-  // ============================================================================
-  const resetPairIndex = useCallback(() => setCurrentPairIndex(0), [])
-  const { activeListSource, setActiveListSource } = useListNavigation({
-    isDraggingThreshold,
-    onReset: resetPairIndex
-  })
+  // Active list source is always 'all' (boundary lists removed)
+  const activeListSource = 'all' as const
 
   // ============================================================================
   // COMMIT HISTORY - Using centralized hook with storeSync
@@ -497,25 +493,22 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setSortMode(newMode)
     setSortDirection(newDir)
     setCurrentPairIndex(0)
-    setActiveListSource('all')
     setSelectedPairKeyState(null)  // Reset stored state on manual stage change
-  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection])
 
   const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
     const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
     setSortMode(newMode)
     setSortDirection(newDir)
     setCurrentPairIndex(0)
-    setActiveListSource('all')
-  }, [bootstrapDirection, setSortMode, setSortDirection, setActiveListSource])
+  }, [bootstrapDirection, setSortMode, setSortDirection])
 
   const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
     if (bootstrapMode === 'byScore') {
       setSortDirection(direction)
       setCurrentPairIndex(0)
-      setActiveListSource('all')
     }
-  }, [bootstrapMode, setSortDirection, setActiveListSource])
+  }, [bootstrapMode, setSortDirection])
 
   // Combined handler for bootstrap option cycling - receives mode only (direction controlled by column header)
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
@@ -527,14 +520,37 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       setSortDirection('desc')
     }
     setCurrentPairIndex(0)
-    setActiveListSource('all')
-  }, [setSortMode, setSortDirection, setActiveListSource])
+  }, [setSortMode, setSortDirection])
 
-  // Filter pairs based on hideTagged toggle
+  // Memoized QBC disagreement lookup - identifies pairs where RF/MLP disagree with SVM
+  const disagreementLookup = useMemo(() => {
+    const lookup = new Map<string, { isDisagreement: boolean; tooltipText: string }>()
+    const votes = tagAutomaticState?.committeeVotes
+    if (!votes) return lookup
+    votes.forEach((info, key) => {
+      const disagreeing: string[] = []
+      if (info.rf_prediction !== info.svm_prediction) disagreeing.push('RF')
+      if (info.mlp_prediction !== info.svm_prediction) disagreeing.push('MLP')
+      if (disagreeing.length > 0) {
+        lookup.set(key, {
+          isDisagreement: true,
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\n${disagreeing.join(', ')}: ${info.svm_prediction === 1 ? 'Rejected' : 'Selected'}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+        })
+      }
+    })
+    return lookup
+  }, [tagAutomaticState?.committeeVotes])
+
+  const disagreementKeys = useMemo(() => new Set(disagreementLookup.keys()), [disagreementLookup])
+
+  // Filter pairs based on hideTagged and showDisagreementOnly toggles
   const displayPairList = useMemo(() => {
-    if (!hideTagged) return pairList
-    return pairList.filter(pair => !pairSelectionStates.has(pair.pairKey))
-  }, [pairList, hideTagged, pairSelectionStates])
+    return pairList.filter(pair => {
+      if (hideTagged && pairSelectionStates.has(pair.pairKey)) return false
+      if (showDisagreementOnly && !disagreementKeys.has(pair.pairKey)) return false
+      return true
+    })
+  }, [pairList, hideTagged, pairSelectionStates, showDisagreementOnly, disagreementKeys])
 
   // Extract pair keys from displayPairList for scroll hook
   const sortedFilteredPairKeys = useMemo(() => {
@@ -542,7 +558,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [displayPairList])
 
   // Main list scroll hook - scroll to item when clicked in subviews
-  const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
+  const { scrollTargetIndex } = useMainListScroll({
     sortedFilteredList: sortedFilteredPairKeys,
     sortMode,
     setSortMode,
@@ -554,10 +570,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   useEffect(() => {
     if (prevHideTaggedRef.current !== hideTagged) {
       setCurrentPairIndex(0)
-      setActiveListSource('all')
       prevHideTaggedRef.current = hideTagged
     }
-  }, [hideTagged, setActiveListSource])
+  }, [hideTagged])
 
   // Reset to first item when sort mode or direction changes
   // This ensures the selection indicator points to a valid item after re-sorting
@@ -565,10 +580,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   useEffect(() => {
     if (prevSortRef.current.sortMode !== sortMode || prevSortRef.current.sortDirection !== sortDirection) {
       setCurrentPairIndex(0)
-      setActiveListSource('all')
       prevSortRef.current = { sortMode, sortDirection }
     }
-  }, [sortMode, sortDirection, setActiveListSource])
+  }, [sortMode, sortDirection])
 
   // Pre-fetch activating examples for visible pairs
   useEffect(() => {
@@ -631,196 +645,62 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [pairList, rawPairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
 
   // ============================================================================
-  // BOUNDARY ITEMS LOGIC (for bottom row left/right lists)
+  // PREVIEW KEYS - Items past threshold handles that will be auto-tagged
   // ============================================================================
 
-  // Boundary items type (same as pairList for FeatureSplitPairViewer compatibility)
-  type PairWithMetadata = {
-    mainFeatureId: number
-    similarFeatureId: number
-    pairKey: string
-    clusterId: number
-    row: FeatureTableRow | null
-    similarRow: FeatureTableRow | null
-    decoderSimilarity: number | null
-  }
-
-  // Keep previous boundary items during histogram reload to prevent double updates
-  const prevBoundaryItemsRef = useRef<{ rejectBelow: PairWithMetadata[], selectAbove: PairWithMetadata[] }>({ rejectBelow: [], selectAbove: [] })
-
-  const boundaryItems = useMemo(() => {
-    // Don't show anything until histogram is actually fetched
-    // histogramData is null before first fetch and during reload
-    if (!tagAutomaticState?.histogramData) {
-      // During reload (after initial fetch), return previous values to prevent flicker
-      if (prevBoundaryItemsRef.current.rejectBelow.length > 0 || prevBoundaryItemsRef.current.selectAbove.length > 0) {
-        return prevBoundaryItemsRef.current
-      }
-      // Before first fetch, return empty lists
-      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
-    }
-
-    // Extract threshold values inside useMemo for proper React reactivity
-    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? 0.3
-
-    // Build ALL pairs from allClusterPairs with FULL metadata for FeatureSplitPairViewer
-    let allPairs: PairWithMetadata[] = []
-
-    if (allClusterPairs && filteredTableData?.rows && selectedFeatureIds) {
-      // Build row map
-      const rowMap = new Map<number, FeatureTableRow>()
-      filteredTableData.rows.forEach((row: FeatureTableRow) => {
-        rowMap.set(row.feature_id, row)
-      })
-
-      // Convert all cluster pairs to pair objects with full metadata
-      allPairs = allClusterPairs
-        .filter(p => selectedFeatureIds.has(p.main_id) && selectedFeatureIds.has(p.similar_id))
-        .map(p => {
-          const mainRow = rowMap.get(p.main_id) || null
-          const similarRow = rowMap.get(p.similar_id) || null
-
-          // Try to find decoder similarity if available
-          let decoderSimilarity: number | null = null
-          if (mainRow?.decoder_similarity) {
-            const similarData = mainRow.decoder_similarity.find(d => d.feature_id === p.similar_id)
-            if (similarData) {
-              decoderSimilarity = similarData.cosine_similarity
-            }
-          }
-
-          return {
-            mainFeatureId: p.main_id,
-            similarFeatureId: p.similar_id,
-            pairKey: p.pair_key,
-            clusterId: p.cluster_id,
-            row: mainRow,
-            similarRow: similarRow,
-            decoderSimilarity
-          }
-        })
-    } else if (rawPairList.length > 0) {
-      // Fallback: use raw pairs (not filtered by diversity mode)
-      allPairs = rawPairList
-    }
-
-    if (allPairs.length === 0) {
-      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
-    }
-
-    // Use threshold values from above
-    const thresholds = {
-      select: selectThreshold,
-      reject: rejectThreshold
-    }
-
-    // Filter pairs that have SVM similarity scores (from pairSimilarityScores Map)
-    const pairsWithScores = allPairs.filter(pair => pairSimilarityScores.has(pair.pairKey))
-
-    if (pairsWithScores.length === 0) {
-      return { rejectBelow: [] as PairWithMetadata[], selectAbove: [] as PairWithMetadata[] }
-    }
-
-    // REJECT THRESHOLD - Below reject: all pairs < rejectThreshold, sorted descending (highest first), closest to threshold
-    const rejectBelow = pairsWithScores
-      .filter(pair => pairSimilarityScores.get(pair.pairKey)! < thresholds.reject)
-      .sort((a, b) => pairSimilarityScores.get(b.pairKey)! - pairSimilarityScores.get(a.pairKey)!) // Descending: closest to threshold first
-
-    // SELECT THRESHOLD - Above select: all pairs >= selectThreshold, sorted ascending (lowest first), closest to threshold
-    const selectAbove = pairsWithScores
-      .filter(pair => pairSimilarityScores.get(pair.pairKey)! >= thresholds.select)
-      .sort((a, b) => pairSimilarityScores.get(a.pairKey)! - pairSimilarityScores.get(b.pairKey)!) // Ascending: closest to threshold first
-
-    const result = { rejectBelow, selectAbove }
-    // Store in ref for use during histogram reload
-    prevBoundaryItemsRef.current = result
-    return result
-  }, [rawPairList, tagAutomaticState, pairSimilarityScores, allClusterPairs, filteredTableData, selectedFeatureIds])
-
-  // Create Sets of preview pair keys (items in threshold regions that will be auto-tagged)
-  // Separate sets to know which direction they'll be tagged
   const previewRejectKeys = useMemo(() => {
     const keys = new Set<string>()
-    boundaryItems.rejectBelow.forEach(p => keys.add(p.pairKey))
+    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
+    if (!tagAutomaticState?.histogramData) return keys
+    rawPairList.forEach(p => {
+      const score = pairSimilarityScores.get(p.pairKey)
+      if (score !== undefined && score < rejectThreshold) keys.add(p.pairKey)
+    })
     return keys
-  }, [boundaryItems.rejectBelow])
+  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold])
 
   const previewSelectKeys = useMemo(() => {
     const keys = new Set<string>()
-    boundaryItems.selectAbove.forEach(p => keys.add(p.pairKey))
+    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
+    if (!tagAutomaticState?.histogramData) return keys
+    rawPairList.forEach(p => {
+      const score = pairSimilarityScores.get(p.pairKey)
+      if (score !== undefined && score >= selectThreshold) keys.add(p.pairKey)
+    })
     return keys
-  }, [boundaryItems.selectAbove])
+  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold])
 
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442'
 
-  // ============================================================================
-  // ACTIVE PAIR LIST - Determines which list the viewer shows
-  // ============================================================================
-
-  // Active pair list depends on which list is selected
-  const activePairList = useMemo(() => {
-    switch (activeListSource) {
-      case 'reject':
-        return boundaryItems.rejectBelow
-      case 'select':
-        return boundaryItems.selectAbove
-      default:
-        return displayPairList
-    }
-  }, [activeListSource, displayPairList, boundaryItems])
-
   // Compute selected pair key - prefer stored state, fallback to index-based
-  // This is the source of truth for which pair is selected
   const selectedPairKey = useMemo(() => {
-    // Prefer stored state when available (survives mode switches)
     if (selectedPairKeyState !== null) {
       return selectedPairKeyState
     }
-    // Fallback to index-based selection
-    const pair = activePairList[currentPairIndex]
+    const pair = displayPairList[currentPairIndex]
     return pair?.pairKey ?? null
-  }, [selectedPairKeyState, activePairList, currentPairIndex])
+  }, [selectedPairKeyState, displayPairList, currentPairIndex])
 
   // Sync currentPairIndex when lists change (after mode switch)
-  // This keeps the index pointing to the stored selected item
   useEffect(() => {
     if (selectedPairKeyState === null) return
-
-    // Find the stored item in the current active list
-    const newIndex = activePairList.findIndex(p => p.pairKey === selectedPairKeyState)
+    const newIndex = displayPairList.findIndex(p => p.pairKey === selectedPairKeyState)
     if (newIndex !== -1 && newIndex !== currentPairIndex) {
       setCurrentPairIndex(newIndex)
     }
-  }, [selectedPairKeyState, activePairList, currentPairIndex])
+  }, [selectedPairKeyState, displayPairList, currentPairIndex])
 
-  // Compute highlight index for main list (always show where selected pair is)
+  // Compute highlight index for main list
   const mainListHighlightIndex = useMemo(() => {
     if (selectedPairKey === null) return -1
     return displayPairList.findIndex(p => p.pairKey === selectedPairKey)
   }, [selectedPairKey, displayPairList])
 
-  // Compute highlight index for left boundary list (reject/Monosemantic)
-  const leftBoundaryHighlightIndex = useMemo(() => {
-    if (selectedPairKey === null) return -1
-    return boundaryItems.rejectBelow.findIndex(p => p.pairKey === selectedPairKey)
-  }, [selectedPairKey, boundaryItems.rejectBelow])
-
-  // Compute highlight index for right boundary list (select/Fragmented)
-  const rightBoundaryHighlightIndex = useMemo(() => {
-    if (selectedPairKey === null) return -1
-    return boundaryItems.selectAbove.findIndex(p => p.pairKey === selectedPairKey)
-  }, [selectedPairKey, boundaryItems.selectAbove])
-
-  // Effect: Auto-switch from diversity mode when selected pair is not visible in main list
-  // This ensures the highlight always appears when a pair is selected from subviews
+  // Effect: Auto-switch from diversity mode when selected pair is not visible
   useEffect(() => {
     if (selectedPairKey === null || sortMode !== 'diversity') return
-
-    const indexInMainList = mainListHighlightIndex
-    if (indexInMainList === -1) {
-      // Selected pair not visible in medoids list, switch to Learn mode
+    if (mainListHighlightIndex === -1) {
       setSortMode('decisionMargin')
       setSortDirection('asc')
     }
@@ -828,16 +708,16 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Fetch activating examples for current pair when it changes
   useEffect(() => {
-    const currentPair = activePairList[currentPairIndex]
+    const currentPair = displayPairList[currentPairIndex]
     if (currentPair) {
       fetchActivationExamples([currentPair.mainFeatureId, currentPair.similarFeatureId])
     }
-  }, [activePairList, currentPairIndex, fetchActivationExamples])
+  }, [displayPairList, currentPairIndex, fetchActivationExamples])
 
   // Track visited representative pairs for smart pulsing
   useEffect(() => {
-    if (bootstrapMode === 'diversity' && activePairList.length > 0) {
-      const pair = activePairList[currentPairIndex]
+    if (bootstrapMode === 'diversity' && displayPairList.length > 0) {
+      const pair = displayPairList[currentPairIndex]
       if (pair && diversityPairIds.has(pair.pairKey)) {
         setVisitedRepIds(prev => {
           if (prev.has(pair.pairKey)) return prev
@@ -845,7 +725,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         })
       }
     }
-  }, [currentPairIndex, activePairList, diversityPairIds, bootstrapMode])
+  }, [currentPairIndex, displayPairList, diversityPairIds, bootstrapMode])
 
   // Calculate if most reps visited (>80%)
   const hasVisitedMostReps = useMemo(() => {
@@ -861,39 +741,20 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [tagAutomaticState?.flipTracking?.flipHistory])
 
   // ============================================================================
-  // CLICK HANDLERS FOR ALL THREE LISTS
+  // CLICK HANDLERS
   // ============================================================================
 
   // All Pairs list click handler
   const handleAllPairsListClick = useCallback((index: number) => {
     if (index >= 0 && index < displayPairList.length) {
-      // Set pair key first (survives mode switches)
       const pair = displayPairList[index]
       if (pair) {
         setSelectedPairKeyState(pair.pairKey)
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
-      setActiveListSource('all')
       setCurrentPairIndex(index)
     }
-  }, [displayPairList, fetchActivationExamples, setActiveListSource])
-
-  // Unified boundary list click handler (for ThresholdTaggingPanel)
-  const handleBoundaryListClick = useCallback((listType: 'left' | 'right', index: number) => {
-    const items = listType === 'left' ? boundaryItems.rejectBelow : boundaryItems.selectAbove
-    if (index >= 0 && index < items.length) {
-      const pair = items[index]
-      // Set pair key first (survives mode switches)
-      setSelectedPairKeyState(pair.pairKey)
-      setActiveListSource(listType === 'left' ? 'reject' : 'select')
-      setCurrentPairIndex(index)
-      scrollToItemInMainList(pair.pairKey)
-      // Pre-fetch activating examples for clicked pair
-      if (pair) {
-        fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
-      }
-    }
-  }, [boundaryItems.rejectBelow, boundaryItems.selectAbove, fetchActivationExamples, setActiveListSource, scrollToItemInMainList])
+  }, [displayPairList, fetchActivationExamples])
 
   // ============================================================================
   // NAVIGATION HANDLERS - Work with active list
@@ -906,8 +767,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   const handleNavigateNext = useCallback(() => {
     setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
-    setCurrentPairIndex(prev => Math.min(activePairList.length - 1, prev + 1))
-  }, [activePairList.length])
+    setCurrentPairIndex(prev => Math.min(displayPairList.length - 1, prev + 1))
+  }, [displayPairList.length])
 
   // ============================================================================
   // APPLY TAGS HANDLER
@@ -928,8 +789,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     // 4. Reset to first page/pair
     setCurrentPairIndex(0)
-    setActiveListSource('all')
-  }, [createCommit, applySimilarityTags, setSortMode, setActiveListSource])
+  }, [createCommit, applySimilarityTags, setSortMode])
 
   // handleCommitClick is provided by the hook
 
@@ -1054,18 +914,28 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // Show stripe for: already auto-tagged OR in preview threshold regions
     const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
+    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(pair.pairKey) : undefined
+
     return (
-      <TagBadge
-        featureId={pairIdString}
-        tagName={tagName}
-        tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-        onClick={() => handleAllPairsListClick(index)}
-        fullWidth={true}
-        isPair={true}
-        isAuto={isAutoOrPreview}
-      />
+      <>
+        {disagreementInfo && (
+          <DisagreementIndicator
+            isDisagreement={disagreementInfo.isDisagreement}
+            tooltipText={disagreementInfo.tooltipText}
+          />
+        )}
+        <TagBadge
+          featureId={pairIdString}
+          tagName={tagName}
+          tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
+          onClick={() => handleAllPairsListClick(index)}
+          fullWidth={true}
+          isPair={true}
+          isAuto={isAutoOrPreview}
+        />
+      </>
     )
-  }, [pairSelectionStates, pairSelectionSources, previewRejectKeys, previewSelectKeys, handleAllPairsListClick])
+  }, [pairSelectionStates, pairSelectionSources, previewRejectKeys, previewSelectKeys, handleAllPairsListClick, disagreementLookup, activeStage])
 
   // ============================================================================
   // RENDER
@@ -1117,12 +987,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
               onHideTaggedChange={setHideTagged}
+              showDisagreementOnly={showDisagreementOnly}
+              onShowDisagreementOnlyChange={setShowDisagreementOnly}
+              hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
-                label: sortMode === 'diversity' && !svmTrainingStarted
-                  ? 'Most Critical Pairs'
-                  : hideTagged
-                    ? 'Untagged Pairs'
-                    : 'All Pairs',
+                label: showDisagreementOnly
+                  ? 'Disagreement Pairs'
+                  : sortMode === 'diversity' && !svmTrainingStarted
+                    ? 'Most Critical Pairs'
+                    : hideTagged
+                      ? 'Untagged Pairs'
+                      : 'All Pairs',
                 count: displayPairList.length
               }]}
               columnHeader={columnHeaderProps}
@@ -1135,7 +1010,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             />
           <FeatureSplitPairViewer
             currentPairIndex={currentPairIndex}
-            pairList={activePairList}
+            pairList={displayPairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
             activeListSource={activeListSource}
@@ -1143,20 +1018,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             isLoading={isPairSimilaritySortLoading}
             isTemplateSort={isTemplateSort}
             onResetToFirstPair={() => {
-              setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
+              setSelectedPairKeyState(null)
               setCurrentPairIndex(0)
-              setActiveListSource('all')
             }}
             hideTagged={hideTagged}
           />
         </div>
 
-        {/* Bottom row: Histogram + Apply Tags button + Monosemantic list + Fragmented list */}
+        {/* Bottom row: Histogram + Batch Tagging */}
         <ThresholdTaggingPanel
           mode="pair"
           tagCategoryId={TAG_CATEGORY_FEATURE_SPLITTING}
-          leftItems={boundaryItems.rejectBelow}
-          rightItems={boundaryItems.selectAbove}
           leftListLabel="Monosemantic"
           rightListLabel="Incoherent Splitting"
           histogramProps={{
@@ -1166,13 +1038,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           }}
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
-          onListItemClick={handleBoundaryListClick}
-          activeListSource={activeListSource}
-          currentIndex={currentPairIndex}
-          leftHighlightIndex={leftBoundaryHighlightIndex}
-          rightHighlightIndex={rightBoundaryHighlightIndex}
-          isTemplateSort={isTemplateSort}
-          sortDirection={sortMode === 'decisionMargin' ? sortDirection : 'asc'}
         />
           </div>
         </div>

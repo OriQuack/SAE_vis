@@ -1,7 +1,7 @@
 /* ============================================================================
  * THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
  * ============================================================================
- * Layout: [Histogram] | [Indicator + Content] | [Buttons]
+ * Layout: [Histogram] | [Flip Rate (top) + Batch Tagging (bottom)]
  * Used by: FeatureSplitView, QualityView, and CauseView
  * ============================================================================ */
 
@@ -12,33 +12,6 @@
   min-height: 0;
   gap: 8px;
   overflow: visible;
-}
-
-/* ============================================================================
- * PAIR ITEM WITH SIMILARITY SCORE
- * ============================================================================ */
-
-.pair-item-with-score {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-}
-
-.pair-item-with-score .tag-badge {
-  flex: 1;
-  min-width: 0;
-}
-
-.pair-similarity-score {
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'Consolas', 'Monaco', monospace;
-  color: #6b7280;
-  flex-shrink: 0;
-  min-width: 32px;
-  text-align: right;
 }
 
 /* ============================================================================
@@ -55,11 +28,10 @@
 }
 
 /* ============================================================================
- * MIDDLE SECTION - Unified layout for all modes
- * Contains: Indicator (top) + Content header (optional) + Content section (bottom)
+ * RIGHT SECTION - Convergence indicator (top) + Batch Tagging (bottom)
  * ============================================================================ */
 
-.threshold-tagging-panel__middle-section {
+.threshold-tagging-panel__right-section {
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -68,14 +40,14 @@
 }
 
 /* ============================================================================
- * INDICATOR SECTION - Convergence indicator at top of middle section
+ * INDICATOR SECTION - Convergence indicator at top of right section
  * ============================================================================ */
 
 .threshold-tagging-panel__indicator-section {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  flex: 4;  /* 4:6 ratio with content section */
+  flex: 4;  /* 4:6 ratio with batch section */
   min-height: 0;
 }
 
@@ -90,143 +62,35 @@
 }
 
 /* ============================================================================
- * CONTENT HEADER - Subheader with optional checkbox (pair/feature modes)
+ * BATCH SECTION - Container for batch tagging area
  * ============================================================================ */
 
-.threshold-tagging-panel__content-header {
+.threshold-tagging-panel__batch-section {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-
-.threshold-tagging-panel__content-header .subheader {
-  margin: 0;
-}
-
-/* ============================================================================
- * CONTENT SECTION - Unified container for lists or RadViz + list
- * ============================================================================ */
-
-.threshold-tagging-panel__content-section {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
+  flex-direction: column;
   flex: 6;  /* 4:6 ratio with indicator section */
   min-height: 0;
-  min-width: 0;
 }
 
-/* Pair/Feature mode: dual lists with tighter gap */
-.threshold-tagging-panel__content-section--dual {
-  gap: 4px;
+/* Cause mode: RadViz + BatchTagging side by side */
+.threshold-tagging-panel__cause-batch-row {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
 }
 
-/* ============================================================================
- * BUTTONS SECTION - Action buttons on the right
- * ============================================================================ */
-
-.threshold-tagging-panel__buttons-section {
+/* Batch column: subheader + BatchTaggingPanel */
+.threshold-tagging-panel__batch-column {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 230px;  /* Unified width for all modes (fits 2-3 categories) */
-  flex-shrink: 0;  /* Maintain fixed width, don't shrink */
+  width: 420px;
+  flex-shrink: 0;
 }
 
 /* Subheader uses shared .subheader class from base.css */
-.threshold-tagging-panel__buttons-section .subheader {
+.threshold-tagging-panel__batch-column .subheader {
   padding: 0;
-}
-
-/* ============================================================================
- * MODE INDICATOR - Small badge showing "Unsure" or "Confident"
- * ============================================================================ */
-
-.mode-indicator {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 8px;
-  padding: 2px 6px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  border-radius: 3px;
-  vertical-align: middle;
-}
-
-.mode-indicator--unsure {
-  background-color: #f3f4f6;
-  color: #6b7280;
-  border: 1px solid #e5e7eb;
-}
-
-.mode-indicator--confident {
-  background-color: #dbeafe;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
-}
-
-/* ============================================================================
- * NEED REVIEW CHECKBOX
- * ============================================================================ */
-
-.threshold-tagging-panel__checkbox-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  white-space: nowrap;
-  user-select: none;
-  line-height: 1;
-}
-
-.threshold-tagging-panel__checkbox-label:hover {
-  color: #374151;
-}
-
-.threshold-tagging-panel__checkbox-label:hover input[type="checkbox"] {
-  border-color: #9ca3af;
-}
-
-.threshold-tagging-panel__checkbox-label input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 13px;
-  height: 13px;
-  background: white;
-  border: 1px solid #d1d5db;
-  border-radius: 2px;
-  cursor: pointer;
-  position: relative;
-  flex-shrink: 0;
-  margin: 0;
-  vertical-align: middle;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.threshold-tagging-panel__checkbox-label input[type="checkbox"]:hover {
-  border-color: #9ca3af;
-}
-
-.threshold-tagging-panel__checkbox-label input[type="checkbox"]:checked {
-  background: white;
-  border-color: #f59e0b;
-}
-
-.threshold-tagging-panel__checkbox-label input[type="checkbox"]:checked::after {
-  content: '';
-  position: absolute;
-  left: 3.5px;
-  top: 0.5px;
-  width: 4px;
-  height: 7px;
-  border: solid #f59e0b;
-  border-width: 0 1.5px 1.5px 0;
-  transform: rotate(45deg);
 }

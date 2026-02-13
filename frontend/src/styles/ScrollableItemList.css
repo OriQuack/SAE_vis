@@ -306,13 +306,6 @@
   min-height: 0;
 }
 
-.scrollable-list--variant-boundary {
-  width: 255px;
-  flex-shrink: 0;
-  height: 100%;
-  min-height: 0;
-}
-
 .scrollable-list--variant-cause {
   width: 240px;
   flex-shrink: 0;

@@ -1,6 +1,8 @@
 import { useCallback, useMemo } from 'react'
-import type { ListSource } from './useListNavigation'
 import type { SortMode } from './useSortableList'
+
+// Minimal type — callers always pass 'all' now that boundary lists are removed
+type ListSource = string
 
 // ============================================================================
 // useTaggingNavigation - Centralized post-tagging navigation logic
