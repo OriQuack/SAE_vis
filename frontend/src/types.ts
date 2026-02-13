@@ -38,12 +38,12 @@ export interface FeatureGroup {
 }
 
 // ============================================================================
-// TREE-BASED SANKEY SYSTEM (Node-specific stage addition)
+// SANKEY TREE NODE (Used by hierarchical-colors.ts and tag-system.ts for color assignment)
 // ============================================================================
 
 /**
- * Sankey Tree Node - Represents a node in the tree-based Sankey structure
- * Supports branching where different nodes at the same depth can have different metrics
+ * Sankey Tree Node - Used by color/tag systems to build virtual trees for badge color assignment.
+ * Not used for Sankey rendering (which uses SimplifiedSankeyNode below).
  */
 export interface SankeyTreeNode {
   id: string                          // Unique node ID (e.g., "root", "stage0_group1", etc.)

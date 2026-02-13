@@ -5,8 +5,6 @@ import type {
   SankeyLayout,
 } from '../types'
 import {
-  CATEGORY_DECODER_SIMILARITY,
-  CATEGORY_SEMANTIC_SIMILARITY,
   UNSURE_GRAY,
   SANKEY_COLORS
 } from './constants'
@@ -88,55 +86,17 @@ export function applyOpacity(hexColor: string, opacity: number): string {
   return `${hexColor}${opacityHex}`
 }
 
-/**
- * D3-sankey node alignment function that respects actual stage positions
- */
-function stageBasedAlign(node: D3SankeyNode): number {
-  // Return the stage directly (it's already an integer from tree structure)
-  return node.stage || 0
-}
-
-/**
- * Extract parent ID from a node ID by removing the last component
- */
-function extractParentId(nodeId: string): string {
-  if (nodeId === 'root') return ''
-
-  const parts = nodeId.split('_')
-
-  // For range splits (ending with numbers), remove the last part
-  if (/^\d+$/.test(parts[parts.length - 1])) {
-    return parts.slice(0, -1).join('_')
-  }
-
-  // Fallback: remove last component
-  return parts.slice(0, -1).join('_')
-}
-
-/**
- * Get category-specific sort order within the same parent
- */
-function getCategorySortOrder(nodeId: string, category: string): number {
-  switch (category) {
-    case CATEGORY_DECODER_SIMILARITY:
-      // decoder_similarity_0 (False) before decoder_similarity_1 (True)
-      return nodeId.includes('_0') ? 0 : 1
-
-    case CATEGORY_SEMANTIC_SIMILARITY:
-      // semsim_mean_0 (Low) before semsim_mean_1 (High)
-      return nodeId.includes('_0') ? 0 : 1
-      
-      default:
-        return 0
-      }
-    }
-    
 // ============================================================================
 // MAIN SANKEY CALCULATION
 // ============================================================================
 
 /**
- * Calculate Sankey layout from data
+ * Calculate Sankey layout from pre-converted D3 data.
+ * Runs D3 sankey generator at the given dimensions.
+ *
+ * Node order is controlled by insertion order from sankey-builder.ts
+ * (nodeSort(null) preserves it). Link sort prevents visual crossing
+ * when multiple sources share the same target.
  */
 export function calculateSankeyLayout(
   sankeyData: any,
@@ -175,7 +135,7 @@ export function calculateSankeyLayout(
     nodeIdMap.set(String(node.id), index)
   })
 
-  // Transform links efficiently
+  // Transform links: convert string IDs to indices
   const transformedLinks: any[] = []
 
   for (const link of sankeyData.links) {
@@ -207,142 +167,25 @@ export function calculateSankeyLayout(
     throw new Error('No valid links found for Sankey diagram')
   }
 
-  // Prepare nodes with original index for sorting
-  // Also convert feature_ids to featureIds for consistency
-  const nodesWithOrder = filteredNodes.map((node: D3SankeyNode, index: number) => ({
+  // Prepare nodes: convert feature_ids to featureIds Set
+  const nodesWithOrder = filteredNodes.map((node: D3SankeyNode) => ({
     ...node,
-    originalIndex: index,
-    // Convert snake_case feature_ids to camelCase featureIds if it exists
     featureIds: node.feature_ids ? new Set(node.feature_ids) : undefined,
-    // stage is already an integer from the tree structure
     stage: node.stage ?? 0
   }))
 
-  // Build parent-child relationships
-  const nodeMap = new Map<string, D3SankeyNode>()
-  const childToParentMap = new Map<string, string>()
-
-  nodesWithOrder.forEach((node: D3SankeyNode) => {
-    if (node.id) nodeMap.set(node.id, node)
-  })
-
-  transformedLinks.forEach(link => {
-    const targetId = typeof link.target === 'number' ? filteredNodes[link.target]?.id : link.target
-    const sourceId = typeof link.source === 'number' ? filteredNodes[link.source]?.id : link.source
-    if (targetId && sourceId) {
-      childToParentMap.set(String(targetId), String(sourceId))
-    }
-  })
-
-  /**
-   * Get the originalIndex of the stage-1 ancestor (first child of root).
-   * This groups terminal nodes by their subtree for proper visual ordering.
-   */
-  const getStage1AncestorIndex = (
-    node: D3SankeyNode,
-    nodeMap: Map<string, D3SankeyNode>,
-    childToParentMap: Map<string, string>
-  ): number => {
-    let current = node
-
-    // Walk up the tree until we find a node whose parent is root
-    while (current) {
-      const parentId = childToParentMap.get(current.id || '') || extractParentId(current.id || '')
-
-      if (parentId === 'root') {
-        // current is a direct child of root (stage-1 ancestor)
-        return current.originalIndex ?? 0
-      }
-
-      const parent = nodeMap.get(parentId)
-      if (!parent) break
-
-      current = parent
-    }
-
-    // Fallback for root node itself
-    return 0
-  }
-
-  // Node sorting function
-  const smartNodeSort = (a: D3SankeyNode, b: D3SankeyNode) => {
-    // Ensure nodes are defined
-    if (!a || !b) {
-      console.warn('Undefined node in sort comparison', { a, b })
-      return 0
-    }
-
-    // Sort by stage first
-    const stageA = a.stage ?? 0
-    const stageB = b.stage ?? 0
-    if (stageA !== stageB) {
-      return stageA - stageB
-    }
-
-    // Within same stage, sort by stage-1 ancestor to group by subtree
-    const ancestorIndexA = getStage1AncestorIndex(a, nodeMap, childToParentMap)
-    const ancestorIndexB = getStage1AncestorIndex(b, nodeMap, childToParentMap)
-
-    if (ancestorIndexA !== ancestorIndexB) {
-      return ancestorIndexA - ancestorIndexB
-    }
-
-    // Within same subtree, sort by depth (deeper nodes first)
-    if (a.depth !== b.depth) {
-      return (b.depth || 0) - (a.depth || 0)  // Descending: 3 → 2 → 1
-    }
-
-    // Same subtree and depth: sort by immediate parent's originalIndex
-    const parentA = childToParentMap.get(a.id || '') || extractParentId(a.id || '')
-    const parentB = childToParentMap.get(b.id || '') || extractParentId(b.id || '')
-
-    if (parentA !== parentB) {
-      const parentNodeA = nodeMap.get(parentA)
-      const parentNodeB = nodeMap.get(parentB)
-
-      if (parentNodeA && parentNodeB) {
-        return (parentNodeA.originalIndex ?? 0) - (parentNodeB.originalIndex ?? 0)
-      }
-
-      return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
-    }
-
-    // Same parent and category: apply category-specific sorting
-    if (a.category === b.category && a.category) {
-      const sortOrderA = getCategorySortOrder(a.id || '', a.category)
-      const sortOrderB = getCategorySortOrder(b.id || '', b.category)
-
-      if (sortOrderA !== sortOrderB) {
-        return sortOrderA - sortOrderB
-      }
-    }
-
-    // Final fallback to original order
-    return (a.originalIndex ?? 0) - (b.originalIndex ?? 0)
-  }
-
-  // Link sorting function
+  // Link sort: prevent visual crossing when multiple sources share a target
   const linkSort = (a: D3SankeyLink, b: D3SankeyLink) => {
-    // Ensure links are defined
-    if (!a || !b) {
-      console.warn('Undefined link in sort comparison', { a, b })
-      return 0
-    }
+    if (!a || !b) return 0
 
     const sourceA = a.source as D3SankeyNode
     const sourceB = b.source as D3SankeyNode
     const targetA = a.target as D3SankeyNode
     const targetB = b.target as D3SankeyNode
 
-    // Ensure source/target nodes are defined
-    if (!sourceA || !sourceB || !targetA || !targetB) {
-      console.warn('Undefined node in link sort', { sourceA, sourceB, targetA, targetB })
-      return 0
-    }
+    if (!sourceA || !sourceB || !targetA || !targetB) return 0
 
     // When links share the same target, sort by source stage (descending)
-    // This prevents crossing when multiple sources link to the same terminal node
-    // (e.g., need_revision and monosemantic both linking to well_explained_terminal)
     if (targetA.id && targetA.id === targetB.id) {
       const stageA = sourceA.stage ?? 0
       const stageB = sourceB.stage ?? 0
@@ -361,12 +204,12 @@ export function calculateSankeyLayout(
   }
 
   // Create D3 sankey generator
+  // Default nodeSort (undefined) lets D3 optimize vertical ordering via relaxation
   const sankeyGenerator = sankey<D3SankeyNode, D3SankeyLink>()
     .nodeWidth(20)
     .nodePadding(10)
     .extent([[1, 1], [width - 1, height - 1]])
-    .nodeAlign(stageBasedAlign)
-    .nodeSort(smartNodeSort as any)
+    .nodeAlign((node: D3SankeyNode) => node.stage || 0)
     .linkSort(linkSort as any)
 
   // Process the data
@@ -375,12 +218,11 @@ export function calculateSankeyLayout(
     links: transformedLinks
   })
 
-  // Expand width of vertical bar nodes (3x for three LLM explainer bars)
-  const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
+  // Expand width of vertical bar nodes (3x for better visibility)
+  const nodeWidth = 15
   sankeyLayout.nodes.forEach(node => {
     if (node.node_type === 'vertical_bar' && node.x0 !== undefined && node.x1 !== undefined) {
       const newWidth = nodeWidth * 3
-      // Expand to the right (keep x0, increase x1)
       node.x1 = node.x0 + newWidth
     }
   })
@@ -390,11 +232,9 @@ export function calculateSankeyLayout(
     if (sankeyLayout.nodes.length === 1) {
       // Single-node case (root-only tree)
       const singleNode = sankeyLayout.nodes[0]
-      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
-      const nodeHeight = Math.min(200, height * 0.8) // Longer height to accommodate growth
+      const nodeHeight = Math.min(200, height * 0.8)
 
-      // Position on left middle (not center)
-      const leftMargin = 20 // Small margin from left edge
+      const leftMargin = 20
       singleNode.x0 = leftMargin
       singleNode.x1 = singleNode.x0 + nodeWidth
       singleNode.y0 = (height - nodeHeight) / 2
@@ -402,18 +242,15 @@ export function calculateSankeyLayout(
     } else if (sankeyLayout.nodes.length === 2) {
       // Two-node case (root + vertical_bar placeholder)
       const [rootNode, verticalBarNode] = sankeyLayout.nodes
-      const nodeWidth = 15 // Same as sankeyGenerator nodeWidth
-      const nodeHeight = Math.min(200, height * 0.8) // Longer height
+      const nodeHeight = Math.min(200, height * 0.8)
 
-      // Position root on left
       const leftMargin = 20
       rootNode.x0 = leftMargin
       rootNode.x1 = rootNode.x0 + nodeWidth
       rootNode.y0 = (height - nodeHeight) / 2
       rootNode.y1 = rootNode.y0 + nodeHeight
 
-      // Position vertical bar on right (6x width for better visibility)
-      const rightMargin = 20  // Increased margin to show full width
+      const rightMargin = 20
       const verticalBarWidth = nodeWidth * 6
       verticalBarNode.x0 = width - rightMargin - verticalBarWidth
       verticalBarNode.x1 = verticalBarNode.x0 + verticalBarWidth
@@ -443,7 +280,6 @@ export function getNodeColor(node: D3SankeyNode): string {
   }
 
   // Fallback to metric-based coloring for backward compatibility
-  // Nodes are colored based on the metric that splits them (root) or created them (children)
   const metric = node.metric
 
   if (metric) {
@@ -459,7 +295,6 @@ export function getNodeColor(node: D3SankeyNode): string {
  * Returns a fixed neutral gray color for all links for visual consistency
  */
 export function getLinkColor(_link: D3SankeyLink): string {
-  // Fixed neutral gray for all links - uses centralized constant
   return SANKEY_COLORS.LINK_COLOR
 }
 
@@ -472,7 +307,6 @@ export function getLinkColor(_link: D3SankeyLink): string {
  */
 export function validateDimensions(_width: number, height: number): string[] {
   const errors: string[] = []
-  // Width constraint removed - allow any width for flexible layouts
   if (height < MIN_CONTAINER_HEIGHT) errors.push(`Container height must be at least ${MIN_CONTAINER_HEIGHT}px`)
   return errors
 }
@@ -488,7 +322,6 @@ export function validateSankeyData(data: any): string[] {
   const errors: string[] = []
 
   // Allow 1-node (root-only) or 2-node (root + vertical_bar) cases with no links
-  // Only validate link structure if links exist
   if (data.nodes.length > 0 && data.links.length > 0) {
     // Build node ID map
     const nodeIdToIndex = new Map<string, number>()
@@ -641,7 +474,6 @@ export function calculateVerticalBarNodeLayout(
     })
   } else {
     // Fallback: create single bar if no feature data available
-    // Use hierarchical color from parent node (preferred), fallback to default
     const color = node.colorHex || BAR_COLOR
 
     subNodes.push({
@@ -660,11 +492,9 @@ export function calculateVerticalBarNodeLayout(
   let scrollIndicator: ScrollIndicator | null = null
 
   if (scrollState && scrollState.scrollHeight > 0 && scrollState.clientHeight > 0) {
-    // Calculate viewport position as percentage of total scrollable area
     const scrollPercent = scrollState.scrollTop / scrollState.scrollHeight
     const viewportPercent = scrollState.clientHeight / scrollState.scrollHeight
 
-    // Indicator shows the visible portion of the table
     const startPercent = scrollPercent
     const endPercent = Math.min(1.0, scrollPercent + viewportPercent)
 
@@ -684,26 +514,18 @@ export function calculateVerticalBarNodeLayout(
 }
 
 // ============================================================================
-// D3 FORMAT CONVERSION (Moved from sankey-d3-converter.ts)
+// D3 FORMAT CONVERSION
 // ============================================================================
 
 /**
- * Convert simplified SankeyStructure to D3-compatible format for rendering
- * Handles node positioning based on stage and type (regular, segment, terminal)
- *
- * Note: This is the NEW architecture converter for the fixed 3-stage system.
- * The old calculateSankeyLayout() above is kept for backward compatibility.
+ * Convert SankeyStructure to D3-compatible node/link format WITHOUT running D3 layout.
+ * Returns nodes with string source/target IDs — no positions computed.
+ * The actual D3 layout is run once by calculateSankeyLayout() in the component.
  */
-export function convertToD3Format(
-  structure: any,  // SankeyStructure from types
-  width: number,
-  height: number
+export function convertStructureToD3Nodes(
+  structure: any  // SankeyStructure from types
 ): { nodes: D3SankeyNode[], links: D3SankeyLink[] } {
-  const margin = { top: 10, right: 50, bottom: 20, left: 20 }
-  const innerWidth = width - margin.left - margin.right
-  const innerHeight = height - margin.top - margin.bottom
-
-  // Helper: Convert node
+  // Helper: Convert node to D3 format
   function convertNode(node: any, stage: number): any {
     const baseNode: any = {
       id: node.id,
@@ -730,7 +552,7 @@ export function convertToD3Format(
   }
 
   // 1. Convert nodes
-  const nodes: any[] = structure.nodes.map((node: any) => {
+  const nodes: D3SankeyNode[] = structure.nodes.map((node: any) => {
     let stage: number
     if (node.id === 'root') {
       stage = 0
@@ -742,111 +564,12 @@ export function convertToD3Format(
     return convertNode(node, stage)
   })
 
-  // 2. Create node ID map
-  const nodeIdMap = new Map<string, number>()
-  nodes.forEach((node, index) => {
-    nodeIdMap.set(node.id || '', index)
-  })
+  // 2. Convert links (keep string source/target IDs)
+  const links: D3SankeyLink[] = structure.links.map((link: any) => ({
+    source: link.source,
+    target: link.target,
+    value: link.value
+  }))
 
-  // 3. Transform links
-  const transformedLinks: any[] = []
-  for (const link of structure.links) {
-    const linkAny = link as any
-    const sourceId = typeof linkAny.source === 'object' ? linkAny.source?.id : linkAny.source
-    const targetId = typeof linkAny.target === 'object' ? linkAny.target?.id : linkAny.target
-
-    const sourceIndex = typeof sourceId === 'number' ? sourceId : nodeIdMap.get(String(sourceId))
-    const targetIndex = typeof targetId === 'number' ? targetId : nodeIdMap.get(String(targetId))
-
-    if (sourceIndex === undefined || targetIndex === undefined) {
-      console.warn(`[convertToD3Format] Skipping invalid link: ${sourceId} -> ${targetId}`)
-      continue
-    }
-
-    transformedLinks.push({
-      ...link,
-      source: sourceIndex,
-      target: targetIndex
-    })
-  }
-
-  // 4. Create D3 sankey generator
-  // nodeSort(null) preserves original node order and prevents reordering when links change
-  const sankeyGenerator = sankey<any, any>()
-    .nodeWidth(15)
-    .nodePadding(10)
-    .extent([[1, 1], [innerWidth - 1, innerHeight - 1]])
-    .nodeAlign((node: any) => node.stage || 0)
-    .nodeSort(null as any)
-    .linkSort((a: any, b: any) => {
-      // Get target node ID (handle index, object, or string)
-      const getTargetId = (link: any): string | null => {
-        if (typeof link.target === 'object') return link.target?.id ?? null
-        if (typeof link.target === 'number') return nodes[link.target]?.id ?? null
-        return String(link.target)
-      }
-
-      const targetIdA = getTargetId(a)
-      const targetIdB = getTargetId(b)
-
-      // Only reorder when links share the same target (compare by ID, not reference)
-      // This prevents crossing when multiple sources link to the same terminal node
-      // (e.g., need_revision and monosemantic both linking to well_explained_terminal)
-      if (targetIdA && targetIdA === targetIdB) {
-        // Get source node (handle index or object)
-        const getSource = (link: any) => {
-          if (typeof link.source === 'object') return link.source
-          if (typeof link.source === 'number') return nodes[link.source]
-          return null
-        }
-        const sourceA = getSource(a)
-        const sourceB = getSource(b)
-        const stageA = sourceA?.stage ?? 0
-        const stageB = sourceB?.stage ?? 0
-        if (stageA !== stageB) {
-          return stageB - stageA  // Higher stage first → connects at top of target
-        }
-      }
-      return 0  // Preserve original order otherwise
-    })
-
-  // 5. Process with D3
-  const sankeyLayout = sankeyGenerator({
-    nodes,
-    links: transformedLinks
-  })
-
-  // 6. Expand vertical bar nodes (6x for better visibility)
-  const nodeWidth = 15
-  sankeyLayout.nodes.forEach(node => {
-    if (node.node_type === 'vertical_bar' && node.x0 !== undefined && node.x1 !== undefined) {
-      const newWidth = nodeWidth * 6
-      node.x1 = node.x0 + newWidth
-    }
-  })
-
-  // 7. Handle 2-node special case
-  if (sankeyLayout.links.length === 1 && sankeyLayout.nodes.length === 2) {
-    const [rootNode, segmentNode] = sankeyLayout.nodes
-    const nodeHeight = Math.min(200, innerHeight * 0.8)
-
-    const leftMargin = 20
-    rootNode.x0 = leftMargin
-    rootNode.x1 = rootNode.x0 + nodeWidth
-    rootNode.y0 = (innerHeight - nodeHeight) / 2
-    rootNode.y1 = rootNode.y0 + nodeHeight
-
-    const rightMargin = 20
-    const segmentWidth = nodeWidth * 6
-    segmentNode.x0 = innerWidth - rightMargin - segmentWidth
-    segmentNode.x1 = segmentNode.x0 + segmentWidth
-    segmentNode.y0 = (innerHeight - nodeHeight) / 2
-    segmentNode.y1 = segmentNode.y0 + nodeHeight
-  }
-
-  return {
-    nodes: sankeyLayout.nodes as D3SankeyNode[],
-    links: sankeyLayout.links as D3SankeyLink[]
-  }
+  return { nodes, links }
 }
-

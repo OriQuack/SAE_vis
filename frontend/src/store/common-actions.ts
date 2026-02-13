@@ -1,8 +1,6 @@
 import * as api from '../api'
 import type { SankeySegmentSelection } from '../types'
 import {
-  METRIC_DECODER_SIMILARITY,
-  METRIC_QUALITY_SCORE,
   PANEL_LEFT
 } from '../lib/constants'
 import {
@@ -154,63 +152,6 @@ export const createCommonActions = (set: any, get: any) => ({
   },
 
   /**
-   * Determine the category of a node based on its parent's metric
-   * Used to automatically activate the correct tag category when clicking a node
-   */
-  getNodeCategory: (nodeId: string): string | null => {
-    const state = get()
-    const { leftPanel } = state
-
-    if (!leftPanel.sankeyTree) {
-      console.warn('[Store.getNodeCategory] No Sankey tree available')
-      return null
-    }
-
-    const node = leftPanel.sankeyTree.get(nodeId)
-    if (!node) {
-      console.warn('[Store.getNodeCategory] Node not found:', nodeId)
-      return null
-    }
-
-    if (!node.parentId) {
-      console.warn('[Store.getNodeCategory] Node has no parent:', nodeId)
-      return null
-    }
-
-    const parent = leftPanel.sankeyTree.get(node.parentId)
-    if (!parent) {
-      console.warn('[Store.getNodeCategory] Parent not found:', node.parentId)
-      return null
-    }
-
-    // Determine category based on parent's metric
-    if (parent.metric === METRIC_DECODER_SIMILARITY) {
-      return TAG_CATEGORY_FEATURE_SPLITTING
-    } else if (parent.metric === METRIC_QUALITY_SCORE) {
-      return TAG_CATEGORY_QUALITY
-    }
-
-    console.warn('[Store.getNodeCategory] Unknown metric:', parent.metric)
-    return null
-  },
-
-  /**
-   * Select a node and activate its corresponding category
-   * Unified action that combines node selection with category activation
-   */
-  selectNodeWithCategory: (nodeId: string, categoryId: string) => {
-    const state = get()
-
-    // 1. Select the single node
-    state.selectSingleNode(nodeId)
-
-    // 2. Activate the category and table
-    state.setActiveStageNode(nodeId, categoryId)
-
-    console.log(`[Store.selectNodeWithCategory] Selected node ${nodeId} with category ${categoryId}`)
-  },
-
-  /**
    * Get feature IDs from all selected nodes
    */
   getSelectedNodeFeatures: () => {
@@ -267,22 +208,9 @@ export const createCommonActions = (set: any, get: any) => ({
       }
     }
 
-    // Legacy: Collect feature IDs from all selected nodes
-    const featureIds = new Set<number>()
-
-    for (const nodeId of tableSelectedNodeIds) {
-      const node = leftPanel.sankeyTree.get(nodeId)
-      if (node?.featureIds) {
-        node.featureIds.forEach((id: number) => featureIds.add(id))
-      }
-    }
-
-    console.log('[Store.getSelectedNodeFeatures] Got features from selection:', {
-      nodeCount: tableSelectedNodeIds.length,
-      featureCount: featureIds.size
-    })
-
-    return featureIds
+    // No matching node found in v2 structure
+    console.warn('[Store.getSelectedNodeFeatures] No features found for selection:', tableSelectedNodeIds)
+    return new Set<number>()
   },
 
   /**

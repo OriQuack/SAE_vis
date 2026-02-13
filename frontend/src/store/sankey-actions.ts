@@ -19,7 +19,7 @@ import {
   buildStage4FromTaggedStates,
   updateStageThreshold as updateThresholdInStructure
 } from '../lib/sankey-builder'
-import { convertToD3Format } from '../lib/sankey-utils'
+import { convertStructureToD3Nodes } from '../lib/sankey-utils'
 import { PANEL_LEFT, PANEL_RIGHT, getStageConfig } from '../lib/constants'
 import * as api from '../api'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
@@ -723,15 +723,15 @@ export const createSimplifiedSankeyActions = (set: any, get: any) => ({
     }
 
     try {
-      // Convert to D3 format (assumes default dimensions, will be recalculated in component)
-      const d3Layout = convertToD3Format(sankeyStructure, 800, 800)
+      // Convert structure to D3 node/link format (no layout — layout runs once in component)
+      const d3Layout = convertStructureToD3Nodes(sankeyStructure)
 
-      console.log(`[recomputeD3StructureV2] ✅ D3 structure computed:`, {
+      console.log(`[recomputeD3StructureV2] ✅ D3 data converted:`, {
         nodes: d3Layout.nodes.length,
         links: d3Layout.links.length
       })
 
-      // Store D3 layout
+      // Store pre-layout D3 data
       set((state: any) => ({
         [panelKey]: {
           ...state[panelKey],

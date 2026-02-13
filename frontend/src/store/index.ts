@@ -193,8 +193,6 @@ interface AppState {
   toggleNodeSelection: (nodeId: string) => void
   clearNodeSelection: () => void
   selectSingleNode: (nodeId: string | null, segmentIndex?: number | null) => void
-  getNodeCategory: (nodeId: string) => string | null
-  selectNodeWithCategory: (nodeId: string, categoryId: string) => void
   getSelectedNodeFeatures: () => Set<number> | null
 
   // V2: Segment-specific selection
@@ -440,7 +438,7 @@ const initialState = {
   causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),
   causeSortCategory: null,  // Sort by max decision margin by default
   // Cause margin threshold for effective category calculation
-  causeMarginThreshold: 0.1,
+  causeMarginThreshold: 0.15,
 
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,
@@ -1127,8 +1125,6 @@ export const useStore = create<AppState>((set, get) => {
       allLLMScorers: llmScorers
     })
 
-    console.log('🌳 Initializing tree-based system with empty root nodes (no d3Layout yet)')
-
     // Set filters: Left panel gets ALL LLM explainers, right panel stays empty
     set((state) => ({
       leftPanel: {
@@ -1138,19 +1134,7 @@ export const useStore = create<AppState>((set, get) => {
           explanation_method: [],
           llm_explainer: llmExplainers,  // Select ALL LLM Explainers
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        },
-        // Initialize tree-based system with root node
-        sankeyTree: new Map([['root', {
-          id: 'root',
-          parentId: null,
-          metric: null,
-          thresholds: [],
-          depth: 0,
-          children: [],
-          featureIds: new Set(),
-          featureCount: 0,
-          rangeLabel: 'All Features'
-        }]])
+        }
       },
       rightPanel: {
         ...state.rightPanel,
@@ -1159,19 +1143,7 @@ export const useStore = create<AppState>((set, get) => {
           explanation_method: [],
           llm_explainer: [],  // No explainer selected in right panel
           llm_scorer: llmScorers  // Select ALL LLM Scorers
-        },
-        // Initialize tree-based system with root node
-        sankeyTree: new Map([['root', {
-          id: 'root',
-          parentId: null,
-          metric: null,
-          thresholds: [],
-          depth: 0,
-          children: [],
-          featureIds: new Set(),
-          featureCount: 0,
-          rangeLabel: 'All Features'
-        }]])
+        }
       }
     }))
 
