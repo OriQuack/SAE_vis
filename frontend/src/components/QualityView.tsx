@@ -835,7 +835,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     // Show stripe for: already auto-tagged OR in preview threshold regions
     const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
-    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(String(feature.featureId)) : undefined
+    const disagreementInfo = activeStage === 'apply' && !isUserConfirmed(featureSelectionSources.get(feature.featureId)) ? disagreementLookup.get(String(feature.featureId)) : undefined
 
     return (
       <>

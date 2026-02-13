@@ -31,7 +31,6 @@ export interface CauseModeProps {
   sortMode: SortMode
   sortDirection: 'asc' | 'desc'
   activeStage: ActiveStage  // 'bootstrap' | 'train' | 'apply'
-  onPercentageChange: (pct: number) => void
   canTrainSVM: boolean
   manualTagCountsByCategory: Record<string, number>
   // Flip tracking for ConvergenceIndicator (optional - null until implemented)
@@ -195,7 +194,6 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             onThresholdChange={causeProps.onThresholdChange}
             sortMode={causeProps.sortMode}
             sortDirection={causeProps.sortDirection}
-            onPercentageChange={causeProps.onPercentageChange}
             canTrainSVM={causeProps.canTrainSVM}
             manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
           />

@@ -7,13 +7,10 @@ import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
-import { HighlightedExplanation } from './ExplanationPanel'
 import ConsensusSection from './ConsensusSection'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
-import { getExplainerDisplayName } from '../lib/table-data-utils'
-import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
@@ -29,9 +26,6 @@ import '../styles/CauseView.css'
 // CAUSE VIEW - Root cause analysis workflow (Stage 3)
 // ============================================================================
 // Layout: [Content: UMAP + Selected Features List + Right Panel]
-
-// Initial unsure boundary percentage (Low 1% of features by decision margin)
-const INITIAL_UNSURE_PERCENTAGE = 1
 
 // Minimum manual tags required per cause category before SVM training
 const MIN_TAGS_PER_CATEGORY = 2
@@ -108,7 +102,6 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Local state for feature detail view
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
-  const [_targetPercentage, setTargetPercentage] = useState(INITIAL_UNSURE_PERCENTAGE)
   // Hide tagged items toggle
   const [hideTagged, setHideTagged] = useState(false)
   // Show only QBC disagreement features toggle
@@ -258,79 +251,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- Zustand actions have stable references
   }, [isRevisitingStage3, selectedFeatureIds, tableData, activationExamples])
 
-  // ============================================================================
-  // AUTO-ADJUST UNSURE BOUNDARY - Set threshold to show Low INITIAL_UNSURE_PERCENTAGE%
-  // ============================================================================
-  const hasAutoAdjustedBoundaryRef = useRef(false)
-
-  useEffect(() => {
-    // Guard: Only run once, after classification completes
-    if (hasAutoAdjustedBoundaryRef.current) return
-    if (isRevisitingStage3) return
-    if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
-    if (causeClassificationLoading) return
-    if (!selectedFeatureIds || selectedFeatureIds.size === 0) return
-
-    hasAutoAdjustedBoundaryRef.current = true
-
-    // Collect all margins for non-user-confirmed features
-    const margins: number[] = []
-    selectedFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      if (isUserConfirmed(source)) return  // Skip user-confirmed tags
-
-      const categoryScores = causeCategoryDecisionMargins.get(featureId)
-      if (!categoryScores) {
-        margins.push(0)  // No scores = treat as margin 0 (most unsure)
-        return
-      }
-
-      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-      margins.push(margin)
-    })
-
-    // Sort margins ascending (lowest = most unsure)
-    margins.sort((a, b) => a - b)
-
-    // Calculate target index for INITIAL_UNSURE_PERCENTAGE% of features
-    const targetCount = Math.max(1, Math.ceil(margins.length * INITIAL_UNSURE_PERCENTAGE / 100))
-    const targetIndex = Math.min(targetCount - 1, margins.length - 1)
-
-    if (margins.length > targetCount && targetIndex + 1 < margins.length) {
-      // Set threshold between target feature and next one
-      const targetMargin = margins[targetIndex]
-      const nextMargin = margins[targetIndex + 1]
-      const newThreshold = (targetMargin + nextMargin) / 2
-      setCauseMarginThreshold(newThreshold)
-    } else {
-      // Fewer features than target - set threshold to include all
-      const maxMargin = margins[margins.length - 1] || 0
-      setCauseMarginThreshold(maxMargin + 0.01)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- Run once after classification, dependencies are stable
-  }, [isRevisitingStage3, causeCategoryDecisionMargins, causeClassificationLoading, selectedFeatureIds])
-
-  // Memoize sorted margins for threshold calculations when switching modes
-  const sortedMargins = useMemo(() => {
-    if (!selectedFeatureIds || !causeCategoryDecisionMargins) return []
-
-    const margins: number[] = []
-    selectedFeatureIds.forEach(featureId => {
-      const source = causeSelectionSources.get(featureId)
-      if (isUserConfirmed(source)) return  // Skip user-confirmed tags
-
-      const categoryScores = causeCategoryDecisionMargins.get(featureId)
-      if (!categoryScores) {
-        margins.push(0)
-        return
-      }
-      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-      margins.push(margin)
-    })
-
-    return margins.sort((a, b) => a - b)
-  }, [selectedFeatureIds, causeCategoryDecisionMargins, causeSelectionSources])
-
   // Initialize stage3FinalCommit with initial state when first entering Stage 3
   // This ensures we can restore even if user does nothing and moves to Stage 4
   // Wait for metric scores to be calculated before creating the commit
@@ -462,37 +382,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       isTopMode
     )
   }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
-
-  // Track previous isTopMode to detect mode switches
-  const prevIsTopModeRef = useRef(isTopMode)
-
-  // Recalculate threshold when switching between Low/Top modes to maintain same percentage
-  useEffect(() => {
-    // Only trigger on mode switch (not initial render)
-    if (prevIsTopModeRef.current === isTopMode) return
-    prevIsTopModeRef.current = isTopMode
-
-    if (sortedMargins.length === 0) return
-
-    // Calculate threshold to maintain same percentage from opposite end
-    const targetCount = Math.max(1, Math.ceil(sortedMargins.length * _targetPercentage / 100))
-
-    if (isTopMode) {
-      // Top X%: threshold at (100 - X) percentile so X% of features are ABOVE
-      const targetIndex = Math.max(0, sortedMargins.length - targetCount)
-      const newThreshold = targetIndex > 0
-        ? (sortedMargins[targetIndex - 1] + sortedMargins[targetIndex]) / 2
-        : sortedMargins[0] - 0.01
-      setCauseMarginThreshold(newThreshold)
-    } else {
-      // Low X%: threshold at X percentile so X% of features are BELOW
-      const targetIndex = Math.min(targetCount - 1, sortedMargins.length - 1)
-      const newThreshold = targetIndex + 1 < sortedMargins.length
-        ? (sortedMargins[targetIndex] + sortedMargins[targetIndex + 1]) / 2
-        : sortedMargins[sortedMargins.length - 1] + 0.01
-      setCauseMarginThreshold(newThreshold)
-    }
-  }, [isTopMode, sortedMargins, _targetPercentage, setCauseMarginThreshold])
 
   // All features filtered by visibility (mode-based) and category filter
   // When hideTagged=true, excludes user-confirmed features (they're already done)
@@ -704,40 +593,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       activation: activationExamples[feature.featureId] || null
     }
   }, [selectedFeatureId, featureListWithMetadata, activationExamples])
-
-  // Find the best explanation (max quality score)
-  const bestExplanation = useMemo(() => {
-    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return null
-
-    let bestExplainerId: string | null = null
-    let bestScore = -Infinity
-    let bestData: {
-      highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
-      explanationText: string | null
-      qualityScore: number
-    } | null = null
-
-    for (const explainerId of tableData.explainer_ids) {
-      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
-      const score = explainerData?.quality_score
-      if (score !== null && score !== undefined && score > bestScore) {
-        bestScore = score
-        bestExplainerId = explainerId
-        bestData = {
-          highlightedExplanation: explainerData?.highlighted_explanation ?? null,
-          explanationText: explainerData?.explanation_text ?? null,
-          qualityScore: score
-        }
-      }
-    }
-
-    if (!bestExplainerId || !bestData) return null
-
-    return {
-      explainerId: bestExplainerId,
-      ...bestData
-    }
-  }, [selectedFeatureData, tableData?.explainer_ids])
 
   // Handle click on feature list item (main StageAccordionList)
   const handleListItemClick = useCallback((index: number) => {
@@ -1142,7 +997,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       isAuto = sortMode === 'decisionMargin' && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
     }
 
-    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(featureId) : undefined
+    const disagreementInfo = activeStage === 'apply' && !isUserConfirmed(causeSelectionSources.get(featureId)) ? disagreementLookup.get(featureId) : undefined
 
     return (
       <>
@@ -1274,98 +1129,39 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
 
-                    {/* Consensus Section - Clustered explanation phrases */}
-                    <span className="subheader">Consensus</span>
-                    <ConsensusSection consensus={consensus} />
-
-                    {/* ---- Bottom section: Best Explanation (metrics + text in one border) ---- */}
-                    <div className="cause-view__detail-bottom-row">
-                      {/* Header - OUTSIDE bordered container */}
-                      <div className="cause-view__explanation-header">
-                        <span className="subheader subheader--with-value">
-                          Best Explanation
-                          <span className="subheader__label">Quality Score:</span>
-                          <span className="subheader__value">
-                            {bestExplanation?.qualityScore !== undefined ? bestExplanation.qualityScore.toFixed(3) : 'N/A'}
-                          </span>
-                        </span>
-                      </div>
-                      {/* Combined legend row */}
-                      <div className="cause-view__combined-legend">
-                        {/* Metrics legend */}
-                        <div className="cause-view__metrics-legend">
-                          <div className="legend-item">
-                            <svg width="24" height="12">
-                              <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
-                            </svg>
-                            <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
-                          </div>
-                          <div className="legend-item">
-                            <svg width="24" height="12">
-                              <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
-                              <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
-                            </svg>
-                            <span className="legend-label">Current</span>
-                          </div>
-                          <div className="legend-item">
-                            <svg width="24" height="12">
-                              <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
-                            </svg>
-                            <span className="legend-label">Random</span>
-                          </div>
+                    {/* Consensus + Parallel Coordinates row */}
+                    <div className="cause-view__consensus-row-header">
+                      <span className="subheader">Consensus</span>
+                      {/* Metrics legend */}
+                      <div className="cause-view__metrics-legend">
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
+                          </svg>
+                          <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
                         </div>
-                        <span className="legend-separator">|</span>
-                        {/* Semantic similarity legend */}
-                        <div className="cause-view__explanation-legend">
-                          <span className="legend-group-label">Phrase Similarity:</span>
-                          <div className="legend-item">
-                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
-                            <span className="legend-label">≥0.85</span>
-                          </div>
-                          <div className="legend-item">
-                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
-                            <span className="legend-label">≥0.70</span>
-                          </div>
-                          <div className="legend-item">
-                            <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                            <span className="legend-label">≥0.60</span>
-                          </div>
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
+                            <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
+                          </svg>
+                          <span className="legend-label">Current</span>
+                        </div>
+                        <div className="legend-item">
+                          <svg width="24" height="12">
+                            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
+                          </svg>
+                          <span className="legend-label">Random</span>
                         </div>
                       </div>
-                      {/* Content section (HAS border) - metrics + explanation side by side */}
-                      <div className="cause-view__explanation-section">
-                        <div className="cause-view__metrics-container">
-                          <CauseMetricParallelCoords
-                            wellExplainedScores={wellExplainedScores}
-                            currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                          />
-                        </div>
-                        <div className="cause-view__explanation-content">
-                          {bestExplanation ? (
-                            <div className="cause-view__explainer-block">
-                              <span
-                                className={`cause-view__explainer-name cause-view__explainer-name--${bestExplanation.explainerId}`}
-                              >
-                                {getExplainerDisplayName(bestExplanation.explainerId)}
-                              </span>
-                              <span className="cause-view__explainer-text">
-                                {bestExplanation.highlightedExplanation?.segments ? (
-                                  <HighlightedExplanation
-                                    segments={bestExplanation.highlightedExplanation.segments}
-                                    truncated={false}
-                                    hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
-                                  />
-                                ) : (
-                                  <span className="cause-view__no-explanation">
-                                    {bestExplanation.explanationText || 'No explanation available'}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="cause-view__no-explanation">No explanations available</span>
-                          )}
-                        </div>
+                    </div>
+                    <div className="cause-view__consensus-with-metrics">
+                      <ConsensusSection consensus={consensus} />
+                      <div className="cause-view__metrics-container">
+                        <CauseMetricParallelCoords
+                          wellExplainedScores={wellExplainedScores}
+                          currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                        />
                       </div>
                     </div>
 
@@ -1461,7 +1257,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   sortMode,
                   sortDirection: selectedSortDirection,
                   activeStage,
-                  onPercentageChange: setTargetPercentage,
                   canTrainSVM,
                   manualTagCountsByCategory,
                   flipTracking: causeFlipTracking,

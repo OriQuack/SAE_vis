@@ -914,7 +914,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     // Show stripe for: already auto-tagged OR in preview threshold regions
     const isAutoOrPreview = isAutoSource || inPreviewReject || inPreviewSelect
 
-    const disagreementInfo = activeStage === 'apply' ? disagreementLookup.get(pair.pairKey) : undefined
+    const disagreementInfo = activeStage === 'apply' && !isUserConfirmed(pairSelectionSources.get(pair.pairKey)) ? disagreementLookup.get(pair.pairKey) : undefined
 
     return (
       <>

@@ -74,8 +74,6 @@ interface CauseMarginHistogramProps {
   sortMode?: SortMode
   /** Sort direction from StageAccordionList - affects boundary display (Low vs Top) when sortMode is decisionMargin */
   sortDirection?: 'asc' | 'desc'
-  /** Callback when percentage changes (due to threshold drag) */
-  onPercentageChange?: (percentage: number) => void
   /** Whether SVM can be trained (enough manual tags per category) */
   canTrainSVM?: boolean
   /** Manual tag counts per category for progress display */
@@ -185,7 +183,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   height,
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
-  onPercentageChange,
   canTrainSVM = true,
   manualTagCountsByCategory
 }) => {
@@ -249,16 +246,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
     return data
   }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold])
-
-  // Calculate percentage of features in unsure zone (candidates to review)
-  // Top mode: features above threshold; Low mode: features below threshold
-  const unsurePercentage = useMemo(() => {
-    if (marginData.length === 0) return 0
-    const unsureCount = isTopMode
-      ? marginData.filter(d => d.margin > effectiveThreshold).length
-      : marginData.filter(d => d.margin < effectiveThreshold).length
-    return Math.round((unsureCount / marginData.length) * 100)
-  }, [marginData, effectiveThreshold, isTopMode])
 
   // Compute histogram bins (no clipping - show full range)
   const { bins, maxMargin, maxCount } = useMemo(() => {
@@ -418,18 +405,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
   // Handle threshold update from dragging
   const handleThresholdUpdate = useCallback((newThresholds: number[]) => {
-    const newThreshold = newThresholds[0]
-    onThresholdChange(newThreshold)
-
-    // Calculate and report new percentage based on threshold position
-    if (onPercentageChange && marginData.length > 0) {
-      const unsureCount = isTopMode
-        ? marginData.filter(d => d.margin > newThreshold).length
-        : marginData.filter(d => d.margin < newThreshold).length
-      const newPercentage = Math.round((unsureCount / marginData.length) * 100)
-      onPercentageChange(newPercentage)
-    }
-  }, [onThresholdChange, onPercentageChange, marginData, isTopMode])
+    onThresholdChange(newThresholds[0])
+  }, [onThresholdChange])
 
   // Handle live drag updates for visual feedback and store sync
   const handleDragUpdate = useCallback((newThresholds: number[]) => {
@@ -479,11 +456,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       counts
     }
   }, [hoveredBinIndex, bins])
-
-  // Report percentage on mount and when it changes
-  useEffect(() => {
-    onPercentageChange?.(unsurePercentage)
-  }, [unsurePercentage, onPercentageChange])
 
   // Get category colors for placeholder display
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
