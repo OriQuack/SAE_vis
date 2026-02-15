@@ -11,6 +11,7 @@ import '../styles/ConsensusSection.css'
 
 interface ConsensusSectionProps {
   consensus: ConsensusResponse | null
+  onPhraseHover?: (phrases: string[] | null) => void
 }
 
 interface TooltipData {
@@ -18,7 +19,7 @@ interface TooltipData {
   item: ConsensusItem
 }
 
-const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
+const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover }) => {
   // Local state for tooltip on hover
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
 
@@ -28,12 +29,19 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
       position: { x: e.clientX, y: e.clientY },
       item
     })
-  }, [])
+    if (onPhraseHover) {
+      const phrases = item.is_outlier
+        ? [item.phrase]
+        : item.cluster_phrases?.map(p => p.text) || [item.phrase]
+      onPhraseHover(phrases)
+    }
+  }, [onPhraseHover])
 
   // Handle mouse leave
   const handleMouseLeave = useCallback(() => {
     setTooltipData(null)
-  }, [])
+    onPhraseHover?.(null)
+  }, [onPhraseHover])
 
   // Calculate opacity based on consensus score (cluster_score / phrase_weight)
   // Range 0–3 mapped linearly to opacity 0.35–1.0
@@ -106,7 +114,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus }) => {
             )?.toFixed(2) ?? '0.00'}/1</span>
           </div>
           {/* Show all phrases for clusters */}
-          {!tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
+          {!onPhraseHover && !tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
             <div className="consensus-tooltip__phrases">
               {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
                 <span key={pIdx} className="consensus-tooltip__phrase">

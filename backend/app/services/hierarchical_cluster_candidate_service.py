@@ -267,8 +267,8 @@ class HierarchicalClusterCandidateService:
 
         Builds three data structures:
         1. pair_data: {f1: {f2: {decoder_sim, semantic_sim}}} - similarity values for all pairs
-        2. top_decoder: {f1: set(f2, f3, ...)} - top 10 decoder-similar features per feature
-        3. top_semantic: {f1: set(f2, f3, ...)} - top 20 semantic-similar features per feature
+        2. top_semantic: {f1: set(f2, f3, ...)} - top 10 semantic-similar features per feature
+        3. top_lexical: {f1: set(f2, f3, ...)} - top 10 lexical-similar features per feature
 
         OPTIMIZATION: Uses Polars group_by + struct aggregation instead of iter_rows.
         Expected improvement: 6+ min → ~10-30 sec for 476k rows.
@@ -285,8 +285,8 @@ class HierarchicalClusterCandidateService:
                 f"Filtered pair generation will not be available."
             )
             self.pair_data: Dict[int, Dict[int, Dict[str, Optional[float]]]] = {}
-            self.top_decoder: Dict[int, Set[int]] = {}
             self.top_semantic: Dict[int, Set[int]] = {}
+            self.top_lexical: Dict[int, Set[int]] = {}
             self._interfeature_loaded = False
             return
 
@@ -335,28 +335,34 @@ class HierarchicalClusterCandidateService:
         logger.info(f"Built pair_data in {time.time() - step_start:.2f}s ({len(self.pair_data)} features)")
 
         # ========================================================================
-        # OPTIMIZATION 2: Build top_decoder using filter + group_by
-        # Filter to decoder/both source types, then aggregate similar_feature_ids
+        # OPTIMIZATION 2: Build top_lexical using max(char_ngram, word_ngram) + top-10
+        # Compute lexical_sim = max(char_ngram_max_jaccard, word_ngram_max_jaccard),
+        # then take top 10 per feature by lexical_sim descending.
         # ========================================================================
         step_start = time.time()
 
-        decoder_df = df.filter(
-            pl.col("source_type").is_in(["decoder", "both"])
-        ).group_by("main_feature_id").agg(
-            pl.col("similar_feature_id").alias("similar_ids")
+        lexical_df = (
+            df.with_columns(
+                pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
+                .alias("lexical_sim")
+            )
+            .filter(pl.col("lexical_sim").is_not_null())
+            .sort("lexical_sim", descending=True)
+            .group_by("main_feature_id")
+            .agg(pl.col("similar_feature_id").head(10).alias("similar_ids"))
         )
 
-        self.top_decoder = {
+        self.top_lexical = {
             int(row["main_feature_id"]): set(int(sid) for sid in row["similar_ids"])
-            for row in decoder_df.iter_rows(named=True)
+            for row in lexical_df.iter_rows(named=True)
         }
 
-        # Initialize empty sets for features with no decoder neighbors
+        # Initialize empty sets for features with no lexical neighbors
         for fid in self.pair_data.keys():
-            if fid not in self.top_decoder:
-                self.top_decoder[fid] = set()
+            if fid not in self.top_lexical:
+                self.top_lexical[fid] = set()
 
-        logger.info(f"Built top_decoder in {time.time() - step_start:.2f}s ({len(self.top_decoder)} features)")
+        logger.info(f"Built top_lexical in {time.time() - step_start:.2f}s ({len(self.top_lexical)} features)")
 
         # ========================================================================
         # OPTIMIZATION 3: Build top_semantic using filter + group_by
@@ -366,8 +372,8 @@ class HierarchicalClusterCandidateService:
 
         semantic_df = df.filter(
             pl.col("source_type").is_in(["semantic", "both"])
-        ).group_by("main_feature_id").agg(
-            pl.col("similar_feature_id").alias("similar_ids")
+        ).sort("semantic_similarity", descending=True).group_by("main_feature_id").agg(
+            pl.col("similar_feature_id").head(10).alias("similar_ids")
         )
 
         self.top_semantic = {
@@ -409,32 +415,32 @@ class HierarchicalClusterCandidateService:
             return data['decoder_sim'], data['semantic_sim']
         return None, None
 
-    def _in_top_decoder(self, f1: int, f2: int) -> bool:
+    def _in_top_lexical(self, f1: int, f2: int) -> bool:
         """
-        Check if f1 is in f2's top-10 decoder OR f2 is in f1's top-10 decoder.
+        Check if f1 is in f2's top-10 lexical OR f2 is in f1's top-10 lexical.
 
         Args:
             f1: First feature ID
             f2: Second feature ID
 
         Returns:
-            True if either feature is in the other's top-10 decoder list
+            True if either feature is in the other's top-10 lexical list
         """
         return (
-            f2 in self.top_decoder.get(f1, set()) or
-            f1 in self.top_decoder.get(f2, set())
+            f2 in self.top_lexical.get(f1, set()) or
+            f1 in self.top_lexical.get(f2, set())
         )
 
     def _in_top_semantic(self, f1: int, f2: int) -> bool:
         """
-        Check if f1 is in f2's top-20 semantic OR f2 is in f1's top-20 semantic.
+        Check if f1 is in f2's top-10 semantic OR f2 is in f1's top-10 semantic.
 
         Args:
             f1: First feature ID
             f2: Second feature ID
 
         Returns:
-            True if either feature is in the other's top-20 semantic list
+            True if either feature is in the other's top-10 semantic list
         """
         return (
             f2 in self.top_semantic.get(f1, set()) or
@@ -453,9 +459,9 @@ class HierarchicalClusterCandidateService:
         For each cluster at threshold T:
           1. Generate all pairwise combinations within cluster
           2. Filter by Condition 1 (REQUIRED): decoder_similarity > (1 - T)
-          3. From remaining, keep those meeting Condition 2 OR 3:
-             - Condition 2: A in B's Top 20 semantic OR B in A's Top 20 semantic
-             - Condition 3: A in B's Top 10 decoder OR B in A's Top 10 decoder
+          3. From remaining, keep those meeting C2_semantic OR C2_lexical:
+             - C2_semantic: A in B's Top 10 semantic OR B in A's Top 10 semantic
+             - C2_lexical: A in B's Top 10 lexical OR B in A's Top 10 lexical
           4. Fallback (per-feature guarantee):
              - For each feature with no pairs after filtering, add best decoder pair
              - Ensures every feature has at least one pair
@@ -544,12 +550,12 @@ class HierarchicalClusterCandidateService:
                 if d is not None and d > similarity_threshold
             ]
 
-            # Step 3: Filter by Condition 2 OR 3 (ranking criteria)
+            # Step 3: Filter by C2_semantic OR C2_lexical (ranking criteria)
             filtered: List[Tuple[int, int, Optional[float], Optional[float], int]] = []
             for f1, f2, decoder_sim, semantic_sim in passed_c1:
-                in_top20_semantic = self._in_top_semantic(f1, f2)
-                in_top10_decoder = self._in_top_decoder(f1, f2)
-                if in_top20_semantic or in_top10_decoder:
+                c2_semantic = self._in_top_semantic(f1, f2)
+                c2_lexical = self._in_top_lexical(f1, f2)
+                if c2_semantic or c2_lexical:
                     filtered.append((f1, f2, decoder_sim, semantic_sim, cluster_id))
 
             # Step 4: Fallback - ensure every FEATURE has at least one pair

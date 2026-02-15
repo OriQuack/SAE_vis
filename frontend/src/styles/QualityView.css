@@ -273,35 +273,6 @@
   flex-shrink: 0;
 }
 
-/* Semantic similarity legend - in header row, right-aligned */
-.quality-view__explanation-legend {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 12px;
-  color: #6b7280;
-  padding: 0px 12px;
-  flex-shrink: 0;
-  margin-left: auto;
-}
-
-.legend-group-label {
-  font-weight: 500;
-  color: #374151;
-  margin-right: 2px;
-}
-
-.legend-separator {
-  color: #d1d5db;
-  margin: 0 4px;
-}
-
-/* Remove default border-right separators from explanation legend items */
-.quality-view__explanation-legend .legend-item {
-  border-right: none;
-  margin-right: 0;
-  padding-right: 0;
-}
 
 /* ============================================================================
  * EXPLANATION ROW - Left placeholder + Explanations
@@ -320,18 +291,6 @@
   position: relative;
 }
 
-/* Left panel for explainer comparison grid */
-.quality-view__explanation-left {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  flex-shrink: 0;
-  min-width: 0;
-  min-height: 0;
-}
-
-
 /* ============================================================================
  * EXPLANATION SECTION - All 3 LLM Explainers (matches .activation-panel)
  * ============================================================================ */
@@ -346,9 +305,11 @@
   flex: 1;
 }
 
-/* Content wrapper for absolute-positioned explainer blocks */
+/* Content wrapper for explainer blocks */
 .quality-view__explanation-content {
-  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   flex: 1;
   min-height: 0;
 }
@@ -373,14 +334,11 @@
 }
 
 .quality-view__explainer-block {
-  position: absolute;
-  left: 6px;
-  right: 6px;
-  transform: translateY(-50%);
   display: flex;
   flex-direction: row;
   align-items: center;
   gap: 6px;
+  padding: 2px 6px;
 }
 
 .quality-view__explainer-name {
@@ -410,6 +368,14 @@
   color: #9ca3af;
   font-size: 12px;
   font-style: italic;
+}
+
+/* Phrase highlight for consensus pill hover */
+.quality-view__phrase-highlight {
+  background-color: rgba(59, 130, 246, 0.15);
+  border-radius: 2px;
+  padding: 0 1px;
+  color: inherit;
 }
 
 /* Floating controls layout uses .floating-controls from base.css */

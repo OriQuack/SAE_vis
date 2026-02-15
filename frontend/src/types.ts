@@ -344,7 +344,6 @@ export interface ExplainerScoreData {
   fuzz: ScorerScoreSet
   detection: ScorerScoreSet
   explanation_text?: string | null  // Explanation text for this explainer
-  highlighted_explanation?: HighlightedExplanation | null  // Highlighted explanation with syntax highlighting
   semantic_similarity?: Record<string, number> | null  // Pairwise cosine similarity to other explainers (e.g., {"qwen": 0.931, "openai": 0.871})
 }
 

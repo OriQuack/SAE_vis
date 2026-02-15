@@ -639,6 +639,7 @@ class TableDataService:
                 explanation_text = explanations_lookup.get((feature_id, explainer))
 
                 # Get highlighted explanation if alignment service available
+                # NOTE: highlighted_explanation is no longer used by frontend
                 highlighted_explanation = None
                 if self.alignment_service and self.alignment_service.is_ready:
                     try:

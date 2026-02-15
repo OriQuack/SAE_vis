@@ -402,18 +402,19 @@ const CauseView: React.FC<CauseViewProps> = ({
     })
   }, [selectedFeatureIds, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, causeSelectionSources, hideTagged])
 
-  // Memoized QBC disagreement lookup - identifies features where RF/MLP disagree with SVM
+  // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote
   const disagreementLookup = useMemo(() => {
     const lookup = new Map<number, { isDisagreement: boolean; tooltipText: string }>()
     if (!causeCommitteeVotes) return lookup
     causeCommitteeVotes.forEach((votes, featureId) => {
-      const disagreeing: string[] = []
-      if (votes.rf_category !== votes.svm_category) disagreeing.push(`RF: ${votes.rf_category}`)
-      if (votes.mlp_category !== votes.svm_category) disagreeing.push(`MLP: ${votes.mlp_category}`)
-      if (disagreeing.length > 0) {
+      const categories = [votes.svm_category, votes.rf_category, votes.mlp_category]
+      const counts = new Map<string, number>()
+      categories.forEach(c => counts.set(c, (counts.get(c) ?? 0) + 1))
+      const majority = [...counts.entries()].find(([, count]) => count >= 2)
+      if (majority && majority[0] !== votes.svm_category) {
         lookup.set(featureId, {
           isDisagreement: true,
-          tooltipText: `SVM: ${votes.svm_category}\n${disagreeing.join('\n')}`
+          tooltipText: `SVM: ${votes.svm_category}\nMajority (RF+MLP): ${majority[0]}`
         })
       }
     })

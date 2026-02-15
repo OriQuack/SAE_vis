@@ -9,12 +9,9 @@ import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
-import { HighlightedExplanation } from './ExplanationPanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
-import { SEMANTIC_SIMILARITY_COLORS } from '../lib/color-utils'
-import ExplainerComparisonGrid from './ExplainerComparisonGrid'
 import ConsensusSection from './ConsensusSection'
 import { useResizeObserver } from '../lib/utils'
 import '../styles/QualityView.css'
@@ -24,6 +21,55 @@ import '../styles/ThresholdTaggingPanel.css'
 // QUALITY VIEW - Organized layout for quality assessment workflow (Stage 2)
 // ============================================================================
 // Layout: [Top: feature list + right panel] | [Bottom: ThresholdTaggingPanel]
+
+// Segment text into highlighted and non-highlighted parts based on phrase matches
+function segmentTextByPhrases(text: string, phrases: string[]): Array<{ text: string; highlight: boolean }> {
+  if (!text || phrases.length === 0) return [{ text, highlight: false }]
+
+  const lower = text.toLowerCase()
+
+  // Find all phrase occurrences as intervals
+  const intervals: Array<[number, number]> = []
+  for (const phrase of phrases) {
+    const phraseLower = phrase.toLowerCase()
+    let startIdx = 0
+    while (startIdx < lower.length) {
+      const found = lower.indexOf(phraseLower, startIdx)
+      if (found === -1) break
+      intervals.push([found, found + phraseLower.length])
+      startIdx = found + 1
+    }
+  }
+
+  if (intervals.length === 0) return [{ text, highlight: false }]
+
+  // Sort by start, then merge overlapping
+  intervals.sort((a, b) => a[0] - b[0])
+  const merged: Array<[number, number]> = [intervals[0]]
+  for (let i = 1; i < intervals.length; i++) {
+    const prev = merged[merged.length - 1]
+    if (intervals[i][0] <= prev[1]) {
+      prev[1] = Math.max(prev[1], intervals[i][1])
+    } else {
+      merged.push(intervals[i])
+    }
+  }
+
+  // Build segments
+  const segments: Array<{ text: string; highlight: boolean }> = []
+  let cursor = 0
+  for (const [start, end] of merged) {
+    if (cursor < start) {
+      segments.push({ text: text.slice(cursor, start), highlight: false })
+    }
+    segments.push({ text: text.slice(start, end), highlight: true })
+    cursor = end
+  }
+  if (cursor < text.length) {
+    segments.push({ text: text.slice(cursor), highlight: false })
+  }
+  return segments
+}
 
 // Counts stored at commit time for hover preview
 export interface QualityCommitCounts {
@@ -80,6 +126,9 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Consensus data for selected feature
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
+
+  // Phrases to highlight in explanation text (from consensus pill hover)
+  const [highlightPhrases, setHighlightPhrases] = useState<string[] | null>(null)
 
   // Track if SVM has been trained (for conditional UI labels)
   const svmTrainingStarted = similarityScores.size > 0
@@ -279,19 +328,17 @@ const QualityView: React.FC<QualityViewProps> = ({
     setCurrentFeatureIndex(0)
   }, [setSortMode, setSortDirection])
 
-  // Memoized QBC disagreement lookup - identifies features where RF/MLP disagree with SVM
+  // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
   const disagreementLookup = useMemo(() => {
     const lookup = new Map<string, { isDisagreement: boolean; tooltipText: string }>()
     const votes = tagAutomaticState?.committeeVotes
     if (!votes) return lookup
     votes.forEach((info, key) => {
-      const disagreeing: string[] = []
-      if (info.rf_prediction !== info.svm_prediction) disagreeing.push('RF')
-      if (info.mlp_prediction !== info.svm_prediction) disagreeing.push('MLP')
-      if (disagreeing.length > 0) {
+      if (info.rf_prediction !== info.svm_prediction && info.mlp_prediction !== info.svm_prediction) {
+        const majorityLabel = info.rf_prediction === 1 ? 'Selected' : 'Rejected'
         lookup.set(key, {
           isDisagreement: true,
-          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\n${disagreeing.join(', ')}: ${info.svm_prediction === 1 ? 'Rejected' : 'Selected'}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}\nEntropy: ${info.vote_entropy.toFixed(3)}`
         })
       }
     })
@@ -579,111 +626,6 @@ const QualityView: React.FC<QualityViewProps> = ({
       activation: activationExamples[feature.featureId] || null
     }
   }, [selectedFeatureId, displayFeatures, sortedFeatures, activationExamples])
-
-  // Compute pairwise similarities for ExplainerComparisonGrid
-  const pairwiseSimilarities = useMemo(() => {
-    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return undefined
-
-    const similarities = new Map<string, number>()
-    const explainerIds = tableData.explainer_ids
-
-    for (const explainerId of explainerIds) {
-      const explainerData = selectedFeatureData.row.explainers?.[explainerId]
-      const semSim = explainerData?.semantic_similarity
-
-      if (semSim) {
-        for (const [otherExplainerId, similarity] of Object.entries(semSim)) {
-          if (typeof similarity === 'number') {
-            const key = `${explainerId}:${otherExplainerId}`
-            similarities.set(key, similarity)
-          }
-        }
-      }
-    }
-
-    return similarities
-  }, [selectedFeatureData, tableData?.explainer_ids])
-
-  // Compute quality scores for ExplainerComparisonGrid bar graphs
-  const qualityScores = useMemo(() => {
-    if (!selectedFeatureData?.row || !tableData?.explainer_ids) return undefined
-
-    const scores = new Map<string, number>()
-
-    for (const explainerId of tableData.explainer_ids) {
-      const explainerData = selectedFeatureData.row.explainers?.[explainerId]
-      const score = explainerData?.quality_score
-      if (score !== null && score !== undefined) {
-        scores.set(explainerId, score)
-      }
-    }
-
-    return scores
-  }, [selectedFeatureData, tableData?.explainer_ids])
-
-  // Sort explainer IDs by quality score (highest first)
-  const sortedExplainerIds = useMemo(() => {
-    if (!tableData?.explainer_ids || !qualityScores) return tableData?.explainer_ids || []
-
-    return [...tableData.explainer_ids].sort((a, b) => {
-      const scoreA = qualityScores.get(a) ?? 0
-      const scoreB = qualityScores.get(b) ?? 0
-      return scoreB - scoreA  // Descending order (highest first)
-    })
-  }, [tableData?.explainer_ids, qualityScores])
-
-  // Get all explainer explanations with highlighted segments, sorted by quality score
-  const allExplainerExplanations = useMemo(() => {
-    if (!selectedFeatureData?.row || !sortedExplainerIds || sortedExplainerIds.length === 0) return []
-
-    return sortedExplainerIds.map((explainerId: string, sortedIndex: number) => {
-      const explainerData = selectedFeatureData.row?.explainers?.[explainerId]
-      return {
-        explainerId,
-        index: sortedIndex,  // Use sorted index for triangle alignment
-        highlightedExplanation: explainerData?.highlighted_explanation ?? null,
-        explanationText: explainerData?.explanation_text ?? null
-      }
-    })
-  }, [selectedFeatureData, sortedExplainerIds])
-
-  // Compute average quality score for header display
-  const averageQualityScore = useMemo(() => {
-    if (!qualityScores || qualityScores.size === 0) return null
-    let total = 0
-    for (const score of qualityScores.values()) {
-      total += score
-    }
-    return total / qualityScores.size
-  }, [qualityScores])
-
-  // Calculate triangle Y positions as percentages (matching ExplainerComparisonGrid layout)
-  // These values are derived from the grid's viewBox (100) and cell positioning
-  const triangleYPositions = useMemo(() => {
-    // From ExplainerComparisonGrid: viewBox height = 100, triangleSize = 32, cellGap = 1.5
-    const VIEWBOX_HEIGHT = 100
-    const triangleSize = VIEWBOX_HEIGHT * 0.32
-    const cellSize = triangleSize / 2
-    const cellSpan = cellSize / Math.sqrt(2)
-    const cellGap = 1.5
-    const triangleVerticalOffset = cellSpan * 2 + cellGap * 2
-    const topMargin = 5
-    const vy = topMargin + triangleVerticalOffset + cellSpan
-
-    // Triangle center Y positions (as percentages of viewBox height)
-    return [
-      (vy - triangleVerticalOffset) / VIEWBOX_HEIGHT * 100,  // Triangle 0 (top)
-      vy / VIEWBOX_HEIGHT * 100,                              // Triangle 2 (middle)
-      (vy + triangleVerticalOffset) / VIEWBOX_HEIGHT * 100,  // Triangle 5 (bottom)
-    ]
-  }, [])
-
-  // Compute which explainers have valid explanations (for grid cell visibility)
-  const hasExplanation = useMemo(() => {
-    return allExplainerExplanations.map((item: { highlightedExplanation: { segments: unknown[] } | null; explanationText: string | null }) =>
-      !!(item.highlightedExplanation?.segments || item.explanationText)
-    )
-  }, [allExplainerExplanations])
 
   // Get tag colors for header badge and buttons
   const wellExplainedColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#4CAF50'
@@ -1089,102 +1031,46 @@ const QualityView: React.FC<QualityViewProps> = ({
                       </div>
                     </div>
                   </div>
-                  <ConsensusSection consensus={consensus} />
+                  <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} />
 
-                  {/* Explanation Header - Subheader and legend outside container */}
+                  {/* Explanation Header */}
                   <div className="quality-view__explanation-header">
-                    <span className="subheader subheader--with-value">
-                      Explanations
-                      <span className="subheader__label">Avg. Quality Score:</span>
-                      <span className="subheader__value">
-                        {averageQualityScore !== null ? averageQualityScore.toFixed(3) : 'N/A'}
-                      </span>
-                    </span>
-                    {/* Semantic similarity legend - shapes and colors */}
-                    <div className="quality-view__explanation-legend">
-                      <span className="legend-group-label">Semantic Similarity:</span>
-                      {/* Shape legend - granularity */}
-                      <div className="legend-item">
-                        <svg width="18" height="18" viewBox="0 0 18 18" style={{ verticalAlign: 'middle' }}>
-                          <polygon points="9,1 17,9 9,17 1,9" fill="#e5e7eb" stroke="#d1d5db" strokeWidth="1" />
-                        </svg>
-                        <span className="legend-label">Explanation-wise</span>
-                      </div>
-                      <div className="legend-item">
-                        <span
-                          className="legend-swatch-rect"
-                          style={{ backgroundColor: '#e5e7eb', border: '1px solid #d1d5db' }}
-                        />
-                        <span className="legend-label">Phrase-wise</span>
-                      </div>
-                      <span className="legend-separator">|</span>
-                      {/* Color scale legend */}
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.HIGH }} />
-                        <span className="legend-label">≥0.85</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.MEDIUM }} />
-                        <span className="legend-label">≥0.70</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-swatch" style={{ backgroundColor: SEMANTIC_SIMILARITY_COLORS.LOW }} />
-                        <span className="legend-label">≥0.60</span>
-                      </div>
-                    </div>
+                    <span className="subheader">Explanations</span>
                   </div>
 
-                  {/* Explanation Row - Left grid + Explanations */}
+                  {/* Explanation Section - All Explainers (plain text) */}
                   <div className="quality-view__explanation-row">
-                    {/* Left: Explainer comparison grid */}
-                    <div className="quality-view__explanation-left">
-                      <ExplainerComparisonGrid
-                        cellGap={2}
-                        explainerIds={sortedExplainerIds}
-                        pairwiseSimilarities={pairwiseSimilarities}
-                        qualityScores={qualityScores}
-                        hasExplanation={hasExplanation}
-                        onPairClick={(exp1, exp2) => {
-                          console.log('Clicked pair:', exp1, exp2)
-                        }}
-                      />
-                    </div>
-
-                    {/* Explanation Section - All 3 Explainers (aligned with grid triangles) */}
                     <div className="quality-view__explanation-section">
                       <div className="quality-view__explanation-content">
-                        {allExplainerExplanations.length > 0 ? (
-                          allExplainerExplanations.map(({ explainerId, index, highlightedExplanation, explanationText }: {
-                            explainerId: string
-                            index: number
-                            highlightedExplanation: { segments: Array<{ text: string; highlight: boolean }> } | null
-                            explanationText: string | null
-                          }) => (
-                            <div
-                              key={explainerId}
-                              className="quality-view__explainer-block"
-                              style={{ top: `${triangleYPositions[index]}%` }}
-                            >
-                              <span
-                                className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                        {tableData?.explainer_ids && tableData.explainer_ids.length > 0 ? (
+                          tableData.explainer_ids.map((explainerId: string) => {
+                            const explanationText = selectedFeatureData?.row?.explainers?.[explainerId]?.explanation_text
+                            return (
+                              <div
+                                key={explainerId}
+                                className="quality-view__explainer-block"
                               >
-                                {getExplainerDisplayName(explainerId)}
-                              </span>
-                              <span className="quality-view__explainer-text">
-                                {highlightedExplanation?.segments ? (
-                                  <HighlightedExplanation
-                                    segments={highlightedExplanation.segments}
-                                    truncated={false}
-                                    hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length}
-                                  />
-                                ) : (
-                                  <span className="quality-view__no-explanation">
-                                    {explanationText || 'No explanation available'}
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                          ))
+                                <span
+                                  className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                                >
+                                  {getExplainerDisplayName(explainerId)}
+                                </span>
+                                <span className="quality-view__explainer-text">
+                                  {!explanationText ? (
+                                    <span className="quality-view__no-explanation">No explanation available</span>
+                                  ) : !highlightPhrases ? (
+                                    explanationText
+                                  ) : (
+                                    segmentTextByPhrases(explanationText, highlightPhrases).map((seg, i) =>
+                                      seg.highlight
+                                        ? <mark key={i} className="quality-view__phrase-highlight">{seg.text}</mark>
+                                        : <span key={i}>{seg.text}</span>
+                                    )
+                                  )}
+                                </span>
+                              </div>
+                            )
+                          })
                         ) : (
                           <span className="quality-view__no-explanation">No explanations available</span>
                         )}

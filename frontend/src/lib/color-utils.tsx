@@ -269,37 +269,21 @@ export function getRowCategoryClass(
 // ============================================================================
 
 /**
- * Color scale for semantic similarity scores (0-1)
- * Used in ExplainerComparisonGrid and TableExplanation for highlighting
- *
- * Design: Same teal hue (180°) with different saturation levels
- * - HIGH: High saturation (60%)
- * - MEDIUM: Medium saturation (35%)
- * - LOW: Low saturation (20%)
- */
-export const SEMANTIC_SIMILARITY_COLORS = {
-  HIGH: '#2eb3b3',      // ≥ 0.85 - hsl(180, 60%, 44%) - high saturation
-  MEDIUM: '#7fb8b8',    // ≥ 0.70 - hsl(180, 35%, 61%) - medium saturation
-  LOW: '#c5dede',       // ≥ 0.60 - hsl(180, 20%, 82%) - low saturation
-  NONE: '#f3f4f6'       // < 0.60 - Default gray
-}
-
-/**
  * Get color for semantic similarity score
- * Used for explainer comparison grid diamonds and explanation segment highlights
+ * Used for explanation segment highlights
  *
  * @param similarity - Similarity score (0-1)
  * @returns CSS color string
  */
 export function getSemanticSimilarityColor(similarity: number): string {
   if (similarity >= 0.85) {
-    return SEMANTIC_SIMILARITY_COLORS.HIGH
+    return '#2eb3b3'   // hsl(180, 60%, 44%) - high saturation
   } else if (similarity >= 0.7) {
-    return SEMANTIC_SIMILARITY_COLORS.MEDIUM
+    return '#7fb8b8'   // hsl(180, 35%, 61%) - medium saturation
   } else if (similarity >= 0.6) {
-    return SEMANTIC_SIMILARITY_COLORS.LOW
+    return '#c5dede'   // hsl(180, 20%, 82%) - low saturation
   } else {
-    return SEMANTIC_SIMILARITY_COLORS.NONE
+    return '#f3f4f6'   // Default gray
   }
 }
 

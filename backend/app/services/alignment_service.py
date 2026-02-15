@@ -1,3 +1,4 @@
+# NOTE: AlignmentService is no longer used by the frontend. Kept for reference.
 """
 Alignment service for managing explanation syntax highlighting.
 

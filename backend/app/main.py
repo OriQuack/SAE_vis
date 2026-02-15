@@ -61,6 +61,7 @@ async def lifespan(app: FastAPI):
         logger.info("Data service initialized successfully")
 
         # Initialize alignment service with data_service reference
+        # NOTE: alignment_service is no longer consumed by frontend highlighting
         alignment_service = AlignmentService(data_service=data_service)
         success = await alignment_service.initialize()
         if success:

@@ -522,19 +522,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setCurrentPairIndex(0)
   }, [setSortMode, setSortDirection])
 
-  // Memoized QBC disagreement lookup - identifies pairs where RF/MLP disagree with SVM
+  // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
   const disagreementLookup = useMemo(() => {
     const lookup = new Map<string, { isDisagreement: boolean; tooltipText: string }>()
     const votes = tagAutomaticState?.committeeVotes
     if (!votes) return lookup
     votes.forEach((info, key) => {
-      const disagreeing: string[] = []
-      if (info.rf_prediction !== info.svm_prediction) disagreeing.push('RF')
-      if (info.mlp_prediction !== info.svm_prediction) disagreeing.push('MLP')
-      if (disagreeing.length > 0) {
+      if (info.rf_prediction !== info.svm_prediction && info.mlp_prediction !== info.svm_prediction) {
+        const majorityLabel = info.rf_prediction === 1 ? 'Selected' : 'Rejected'
         lookup.set(key, {
           isDisagreement: true,
-          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\n${disagreeing.join(', ')}: ${info.svm_prediction === 1 ? 'Rejected' : 'Selected'}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}\nEntropy: ${info.vote_entropy.toFixed(3)}`
         })
       }
     })
