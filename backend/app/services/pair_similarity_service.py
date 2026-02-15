@@ -4,9 +4,9 @@ Pair similarity-based sorting service for feature pairs.
 Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
 from user-labeled feature pairs. Scores pairs by signed distance from SVM decision boundary.
 
-9-dimensional pair vectors:
-- 3 dims: A + B (combined intra-feature properties)
-- 3 dims: |A - B| (intra-feature dissimilarity)
+11-dimensional pair vectors:
+- 4 dims: A + B (combined intra-feature properties)
+- 4 dims: |A - B| (intra-feature dissimilarity)
 - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
 - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
 - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
@@ -39,11 +39,12 @@ logger = logging.getLogger(__name__)
 class PairSimilarityService:
     """Service for calculating feature pair similarity scores."""
 
-    # 3 intra-feature metrics used for PAIR SVM similarity calculation
-    # Used with A+B and |A-B| operations (6 dims total)
+    # 4 intra-feature metrics used for PAIR SVM similarity calculation
+    # Used with A+B and |A-B| operations (8 dims total)
     # Note: Pair-specific inter-feature metrics and decoder similarity are handled separately
     PAIR_METRICS = [
         'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
+        'intra_ngram_jaccard_std',   # Feature-level: lexical consistency std (pairwise Jaccard variability)
         'intra_semantic_sim',        # Feature-level: semantic consistency within activations (mean)
         'intra_semantic_sim_std',    # Feature-level: semantic consistency std (variability)
     ]
@@ -80,9 +81,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 9-dimensional:
-        - 3 dims: A + B (combined intra-feature properties)
-        - 3 dims: |A - B| (intra-feature dissimilarity)
+        Pair vectors are 11-dimensional:
+        - 4 dims: A + B (combined intra-feature properties)
+        - 4 dims: |A - B| (intra-feature dissimilarity)
         - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
         - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
         - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
@@ -388,6 +389,7 @@ class PairSimilarityService:
                 ).select([
                     "feature_id",
                     "intra_ngram_jaccard",
+                    "intra_ngram_jaccard_std",
                     "intra_semantic_sim",
                     "intra_semantic_sim_std",
                 ]).collect()
@@ -486,6 +488,11 @@ class PairSimilarityService:
                 pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
                   .fill_null(0.0)
                   .alias("intra_ngram_jaccard"),
+                # intra_ngram_jaccard_std: pick std corresponding to whichever of char/word had higher mean
+                pl.when(pl.col("char_ngram_max_jaccard").fill_null(0.0) >= pl.col("word_ngram_max_jaccard").fill_null(0.0))
+                  .then(pl.col("char_ngram_max_jaccard_std").fill_null(0.0))
+                  .otherwise(pl.col("word_ngram_max_jaccard_std").fill_null(0.0))
+                  .alias("intra_ngram_jaccard_std"),
                 # Semantic similarity (mean)
                 pl.col("semantic_similarity")
                   .fill_null(0.0)
@@ -780,9 +787,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for pairs using SVM.
 
-        9-dim pair vector:
-        - [A+B (3)] intra-feature sum
-        - [|A-B| (3)] intra-feature difference
+        11-dim pair vector:
+        - [A+B (4)] intra-feature sum
+        - [|A-B| (4)] intra-feature difference
         - [inter_ngram(A,B)] pair-specific lexical similarity
         - [inter_semantic(A,B)] pair-specific semantic similarity
         - [decoder_sim(A,B)] pair-specific decoder similarity

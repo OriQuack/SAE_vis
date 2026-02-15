@@ -222,25 +222,27 @@ class ActivationSimilarityProcessor(BaseProcessor):
         overall_top_char = None
         if char_ngram_counts:
             top_char_ngram = find_top_ngram(char_ngram_counts)
-            top_char_occurrences = char_ngram_occurrences.get(top_char_ngram, [])
-            overall_top_char = {
-                "ngram": top_char_ngram,
-                "ngram_size": len(top_char_ngram),
-                "count": char_ngram_counts[top_char_ngram],
-                "occurrences": top_char_occurrences
-            }
+            if top_char_ngram is not None:
+                top_char_occurrences = char_ngram_occurrences.get(top_char_ngram, [])
+                overall_top_char = {
+                    "ngram": top_char_ngram,
+                    "ngram_size": len(top_char_ngram),
+                    "count": char_ngram_counts[top_char_ngram],
+                    "occurrences": top_char_occurrences
+                }
 
         # Find OVERALL top word n-gram (across all sizes)
         overall_top_word = None
         if word_ngram_counts:
             top_word_ngram = find_top_ngram(word_ngram_counts)
-            top_word_occurrences = word_ngram_occurrences.get(top_word_ngram, [])
-            overall_top_word = {
-                "ngram": top_word_ngram,
-                "ngram_size": len(top_word_ngram.split()),
-                "count": word_ngram_counts[top_word_ngram],
-                "occurrences": top_word_occurrences
-            }
+            if top_word_ngram is not None:
+                top_word_occurrences = word_ngram_occurrences.get(top_word_ngram, [])
+                overall_top_word = {
+                    "ngram": top_word_ngram,
+                    "ngram_size": len(top_word_ngram.split()),
+                    "count": word_ngram_counts[top_word_ngram],
+                    "occurrences": top_word_occurrences
+                }
 
         return {
             "char_ngrams": top_char_ngrams,
@@ -260,6 +262,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
             Dictionary with computed metrics
         """
         # Get prompt IDs from pre-computed embeddings
+        assert self.embeddings_df is not None
         feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
 
         if len(feature_embeddings) == 0:
@@ -302,9 +305,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
         # Extract prompt IDs
         prompt_ids = [ex[0] for ex in all_examples]
 
-        # Compute semantic similarity
+        # Compute semantic similarity (embeddings_df asserted non-None above)
         semantic_sim_mean, semantic_sim_std = compute_intra_feature_semantic_similarity(
-            self.embeddings_df, feature_id, prompt_ids
+            self.embeddings_df, feature_id, prompt_ids  # type: ignore[arg-type]
         )
         if semantic_sim_mean is not None:
             self.stats["semantic_similarity_computed"] += 1
@@ -316,13 +319,13 @@ class ActivationSimilarityProcessor(BaseProcessor):
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
         # Compute per-k-max Jaccard for character n-grams (intra-feature)
-        char_ngram_max_jaccard = compute_per_k_max_jaccard(
+        char_ngram_max_jaccard, char_ngram_max_jaccard_std = compute_per_k_max_jaccard(
             all_examples, all_examples,  # Same list = intra-feature comparison
             char_ngram_sizes, char_window, is_word=False
         )
 
         # Compute per-k-max Jaccard for word n-grams (intra-feature)
-        word_ngram_max_jaccard = compute_per_k_max_jaccard(
+        word_ngram_max_jaccard, word_ngram_max_jaccard_std = compute_per_k_max_jaccard(
             all_examples, all_examples,  # Same list = intra-feature comparison
             word_ngram_sizes, word_window, is_word=True
         )
@@ -367,6 +370,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": char_ngram_max_jaccard,
             "word_ngram_max_jaccard": word_ngram_max_jaccard,
+            # per-k-max Jaccard std (for SVM)
+            "char_ngram_max_jaccard_std": char_ngram_max_jaccard_std,
+            "word_ngram_max_jaccard_std": word_ngram_max_jaccard_std,
             # per-k Jaccard values (for longest n-gram selection)
             "char_ngram_per_k_jaccard": char_ngram_per_k_jaccard,
             "word_ngram_per_k_jaccard": word_ngram_per_k_jaccard,
@@ -387,6 +393,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": None,
             "word_ngram_max_jaccard": None,
+            # per-k-max Jaccard std (for SVM)
+            "char_ngram_max_jaccard_std": None,
+            "word_ngram_max_jaccard_std": None,
             # per-k Jaccard values (for longest n-gram selection)
             "char_ngram_per_k_jaccard": {},
             "word_ngram_per_k_jaccard": {},
@@ -402,6 +411,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
         self._load_data()
 
         # Get unique features
+        assert self.activation_df is not None
         unique_features = sorted(self.activation_df["feature_id"].unique().to_list())
 
         # Apply feature limit
@@ -414,7 +424,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
         # Process features
         results = []
         for feature_id in tqdm(unique_features, desc="Processing features"):
-            feature_df = self.activation_df.filter(pl.col("feature_id") == feature_id)
+            feature_df = self.activation_df.filter(pl.col("feature_id") == feature_id)  # type: ignore[union-attr]
             result = self._process_feature(feature_id, feature_df)
             results.append(result)
             self.stats["features_processed"] += 1

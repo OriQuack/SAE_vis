@@ -98,7 +98,9 @@ class ClassificationService:
             logger.info(f"[_extract_metrics_from_svm_metrics] Extracting metrics for {len(feature_ids)} features")
 
             # Simply filter - data is already pre-aggregated (1 row per feature)
-            df = self.data_service._svm_feature_metrics_lazy.filter(
+            svm_lazy = self.data_service._svm_feature_metrics_lazy
+            assert svm_lazy is not None
+            df = svm_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
             ).collect()
 
@@ -242,6 +244,11 @@ class ClassificationService:
                     "char_ngram_max_jaccard",
                     "word_ngram_max_jaccard"
                 ).fill_null(0.0).alias("intra_ngram_jaccard"),
+                # intra_ngram_jaccard_std: pick std corresponding to whichever of char/word had higher mean
+                pl.when(pl.col("char_ngram_max_jaccard").fill_null(0.0) >= pl.col("word_ngram_max_jaccard").fill_null(0.0))
+                  .then(pl.col("char_ngram_max_jaccard_std").fill_null(0.0))
+                  .otherwise(pl.col("word_ngram_max_jaccard_std").fill_null(0.0))
+                  .alias("intra_ngram_jaccard_std"),
                 # intra_semantic_sim (activation-level semantic similarity)
                 pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
                 # intra_semantic_sim_std
@@ -901,11 +908,11 @@ class ClassificationService:
                     scores = score_with_svm(model, scaler, metrics_matrix)
 
                 # Scale all features using the SVM scaler (consistent with SVM scoring)
-                X_scaled = scaler.transform(metrics_matrix)
+                X_scaled = scaler.transform(metrics_matrix)  # type: ignore[assignment]
 
                 # Get committee predictions
                 committee_preds = self.committee_service.predict_with_committee(
-                    X_scaled, scores, rf_model, mlp_model, committee_scaler
+                    X_scaled, scores, rf_model, mlp_model, committee_scaler  # type: ignore[arg-type]
                 )
 
                 # Convert to API response format

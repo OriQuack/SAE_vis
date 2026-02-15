@@ -11,7 +11,7 @@ Output:
 1. svm_feature_metrics.parquet - Feature-level metrics (1 row per feature)
 2. svm_pair_metrics.parquet - Pair-level metrics (1 row per pair)
 
-Feature Metrics Schema (13 columns):
+Feature Metrics Schema (14 columns):
 - feature_id: UInt32
 - score_embedding: Float32 (mean across 3 explainers)
 - score_fuzz: Float32 (mean across 3 explainers)
@@ -19,6 +19,7 @@ Feature Metrics Schema (13 columns):
 - explanation_semantic_sim: Float32 (mean across 3 explainers)
 - frac_nonzero: Float32 (mean across 3 explainers)
 - intra_ngram_jaccard: Float32 (max of char/word ngram from activation_display)
+- intra_ngram_jaccard_std: Float32 (std of pairwise Jaccard for the best k-size)
 - intra_semantic_sim: Float32 (from activation_display)
 - score_embedding_std: Float32 (cross-explainer disagreement)
 - score_fuzz_std: Float32 (cross-explainer disagreement)
@@ -38,7 +39,7 @@ Note: log_frac_nonzero is computed at SVM training time in backend.
 
 import logging
 from pathlib import Path
-from typing import Optional, Set, Tuple
+from typing import Optional, Tuple
 
 import polars as pl
 
@@ -128,6 +129,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
     def _prepare_feature_metrics(self) -> pl.DataFrame:
         """Prepare feature-level metrics with extracted and aggregated scores."""
+        assert self.features_df is not None
         df = self.features_df
 
         # Explode scores to get per-explanation metrics (3 rows per feature)
@@ -182,6 +184,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
     def _prepare_activation_metrics(self) -> pl.DataFrame:
         """Prepare activation display data with intra-feature metrics."""
+        assert self.activation_df is not None
         df = self.activation_df
 
         # Compute intra_ngram_jaccard = max(char_ngram, word_ngram)
@@ -192,10 +195,20 @@ class SvmMetricsProcessor(BaseProcessor):
             ).alias("intra_ngram_jaccard")
         ])
 
+        # Compute intra_ngram_jaccard_std: pick the std that corresponds to
+        # whichever of char/word had the higher mean
+        df = df.with_columns([
+            pl.when(pl.col("char_ngram_max_jaccard").fill_null(0.0) >= pl.col("word_ngram_max_jaccard").fill_null(0.0))
+              .then(pl.col("char_ngram_max_jaccard_std").fill_null(0.0))
+              .otherwise(pl.col("word_ngram_max_jaccard_std").fill_null(0.0))
+              .alias("intra_ngram_jaccard_std")
+        ])
+
         # Select needed columns (semantic_similarity is intra_semantic_sim)
         df = df.select([
             pl.col("feature_id").cast(pl.UInt32),
             "intra_ngram_jaccard",
+            "intra_ngram_jaccard_std",
             pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
             pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
         ])
@@ -211,6 +224,8 @@ class SvmMetricsProcessor(BaseProcessor):
         - decoder_sim: cosine_similarity from features.parquet decoder_similarity
         """
         logger.info("Preparing pair metrics...")
+        assert self.interfeature_df is not None
+        assert self.features_df is not None
 
         # Step 1: Get inter-feature metrics from interfeature_similarity
         # Columns: main_feature_id, similar_feature_id, char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity
@@ -309,7 +324,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
         return pair_df
 
-    def process(self) -> Tuple[pl.DataFrame, pl.DataFrame]:
+    def process(self) -> Tuple[pl.DataFrame, pl.DataFrame]:  # type: ignore[override]
         """Execute the main processing logic.
 
         Returns:
@@ -337,7 +352,7 @@ class SvmMetricsProcessor(BaseProcessor):
         fill_cols = [
             "score_embedding", "score_fuzz", "score_detection",
             "explanation_semantic_sim", "frac_nonzero",
-            "intra_ngram_jaccard", "intra_semantic_sim",
+            "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
             "score_embedding_std", "score_fuzz_std", "score_detection_std",
             "explanation_semantic_sim_std", "intra_semantic_sim_std"
         ]
@@ -358,7 +373,7 @@ class SvmMetricsProcessor(BaseProcessor):
         float_cols = [
             "score_embedding", "score_fuzz", "score_detection",
             "explanation_semantic_sim", "frac_nonzero",
-            "intra_ngram_jaccard", "intra_semantic_sim",
+            "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
             "score_embedding_std", "score_fuzz_std", "score_detection_std",
             "explanation_semantic_sim_std", "intra_semantic_sim_std"
         ]
@@ -377,7 +392,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
         return feature_df, pair_df
 
-    def run(self) -> None:
+    def run(self) -> None:  # type: ignore[override]
         """Execute the processing step with file output."""
         logger.info(f"{'='*60}")
         logger.info(f"Starting {self.step_name} (v{self.version})")
@@ -466,6 +481,7 @@ class SvmMetricsProcessor(BaseProcessor):
             "explanation_semantic_sim": pl.Float32,
             "frac_nonzero": pl.Float32,
             "intra_ngram_jaccard": pl.Float32,
+            "intra_ngram_jaccard_std": pl.Float32,
             "intra_semantic_sim": pl.Float32,
             "score_embedding_std": pl.Float32,
             "score_fuzz_std": pl.Float32,

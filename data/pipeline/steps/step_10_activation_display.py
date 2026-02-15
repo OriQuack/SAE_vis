@@ -385,6 +385,8 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "semantic_similarity_std": None,
                 "char_ngram_max_jaccard": 0.0,
                 "word_ngram_max_jaccard": 0.0,
+                "char_ngram_max_jaccard_std": 0.0,
+                "word_ngram_max_jaccard_std": 0.0,
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
                 "quantile_examples": [],
@@ -404,6 +406,8 @@ class ActivationDisplayProcessor(BaseProcessor):
         # Extract per-k-max Jaccard values
         char_ngram_jaccard = sim_row.get("char_ngram_max_jaccard") or 0.0
         word_ngram_jaccard = sim_row.get("word_ngram_max_jaccard") or 0.0
+        char_ngram_jaccard_std = sim_row.get("char_ngram_max_jaccard_std") or 0.0
+        word_ngram_jaccard_std = sim_row.get("word_ngram_max_jaccard_std") or 0.0
 
         # Extract top n-grams (overall) for backward compatibility
         top_char_ngram = sim_row.get("top_char_ngram")
@@ -430,6 +434,8 @@ class ActivationDisplayProcessor(BaseProcessor):
                 "semantic_similarity_std": float(semantic_sim_std) if semantic_sim_std is not None else None,
                 "char_ngram_max_jaccard": float(char_ngram_jaccard),
                 "word_ngram_max_jaccard": float(word_ngram_jaccard),
+                "char_ngram_max_jaccard_std": float(char_ngram_jaccard_std),
+                "word_ngram_max_jaccard_std": float(word_ngram_jaccard_std),
                 "top_char_ngram_text": None,
                 "top_word_ngram_text": None,
                 "quantile_examples": [],
@@ -518,6 +524,9 @@ class ActivationDisplayProcessor(BaseProcessor):
             # Max Jaccard values
             "char_ngram_max_jaccard": float(char_ngram_jaccard),
             "word_ngram_max_jaccard": float(word_ngram_jaccard),
+            # Max Jaccard std values
+            "char_ngram_max_jaccard_std": float(char_ngram_jaccard_std),
+            "word_ngram_max_jaccard_std": float(word_ngram_jaccard_std),
             # Overall top n-gram text (for backward compatibility)
             "top_char_ngram_text": char_ngram_text,
             "top_word_ngram_text": word_ngram_text,
@@ -615,6 +624,8 @@ class ActivationDisplayProcessor(BaseProcessor):
             pl.col("semantic_similarity_std").cast(pl.Float32),
             pl.col("char_ngram_max_jaccard").cast(pl.Float32),
             pl.col("word_ngram_max_jaccard").cast(pl.Float32),
+            pl.col("char_ngram_max_jaccard_std").cast(pl.Float32),
+            pl.col("word_ngram_max_jaccard_std").cast(pl.Float32),
             pl.col("pattern_type").cast(pl.Categorical),
             # Best n-gram columns
             pl.col("best_ngram_type").cast(pl.Categorical),

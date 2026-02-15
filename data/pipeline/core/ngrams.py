@@ -256,8 +256,8 @@ def compute_per_k_max_jaccard(
     ngram_sizes: List[int],
     window_size: int,
     is_word: bool = False
-) -> Optional[float]:
-    """Compute Jaccard similarity per k-size, return max.
+) -> Tuple[Optional[float], Optional[float]]:
+    """Compute Jaccard similarity per k-size, return max mean and its corresponding std.
 
     This addresses the issue where pooling all n-gram sizes together causes
     set cardinality explosion, resulting in very low Jaccard scores even when
@@ -274,18 +274,18 @@ def compute_per_k_max_jaccard(
         is_word: If True, extract word n-grams; if False, extract character n-grams
 
     Returns:
-        Maximum Jaccard similarity across all k-sizes, or None if empty inputs
+        Tuple of (max_mean_jaccard, corresponding_std), or (None, None) if empty inputs
     """
     from .tokens import extract_token_window
     import numpy as np
 
     if not examples_a or not examples_b:
-        return None
+        return None, None
 
     # Check if this is intra-feature (same list) comparison
     is_intra_feature = examples_a is examples_b
 
-    # Store (jaccard_score, k_size) tuples to enable tie-breaking by length
+    # Store (mean, std, k_size) tuples to enable tie-breaking by length
     per_k_results = []
 
     for k in ngram_sizes:
@@ -322,14 +322,14 @@ def compute_per_k_max_jaccard(
                 pairwise.append(compute_jaccard_similarity(set_a, set_b))
 
         if pairwise:
-            per_k_results.append((float(np.mean(pairwise)), k))
+            per_k_results.append((float(np.mean(pairwise)), float(np.std(pairwise)), k))
 
     if not per_k_results:
-        return None
+        return None, None
 
     # Return max Jaccard; prefer longer n-gram (larger k) on tie
-    best = max(per_k_results, key=lambda x: (x[0], x[1]))
-    return best[0]
+    best = max(per_k_results, key=lambda x: (x[0], x[2]))
+    return best[0], best[1]
 
 
 def select_longest_ngram_above_threshold(

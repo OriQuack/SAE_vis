@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-02-01T12:31:03.185387",
+  "created_at": "2026-02-15T23:13:23.544785",
   "step_name": "Step 10: Activation Display",
   "script_version": "5.0",
   "total_rows": 16384,
@@ -10,6 +10,8 @@
     "semantic_similarity_std": "Float32",
     "char_ngram_max_jaccard": "Float32",
     "word_ngram_max_jaccard": "Float32",
+    "char_ngram_max_jaccard_std": "Float32",
+    "word_ngram_max_jaccard_std": "Float32",
     "top_char_ngram_text": "Utf8",
     "top_word_ngram_text": "Utf8",
     "quantile_examples": "List(Struct([Field('quantile_index', Int64), Field('prompt_id', Int64), Field('prompt_tokens', List(Utf8)), Field('activation_pairs', List(Struct([Field('token_position', Int64), Field('activation_value', Float64)]))), Field('max_activation', Float64), Field('max_activation_position', Int64), Field('ngram_positions', List(Struct([Field('token_position', Int64), Field('char_offset', Int64)])))]))",

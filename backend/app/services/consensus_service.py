@@ -82,10 +82,24 @@ class ConsensusService:
         row_dict = row.row(0, named=True)
 
         # Extract basic info
-        consensus_score = float(row_dict.get("consensus_score", 0.0))
         num_clusters = int(row_dict.get("num_clusters", 0))
         num_outliers = int(row_dict.get("num_outliers", 0))
         clusters_data = row_dict.get("clusters", [])
+
+        # Recompute consensus_score: S = (1/E) * sum(s_k for real clusters)
+        # Excludes outlier clusters (cluster_id == -1), normalizes by num explainers
+        all_explainers = set()
+        real_cluster_score_sum = 0.0
+        for cluster in clusters_data:
+            for phrase in cluster.get("phrases", []):
+                explainer = phrase.get("explainer", "")
+                if explainer:
+                    all_explainers.add(explainer)
+            if cluster.get("cluster_id", -1) != -1:
+                real_cluster_score_sum += float(cluster.get("cluster_score", 0.0))
+
+        num_explainers = len(all_explainers)
+        consensus_score = real_cluster_score_sum / num_explainers if num_explainers > 0 else 0.0
 
         # Build flattened items list
         items = []

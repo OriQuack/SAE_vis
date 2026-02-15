@@ -129,9 +129,10 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             raise FileNotFoundError(f"Decoder similarity matrix not found: {self.decoder_sim_path}")
         logger.info(f"Loading decoder similarity matrix from {self.decoder_sim_path}")
         data = np.load(self.decoder_sim_path)
-        self.decoder_sim_matrix = data['cosine_similarity']
-        self.num_features = self.decoder_sim_matrix.shape[0]
-        logger.info(f"Loaded decoder matrix shape: {self.decoder_sim_matrix.shape}")
+        sim_matrix = data['cosine_similarity']
+        self.decoder_sim_matrix = sim_matrix
+        self.num_features = sim_matrix.shape[0]
+        logger.info(f"Loaded decoder matrix shape: {sim_matrix.shape}")
 
     def _compute_mean_embeddings(self) -> None:
         """Compute aggregated normalized embeddings from activation_embeddings.parquet.
@@ -140,6 +141,7 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         Result is L2 normalized for efficient cosine similarity via dot product.
         """
         logger.info("Computing mean embeddings for semantic similarity...")
+        assert self.embeddings_df is not None
 
         # Get embedding dimension from first non-empty row
         embedding_dim = 768  # Default
@@ -150,7 +152,7 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
                 break
 
         # Initialize array
-        self.mean_embeddings = np.zeros((self.num_features, embedding_dim), dtype=np.float32)
+        mean_embeddings = np.zeros((self.num_features, embedding_dim), dtype=np.float32)
 
         # Vectorized: extract feature_ids and embeddings as arrays
         feature_ids = self.embeddings_df["feature_id"].to_numpy()
@@ -159,14 +161,15 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         # Compute mean for each feature (still need loop but optimized extraction)
         for fid, embs in zip(feature_ids, embeddings_col):
             if embs and len(embs) > 0:
-                self.mean_embeddings[fid] = np.mean(embs, axis=0)
+                mean_embeddings[fid] = np.mean(embs, axis=0)
 
         # L2 normalize (handle zero vectors) - already vectorized
-        norms = np.linalg.norm(self.mean_embeddings, axis=1, keepdims=True)
+        norms = np.linalg.norm(mean_embeddings, axis=1, keepdims=True)
         norms[norms == 0] = 1.0  # Avoid division by zero
-        self.mean_embeddings = self.mean_embeddings / norms
+        normalized = mean_embeddings / norms
+        self.mean_embeddings = normalized
 
-        logger.info(f"Computed normalized mean embeddings: {self.mean_embeddings.shape}")
+        logger.info(f"Computed normalized mean embeddings: {normalized.shape}")
 
     def _load_data(self) -> None:
         """Load all required data files."""
@@ -201,6 +204,8 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         This eliminates expensive DataFrame.filter() operations in _get_examples_from_embeddings().
         """
         logger.info("Building lookup indices for fast access...")
+        assert self.embeddings_df is not None
+        assert self.activation_df is not None
 
         # Build embedding prompt_ids lookup
         for row in self.embeddings_df.iter_rows(named=True):
@@ -386,13 +391,13 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
         # Compute per-k-max Jaccard for character n-grams
-        char_ngram_max_jaccard = compute_per_k_max_jaccard(
+        char_ngram_max_jaccard, _ = compute_per_k_max_jaccard(
             main_examples, selected_examples,
             char_ngram_sizes, char_window_size, is_word=False
         )
 
         # Compute per-k-max Jaccard for word n-grams
-        word_ngram_max_jaccard = compute_per_k_max_jaccard(
+        word_ngram_max_jaccard, _ = compute_per_k_max_jaccard(
             main_examples, selected_examples,
             word_ngram_sizes, word_window_size, is_word=True
         )
