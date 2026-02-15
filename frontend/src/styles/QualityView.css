@@ -261,19 +261,6 @@
   box-sizing: border-box;
 }
 
-/* Legend line for random baseline */
-.legend-line {
-  display: inline-block;
-  width: 16px;
-  height: 0;
-  border-top: 1.5px dashed;
-  vertical-align: middle;
-}
-
-.legend-line--random {
-  border-color: #B22222;
-}
-
 /* ============================================================================
  * EXPLANATION HEADER - Subheaders and legend outside container
  * ============================================================================ */

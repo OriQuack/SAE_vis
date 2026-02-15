@@ -46,7 +46,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
 │  • D3.js Visualizations (Sankey, Histograms, Flow Overlay)               │
-│  • 4-Stage Tag Workflow: Feature Splitting → Quality → Cause → Summary   │
+│  • 4-Stage Tag Workflow: Splitting Detection → Faithfulness → Cause → Summary│
 │  • SVM-Based Similarity Scoring                                          │
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
 │  • Decision Flip Rate Tracking for Convergence Monitoring                 │
@@ -55,7 +55,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
                         POST /api/feature-groups
-                        POST /api/cluster-candidates
+                        POST /api/filtered-cluster-pairs
                         POST /api/similarity-sort
                         POST /api/pair-similarity-sort
                         POST /api/similarity-score-histogram
@@ -162,7 +162,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 ├── frontend/           # React application
 │   ├── src/
 │   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (20 files + 9 tagging hooks)
+│   │   ├── lib/          # D3 utilities, helpers (21 files + 7 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
 │   │   ├── styles/       # CSS files (29 files)
 │   │   ├── types.ts      # TypeScript types
@@ -213,7 +213,7 @@ npm run dev -- --port 3003
 - **RadViz Scatter**: Softmax-weighted positioning using SVM decision scores toward category anchors
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
-- **Tag Stage Panel**: 4-stage navigation (Feature Splitting → Quality → Cause → Summary)
+- **Tag Stage Panel**: 4-stage navigation (Incoherent Splitting Detection → Explanation Faithfulness Assessment → Root Cause Diagnosis → Summary)
 - **StageAccordionList**: Bootstrap → Learn → Apply workflow with sorting controls
 - **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
 - **Commit History**: Save and restore tagging state snapshots
@@ -222,16 +222,16 @@ npm run dev -- --port 3003
 
 | Stage | View | Mode | Items | Tags |
 |-------|------|------|-------|------|
-| 1. Feature Splitting | `FeatureSplitView` | `pair` | Feature pairs | Fragmented / Monosemantic |
-| 2. Quality Assessment | `QualityView` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView` | `cause` | Individual features | Pattern Miss / Context Miss / Noisy Activation |
+| 1. Incoherent Splitting Detection | `FeatureSplitView` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
+| 2. Explanation Faithfulness Assessment | `QualityView` | `feature` | Individual features | Need Revision / Well-Explained |
+| 3. Root Cause Diagnosis | `CauseView` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
 | 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
-### Stage 3: Root Cause Analysis
+### Stage 3: Root Cause Diagnosis
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
-- **Manual Tagging**: User tags features into cause categories (Pattern Miss / Context Miss / Noisy Activation)
+- **Manual Tagging**: User tags features into cause categories (Missed Syntax / Missed Context / Noisy Activation)
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
 - **Query by Committee (QBC)**: RF + MLP models trained alongside SVM to detect disagreement cases
 - **Decision Flip Rate**: Tracks prediction stability across tagging iterations (convergence indicator)
@@ -257,8 +257,8 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 8. **Commit History**: Each apply creates a restorable state snapshot
 
 ### Tag Selection Sources
-Items can be tagged via three mechanisms (tracked in SelectionSource type):
-- **clicked**: User manually clicked to tag the item
+Items can be tagged via three mechanisms (tracked in TagSource type):
+- **click**: User manually clicked to tag the item
 - **threshold**: Auto-tagged by applying threshold boundaries
 - **predicted**: SVM prediction accepted during batch tagging
 
@@ -277,15 +277,15 @@ Items can be tagged via three mechanisms (tracked in SelectionSource type):
 | POST /api/feature-groups | Feature grouping by thresholds |
 | POST /api/histogram-data | Histogram bins with threshold path filtering |
 | POST /api/table-data | Feature scoring table |
-| POST /api/cluster-candidates | Get cluster-based pairs for features |
-| POST /api/segment-cluster-pairs | Get ALL cluster pairs (simplified flow) |
+| POST /api/filtered-cluster-pairs | Get cluster-based pairs for features |
 | POST /api/similarity-sort | Sort features by SVM similarity |
 | POST /api/pair-similarity-sort | Sort pairs by SVM similarity |
 | POST /api/similarity-score-histogram | Feature similarity histogram |
 | POST /api/pair-similarity-score-histogram | Pair similarity histogram |
+| POST /api/stage3-quality-scores | Score Need Revision features for Stage 3 |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
-| POST /api/cold-start/representative | Get representative features for cold start |
-| GET /api/consensus/{feature_id} | Get consensus phrases for a feature |
+| POST /api/cold-start-suggestions | Get representative features for cold start |
+| POST /api/feature-consensus | Get consensus phrases for a feature |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 | GET /health | Health check |

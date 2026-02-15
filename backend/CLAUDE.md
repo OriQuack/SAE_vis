@@ -259,8 +259,8 @@ Group features by metric thresholds
 }
 ```
 
-#### POST /api/segment-cluster-pairs
-Get ALL cluster-based pairs for features (simplified flow)
+#### POST /api/filtered-cluster-pairs
+Get cluster-based pairs filtered by decoder similarity + ranking
 
 **Request**:
 ```json
@@ -280,7 +280,8 @@ Get ALL cluster-based pairs for features (simplified flow)
     {"cluster_id": 0, "feature_ids": [1, 2, 3], "pair_count": 3}
   ],
   "total_pairs": 10,
-  "total_clusters": 3
+  "total_clusters": 3,
+  "filtering_stats": {}
 }
 ```
 
@@ -408,7 +409,7 @@ SVM cause classification for features (Stage 3) with QBC
 }
 ```
 
-#### POST /api/cold-start/representative
+#### POST /api/cold-start-suggestions
 Get representative features for cold start initialization using diversity sampling
 
 **Request**:
@@ -429,7 +430,7 @@ Get representative features for cold start initialization using diversity sampli
 }
 ```
 
-#### GET /api/consensus/{feature_id}
+#### POST /api/feature-consensus
 Get consensus phrases for a feature (HDBSCAN clustering results)
 
 **Response**:
@@ -462,6 +463,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 | GET /api/filter-options | Available filter choices |
 | POST /api/histogram-data | Histogram bins for visualization (with threshold path) |
 | POST /api/table-data | Feature scoring table |
+| POST /api/stage3-quality-scores | Score Need Revision features for Stage 3 entry |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 | GET /health | Health check |

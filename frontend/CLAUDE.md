@@ -80,16 +80,16 @@ The application implements a 4-stage workflow for tagging features:
 
 | Stage | Component | Mode | Items | Tags |
 |-------|-----------|------|-------|------|
-| 1. Feature Splitting | `FeatureSplitView.tsx` | `pair` | Feature pairs | Fragmented / Monosemantic |
-| 2. Quality Assessment | `QualityView.tsx` | `feature` | Individual features | Well-Explained / Need Revision |
-| 3. Root Cause Analysis | `CauseView.tsx` | `cause` | Individual features | Pattern Miss / Context Miss / Noisy Activation |
+| 1. Incoherent Splitting Detection | `FeatureSplitView.tsx` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
+| 2. Explanation Faithfulness Assessment | `QualityView.tsx` | `feature` | Individual features | Need Revision / Well-Explained |
+| 3. Root Cause Diagnosis | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
 | 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
-### Stage 3: Root Cause Analysis (CauseView)
+### Stage 3: Root Cause Diagnosis (CauseView)
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
-- **Manual Tagging**: Click features to assign cause categories (Pattern Miss / Context Miss / Noisy Activation)
+- **Manual Tagging**: Click features to assign cause categories (Missed Syntax / Missed Context / Noisy Activation)
 - **SVM Classification**: After tagging 2+ features per category, SVM predicts remaining
 - **Query by Committee (QBC)**: RF + MLP trained alongside SVM; vote entropy identifies disagreement cases
 - **Decision Flip Rate**: Tracks prediction stability across tagging iterations (ConvergenceIndicator)
@@ -144,11 +144,10 @@ frontend/src/
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
 │   └── Tooltip.tsx               # Reusable tooltip with composition pattern
-├── lib/                          # Utilities (21 files + 10 tagging hooks)
+├── lib/                          # Utilities (21 files + 7 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
-│   ├── sankey-stages.ts          # Stage configuration
 │   ├── sankey-histogram-utils.ts # Inline histograms
 │   ├── sankey-selection-flow-utils.ts # Flow overlay calculations
 │   ├── histogram-utils.ts        # Histogram processing
@@ -158,7 +157,6 @@ frontend/src/
 │   ├── tag-system.ts             # Tag colors/labels
 │   ├── hierarchical-colors.ts    # CIELAB color assignment
 │   ├── circle-encoding-utils.ts  # Circle encoding for scores
-│   ├── modality-utils.ts         # Modality detection helpers
 │   ├── explainer-grid-utils.ts   # Explainer comparison grid
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
@@ -168,16 +166,14 @@ frontend/src/
 │   ├── color-utils.tsx           # Color manipulation utilities
 │   ├── triangle-grid.ts          # Triangle grid layout utilities
 │   ├── utils.ts                  # General helpers
-│   └── tagging-hooks/            # Reusable tagging hooks (10 files)
+│   └── tagging-hooks/            # Reusable tagging hooks (7 files)
 │       ├── index.ts              # Hook exports
 │       ├── useThresholdPreview.ts # Threshold preview state
 │       ├── useTaggingStatus.ts   # Tagging status tracking
 │       ├── useCommitHistory.ts   # Commit history management
-│       ├── useListNavigation.ts  # List navigation state
-│       ├── usePaginatedList.ts   # Pagination logic
-│       ├── useBoundaryItems.ts   # Boundary item detection
+│       ├── useMainListScroll.ts  # List scroll behavior
 │       ├── useSortableList.ts    # Sortable list logic
-│       └── useBimodalStatus.ts   # Bimodal distribution status
+│       └── useTaggingNavigation.ts # Navigation between tags
 ├── store/                        # Zustand State (8 files)
 │   ├── index.ts                  # Main store composition
 │   ├── sankey-actions.ts         # Sankey operations
@@ -245,7 +241,7 @@ frontend/src/
 - FeatureSplitPairViewer for pair analysis
 - DecisionMarginHistogram for histogram-based tagging
 - Commit history for state snapshots
-- Tags: Fragmented (selected) / Monosemantic (rejected)
+- Tags: Incoherent Splitting (selected) / Monosemantic (rejected)
 
 **QualityView.tsx** - Stage 2: Quality Assessment
 - Mode: `feature`
@@ -263,14 +259,14 @@ frontend/src/
 - SVM-based classification after manual tagging
 - Query by Committee (QBC) for detecting disagreement cases
 - Decision Flip Rate tracking with ConvergenceIndicator
-- Tags: Pattern Miss / Context Miss / Noisy Activation
+- Tags: Well-Explained / Missed Syntax / Missed Context / Noisy Activation
 - StageAccordionList for Bootstrap → Learn → Apply workflow
 - Cold start with representative sampling
 
 **CauseRadViz.tsx** - RadViz Visualization (Stage 3)
 - Canvas-based scatter plot for performance with SVG overlay
 - Softmax-weighted positioning: features positioned using `softmax(decision_scores)` as weights toward category anchors
-- 3 category anchors arranged in equilateral triangle: Pattern Miss, Context Miss, Noisy Activation
+- 3 category anchors arranged in equilateral triangle: Missed Syntax, Missed Context, Noisy Activation
 - Density contours per cause category after SVM classification
 - Category filtering via legend interaction
 - Contour update when predictions change
@@ -333,7 +329,6 @@ frontend/src/
 - SVM decision margin histogram
 - Dual thresholds (select/reject)
 - Real-time preview
-- Modality detection integration
 - Supports both `pair` and `feature` modes
 
 ### Visualization Components
@@ -367,7 +362,7 @@ frontend/src/
 - Displays HDBSCAN-clustered phrases sorted by activation similarity
 - Shows cluster medoids with expansion to view all phrases
 - Visual indicators for outliers vs clustered phrases
-- Loads data via /api/consensus/{feature_id} endpoint
+- Loads data via POST /api/feature-consensus endpoint
 
 **Indicators.tsx** - Visual Indicators
 - **TagBadge**: Unified tag badge showing Feature ID + Tag Name with category colors
@@ -390,14 +385,13 @@ Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mecha
 3. **Query by Committee**: Backend trains RF + MLP alongside SVM to detect disagreement
 4. **Scoring**: All items scored by distance from decision boundary
 5. **Histogram**: Scores displayed in DecisionMarginHistogram with dual thresholds
-6. **Modality Detection**: Hartigan's Dip test + GMM analysis
-7. **Decision Flip Rate**: Track prediction stability across iterations
-8. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
-9. **Commit History**: Each apply creates a restorable state snapshot
+6. **Decision Flip Rate**: Track prediction stability across iterations
+7. **Auto-Tagging**: Items beyond thresholds auto-tagged on "Apply Threshold"
+8. **Commit History**: Each apply creates a restorable state snapshot
 
-### Tag Selection Sources (SelectionSource type)
+### Tag Selection Sources (TagSource type)
 Items can be tagged via three mechanisms:
-- **clicked**: User manually clicked to tag the item
+- **click**: User manually clicked to tag the item
 - **threshold**: Auto-tagged by applying threshold boundaries
 - **predicted**: SVM prediction accepted during batch tagging
 
@@ -410,11 +404,9 @@ Reusable React hooks for tagging functionality across stages:
 | `useThresholdPreview` | Manages threshold preview state and calculations |
 | `useTaggingStatus` | Tracks tagging status (ready, pending, complete) |
 | `useCommitHistory` | Manages commit history for state snapshots |
-| `useListNavigation` | Handles list navigation with keyboard/click |
-| `usePaginatedList` | Pagination logic for large item lists |
-| `useBoundaryItems` | Detects items at threshold boundaries |
-| `useSortableList` | Sortable list with drag/reorder support |
-| `useBimodalStatus` | Tracks bimodal distribution status |
+| `useMainListScroll` | Manages scrollable list positioning |
+| `useSortableList` | Sortable list with Bootstrap/Learn/Apply stages |
+| `useTaggingNavigation` | Handles keyboard/click navigation between tags |
 
 ## Development Workflow
 
@@ -504,14 +496,15 @@ const debouncedUpdate = useMemo(
 | POST /api/feature-groups | Feature grouping for Sankey |
 | POST /api/histogram-data | Histograms for popovers |
 | POST /api/table-data | Feature table data |
-| POST /api/segment-cluster-pairs | Get all cluster pairs |
+| POST /api/filtered-cluster-pairs | Get cluster-based pairs for features |
 | POST /api/similarity-sort | Sort features by SVM |
 | POST /api/pair-similarity-sort | Sort pairs by SVM |
-| POST /api/similarity-score-histogram | Feature histogram + modality |
-| POST /api/pair-similarity-score-histogram | Pair histogram + modality |
+| POST /api/similarity-score-histogram | Feature similarity histogram |
+| POST /api/pair-similarity-score-histogram | Pair similarity histogram |
+| POST /api/stage3-quality-scores | Score Need Revision features for Stage 3 |
 | POST /api/cause-classification | SVM cause classification (Stage 3) |
-| POST /api/cold-start/representative | Representative features for cold start |
-| GET /api/consensus/{feature_id} | Consensus phrases for a feature |
+| POST /api/cold-start-suggestions | Representative features for cold start |
+| POST /api/feature-consensus | Consensus phrases for a feature |
 | POST /api/activation-examples | On-demand activation data |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
 

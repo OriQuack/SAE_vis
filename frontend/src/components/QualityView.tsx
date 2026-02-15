@@ -1087,10 +1087,6 @@ const QualityView: React.FC<QualityViewProps> = ({
                         <span className="legend-dot legend-dot--hollow" />
                         <span className="legend-label">Outlier</span>
                       </div>
-                      <div className="legend-item">
-                        <span className="legend-line legend-line--random" />
-                        <span className="legend-label">Random</span>
-                      </div>
                     </div>
                   </div>
                   <ConsensusSection consensus={consensus} />

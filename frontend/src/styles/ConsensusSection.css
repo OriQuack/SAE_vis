@@ -7,7 +7,6 @@
 .consensus-section {
   display: flex;
   flex-direction: row;
-  gap: 12px;
   align-items: flex-start;
 }
 
@@ -57,24 +56,24 @@
   max-width: 100%;
 }
 
-/* Cluster (medoid) style - filled neutral gray */
+/* Cluster (medoid) style - filled neutral gray, alpha scaled by consensus */
 .consensus-item__pill--medoid {
-  background-color: rgba(107, 114, 128, 0.2);
+  background-color: rgba(107, 114, 128, calc(0.2 * var(--pill-alpha, 1)));
 }
 
 .consensus-item__pill--medoid:hover {
-  background-color: rgba(107, 114, 128, 0.35);
+  background-color: rgba(107, 114, 128, calc(0.35 * var(--pill-alpha, 1)));
 }
 
-/* Outlier style - hollow neutral gray (border only) */
+/* Outlier style - hollow neutral gray (border only), alpha scaled by consensus */
 .consensus-item__pill--outlier {
   background-color: transparent;
-  border: 1.5px solid rgba(107, 114, 128, 0.5);
+  border: 1.5px solid rgba(107, 114, 128, calc(0.5 * var(--pill-alpha, 1)));
 }
 
 .consensus-item__pill--outlier:hover {
-  background-color: rgba(107, 114, 128, 0.1);
-  border-color: rgba(107, 114, 128, 0.7);
+  background-color: rgba(107, 114, 128, calc(0.1 * var(--pill-alpha, 1)));
+  border-color: rgba(107, 114, 128, calc(0.7 * var(--pill-alpha, 1)));
 }
 
 /* Phrase text */
@@ -83,28 +82,6 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* Cluster badge - neutral gray */
-.consensus-item__badge {
-  flex-shrink: 0;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 600;
-  background-color: rgba(107, 114, 128, 0.3);
-  color: #4b5563;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-/* Outlier badge - same neutral gray style */
-.consensus-item__badge--outlier {
-  background-color: rgba(107, 114, 128, 0.3);
-  color: #4b5563;
 }
 
 /* ============================================================================
@@ -164,53 +141,3 @@
   color: var(--text-secondary, #6b7280);
 }
 
-/* ============================================================================
- * SCATTER PLOT
- * ============================================================================ */
-
-.consensus-plot {
-  display: block;
-  flex-shrink: 0;
-}
-
-.consensus-plot__label {
-  font-size: 11px;
-  fill: var(--text-secondary, #6b7280);
-}
-
-.consensus-plot__tick {
-  font-size: 10px;
-  fill: var(--text-secondary, #6b7280);
-}
-
-.consensus-plot__point {
-  cursor: pointer;
-  transition: fill-opacity 0.15s ease, stroke 0.15s ease;
-}
-
-/* Cluster (medoid) - filled neutral gray */
-.consensus-plot__point--medoid {
-  fill: #6b7280;
-}
-
-/* Outlier - hollow neutral gray (stroke only) */
-.consensus-plot__point--outlier {
-  fill: transparent;
-  stroke: #6b7280;
-  stroke-width: 1.5;
-}
-
-.consensus-plot__point:hover {
-  stroke: #3b82f6;
-  stroke-width: 1.5;
-}
-
-/* Highlighted state for cross-hover (blue selection style) */
-.consensus-plot__point--highlighted {
-  stroke: #3b82f6;
-  stroke-width: 1.5;
-}
-
-.consensus-item__pill--highlighted {
-  box-shadow: inset 0 0 0 1.5px #3b82f6;
-}
