@@ -6,7 +6,7 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, DisagreementIndicator } from './Indicators'
-import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -482,35 +482,38 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     initialDirection: 'asc'
   })
 
-  // Derive stage state from sort mode/direction (for StageAccordionList)
-  const { activeStage, bootstrapMode, bootstrapDirection } = useMemo(() => {
-    return sortConfigToStage(sortMode, sortDirection)
-  }, [sortMode, sortDirection])
+  // Independent stage state (decoupled from sort mode)
+  const [activeStage, setActiveStage] = useState<ActiveStage>('bootstrap')
 
-  // Handlers for stage changes (StageAccordionList callbacks)
-  const handleStageChange = useCallback((stage: ActiveStage) => {
-    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig(stage, bootstrapMode, bootstrapDirection)
-    setSortMode(newMode)
-    setSortDirection(newDir)
-    setCurrentPairIndex(0)
-    setSelectedPairKeyState(null)  // Reset stored state on manual stage change
-  }, [bootstrapMode, bootstrapDirection, setSortMode, setSortDirection])
+  // Derive bootstrapMode from sortMode (for StageAccordionList display)
+  const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
 
-  const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
-    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
-    setSortMode(newMode)
-    setSortDirection(newDir)
-    setCurrentPairIndex(0)
-  }, [bootstrapDirection, setSortMode, setSortDirection])
-
-  const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
-    if (bootstrapMode === 'byScore') {
-      setSortDirection(direction)
-      setCurrentPairIndex(0)
+  // Auto-enable filters when entering Apply phase, reset when leaving
+  useEffect(() => {
+    if (activeStage === 'apply') {
+      setHideTagged(true)
+      setShowDisagreementOnly(true)
+    } else {
+      setHideTagged(false)
+      setShowDisagreementOnly(false)
     }
-  }, [bootstrapMode, setSortDirection])
+  }, [activeStage])
 
-  // Combined handler for bootstrap option cycling - receives mode only (direction controlled by column header)
+  // Handlers for stage changes
+  const handleStageChange = useCallback((stage: ActiveStage) => {
+    setActiveStage(stage)
+    if (stage === 'learn') {
+      setSortMode('decisionMargin')
+      setSortDirection('asc')
+    } else if (stage === 'apply') {
+      setSortMode('decisionMargin')
+      setSortDirection('desc')
+    }
+    setCurrentPairIndex(0)
+    setSelectedPairKeyState(null)
+  }, [setSortMode, setSortDirection])
+
+  // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
     if (mode === 'diversity') {
       setSortMode('diversity')
@@ -521,6 +524,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
     setCurrentPairIndex(0)
   }, [setSortMode, setSortDirection])
+
+  const handleBootstrapModeChange = handleBootstrapOptionChange
 
   // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
   const disagreementLookup = useMemo(() => {
@@ -714,7 +719,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Track visited representative pairs for smart pulsing
   useEffect(() => {
-    if (bootstrapMode === 'diversity' && displayPairList.length > 0) {
+    if (sortMode === 'diversity' && displayPairList.length > 0) {
       const pair = displayPairList[currentPairIndex]
       if (pair && diversityPairIds.has(pair.pairKey)) {
         setVisitedRepIds(prev => {
@@ -723,7 +728,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         })
       }
     }
-  }, [currentPairIndex, displayPairList, diversityPairIds, bootstrapMode])
+  }, [currentPairIndex, displayPairList, diversityPairIds, sortMode])
 
   // Calculate if most reps visited (>80%)
   const hasVisitedMostReps = useMemo(() => {
@@ -737,6 +742,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const last5 = history.slice(-5)
     return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
+
 
   // ============================================================================
   // CLICK HANDLERS
@@ -972,9 +978,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               activeStage={activeStage}
               onStageChange={handleStageChange}
               bootstrapMode={bootstrapMode}
-              bootstrapDirection={bootstrapDirection}
+              bootstrapDirection={sortDirection}
               onBootstrapModeChange={handleBootstrapModeChange}
-              onBootstrapDirectionChange={handleBootstrapDirectionChange}
               onBootstrapOptionChange={handleBootstrapOptionChange}
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
@@ -991,7 +996,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               badges={[{
                 label: showDisagreementOnly
                   ? 'Disagreement Pairs'
-                  : sortMode === 'diversity' && !svmTrainingStarted
+                  : sortMode === 'diversity'
                     ? 'Most Critical Pairs'
                     : hideTagged
                       ? 'Untagged Pairs'
@@ -1036,6 +1041,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           }}
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
+          activeStage={activeStage}
         />
           </div>
         </div>

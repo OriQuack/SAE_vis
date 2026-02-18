@@ -150,128 +150,82 @@
 }
 
 /* ============================================================================
- * ROW 2: OPTIONS (context-sensitive content)
+ * ROW 2: CHECKBOXES (below tabs, above cycle)
+ * ============================================================================ */
+
+.stage-selector__checkboxes {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px 4px;
+  gap: 12px;
+  background-color: white;
+  border: 1px solid #e5e7eb;
+  border-top: none;
+}
+
+/* ============================================================================
+ * ROW 3: OPTIONS (context-sensitive content)
  * ============================================================================ */
 
 .stage-selector__options {
   display: flex;
   align-items: center;
-  padding: 6px 8px;
-  gap: 6px;
+  justify-content: center;
+  padding: 4px 8px 2px;
   background-color: white;
   border: 1px solid #e5e7eb;
   border-top: none;
-  min-height: 32px; /* Consistent height even when no options */
+  border-bottom: none;
 }
 
-/* Spacer to push Hide Tagged to the right */
-.stage-selector__spacer {
-  flex: 1;
+/* Toggle switch group - connected segmented control */
+.stage-selector__toggle-group {
+  display: flex;
+  width: 100%;
+  background: #f1f5f9;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 2px;
 }
 
-/* Option Buttons (Bootstrap stage) */
+/* Option Buttons (segmented toggle) */
 .stage-selector__option-btn {
-  padding: 3px 8px;
+  flex: 1;
+  padding: 5px 8px;
   font-size: 10px;
   font-weight: 500;
-  color: #374151;
-  background-color: white;
-  border: 1px solid #d1d5db;
-  border-radius: 3px;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  text-align: center;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.stage-selector__option-btn:hover:not(:disabled) {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
+.stage-selector__option-btn:focus {
+  outline: none;
+}
+
+.stage-selector__option-btn:hover:not(:disabled):not(.stage-selector__option-btn--active) {
+  color: #374151;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .stage-selector__option-btn--active {
-  background: rgba(59, 130, 246, 0.15);
-  border-color: #3b82f6;
-  color: #1d4ed8;
+  background: white;
+  color: #1e40af;
   font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
-.stage-selector__option-btn--active:hover {
-  background: rgba(59, 130, 246, 0.25);
-}
-
-/* Cycle group for stage options */
-.stage-selector__cycle-group {
-  display: inline-flex;
-  align-items: stretch;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  background-color: white;
-  overflow: hidden;
-  width: 160px;
-}
-
-.stage-selector__cycle-arrow {
-  padding: 0;
-  margin: 0;
-  width: 20px;
-  font-size: 8px;
-  color: #6b7280;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  flex-shrink: 0;
-  -webkit-appearance: none;
-  appearance: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.stage-selector__cycle-arrow:focus {
-  outline: none;
-  box-shadow: none;
-}
-
-.stage-selector__cycle-arrow:hover:not(:disabled) {
-  background-color: #e5e7eb;
-  color: #374151;
-}
-
-.stage-selector__cycle-arrow--disabled {
-  opacity: 0.3;
+/* Disabled active buttons (learn/apply fixed labels) keep full opacity */
+.stage-selector__option-btn--active:disabled {
+  opacity: 1;
   cursor: default;
-}
-
-.stage-selector__cycle-arrow--pulsing {
-  animation: arrow-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes arrow-pulse {
-  0%, 100% {
-    background-color: #f3f4f6;
-    color: #6b7280;
-  }
-  50% {
-    background-color: #3b82f6;
-    color: white;
-  }
-}
-
-.stage-selector__cycle-label {
-  flex: 1;
-  padding: 3px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  color: #1d4ed8;
-  background: rgba(59, 130, 246, 0.15);
-  border-left: 1px solid #e5e7eb;
-  border-right: 1px solid #e5e7eb;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* ============================================================================

@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, ConsensusResponse } from '../types'
 import * as api from '../api'
 import { getFeatureConsensus } from '../api'
-import { useSortableList, sortConfigToStage, stageToSortConfig, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
@@ -341,33 +341,50 @@ const CauseView: React.FC<CauseViewProps> = ({
     templateDirection: 'asc'
   })
 
-  // Derive stage state from sort mode/direction (for StageAccordionList)
-  const { activeStage, bootstrapMode, bootstrapDirection } = useMemo(() => {
-    return sortConfigToStage(sortMode, selectedSortDirection)
-  }, [sortMode, selectedSortDirection])
+  // Independent stage state (decoupled from sort mode)
+  const [activeStage, setActiveStage] = useState<ActiveStage>('bootstrap')
 
-  // Handlers for stage changes (StageAccordionList callbacks)
-  const handleStageChange = useCallback((stage: ActiveStage) => {
-    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig(stage, bootstrapMode, bootstrapDirection)
-    setSortMode(newMode)
-    setSelectedSortDirection(newDir)
-    setCurrentFeatureIndex(0)
-    setSelectedFeatureIdState(null)  // Reset stored state on manual stage change
-  }, [bootstrapMode, bootstrapDirection, setSortMode, setSelectedSortDirection])
+  // Derive bootstrapMode from sortMode (for StageAccordionList display)
+  const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
 
-  const handleBootstrapModeChange = useCallback((mode: BootstrapMode) => {
-    const { sortMode: newMode, sortDirection: newDir } = stageToSortConfig('bootstrap', mode, bootstrapDirection)
-    setSortMode(newMode)
-    setSelectedSortDirection(newDir)
-    setCurrentFeatureIndex(0)
-  }, [bootstrapDirection, setSortMode, setSelectedSortDirection])
-
-  const handleBootstrapDirectionChange = useCallback((direction: 'asc' | 'desc') => {
-    if (bootstrapMode === 'byScore') {
-      setSelectedSortDirection(direction)
-      setCurrentFeatureIndex(0)
+  // Auto-enable filters when entering Apply phase, reset when leaving
+  useEffect(() => {
+    if (activeStage === 'apply') {
+      setHideTagged(true)
+      setShowDisagreementOnly(true)
+    } else {
+      setHideTagged(false)
+      setShowDisagreementOnly(false)
     }
-  }, [bootstrapMode, setSelectedSortDirection])
+  }, [activeStage])
+
+  // Handlers for stage changes
+  const handleStageChange = useCallback((stage: ActiveStage) => {
+    setActiveStage(stage)
+    // One-way convenience: set recommended sort for each stage
+    if (stage === 'learn') {
+      setSortMode('decisionMargin')
+      setSelectedSortDirection('asc')
+    } else if (stage === 'apply') {
+      setSortMode('decisionMargin')
+      setSelectedSortDirection('desc')
+    }
+    setCurrentFeatureIndex(0)
+    setSelectedFeatureIdState(null)
+  }, [setSortMode, setSelectedSortDirection])
+
+  // Bootstrap option cycling handler
+  const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
+    if (mode === 'diversity') {
+      setSortMode('diversity')
+    } else {
+      setSortMode('default')
+      setSelectedSortDirection('asc')
+    }
+    setCurrentFeatureIndex(0)
+  }, [setSortMode, setSelectedSortDirection])
+
+  const handleBootstrapModeChange = handleBootstrapOptionChange
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
@@ -460,7 +477,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Track visited representative features for smart pulsing
   useEffect(() => {
-    if (bootstrapMode === 'diversity' && sortedFilteredFeatureList.length > 0) {
+    if (sortMode === 'diversity' && sortedFilteredFeatureList.length > 0) {
       const featureId = sortedFilteredFeatureList[currentFeatureIndex]
       if (featureId !== undefined && diversityFeatureIds.has(featureId)) {
         setVisitedRepIds(prev => {
@@ -469,7 +486,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         })
       }
     }
-  }, [currentFeatureIndex, sortedFilteredFeatureList, diversityFeatureIds, bootstrapMode])
+  }, [currentFeatureIndex, sortedFilteredFeatureList, diversityFeatureIds, sortMode])
 
   // Calculate if most reps visited (>80%)
   const hasVisitedMostReps = useMemo(() => {
@@ -795,7 +812,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
-    // 2. Apply tags to all filtered features that aren't user-confirmed
+    // 2. Collect all updates into a batch map
+    const batchUpdates = new Map<number, 'noisy-activation' | 'missed-N-gram' | 'missed-context' | 'well-explained'>()
+
     filteredFeatureIds.forEach(featureId => {
       const source = causeSelectionSources.get(featureId)
       // Skip user-confirmed features - preserve user's explicit choices
@@ -803,10 +822,15 @@ const CauseView: React.FC<CauseViewProps> = ({
       // Tag features with their predicted category
       const predictedCategory = causeSelectionStates.get(featureId)
       if (predictedCategory === 'missed-N-gram' || predictedCategory === 'missed-context' || predictedCategory === 'noisy-activation') {
-        setCauseCategory(featureId, predictedCategory)
+        batchUpdates.set(featureId, predictedCategory)
       }
     })
-  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategory, createCommit])
+
+    // 3. Apply all updates in a single state change
+    if (batchUpdates.size > 0) {
+      setCauseCategoriesBatch(batchUpdates)
+    }
+  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
@@ -960,6 +984,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const wellExplainedColor = getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#9ca3af'
   const unsureColor = UNSURE_GRAY
 
+
   // Get display score for sortConfig (decision margin or undefined for diversity)
   const getDisplayScore = useCallback((featureId: number) => {
     // No score display for diversity mode (items are just medoids)
@@ -1056,9 +1081,9 @@ const CauseView: React.FC<CauseViewProps> = ({
                   activeStage={activeStage}
                   onStageChange={handleStageChange}
                   bootstrapMode={bootstrapMode}
-                  bootstrapDirection={bootstrapDirection}
+                  bootstrapDirection={selectedSortDirection}
                   onBootstrapModeChange={handleBootstrapModeChange}
-                  onBootstrapDirectionChange={handleBootstrapDirectionChange}
+                  onBootstrapOptionChange={handleBootstrapOptionChange}
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
@@ -1073,7 +1098,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   badges={[{
                     label: showDisagreementOnly
                       ? 'Disagreement Features'
-                      : sortMode === 'diversity' && !svmTrainingStarted
+                      : sortMode === 'diversity'
                         ? 'Representative Features'
                         : hideTagged
                           ? 'Untagged Features'
@@ -1266,6 +1291,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onVisibleCategoriesChange: setVisibleCategories,
                   onFeatureSelect: handleUMAPFeatureSelect,
                   stableFeatureIds,
+                  hideTagged,
                   categories: [
                     {
                       id: 'missed-N-gram',

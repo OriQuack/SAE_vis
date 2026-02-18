@@ -1013,7 +1013,7 @@ export const useStore = create<AppState>((set, get) => {
 
       updates.forEach((category, featureId) => {
         newStates.set(featureId, category)
-        newSources.set(featureId, 'click')
+        newSources.set(featureId, 'threshold')
       })
 
       return {

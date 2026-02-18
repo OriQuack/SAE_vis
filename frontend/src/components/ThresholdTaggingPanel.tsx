@@ -8,7 +8,8 @@ import ConvergenceIndicator from './ConvergenceIndicator'
 import BatchTaggingPanel from './BatchTaggingPanel'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
-import type { SortMode, ActiveStage } from '../lib/tagging-hooks/useSortableList'
+import type { SortMode } from '../lib/tagging-hooks/useSortableList'
+import type { ActiveStage } from './StageAccordionList'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -41,6 +42,7 @@ export interface CauseModeProps {
   onVisibleCategoriesChange: (cats: Set<FilterCategory>) => void
   onFeatureSelect: (featureId: number) => void
   stableFeatureIds: number[]  // For RadViz
+  hideTagged?: boolean
   // Batch tagging category counts and colors
   categories: Array<{
     id: string
@@ -76,6 +78,9 @@ export interface ThresholdTaggingPanelProps {
   onApplyTags: () => void
   onTagAll: (method: 'left' | 'byBoundary') => void
 
+  // Active stage for controlling threshold handle visibility
+  activeStage?: ActiveStage
+
   // Cause mode specific props (only when mode='cause')
   causeProps?: CauseModeProps
 }
@@ -88,6 +93,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   histogramProps,
   onApplyTags,
   onTagAll,
+  activeStage,
   // Cause mode props
   causeProps,
 }) => {
@@ -196,6 +202,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             sortDirection={causeProps.sortDirection}
             canTrainSVM={causeProps.canTrainSVM}
             manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
+            activeStage={causeProps.activeStage}
           />
         ) : (
           <DecisionMarginHistogram
@@ -203,6 +210,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             availablePairs={histogramProps.availablePairs}
             filteredFeatureIds={histogramProps.filteredFeatureIds}
             threshold={histogramProps.threshold}
+            activeStage={activeStage}
           />
         )}
       </div>
@@ -257,6 +265,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 onFeatureSelect={causeProps.onFeatureSelect}
                 sortMode={causeProps.sortMode}
                 sortDirection={causeProps.sortDirection}
+                hideTagged={causeProps.hideTagged}
               />
               <div className="threshold-tagging-panel__batch-column">
                 <h4 className="subheader">Batch Tagging</h4>

@@ -13,6 +13,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
+import type { ActiveStage } from './StageAccordionList'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
 import { Tooltip, formatCount } from './Tooltip'
@@ -43,13 +44,15 @@ interface DecisionMarginHistogramProps {
   availablePairs?: Array<{pairKey: string, mainFeatureId: number, similarFeatureId: number}>  // Cluster-based pairs (single source of truth)
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
   threshold?: number  // Clustering threshold from Sankey (required for simplified flow)
+  activeStage?: ActiveStage  // Controls threshold handle visibility (shown only in 'apply' phase)
 }
 
 const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   mode,
   availablePairs,
   filteredFeatureIds,
-  threshold
+  threshold,
+  activeStage
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
@@ -590,31 +593,35 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                 </defs>
 
                 <g transform={`translate(${histogramChart.margin.left}, ${histogramChart.margin.top})`}>
-                  {/* Colored region backgrounds with 3 zones (threshold-based, not 0-based) */}
-                  {/* Zone 1: Left edge to reject threshold (auto-rejected stripe) */}
-                  <rect
-                    x={0}
-                    y={0}
-                    width={Math.max(0, safeThresholdPositions.rejectX)}
-                    height={histogramChart.height}
-                    fill="url(#autoRejectedPreviewStripe)"
-                  />
-                  {/* Zone 2: Reject threshold to select threshold (white, unsure) */}
-                  <rect
-                    x={safeThresholdPositions.rejectX}
-                    y={0}
-                    width={Math.max(0, safeThresholdPositions.selectX - safeThresholdPositions.rejectX)}
-                    height={histogramChart.height}
-                    fill="#ffffff"
-                  />
-                  {/* Zone 3: Select threshold to right edge (auto-selected stripe) */}
-                  <rect
-                    x={safeThresholdPositions.selectX}
-                    y={0}
-                    width={Math.max(0, histogramChart.width - safeThresholdPositions.selectX)}
-                    height={histogramChart.height}
-                    fill="url(#autoSelectedPreviewStripe)"
-                  />
+                  {/* Colored region backgrounds with 3 zones - only in apply phase */}
+                  {activeStage === 'apply' && (
+                    <>
+                      {/* Zone 1: Left edge to reject threshold (auto-rejected stripe) */}
+                      <rect
+                        x={0}
+                        y={0}
+                        width={Math.max(0, safeThresholdPositions.rejectX)}
+                        height={histogramChart.height}
+                        fill="url(#autoRejectedPreviewStripe)"
+                      />
+                      {/* Zone 2: Reject threshold to select threshold (white, unsure) */}
+                      <rect
+                        x={safeThresholdPositions.rejectX}
+                        y={0}
+                        width={Math.max(0, safeThresholdPositions.selectX - safeThresholdPositions.rejectX)}
+                        height={histogramChart.height}
+                        fill="#ffffff"
+                      />
+                      {/* Zone 3: Select threshold to right edge (auto-selected stripe) */}
+                      <rect
+                        x={safeThresholdPositions.selectX}
+                        y={0}
+                        width={Math.max(0, histogramChart.width - safeThresholdPositions.selectX)}
+                        height={histogramChart.height}
+                        fill="url(#autoSelectedPreviewStripe)"
+                      />
+                    </>
+                  )}
 
                   {/* Full-height hover hit areas for each bin */}
                   {histogramChart.bins.map((bin, binIndex) => {
@@ -799,59 +806,63 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                     Count
                   </text>
 
-                  {/* Dual threshold handles for auto-rejection and auto-selection */}
-                  <ThresholdHandles
-                    orientation="horizontal"
-                    bounds={{
-                      min: 0,
-                      max: histogramChart.width
-                    }}
-                    thresholds={[thresholds.reject, thresholds.select]}
-                    metricRange={{
-                      min: safeThresholdPositions.minDomain,
-                      max: safeThresholdPositions.maxDomain
-                    }}
-                    position={{ x: 0, y: 0 }}
-                    lineBounds={{
-                      min: 0,
-                      max: histogramChart.height
-                    }}
-                    showThresholdLine={true}
-                    onUpdate={handleThresholdUpdate}
-                    onDragUpdate={handleThresholdDragUpdate}
-                    onDragStart={handleDragStart}
-                    onDragEnd={handleDragEnd}
-                  />
+                  {/* Dual threshold handles + labels - only in apply phase */}
+                  {activeStage === 'apply' && (
+                    <>
+                      <ThresholdHandles
+                        orientation="horizontal"
+                        bounds={{
+                          min: 0,
+                          max: histogramChart.width
+                        }}
+                        thresholds={[thresholds.reject, thresholds.select]}
+                        metricRange={{
+                          min: safeThresholdPositions.minDomain,
+                          max: safeThresholdPositions.maxDomain
+                        }}
+                        position={{ x: 0, y: 0 }}
+                        lineBounds={{
+                          min: 0,
+                          max: histogramChart.height
+                        }}
+                        showThresholdLine={true}
+                        onUpdate={handleThresholdUpdate}
+                        onDragUpdate={handleThresholdDragUpdate}
+                        onDragStart={handleDragStart}
+                        onDragEnd={handleDragEnd}
+                      />
 
-                  {/* Threshold labels with arrows - positions shift to stay within bounds */}
-                  <g>
-                    {/* Left threshold: Rejected label - colored arrow + black text */}
-                    <text
-                      x={labelPositions.leftX}
-                      y={-8}
-                      textAnchor="end"
-                      fontSize={14}
-                      fontWeight={600}
-                      fill="#272121ff"
-                    >
-                      <tspan fill={modeColors.rejected} fontSize={16}>← </tspan>
-                      <tspan>{modeLabels.rejected}</tspan>
-                    </text>
-                  </g>
-                  <g>
-                    {/* Right threshold: Selected label - black text + colored arrow */}
-                    <text
-                      x={labelPositions.rightX}
-                      y={-8}
-                      textAnchor="start"
-                      fontSize={14}
-                      fontWeight={600}
-                      fill="#000000"
-                    >
-                      <tspan>{modeLabels.selected} </tspan>
-                      <tspan fill={modeColors.confirmed} fontSize={16}>→</tspan>
-                    </text>
-                  </g>
+                      {/* Threshold labels with arrows - positions shift to stay within bounds */}
+                      <g>
+                        {/* Left threshold: Rejected label - colored arrow + black text */}
+                        <text
+                          x={labelPositions.leftX}
+                          y={-8}
+                          textAnchor="end"
+                          fontSize={14}
+                          fontWeight={600}
+                          fill="#272121ff"
+                        >
+                          <tspan fill={modeColors.rejected} fontSize={16}>← </tspan>
+                          <tspan>{modeLabels.rejected}</tspan>
+                        </text>
+                      </g>
+                      <g>
+                        {/* Right threshold: Selected label - black text + colored arrow */}
+                        <text
+                          x={labelPositions.rightX}
+                          y={-8}
+                          textAnchor="start"
+                          fontSize={14}
+                          fontWeight={600}
+                          fill="#000000"
+                        >
+                          <tspan>{modeLabels.selected} </tspan>
+                          <tspan fill={modeColors.confirmed} fontSize={16}>→</tspan>
+                        </text>
+                      </g>
+                    </>
+                  )}
                 </g>
               </svg>
 

@@ -46,7 +46,7 @@ const Header: React.FC = () => {
       {/* InSAEght Branding */}
       <div className="header__branding">
         <img src={featureValidatorLogo} alt="InSAEght" className="header__logo" />
-        <h1 className="header__title">InSAEght</h1>
+        <h1 className="header__title">DECODE</h1>
       </div>
 
       {/* Badge Container - Horizontal Layout */}

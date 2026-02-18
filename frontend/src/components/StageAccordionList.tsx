@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useState, type ReactNode } from 'react'
+import { useMemo, useCallback, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/StageAccordionList.css'
@@ -119,9 +119,6 @@ export function StageAccordionList<T>({
   void _bootstrapDirection
   void _onBootstrapDirectionChange
 
-  // Track if arrow pulsing has been dismissed (user clicked once)
-  const [arrowPulsingDismissed, setArrowPulsingDismissed] = useState(false)
-
   // Handle stage tab click
   const handleStageClick = useCallback((stage: ActiveStage) => {
     if (stage === 'learn' && learnDisabled) return
@@ -129,8 +126,7 @@ export function StageAccordionList<T>({
     onStageChange(stage)
   }, [onStageChange, learnDisabled, applyDisabled])
 
-  // Define bootstrap options order (for cycling)
-  // Order: Most Critical → byScore (direction controlled by column header click)
+  // Build bootstrap option buttons
   const bootstrapOptions = useMemo(() => {
     const options: Array<{ mode: BootstrapMode; label: string }> = []
     if (hasDiversityIds) {
@@ -139,37 +135,6 @@ export function StageAccordionList<T>({
     options.push({ mode: 'byScore', label: byScoreLabel })
     return options
   }, [hasDiversityIds, diversityLabel, byScoreLabel])
-
-  // Get current option index
-  const currentOptionIndex = useMemo(() => {
-    return bootstrapOptions.findIndex(opt => opt.mode === bootstrapMode)
-  }, [bootstrapOptions, bootstrapMode])
-
-  // Cycle handlers
-  // Use combined handler if available (preferred), otherwise fall back to separate handlers
-  const handlePrevOption = useCallback(() => {
-    const newIndex = (currentOptionIndex - 1 + bootstrapOptions.length) % bootstrapOptions.length
-    const opt = bootstrapOptions[newIndex]
-    if (onBootstrapOptionChange) {
-      onBootstrapOptionChange(opt.mode)
-    } else {
-      onBootstrapModeChange(opt.mode)
-    }
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapOptionChange])
-
-  const handleNextOption = useCallback(() => {
-    // Dismiss arrow pulsing when clicked
-    if (!arrowPulsingDismissed) {
-      setArrowPulsingDismissed(true)
-    }
-    const newIndex = (currentOptionIndex + 1) % bootstrapOptions.length
-    const opt = bootstrapOptions[newIndex]
-    if (onBootstrapOptionChange) {
-      onBootstrapOptionChange(opt.mode)
-    } else {
-      onBootstrapModeChange(opt.mode)
-    }
-  }, [currentOptionIndex, bootstrapOptions, onBootstrapModeChange, onBootstrapOptionChange, arrowPulsingDismissed])
 
   // isTemplateSort - true when in decisionMargin asc mode (standard template)
   const isTemplateSort = useMemo(() => {
@@ -238,99 +203,62 @@ export function StageAccordionList<T>({
         </button>
       </div>
 
-      {/* Row 2: Options (context-sensitive) */}
+      {/* Row 2: Sort option toggle (phase-dependent) */}
       <div className="stage-selector__options">
-        {activeStage === 'bootstrap' && (
-          <div className="stage-selector__cycle-group">
+        <div className="stage-selector__toggle-group">
+          {activeStage === 'bootstrap' && bootstrapOptions.map(opt => (
             <button
-              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''}`}
-              onClick={handlePrevOption}
-              disabled={bootstrapOptions.length <= 1}
-              aria-label="Previous option"
+              key={opt.mode}
+              className={`stage-selector__option-btn ${opt.mode === bootstrapMode ? 'stage-selector__option-btn--active' : ''}`}
+              onClick={() => {
+                if (onBootstrapOptionChange) {
+                  onBootstrapOptionChange(opt.mode)
+                } else {
+                  onBootstrapModeChange(opt.mode)
+                }
+              }}
             >
-              ◀
+              {opt.label}
             </button>
-            <span className="stage-selector__cycle-label">
-              {bootstrapOptions[currentOptionIndex]?.label}
-            </span>
-            <button
-              className={`stage-selector__cycle-arrow ${bootstrapOptions.length <= 1 ? 'stage-selector__cycle-arrow--disabled' : ''} ${shouldPulseLearn && learnDisabled && !arrowPulsingDismissed ? 'stage-selector__cycle-arrow--pulsing' : ''}`}
-              onClick={handleNextOption}
-              disabled={bootstrapOptions.length <= 1}
-              aria-label="Next option"
-            >
-              ▶
-            </button>
-          </div>
-        )}
-        {activeStage === 'learn' && (
-          <div className="stage-selector__cycle-group">
-            <button
-              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
-              disabled
-              aria-label="Previous option"
-            >
-              ◀
-            </button>
-            <span className="stage-selector__cycle-label">
+          ))}
+          {activeStage === 'learn' && (
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
               Most Uncertain First
-            </span>
-            <button
-              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
-              disabled
-              aria-label="Next option"
-            >
-              ▶
             </button>
-          </div>
-        )}
-        {activeStage === 'apply' && (
-          <div className="stage-selector__cycle-group">
-            <button
-              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
-              disabled
-              aria-label="Previous option"
-            >
-              ◀
-            </button>
-            <span className="stage-selector__cycle-label">
+          )}
+          {activeStage === 'apply' && (
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
               Most Confident First
-            </span>
-            <button
-              className="stage-selector__cycle-arrow stage-selector__cycle-arrow--disabled"
-              disabled
-              aria-label="Next option"
-            >
-              ▶
             </button>
-          </div>
-        )}
-
-        {/* QBC Disagreement filter (before spacer) */}
-        {activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange !== undefined && (
-          <label className="stage-selector__checkbox-label">
-            <input
-              type="checkbox"
-              checked={showDisagreementOnly ?? false}
-              onChange={(e) => onShowDisagreementOnlyChange(e.target.checked)}
-            />
-            Disagreement
-          </label>
-        )}
-
-        {/* Spacer + Hide Tagged (always on right) */}
-        <div className="stage-selector__spacer" />
-        {onHideTaggedChange !== undefined && (
-          <label className="stage-selector__checkbox-label">
-            <input
-              type="checkbox"
-              checked={hideTagged ?? false}
-              onChange={(e) => onHideTaggedChange(e.target.checked)}
-            />
-            Hide Tagged
-          </label>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Row 3: Checkboxes (below cycle, above list) */}
+      {(onHideTaggedChange !== undefined || (hasDisagreementData && onShowDisagreementOnlyChange !== undefined)) && (
+        <div className="stage-selector__checkboxes">
+          {onHideTaggedChange !== undefined && (
+            <label className="stage-selector__checkbox-label">
+              <input
+                type="checkbox"
+                checked={hideTagged ?? false}
+                onChange={(e) => onHideTaggedChange(e.target.checked)}
+              />
+              Hide Tagged
+            </label>
+          )}
+          {activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange !== undefined && (
+            <label className="stage-selector__checkbox-label">
+              <input
+                type="checkbox"
+                checked={showDisagreementOnly ?? false}
+                onChange={(e) => onShowDisagreementOnlyChange(e.target.checked)}
+              />
+              Disagreement Only
+            </label>
+          )}
+        </div>
+      )}
 
       {/* Scrollable Item List */}
       <div className="stage-selector__list">

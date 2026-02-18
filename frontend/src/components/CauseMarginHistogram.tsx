@@ -7,6 +7,7 @@ import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
+import type { ActiveStage } from './StageAccordionList'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import '../styles/CauseMarginHistogram.css'
 
@@ -78,6 +79,8 @@ interface CauseMarginHistogramProps {
   canTrainSVM?: boolean
   /** Manual tag counts per category for progress display */
   manualTagCountsByCategory?: Record<string, number>
+  /** Active stage - controls threshold handle visibility (hidden in 'bootstrap') */
+  activeStage?: ActiveStage
 }
 
 interface MarginDataPoint {
@@ -184,7 +187,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   sortMode = 'decisionMargin',
   sortDirection = 'asc',
   canTrainSVM = true,
-  manualTagCountsByCategory
+  manualTagCountsByCategory,
+  activeStage
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(200)
@@ -544,23 +548,27 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
         </defs>
 
         <g transform={dimensions.transform}>
-          {/* Zone backgrounds - Left = unsure (striped), Right = candidates (white) - always */}
-          {/* Left zone (unsure - below threshold) */}
-          <rect
-            x={0}
-            y={0}
-            width={Math.max(0, thresholdX)}
-            height={dimensions.chart.height}
-            fill="url(#unsureZoneStripe)"
-          />
-          {/* Right zone (candidates - above threshold) */}
-          <rect
-            x={Math.max(0, thresholdX)}
-            y={0}
-            width={Math.max(0, dimensions.chart.width - thresholdX)}
-            height={dimensions.chart.height}
-            fill="#ffffff"
-          />
+          {/* Zone backgrounds - only shown in learn and apply phases (not bootstrap) */}
+          {activeStage !== 'bootstrap' && (
+            <>
+              {/* Left zone (unsure - below threshold) */}
+              <rect
+                x={0}
+                y={0}
+                width={Math.max(0, thresholdX)}
+                height={dimensions.chart.height}
+                fill="url(#unsureZoneStripe)"
+              />
+              {/* Right zone (candidates - above threshold) */}
+              <rect
+                x={Math.max(0, thresholdX)}
+                y={0}
+                width={Math.max(0, dimensions.chart.width - thresholdX)}
+                height={dimensions.chart.height}
+                fill="#ffffff"
+              />
+            </>
+          )}
 
           {/* Full-height hover hit areas for each bin */}
           {bins.map((_bin, binIndex) => {
@@ -675,45 +683,49 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             Count
           </text>
 
-          {/* Threshold handle */}
-          <ThresholdHandles
-            orientation="horizontal"
-            bounds={{ min: 0, max: dimensions.chart.width }}
-            thresholds={[threshold]}
-            metricRange={{ min: 0, max: maxMargin }}
-            position={{ x: 0, y: 0 }}
-            lineBounds={{ min: 0, max: dimensions.chart.height }}
-            showThresholdLine={true}
-            onUpdate={handleThresholdUpdate}
-            onDragUpdate={handleDragUpdate}
-            onDragEnd={handleDragEnd}
-          />
+          {/* Threshold handle + label - hidden in bootstrap phase */}
+          {activeStage !== 'bootstrap' && (
+            <>
+              <ThresholdHandles
+                orientation="horizontal"
+                bounds={{ min: 0, max: dimensions.chart.width }}
+                thresholds={[threshold]}
+                metricRange={{ min: 0, max: maxMargin }}
+                position={{ x: 0, y: 0 }}
+                lineBounds={{ min: 0, max: dimensions.chart.height }}
+                showThresholdLine={true}
+                onUpdate={handleThresholdUpdate}
+                onDragUpdate={handleDragUpdate}
+                onDragEnd={handleDragEnd}
+              />
 
-          {/* Threshold label with arrow - clips to stay within bounds */}
-          {isTopMode ? (
-            <text
-              x={labelPosition}
-              y={LAYOUT.thresholdLabel.yOffset}
-              textAnchor="start"
-              fontSize={14}
-              fontWeight={600}
-              fill="#272121ff"
-            >
-              <tspan>Confident </tspan>
-              <tspan fontSize={16}>→</tspan>
-            </text>
-          ) : (
-            <text
-              x={labelPosition}
-              y={LAYOUT.thresholdLabel.yOffset}
-              textAnchor="end"
-              fontSize={14}
-              fontWeight={600}
-              fill="#272121ff"
-            >
-              <tspan fontSize={16}>← </tspan>
-              <tspan>Unsure</tspan>
-            </text>
+              {/* Threshold label with arrow - clips to stay within bounds */}
+              {isTopMode ? (
+                <text
+                  x={labelPosition}
+                  y={LAYOUT.thresholdLabel.yOffset}
+                  textAnchor="start"
+                  fontSize={14}
+                  fontWeight={600}
+                  fill="#272121ff"
+                >
+                  <tspan>Confident </tspan>
+                  <tspan fontSize={16}>→</tspan>
+                </text>
+              ) : (
+                <text
+                  x={labelPosition}
+                  y={LAYOUT.thresholdLabel.yOffset}
+                  textAnchor="end"
+                  fontSize={14}
+                  fontWeight={600}
+                  fill="#272121ff"
+                >
+                  <tspan fontSize={16}>← </tspan>
+                  <tspan>Unsure</tspan>
+                </text>
+              )}
+            </>
           )}
         </g>
       </svg>
