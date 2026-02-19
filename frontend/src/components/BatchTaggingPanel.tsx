@@ -115,7 +115,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                   width={24}
                   height={20}
                 />
-                <span className="batch-tagging__button-text">Confirm Confident by Decision Boundary</span>
+                <span className="batch-tagging__button-text">Label Confident by Threshold</span>
               </div>
               <div className="batch-tagging__button-legend">
                 {totalTaggableCount > 0 ? (
@@ -153,7 +153,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onApplyThreshold}
               disabled={disabled || (thresholdCounts.left === 0 && thresholdCounts.right === 0)}
-              title="Apply auto-tags from threshold regions"
+              title="Apply auto-labels from threshold regions"
             >
               <div className="batch-tagging__button-content">
                 <ThresholdHandleIcon
@@ -162,7 +162,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                   width={24}
                   height={20}
                 />
-                <span className="batch-tagging__button-text">Tag by Threshold</span>
+                <span className="batch-tagging__button-text">Label by Threshold</span>
               </div>
               <div className="batch-tagging__button-legend">
                 <span className="batch-tagging__legend-item">
@@ -204,7 +204,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={() => onTagAllAsCategory(categories[0].id)}
               disabled={disabled || unsureCount === 0}
-              title={`Tag all remaining as ${categories[0].label}`}
+              title={`Label all remaining as ${categories[0].label}`}
             >
               <div className="batch-tagging__button-content">
                 <svg className="batch-tagging__button-icon" viewBox="0 0 24 20">
@@ -223,7 +223,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                     fill="none"
                   />
                 </svg>
-                <span className="batch-tagging__button-text">Tag All Unsure as {categories[0].label}</span>
+                <span className="batch-tagging__button-text">Label All Unsure as {categories[0].label}</span>
               </div>
               <div className="batch-tagging__button-legend">
                 <span className="batch-tagging__legend-item">
@@ -251,7 +251,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onTagAllUnsure}
               disabled={disabled || (unsureCount === 0 && totalInputCount === 0)}
-              title="Auto-tag remaining items using decision boundary"
+              title="Auto-label remaining items using decision boundary"
             >
               <div className="batch-tagging__button-content">
                 {categories.length === 2 ? (
@@ -278,7 +278,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
                     ))}
                   </svg>
                 )}
-                <span className="batch-tagging__button-text">Tag All Unsure by Decision Boundary</span>
+                <span className="batch-tagging__button-text">Label All Unsure by Decision Boundary</span>
               </div>
               <div className="batch-tagging__button-legend">
                 <span className="batch-tagging__legend-item">

@@ -534,7 +534,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
       <div className="tag-automatic-panel tag-automatic-panel--empty">
         <div className="tag-panel__empty-message">
           <div className="tag-panel__main-instruction">
-            <span className="tag-panel__stage-number">1</span> Tag 3+ {itemType} in each category to see histogram.
+            <span className="tag-panel__stage-number">1</span> Label 3+ {itemType} in each category to see histogram.
           </div>
           <div className="tag-panel__progress-row">
             <span className="tag-panel__progress-item" style={{ backgroundColor: rejectedColor }}>

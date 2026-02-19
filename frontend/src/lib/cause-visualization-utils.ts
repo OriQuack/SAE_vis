@@ -551,7 +551,7 @@ export function getCauseCategoryLegend(): Array<{
     { category: 'noisy-activation', color: colors.confirmed, label: 'Noisy Activation' },
     { category: 'missed-N-gram', color: colors.autoSelected, label: 'Missed Syntax' },
     { category: 'missed-context', color: colors.rejected, label: 'Missed Context' },
-    { category: 'unsure', color: CAUSE_UNTAGGED_COLOR, label: 'Untagged' }
+    { category: 'unsure', color: CAUSE_UNTAGGED_COLOR, label: 'Unlabeled' }
   ]
 }
 

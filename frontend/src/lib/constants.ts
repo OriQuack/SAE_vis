@@ -161,9 +161,9 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     showHistogram: false,
     tags: [],
     relatedMetrics: [],
-    description: "Summary of tagging results across all stages",
+    description: "Summary of labeling results across all stages",
     parentTagForNextStage: null,
-    instruction: "Review tagging results and statistics",
+    instruction: "Review labeling results and statistics",
     tagColors: {},
     parentTag: null
   }

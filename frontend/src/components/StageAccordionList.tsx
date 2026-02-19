@@ -186,7 +186,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseLearn && activeStage === 'bootstrap' && !learnDisabled ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
-          title={learnDisabled ? 'Tag 3+ items per category to enable' : undefined}
+          title={learnDisabled ? 'Label 3+ items per category to enable' : undefined}
         >
           <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Uncertainty</span>
@@ -195,7 +195,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseApply && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
-          title={applyDisabled ? 'Tag 3+ items per category to enable' : undefined}
+          title={applyDisabled ? 'Label 3+ items per category to enable' : undefined}
         >
           <span className="stage-selector__number">3</span>
           <span className="stage-selector__label">Disagreement</span>
@@ -243,7 +243,7 @@ export function StageAccordionList<T>({
                 checked={hideTagged ?? false}
                 onChange={(e) => onHideTaggedChange(e.target.checked)}
               />
-              Hide Tagged
+              Hide Labeled
             </label>
           )}
           {activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange !== undefined && (

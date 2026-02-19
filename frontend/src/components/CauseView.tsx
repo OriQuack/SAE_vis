@@ -1103,7 +1103,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       : sortMode === 'diversity'
                         ? 'Representative Features'
                         : hideTagged
-                          ? 'Untagged Features'
+                          ? 'Unlabeled Features'
                           : 'All Features',
                     count: sortedFilteredFeatureList.length
                   }]}
@@ -1335,7 +1335,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             className="action-button action-button--next"
             onClick={handleNextStage}
             disabled={!allTagged}
-            title={allTagged ? 'Proceed to Stage 4' : `Tag all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
+            title={allTagged ? 'Proceed to Stage 4' : `Label all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
           >
             Move to Stage 4 Summary ↑
           </button>

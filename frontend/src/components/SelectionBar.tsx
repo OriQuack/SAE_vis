@@ -141,7 +141,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       autoSelected: {
         label: currentTags.confirmed,
         color: stageColors.autoSelected,
-        description: 'Auto-tagged by histogram thresholds'
+        description: 'Auto-labeled by histogram thresholds'
       },
       rejected: {
         label: currentTags.rejected,
@@ -151,7 +151,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       autoRejected: {
         label: currentTags.rejected,
         color: stageColors.autoRejected,
-        description: 'Auto-tagged by histogram thresholds'
+        description: 'Auto-labeled by histogram thresholds'
       },
       unsure: {
         label: 'Unsure',

@@ -268,7 +268,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 hideTagged={causeProps.hideTagged}
               />
               <div className="threshold-tagging-panel__batch-column">
-                <h4 className="subheader">Batch Tagging</h4>
+                <h4 className="subheader">Batch Labeling</h4>
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
@@ -281,7 +281,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           ) : (
             /* Pair/Feature mode: BatchTagging only */
             <div className="threshold-tagging-panel__batch-column">
-              <h4 className="subheader">Batch Tagging</h4>
+              <h4 className="subheader">Batch Labeling</h4>
               <BatchTaggingPanel
                 categories={[
                   {

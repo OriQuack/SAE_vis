@@ -1005,7 +1005,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
                   : sortMode === 'diversity'
                     ? 'Most Critical Pairs'
                     : hideTagged
-                      ? 'Untagged Pairs'
+                      ? 'Unlabeled Pairs'
                       : 'All Pairs',
                 count: displayPairList.length
               }]}
@@ -1058,7 +1058,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             className="action-button action-button--next"
             onClick={moveToNextStep}
             disabled={!allPairsTagged}
-            title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Tag all pairs first (${pairSelectionStates.size}/${pairList.length})`}
+            title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Label all pairs first (${pairSelectionStates.size}/${pairList.length})`}
           >
             Move to Stage 2 Quality ↑
           </button>

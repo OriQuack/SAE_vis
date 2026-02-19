@@ -975,7 +975,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                   : sortMode === 'diversity'
                     ? 'Most Critical Features'
                     : hideTagged
-                      ? 'Untagged Features'
+                      ? 'Unlabeled Features'
                       : 'All Features',
                 count: displayFeatures.length
               }]}
@@ -1161,7 +1161,7 @@ const QualityView: React.FC<QualityViewProps> = ({
             className="action-button action-button--next"
             onClick={moveToNextStep}
             disabled={!allFeaturesTagged}
-            title={allFeaturesTagged ? 'Proceed to Stage 3: Root Cause' : `Tag all features first (${featureSelectionStates.size}/${featureList.length})`}
+            title={allFeaturesTagged ? 'Proceed to Stage 3: Root Cause' : `Label all features first (${featureSelectionStates.size}/${featureList.length})`}
           >
             Move to Stage 3 Root Cause ↑
           </button>
