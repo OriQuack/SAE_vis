@@ -115,6 +115,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
+  const causeLastClassificationSignature = useVisualizationStore(state => state.causeLastClassificationSignature)
 
   // Filter state: use prop if provided, fallback to local state
   const [localVisibleCategories] = useState<Set<FilterCategory>>(
@@ -166,6 +167,14 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
 
   // Track last signature that triggered API call to prevent duplicate requests
   const lastFetchedSignatureRef = useRef<string>('')
+
+  // Sync ref from store field so commit restoration (which sets the store signature)
+  // prevents this effect from re-triggering classification
+  useEffect(() => {
+    if (causeLastClassificationSignature !== null) {
+      lastFetchedSignatureRef.current = causeLastClassificationSignature
+    }
+  }, [causeLastClassificationSignature])
 
   // Fetch SVM classification when manual tags change
   // Uses ref-based guard to prevent infinite loops

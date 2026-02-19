@@ -16,7 +16,8 @@ import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import type { ActiveStage } from './StageAccordionList'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
-import { Tooltip, formatCount } from './Tooltip'
+import { Tooltip } from './Tooltip'
+import { formatCount } from '../lib/utils'
 import '../styles/DecisionMarginHistogram.css'
 
 // ============================================================================

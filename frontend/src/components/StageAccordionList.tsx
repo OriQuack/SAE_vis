@@ -1,6 +1,5 @@
 import { useMemo, useCallback, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
-import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import '../styles/StageAccordionList.css'
 
 // ============================================================================
@@ -269,50 +268,6 @@ export function StageAccordionList<T>({
       </div>
     </div>
   )
-}
-
-// ============================================================================
-// HELPER: Convert stage + bootstrap mode to sortMode + sortDirection
-// ============================================================================
-export function stageToSortConfig(
-  activeStage: ActiveStage,
-  bootstrapMode: BootstrapMode,
-  bootstrapDirection: 'asc' | 'desc'
-): { sortMode: SortMode; sortDirection: 'asc' | 'desc' } {
-  switch (activeStage) {
-    case 'bootstrap':
-      if (bootstrapMode === 'diversity') {
-        return { sortMode: 'diversity', sortDirection: 'asc' }
-      }
-      return { sortMode: 'default', sortDirection: bootstrapDirection }
-    case 'learn':
-      return { sortMode: 'decisionMargin', sortDirection: 'asc' }
-    case 'apply':
-      return { sortMode: 'decisionMargin', sortDirection: 'desc' }
-  }
-}
-
-// ============================================================================
-// HELPER: Convert sortMode + sortDirection to stage + bootstrap config
-// ============================================================================
-export function sortConfigToStage(
-  sortMode: SortMode,
-  sortDirection: 'asc' | 'desc'
-): { activeStage: ActiveStage; bootstrapMode: BootstrapMode; bootstrapDirection: 'asc' | 'desc' } {
-  if (sortMode === 'diversity') {
-    return { activeStage: 'bootstrap', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
-  }
-  if (sortMode === 'default') {
-    return { activeStage: 'bootstrap', bootstrapMode: 'byScore', bootstrapDirection: sortDirection }
-  }
-  if (sortMode === 'decisionMargin') {
-    if (sortDirection === 'asc') {
-      return { activeStage: 'learn', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
-    }
-    return { activeStage: 'apply', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
-  }
-  // Default fallback
-  return { activeStage: 'bootstrap', bootstrapMode: 'diversity', bootstrapDirection: 'asc' }
 }
 
 export default StageAccordionList

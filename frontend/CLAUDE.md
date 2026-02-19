@@ -80,12 +80,12 @@ The application implements a 4-stage workflow for tagging features:
 
 | Stage | Component | Mode | Items | Tags |
 |-------|-----------|------|-------|------|
-| 1. Incoherent Splitting Detection | `FeatureSplitView.tsx` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
-| 2. Explanation Faithfulness Assessment | `QualityView.tsx` | `feature` | Individual features | Need Revision / Well-Explained |
-| 3. Root Cause Diagnosis | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
+| 1. Structural Soundness | `FeatureSplitView.tsx` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
+| 2. Explanation Adequacy | `QualityView.tsx` | `feature` | Individual features | Need Revision / Well-Explained |
+| 3. Failure Attribution | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
 | 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
-### Stage 3: Root Cause Diagnosis (CauseView)
+### Stage 3: Failure Attribution (CauseView)
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
@@ -113,7 +113,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (30 files)
+├── components/                    # React Components (29 files)
 │   ├── ActivationExamplePanel.tsx # Activation display panel with n-gram highlighting
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
@@ -123,7 +123,6 @@ frontend/src/
 │   ├── ConsensusSection.tsx      # Consensus phrase clustering display
 │   ├── ConvergenceIndicator.tsx  # Decision Flip Rate sparkline
 │   ├── DecisionMarginHistogram.tsx # SVM decision margin histogram
-│   ├── ExplainerComparisonGrid.tsx # Cross-explainer comparison
 │   ├── ExplanationPanel.tsx      # Explanation text with highlights
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
@@ -144,7 +143,7 @@ frontend/src/
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
 │   └── Tooltip.tsx               # Reusable tooltip with composition pattern
-├── lib/                          # Utilities (21 files + 7 tagging hooks)
+├── lib/                          # Utilities (20 files + 7 tagging hooks)
 │   ├── constants.ts              # App constants, tag categories, metrics
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
@@ -157,7 +156,6 @@ frontend/src/
 │   ├── tag-system.ts             # Tag colors/labels
 │   ├── hierarchical-colors.ts    # CIELAB color assignment
 │   ├── circle-encoding-utils.ts  # Circle encoding for scores
-│   ├── explainer-grid-utils.ts   # Explainer comparison grid
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
 │   ├── cause-tagging-utils.ts    # Cause category metric calculations
@@ -183,7 +181,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (29 files)
+├── styles/                       # CSS Files (28 files)
 │   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── App.css                   # Main app layout
 │   ├── AppHeader.css             # Header styles
@@ -195,7 +193,6 @@ frontend/src/
 │   ├── ConsensusSection.css      # Consensus phrase clustering styles
 │   ├── ConvergenceIndicator.css  # Decision Flip Rate sparkline styles
 │   ├── DecisionMarginHistogram.css # Decision margin histogram styles
-│   ├── ExplainerComparisonGrid.css # Comparison grid styles
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FlowPanel.css             # Flow panel styles

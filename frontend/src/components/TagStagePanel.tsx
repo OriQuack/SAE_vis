@@ -1,11 +1,11 @@
-import React, { useMemo, useState, useRef, useLayoutEffect } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   getTagCategoriesInOrder,
   getTagColor,
 } from '../lib/tag-system';
 import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
-import FlowPanel from './FlowPanel';
+// import FlowPanel from './FlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -29,9 +29,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // Help popup state
   const [showHelp, setShowHelp] = useState(false);
 
-  // Refs for SVG flow paths
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [badgePositions, setBadgePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
+  // // Refs for SVG flow paths
+  // const containerRef = useRef<HTMLDivElement>(null);
+  // const [badgePositions, setBadgePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
 
   // Get all stages in order
   const stages = useMemo(() => getTagCategoriesInOrder(), []);
@@ -191,87 +191,87 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
     return grouped;
   }, [stages, allTagCounts]);
 
-  // Measure badge + stage number positions after render
-  useLayoutEffect(() => {
-    function measurePositions() {
-      if (!containerRef.current) return;
+  // // Measure badge + stage number positions after render
+  // useLayoutEffect(() => {
+  //   function measurePositions() {
+  //     if (!containerRef.current) return;
+  //
+  //     const positions: Record<string, { left: number; right: number; y: number }> = {};
+  //     const container = containerRef.current;
+  //     const containerRect = container.getBoundingClientRect();
+  //
+  //     container.querySelectorAll('[data-node-id]').forEach((el) => {
+  //       const nodeId = el.getAttribute('data-node-id');
+  //       if (!nodeId) return;
+  //       const rect = el.getBoundingClientRect();
+  //       positions[nodeId] = {
+  //         left: rect.left - containerRect.left,
+  //         right: rect.right - containerRect.left,
+  //         y: rect.top - containerRect.top + rect.height / 2,
+  //       };
+  //     });
+  //
+  //     container.querySelectorAll('[data-stage-number]').forEach((el) => {
+  //       const stageNum = el.getAttribute('data-stage-number');
+  //       if (!stageNum) return;
+  //       const rect = el.getBoundingClientRect();
+  //       positions[`stage-number-${stageNum}`] = {
+  //         left: rect.left - containerRect.left,
+  //         right: rect.right - containerRect.left,
+  //         y: rect.top - containerRect.top + rect.height / 2,
+  //       };
+  //     });
+  //
+  //     setBadgePositions(positions);
+  //   }
+  //
+  //   measurePositions();
+  //   window.addEventListener('resize', measurePositions);
+  //   return () => window.removeEventListener('resize', measurePositions);
+  // }, [nodesByStage, allTagCounts]);
 
-      const positions: Record<string, { left: number; right: number; y: number }> = {};
-      const container = containerRef.current;
-      const containerRect = container.getBoundingClientRect();
-
-      container.querySelectorAll('[data-node-id]').forEach((el) => {
-        const nodeId = el.getAttribute('data-node-id');
-        if (!nodeId) return;
-        const rect = el.getBoundingClientRect();
-        positions[nodeId] = {
-          left: rect.left - containerRect.left,
-          right: rect.right - containerRect.left,
-          y: rect.top - containerRect.top + rect.height / 2,
-        };
-      });
-
-      container.querySelectorAll('[data-stage-number]').forEach((el) => {
-        const stageNum = el.getAttribute('data-stage-number');
-        if (!stageNum) return;
-        const rect = el.getBoundingClientRect();
-        positions[`stage-number-${stageNum}`] = {
-          left: rect.left - containerRect.left,
-          right: rect.right - containerRect.left,
-          y: rect.top - containerRect.top + rect.height / 2,
-        };
-      });
-
-      setBadgePositions(positions);
-    }
-
-    measurePositions();
-    window.addEventListener('resize', measurePositions);
-    return () => window.removeEventListener('resize', measurePositions);
-  }, [nodesByStage, allTagCounts]);
-
-  // Generate SVG paths: Monosemantic → Stage 2 number, Need Revision → Stage 3 number
-  const flowPaths = useMemo(() => {
-    const paths: Array<{ d: string; key: string; color: string }> = [];
-    const stage1 = nodesByStage[1] || [];
-    const stage2 = nodesByStage[2] || [];
-
-    // Monosemantic badge → Stage 2 number
-    const monoNode = stage1.find(n => n.tag === 'Monosemantic');
-    const stage2Num = badgePositions['stage-number-2'];
-    if (monoNode) {
-      const source = badgePositions[monoNode.id];
-      if (source && stage2Num) {
-        const x1 = source.right;
-        const x2 = stage2Num.left;
-        const midX = (x1 + x2) / 2;
-        paths.push({
-          key: 'mono-to-s2',
-          d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage2Num.y}, ${x2} ${stage2Num.y}`,
-          color: monoNode.color,
-        });
-      }
-    }
-
-    // Need Revision badge → Stage 3 number
-    const nrNode = stage2.find(n => n.tag === 'Need Revision');
-    const stage3Num = badgePositions['stage-number-3'];
-    if (nrNode) {
-      const source = badgePositions[nrNode.id];
-      if (source && stage3Num) {
-        const x1 = source.right;
-        const x2 = stage3Num.left;
-        const midX = (x1 + x2) / 2;
-        paths.push({
-          key: 'nr-to-s3',
-          d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage3Num.y}, ${x2} ${stage3Num.y}`,
-          color: nrNode.color,
-        });
-      }
-    }
-
-    return paths;
-  }, [badgePositions, nodesByStage]);
+  // // Generate SVG paths: Monosemantic → Stage 2 number, Need Revision → Stage 3 number
+  // const flowPaths = useMemo(() => {
+  //   const paths: Array<{ d: string; key: string; color: string }> = [];
+  //   const stage1 = nodesByStage[1] || [];
+  //   const stage2 = nodesByStage[2] || [];
+  //
+  //   // Monosemantic badge → Stage 2 number
+  //   const monoNode = stage1.find(n => n.tag === 'Monosemantic');
+  //   const stage2Num = badgePositions['stage-number-2'];
+  //   if (monoNode) {
+  //     const source = badgePositions[monoNode.id];
+  //     if (source && stage2Num) {
+  //       const x1 = source.right;
+  //       const x2 = stage2Num.left;
+  //       const midX = (x1 + x2) / 2;
+  //       paths.push({
+  //         key: 'mono-to-s2',
+  //         d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage2Num.y}, ${x2} ${stage2Num.y}`,
+  //         color: monoNode.color,
+  //       });
+  //     }
+  //   }
+  //
+  //   // Need Revision badge → Stage 3 number
+  //   const nrNode = stage2.find(n => n.tag === 'Need Revision');
+  //   const stage3Num = badgePositions['stage-number-3'];
+  //   if (nrNode) {
+  //     const source = badgePositions[nrNode.id];
+  //     if (source && stage3Num) {
+  //       const x1 = source.right;
+  //       const x2 = stage3Num.left;
+  //       const midX = (x1 + x2) / 2;
+  //       paths.push({
+  //         key: 'nr-to-s3',
+  //         d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage3Num.y}, ${x2} ${stage3Num.y}`,
+  //         color: nrNode.color,
+  //       });
+  //     }
+  //   }
+  //
+  //   return paths;
+  // }, [badgePositions, nodesByStage]);
 
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
@@ -291,7 +291,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   };
 
   return (
-    <div className="tag-category-panel" ref={containerRef}>
+    <div className="tag-category-panel">
       {/* Help button */}
       <button
         className="tag-category-panel__help-button"
@@ -311,13 +311,13 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
             >
               ×
             </button>
-            <FlowPanel />
+            {/* <FlowPanel /> */}
           </div>
         </div>
       )}
 
       {/* Flow lines: Monosemantic → Stage 2, Need Revision → Stage 3 */}
-      {flowPaths.length > 0 && (
+      {/* {flowPaths.length > 0 && (
         <svg className="tag-category-panel__flow-svg">
           {flowPaths.map(({ key, d, color }) => (
             <path
@@ -328,7 +328,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
             />
           ))}
         </svg>
-      )}
+      )} */}
 
       {/* Main content: Stage tabs with inline tags */}
       <div className="tag-category-panel__main-content">

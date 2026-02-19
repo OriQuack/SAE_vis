@@ -1,6 +1,6 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, ConsensusResponse } from '../types'
+import type { FeatureTableRow, ConsensusResponse, FlipTrackingInfo } from '../types'
 import * as api from '../api'
 import { getFeatureConsensus } from '../api'
 import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
@@ -115,8 +115,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Active list source is always 'all' (boundary lists removed)
   const activeListSource = 'all' as const
 
-  // Track if SVM has been trained (for conditional UI labels)
-  const svmTrainingStarted = causeCategoryDecisionMargins.size > 0
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   // Cached in store to prevent refetch on view navigation
   const diversityFeatureIds = useVisualizationStore(state => state.stage3DiversityFeatureIds)
@@ -672,7 +670,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     useVisualizationStore.setState({ stage3CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }>) => {
     useVisualizationStore.setState({ stage3CommitData: data })
   }, [])
 
@@ -710,6 +708,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     ),
     calculateCounts: getCauseCounts,
     getFeatureIds: () => selectedFeatureIds,
+    getFlipTracking: () => useVisualizationStore.getState().causeFlipTracking,
+    restoreFlipTracking: (ft) => {
+      useVisualizationStore.setState({ causeFlipTracking: ft })
+    },
     onCommitCreated: (commit) => {
       // Save to global store for Stage 3 revisit
       setStage3FinalCommit({

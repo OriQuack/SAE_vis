@@ -2,7 +2,8 @@ import React, { useMemo, useRef, useEffect, useState } from 'react'
 import { type SelectionCategory, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
-import { Tooltip, formatCount } from './Tooltip'
+import { Tooltip } from './Tooltip'
+import { formatCount } from '../lib/utils'
 import '../styles/SelectionBar.css'
 
 export interface CategoryCounts {

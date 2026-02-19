@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, ConsensusResponse } from '../types'
+import type { FeatureTableRow, ConsensusResponse, FlipTrackingInfo } from '../types'
 import * as api from '../api'
 import { getFeatureConsensus } from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
@@ -129,9 +129,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Phrases to highlight in explanation text (from consensus pill hover)
   const [highlightPhrases, setHighlightPhrases] = useState<string[] | null>(null)
-
-  // Track if SVM has been trained (for conditional UI labels)
-  const svmTrainingStarted = similarityScores.size > 0
 
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   // Cached in store to prevent refetch on view navigation
@@ -421,7 +418,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     useVisualizationStore.setState({ stage2CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }>) => {
     useVisualizationStore.setState({ stage2CommitData: data })
   }, [])
 
@@ -459,6 +456,15 @@ const QualityView: React.FC<QualityViewProps> = ({
     ),
     calculateCounts: getQualityCounts,
     getFeatureIds: () => selectedFeatureIds,
+    getFlipTracking: () => useVisualizationStore.getState().tagAutomaticState?.flipTracking ?? null,
+    restoreFlipTracking: (ft) => {
+      const state = useVisualizationStore.getState()
+      if (state.tagAutomaticState) {
+        useVisualizationStore.setState({
+          tagAutomaticState: { ...state.tagAutomaticState, flipTracking: ft }
+        })
+      }
+    },
     onCommitCreated: (commit) => {
       // Save to global store for Stage 2 revisit
       setStage2FinalCommit({

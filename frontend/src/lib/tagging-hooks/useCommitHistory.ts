@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import type { FlipTrackingInfo } from '../../types'
 
 // ============================================================================
 // useCommitHistory - Generic commit history for tagging state snapshots
@@ -24,6 +25,7 @@ export interface Commit<TStates, TSources, TCounts = void> {
   sources: TSources
   counts?: TCounts  // Optional counts for tooltip preview
   featureIds?: Set<number>  // Feature IDs for stage revisiting
+  flipTracking?: FlipTrackingInfo | null  // Decision flip rate tracking state
 }
 
 // Display commit format for store (without full states/sources)
@@ -38,12 +40,12 @@ export interface StoreSyncOptions<TStates, TSources, TCounts> {
   // Read from store (for initialization when revisiting)
   isRevisiting: boolean
   stageCommitHistory: DisplayCommit<TCounts>[]
-  stageCommitData: Map<number, { states: TStates; sources: TSources; featureIds?: Set<number> }> | null
+  stageCommitData: Map<number, { states: TStates; sources: TSources; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }> | null
   stageCurrentCommitIndex: number
 
   // Write to store (for sync) - receives partial updates
   setStoreCommitHistory: (commits: DisplayCommit<TCounts>[]) => void
-  setStoreCommitData: (data: Map<number, { states: TStates; sources: TSources; featureIds?: Set<number> }>) => void
+  setStoreCommitData: (data: Map<number, { states: TStates; sources: TSources; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }>) => void
   setStoreCurrentCommitIndex: (index: number) => void
 
   // Stage-specific final commit update
@@ -76,6 +78,10 @@ interface UseCommitHistoryOptions<TStates, TSources, TCounts = void> {
   getFeatureIds?: () => Set<number> | null
   /** Called after creating a commit (for stage-final saving) */
   onCommitCreated?: (commit: Commit<TStates, TSources, TCounts>) => void
+  /** Get current flip tracking state (for saving in commits) */
+  getFlipTracking?: () => FlipTrackingInfo | null
+  /** Restore flip tracking state (when navigating commit history) */
+  restoreFlipTracking?: (ft: FlipTrackingInfo | null) => void
   /** Initial commit to restore from (for revisiting a stage) - single commit, backward compatible */
   initialCommit?: Commit<TStates, TSources, TCounts> | null
   /** Full commit array to restore from (for stage revisiting with history) - takes priority over initialCommit */
@@ -127,6 +133,8 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     // Extended options
     calculateCounts,
     getFeatureIds,
+    getFlipTracking,
+    restoreFlipTracking,
     onCommitCreated,
     initialCommit,
     initialCommits: initialCommitsProp,
@@ -161,7 +169,8 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
           states: cloneStates(commitData.states),
           sources: cloneSources(commitData.sources),
           counts: historyEntry.counts,
-          featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined
+          featureIds: commitData.featureIds ? new Set(commitData.featureIds) : undefined,
+          flipTracking: commitData.flipTracking ?? null
         })
       }
     }
@@ -234,6 +243,9 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
       const targetCommit = initialCommits[targetIndex]
       if (targetCommit) {
         restoreToStore(targetCommit.states, targetCommit.sources)
+        if (restoreFlipTracking) {
+          restoreFlipTracking(targetCommit.flipTracking ?? null)
+        }
       }
       return
     }
@@ -241,6 +253,9 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     // Priority 2: Single commit restoration (backward compatible)
     if (initialCommit) {
       restoreToStore(initialCommit.states, initialCommit.sources)
+      if (restoreFlipTracking) {
+        restoreFlipTracking(initialCommit.flipTracking ?? null)
+      }
     }
     // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -269,9 +284,14 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
         }
       }
 
+      // Save flipTracking state if getter provided
+      if (getFlipTracking) {
+        commit.flipTracking = getFlipTracking()
+      }
+
       return commit
     },
-    [cloneStates, cloneSources, calculateCounts, getFeatureIds]
+    [cloneStates, cloneSources, calculateCounts, getFeatureIds, getFlipTracking]
   )
 
   // Update current commit in-place with current store state
@@ -288,11 +308,12 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
         states: cloneStates(currentStates),
         sources: cloneSources(currentSources),
         counts: calculateCounts ? calculateCounts() : existingCommit.counts,
-        featureIds: getFeatureIds ? (getFeatureIds() ? new Set(getFeatureIds()!) : existingCommit.featureIds) : existingCommit.featureIds
+        featureIds: getFeatureIds ? (getFeatureIds() ? new Set(getFeatureIds()!) : existingCommit.featureIds) : existingCommit.featureIds,
+        flipTracking: getFlipTracking ? getFlipTracking() : existingCommit.flipTracking
       }
       return updated
     })
-  }, [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, calculateCounts, getFeatureIds, currentCommitIndex])
+  }, [getStatesFromStore, getSourcesFromStore, cloneStates, cloneSources, calculateCounts, getFeatureIds, getFlipTracking, currentCommitIndex])
 
   // Create a new commit (synchronous version)
   const createCommit = useCallback(
@@ -364,9 +385,12 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
 
       const targetCommit = commits[index]
       restoreToStore(targetCommit.states, targetCommit.sources)
+      if (restoreFlipTracking) {
+        restoreFlipTracking(targetCommit.flipTracking ?? null)
+      }
       setCurrentCommitIndex(index)
     },
-    [commits, restoreToStore]
+    [commits, restoreToStore, restoreFlipTracking]
   )
 
   // Handler for commit circle clicks
@@ -379,9 +403,12 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
       // Simply restore the target commit
       const targetCommit = commits[commitIndex]
       restoreToStore(targetCommit.states, targetCommit.sources)
+      if (restoreFlipTracking) {
+        restoreFlipTracking(targetCommit.flipTracking ?? null)
+      }
       setCurrentCommitIndex(commitIndex)
     },
-    [commits, currentCommitIndex, restoreToStore]
+    [commits, currentCommitIndex, restoreToStore, restoreFlipTracking]
   )
 
   // ============================================================================
@@ -432,12 +459,13 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
     }))
 
     // Build full commit data for restoration
-    const commitData = new Map<number, { states: TStates; sources: TSources; featureIds?: Set<number> }>()
+    const commitData = new Map<number, { states: TStates; sources: TSources; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }>()
     commits.forEach((c, index) => {
       commitData.set(index, {
         states: cloneStatesRef.current(c.states),
         sources: cloneSourcesRef.current(c.sources),
-        featureIds: c.featureIds ? new Set(c.featureIds) : undefined
+        featureIds: c.featureIds ? new Set(c.featureIds) : undefined,
+        flipTracking: c.flipTracking ?? null
       })
     })
 
@@ -531,7 +559,7 @@ export function useCommitHistory<TStates, TSources, TCounts = void>(
 // ============================================================================
 
 // Options that are excluded from factory return types (caller provides these)
-type ExcludedFactoryOptions = 'calculateCounts' | 'getFeatureIds' | 'onCommitCreated' | 'initialCommit' | 'initialCommits' | 'initialIndex' | 'storeSync' | 'selectionStates' | 'selectionSources'
+type ExcludedFactoryOptions = 'calculateCounts' | 'getFeatureIds' | 'getFlipTracking' | 'restoreFlipTracking' | 'onCommitCreated' | 'initialCommit' | 'initialCommits' | 'initialIndex' | 'storeSync' | 'selectionStates' | 'selectionSources'
 
 /** Create options for pair selection (string keys) - Stage 1 */
 export function createPairCommitHistoryOptions(

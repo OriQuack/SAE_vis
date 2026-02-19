@@ -77,7 +77,7 @@ export interface TagCategoryConfig {
 export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]: {
     id: TAG_CATEGORY_FEATURE_SPLITTING,
-    label: "Incoherent Splitting Detection",
+    label: "Structural Soundness",
     stageOrder: 1,
     metric: METRIC_DECODER_SIMILARITY,
     defaultThresholds: [0.4],
@@ -99,7 +99,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_QUALITY]: {
     id: TAG_CATEGORY_QUALITY,
-    label: "Explanation Faithfulness Assessment",
+    label: "Explanation Adequacy",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
     defaultThresholds: [0.5],
@@ -124,7 +124,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
 
   [TAG_CATEGORY_CAUSE]: {
     id: TAG_CATEGORY_CAUSE,
-    label: "Root Cause Diagnosis",
+    label: "Failure Attribution",
     stageOrder: 3,
     metric: 'decision_margin',  // Uses Stage 2 SVM decision margin for threshold-based splitting
     defaultThresholds: [],

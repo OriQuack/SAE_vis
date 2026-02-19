@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore, type CommitCounts } from '../store/index'
-import type { FeatureTableRow } from '../types'
+import type { FeatureTableRow, FlipTrackingInfo } from '../types'
 import * as api from '../api'
 import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
@@ -67,9 +67,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Store selected pair key directly to preserve highlight across mode switches
   const [selectedPairKeyState, setSelectedPairKeyState] = useState<string | null>(null)
-
-  // Track if SVM has been trained (for conditional UI labels)
-  const svmTrainingStarted = pairSimilarityScores.size > 0
 
   // Diversity sort: IDs of diverse pairs (Kennard-Stone samples) to show first
   // Cached in store to prevent refetch on view navigation
@@ -149,7 +146,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     useVisualizationStore.setState({ stage1CommitHistory: commits })
   }, [])
 
-  const setStoreCommitData = useCallback((data: Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number> }>) => {
+  const setStoreCommitData = useCallback((data: Map<number, { states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null }>) => {
     useVisualizationStore.setState({ stage1CommitData: data })
   }, [])
 
@@ -217,6 +214,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     ),
     calculateCounts: calculateCommitCounts,
     getFeatureIds: () => selectedFeatureIds,
+    getFlipTracking: () => useVisualizationStore.getState().tagAutomaticState?.flipTracking ?? null,
+    restoreFlipTracking: (ft) => {
+      const state = useVisualizationStore.getState()
+      if (state.tagAutomaticState) {
+        useVisualizationStore.setState({
+          tagAutomaticState: { ...state.tagAutomaticState, flipTracking: ft }
+        })
+      }
+    },
     onCommitCreated: (commit) => {
       // Get current state to preserve histogram and cluster pairs
       const state = useVisualizationStore.getState()

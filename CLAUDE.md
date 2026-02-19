@@ -46,7 +46,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
 │  • D3.js Visualizations (Sankey, Histograms, Flow Overlay)               │
-│  • 4-Stage Tag Workflow: Splitting Detection → Faithfulness → Cause → Summary│
+│  • 4-Stage Tag Workflow: Structural Soundness → Explanation Adequacy → Failure Attribution → Summary│
 │  • SVM-Based Similarity Scoring                                          │
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
 │  • Decision Flip Rate Tracking for Convergence Monitoring                 │
@@ -161,17 +161,17 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (21 files + 7 tagging hooks)
+│   │   ├── components/    # UI components (29 files)
+│   │   ├── lib/          # D3 utilities, helpers (20 files + 7 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (29 files)
+│   │   ├── styles/       # CSS files (28 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (9 files)
-│   │   ├── models/       # Pydantic schemas (10 files)
+│   │   ├── api/          # Endpoints (10 files)
+│   │   ├── models/       # Pydantic schemas (11 files)
 │   │   └── services/     # Business logic (15 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
@@ -213,7 +213,7 @@ npm run dev -- --port 3003
 - **RadViz Scatter**: Softmax-weighted positioning using SVM decision scores toward category anchors
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
-- **Tag Stage Panel**: 4-stage navigation (Incoherent Splitting Detection → Explanation Faithfulness Assessment → Root Cause Diagnosis → Summary)
+- **Tag Stage Panel**: 4-stage navigation (Structural Soundness → Explanation Adequacy → Failure Attribution → Summary)
 - **StageAccordionList**: Bootstrap → Learn → Apply workflow with sorting controls
 - **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
 - **Commit History**: Save and restore tagging state snapshots
@@ -222,12 +222,12 @@ npm run dev -- --port 3003
 
 | Stage | View | Mode | Items | Tags |
 |-------|------|------|-------|------|
-| 1. Incoherent Splitting Detection | `FeatureSplitView` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
-| 2. Explanation Faithfulness Assessment | `QualityView` | `feature` | Individual features | Need Revision / Well-Explained |
-| 3. Root Cause Diagnosis | `CauseView` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
+| 1. Structural Soundness | `FeatureSplitView` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
+| 2. Explanation Adequacy | `QualityView` | `feature` | Individual features | Need Revision / Well-Explained |
+| 3. Failure Attribution | `CauseView` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
 | 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
-### Stage 3: Root Cause Diagnosis
+### Stage 3: Failure Attribution
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
 - **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)

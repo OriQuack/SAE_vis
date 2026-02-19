@@ -307,15 +307,15 @@ interface AppState {
   // Stage 1 commit history (pair tagging)
   stage1CommitHistory: Array<{id: number; type: CommitType; counts?: CommitCounts}>
   stage1CurrentCommitIndex: number
-  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
+  stage1CommitData: Map<number, {states: Map<string, 'selected' | 'rejected'>; sources: Map<string, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null}>
   // Stage 2 commit history (feature tagging)
   stage2CommitHistory: Array<{id: number; type: CommitType; counts?: QualityCommitCounts}>
   stage2CurrentCommitIndex: number
-  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipHistory?: Array<{flipRate: number; isBatch: boolean}>}>
+  stage2CommitData: Map<number, {states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null}>
   // Stage 3 commit history (cause tagging)
   stage3CommitHistory: Array<{id: number; type: CommitType; counts?: CauseCommitCounts}>
   stage3CurrentCommitIndex: number
-  stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>}>
+  stage3CommitData: Map<number, {states: Map<number, CauseCategory>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds?: Set<number>; flipTracking?: FlipTrackingInfo | null}>
   // Commit history actions
   addStage1Commit: (type: 'apply' | 'tagAll', counts?: CommitCounts, featureIds?: Set<number>) => void
   setStage1CommitIndex: (index: number) => void
@@ -337,6 +337,8 @@ interface AppState {
   causeCommitteeVotes: Map<number, { svm_category: string; rf_category: string; mlp_category: string }> | null
   causeFlipTracking: FlipTrackingInfo | null
   clearCauseFlipTracking: () => void
+  // Track last cause classification signature to prevent re-training on commit restore
+  causeLastClassificationSignature: string | null
 
   // Cached diversity/representative IDs (prevents refetch when navigating between views)
   // Stage 1: Pair diversity IDs
@@ -491,6 +493,7 @@ const initialState = {
 
   // Stage 3 flip tracking (separate from tagAutomaticState.flipTracking)
   causeFlipTracking: null,
+  causeLastClassificationSignature: null,
 
   // Cached diversity/representative IDs
   stage1DiversityPairIds: new Set<string>(),
@@ -680,11 +683,22 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => {
+    // Compute signature from restored states to prevent SVM re-training in CauseRadViz
+    const manualIds: number[] = []
+    states.forEach((_category, featureId) => {
+      const source = sources.get(featureId)
+      if (source === 'click' || source === 'threshold') {
+        manualIds.push(featureId)
+      }
+    })
+    const signature = manualIds.sort((a, b) => a - b).join(',')
+
     set({
       causeSelectionStates: new Map(states),
-      causeSelectionSources: new Map(sources)
+      causeSelectionSources: new Map(sources),
+      causeLastClassificationSignature: signature
     })
-    console.log('[Store.restoreCauseSelectionStates] Restored cause selection states:', states.size, 'features')
+    console.log('[Store.restoreCauseSelectionStates] Restored cause selection states:', states.size, 'features, signature set')
   },
 
   // ============================================================================
@@ -939,19 +953,44 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'click' | 'threshold' | 'predicted'>) => {
+    // Compute signature from restored states to prevent SVM re-training
+    const selectedKeys: string[] = []
+    const rejectedKeys: string[] = []
+    states.forEach((state, pairKey) => {
+      const source = sources.get(pairKey)
+      if (source === 'click' || source === 'threshold') {
+        if (state === 'selected') selectedKeys.push(pairKey)
+        else if (state === 'rejected') rejectedKeys.push(pairKey)
+      }
+    })
+    const signature = `selected:${selectedKeys.sort().join(',')}|rejected:${rejectedKeys.sort().join(',')}`
+
     set({
       pairSelectionStates: new Map(states),
       pairSelectionSources: new Map(sources),
-      donePairSelectionStates: null
+      donePairSelectionStates: null,
+      lastPairSortedSelectionSignature: signature
     })
   },
 
   restoreFeatureSelectionStates: (states: Map<number, 'selected' | 'rejected'>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => {
+    // Compute signature from restored states to prevent SVM re-training
+    const selectedIds: number[] = []
+    const rejectedIds: number[] = []
+    states.forEach((state, featureId) => {
+      const source = sources.get(featureId)
+      if (source === 'click' || source === 'threshold') {
+        if (state === 'selected') selectedIds.push(featureId)
+        else if (state === 'rejected') rejectedIds.push(featureId)
+      }
+    })
+    const signature = `selected:${selectedIds.sort((a, b) => a - b).join(',')}|rejected:${rejectedIds.sort((a, b) => a - b).join(',')}`
+
     set({
       featureSelectionStates: new Map(states),
       featureSelectionSources: new Map(sources),
       doneFeatureSelectionStates: null,
-      lastSortedSelectionSignature: null
+      lastSortedSelectionSignature: signature
     })
   },
 

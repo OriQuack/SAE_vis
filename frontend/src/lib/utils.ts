@@ -291,6 +291,13 @@ function formatModelName(raw: string): string {
  * @param explainerIds Explainer IDs (e.g., ["llama", "qwen", "openai"])
  * @returns Comma-separated display names (e.g., "Llama, Qwen, OpenAI")
  */
+/**
+ * Format a number with comma separators for thousands (e.g., 1234 -> "1,234")
+ */
+export function formatCount(value: number): string {
+  return value.toLocaleString()
+}
+
 export function getLLMExplainerNames(explainerIds: string[]): string {
   const names = explainerIds.map(id => {
     const lowerCaseId = id.toLowerCase()

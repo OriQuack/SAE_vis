@@ -2,17 +2,6 @@ import React from 'react'
 import '../styles/Tooltip.css'
 
 // ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
-/**
- * Format a number with comma separators for thousands (e.g., 1234 -> "1,234")
- */
-export function formatCount(value: number): string {
-  return value.toLocaleString()
-}
-
-// ============================================================================
 // TOOLTIP COMPONENT
 // ============================================================================
 // Reusable tooltip component with composition pattern for flexible content.

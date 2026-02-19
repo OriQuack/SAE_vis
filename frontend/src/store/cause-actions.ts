@@ -336,6 +336,17 @@ export const createCauseActions = (set: any, get: any) => ({
         console.log('[Store.fetchCauseClassification] Committee votes parsed:', causeCommitteeVotes.size)
       }
 
+      // Compute signature of manual tags to mark as "already classified"
+      // This prevents CauseRadViz from re-triggering classification on commit restore
+      const classificationManualIds: number[] = []
+      currentState.causeSelectionStates.forEach((_category: string, featureId: number) => {
+        const source = currentState.causeSelectionSources.get(featureId)
+        if (source === 'click' || source === 'threshold') {
+          classificationManualIds.push(featureId)
+        }
+      })
+      const causeLastClassificationSignature = classificationManualIds.sort((a, b) => a - b).join(',')
+
       // Only create new Maps and update state if there are actual changes
       // This prevents cascading re-renders from new Map references that would cause infinite loops
       if (statesToUpdate.length > 0) {
@@ -359,7 +370,8 @@ export const createCauseActions = (set: any, get: any) => ({
           causeClassificationLoading: false,
           causeClassificationError: null,
           causeFlipTracking: updatedFlipTracking,
-          causeCommitteeVotes
+          causeCommitteeVotes,
+          causeLastClassificationSignature
         })
       } else {
         // No state changes but still update flip tracking and committee votes
@@ -367,7 +379,8 @@ export const createCauseActions = (set: any, get: any) => ({
           causeClassificationLoading: false,
           causeClassificationError: null,
           causeFlipTracking: updatedFlipTracking,
-          causeCommitteeVotes
+          causeCommitteeVotes,
+          causeLastClassificationSignature
         })
       }
     } catch (error) {
