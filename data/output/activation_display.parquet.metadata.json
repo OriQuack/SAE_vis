@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-02-15T23:13:23.544785",
+  "created_at": "2026-02-23T20:12:07.709817",
   "step_name": "Step 10: Activation Display",
   "script_version": "5.0",
   "total_rows": 16384,
@@ -25,17 +25,17 @@
     "features_processed": 16384,
     "features_with_no_data": 1,
     "features_with_limited_examples": 0,
-    "total_examples_processed": 255018
+    "total_examples_processed": 310252
   },
   "result_stats": {
     "unique_feature_ids": 16384,
     "unique_sae_ids": 1,
     "semantic_similarity_null_count": 2,
     "semantic_similarity_std_null_count": 2,
-    "top_char_ngram_text_null_count": 128,
+    "top_char_ngram_text_null_count": 104,
     "top_word_ngram_text_null_count": 1,
-    "best_ngram_type_null_count": 11970,
-    "best_ngram_text_null_count": 11970
+    "best_ngram_type_null_count": 12127,
+    "best_ngram_text_null_count": 12127
   },
   "config_used": {
     "enabled": true,

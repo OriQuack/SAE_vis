@@ -5,7 +5,7 @@ import {
 } from '../lib/tag-system';
 import { type TagCategoryConfig } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
-// import FlowPanel from './FlowPanel';
+import FlowPanel from './FlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -311,7 +311,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
             >
               ×
             </button>
-            {/* <FlowPanel /> */}
+            <FlowPanel />
           </div>
         </div>
       )}

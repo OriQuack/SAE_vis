@@ -1,8 +1,8 @@
 {
   "step_name": "Step 13: SVM Metrics",
   "version": "4.0",
-  "created_at": "2026-02-15T23:14:03.618674",
-  "row_count": 374395,
+  "created_at": "2026-02-23T20:25:18.742714",
+  "row_count": 375034,
   "columns": [
     "feature_a",
     "feature_b",
@@ -18,6 +18,6 @@
     "decoder_sim": "Float32"
   },
   "stats": {
-    "pairs_processed": 374395
+    "pairs_processed": 375034
   }
 }

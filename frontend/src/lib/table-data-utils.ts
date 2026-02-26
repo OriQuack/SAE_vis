@@ -7,7 +7,7 @@ import type { FeatureTableRow, MetricNormalizationStats } from '../types'
 const MODEL_NAME_MAP: Record<string, string> = {
   'llama': 'Llama',
   'qwen': 'Qwen',
-  'openai': 'OpenAI',
+  'openai': 'GPT',
   'gemini': 'Gemini'
 }
 

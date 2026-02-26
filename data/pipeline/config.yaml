@@ -111,8 +111,8 @@ steps:
       sentence_transformer_model: "google/embeddinggemma-300m"
       # Quantile sampling
       num_quantiles: 4
-      examples_per_quantile: 4
-      target_examples_per_feature: 16
+      examples_per_quantile: 5
+      target_examples_per_feature: 20
       # Window size
       embedding_window_size: 32
 

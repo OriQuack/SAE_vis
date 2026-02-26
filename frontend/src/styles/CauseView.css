@@ -156,6 +156,17 @@
   gap: 8px;
 }
 
+/* Let consensus section fill available height in CauseView (override 90px max-height from ConsensusSection.css) */
+.cause-view__consensus-with-metrics .consensus-section {
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.cause-view__consensus-with-metrics .consensus-section__items {
+  max-height: none;
+}
+
 /* Bottom row now uses ThresholdTaggingPanel which handles its own layout */
 
 .cause-view__placeholder {

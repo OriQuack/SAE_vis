@@ -289,7 +289,7 @@ function formatModelName(raw: string): string {
 /**
  * Get display names for LLM explainers from explainer IDs
  * @param explainerIds Explainer IDs (e.g., ["llama", "qwen", "openai"])
- * @returns Comma-separated display names (e.g., "Llama, Qwen, OpenAI")
+ * @returns Comma-separated display names (e.g., "Llama, Qwen, GPT")
  */
 /**
  * Format a number with comma separators for thousands (e.g., 1234 -> "1,234")
@@ -303,7 +303,7 @@ export function getLLMExplainerNames(explainerIds: string[]): string {
     const lowerCaseId = id.toLowerCase()
     if (lowerCaseId.includes('llama')) return 'Llama'
     if (lowerCaseId.includes('qwen')) return 'Qwen'
-    if (lowerCaseId.includes('openai') || lowerCaseId.includes('gpt')) return 'OpenAI'
+    if (lowerCaseId.includes('openai') || lowerCaseId.includes('gpt')) return 'GPT'
     // Fallback: capitalize first letter
     return id.charAt(0).toUpperCase() + id.slice(1)
   })

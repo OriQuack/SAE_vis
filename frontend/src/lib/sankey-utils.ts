@@ -21,7 +21,7 @@ export interface ScrollIndicator {
 
 export interface VerticalBarSubNode {
   id: string                  // e.g., "llama", "qwen", "openai", or "feature_{featureId}"
-  modelName: string          // Display name (e.g., "Llama", "Qwen", "OpenAI", or "Feature {featureId}")
+  modelName: string          // Display name (e.g., "Llama", "Qwen", "GPT", or "Feature {featureId}")
   x: number                  // Left edge x-coordinate
   y: number                  // Top edge y-coordinate
   width: number              // Bar width

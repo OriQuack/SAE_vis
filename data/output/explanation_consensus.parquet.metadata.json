@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-01-31T00:27:15.288616",
+  "created_at": "2026-02-23T20:39:49.614513",
   "step_name": "Step 14: Explanation Consensus",
   "script_version": "1.2",
   "total_rows": 16384,
@@ -16,8 +16,8 @@
     "features_processed": 16384,
     "features_with_clusters": 12073,
     "features_with_outliers_only": 4311,
-    "total_clusters": 28374,
-    "total_outliers": 48271,
+    "total_clusters": 28376,
+    "total_outliers": 48270,
     "total_phrases": 134232
   },
   "result_stats": {

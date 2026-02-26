@@ -84,9 +84,9 @@ function getEdgeColor(): string {
  * Helper function to get display name for LLM models
  */
 function getLLMDisplayName(fullName: string): string {
-  if (fullName.includes('Llama')) return 'Llama'
+  if (fullName.toLowerCase().includes('llama')) return 'Llama'
   if (fullName.includes('Qwen')) return 'Qwen'
-  if (fullName.includes('openai') || fullName.includes('gpt')) return 'OpenAI'
+  if (fullName.includes('openai') || fullName.includes('gpt')) return 'GPT'
   if (fullName.toLowerCase().includes('gemini')) return 'Gemini'
   return fullName.split('/').pop() || fullName
 }

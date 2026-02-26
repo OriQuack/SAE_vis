@@ -4,7 +4,7 @@ import { getSemanticSimilarityColor } from '../lib/color-utils'
 
 interface HighlightedExplanationProps {
   segments: HighlightSegment[]
-  explainerNames?: string[]  // e.g., ['Llama', 'Qwen', 'OpenAI']
+  explainerNames?: string[]  // e.g., ['Llama', 'Qwen', 'GPT']
   // Truncation props
   truncated?: boolean  // Enable truncation mode (default: false) - shows all highlighted segments ordered by similarity
   // If true, force display "No Explanation available" (for features with 0 activations)
@@ -32,7 +32,7 @@ interface HighlightedExplanationProps {
  */
 export const HighlightedExplanation: React.FC<HighlightedExplanationProps> = React.memo(({
   segments,
-  explainerNames = ['Llama', 'Qwen', 'OpenAI'],
+  explainerNames = ['Llama', 'Qwen', 'GPT'],
   truncated = false,
   hasNoActivations = false
 }) => {
