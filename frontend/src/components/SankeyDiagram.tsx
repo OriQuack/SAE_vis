@@ -11,8 +11,8 @@ import {
   RIGHT_SANKEY_MARGIN
 } from '../lib/sankey-utils'
 import { calculateVerticalBarNodeLayout } from '../lib/sankey-utils'
-// Removed: SankeyTreeNode, getNodeMetrics, getNodeSegments - using v2 system
 import { useResizeObserver } from '../lib/utils'
+import { logAction } from '../lib/action-logger'
 import type { D3SankeyNode, D3SankeyLink } from '../types'
 import {
   PANEL_LEFT,
@@ -432,15 +432,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // V2 SIMPLIFIED SYSTEM: use d3Layout directly
   const data = useMemo(() => {
     if (!d3Layout || !sankeyStructure) {
-      console.log(`[SankeyDiagram ${panel}] ⚠️ No D3 layout data`)
       return null
     }
-
-    console.log(`[SankeyDiagram ${panel}] ✅ Using V2 SIMPLIFIED system`, {
-      nodes: d3Layout.nodes.length,
-      links: d3Layout.links.length,
-      currentStage: sankeyStructure?.currentStage
-    })
 
     // Return D3 layout in SankeyData format
     return {
@@ -451,7 +444,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
         applied_filters: filters
       }
     }
-  }, [d3Layout, sankeyStructure, filters, panel])
+  }, [d3Layout, sankeyStructure, filters])
 
   // Track previous data for smooth transitions
   const [displayData, setDisplayData] = useState(data)
@@ -550,10 +543,10 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
   // Stage labels removed - metric labels now shown on links
 
   const handleThresholdUpdate = useCallback((nodeId: string, newThreshold: number) => {
-    console.log('[SankeyDiagram.handleThresholdUpdate] 🎯 Threshold updated:', {
+    logAction('sankey', 'sankey_threshold_commit', {
       nodeId,
-      newThreshold,
-      panel
+      threshold: newThreshold,
+      panel,
     })
 
     // V2: Determine which stage this node belongs to

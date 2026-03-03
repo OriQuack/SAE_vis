@@ -10,6 +10,7 @@ import { groupFeaturesByThresholds, calculateSegmentProportions } from '../lib/t
 import { TAG_CATEGORIES, METRIC_QUALITY_SCORE, SANKEY_COLORS, UNSURE_GRAY } from '../lib/constants'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
+import { logAction } from '../lib/action-logger'
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -458,6 +459,17 @@ export const SankeyOverlay: React.FC<SankeyOverlayProps> = ({
               showDragTooltip={true}
               usePercentiles={false}
               handleDimensions={{ width: 28, height: 20 }}
+              onDragStart={() => {
+                logAction('sankey', 'sankey_threshold_drag_start', {
+                  nodeId: targetNode.id,
+                  initialThreshold: currentThreshold,
+                })
+              }}
+              onDragEnd={() => {
+                logAction('sankey', 'sankey_threshold_drag_end', {
+                  nodeId: targetNode.id,
+                })
+              }}
               onUpdate={(values) => {
                 // V2: Call onThresholdUpdate with target segment node ID
                 onThresholdUpdate(targetNode.id || '', values[0])

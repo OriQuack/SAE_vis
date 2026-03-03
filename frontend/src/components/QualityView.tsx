@@ -14,6 +14,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import ConsensusSection from './ConsensusSection'
 import { useResizeObserver } from '../lib/utils'
+import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -163,8 +164,9 @@ const QualityView: React.FC<QualityViewProps> = ({
       return stage2FinalCommit.featureIds
     }
 
-    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
-    void _deps
+    void sankeyStructure
+    void selectedSegment
+    void tableSelectedNodeIds
     const features = getSelectedNodeFeatures()
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage2, stage2FinalCommit])
@@ -239,12 +241,10 @@ const QualityView: React.FC<QualityViewProps> = ({
 
       // Check if cache is valid
       if (stage2DiversitySignature === signature && diversityFeatureIds.size > 0) {
-        console.log('[QualityView] Using cached diversity IDs:', diversityFeatureIds.size)
         return
       }
 
       try {
-        console.log('[QualityView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
@@ -305,6 +305,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
+    logAction('stage2', 'stage_change', { stage })
     setActiveStage(stage)
     if (stage === 'learn') {
       setSortMode('decisionMargin')
@@ -319,6 +320,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
+    logAction('stage2', 'bootstrap_mode', { mode })
     if (mode === 'diversity') {
       setSortMode('diversity')
     } else {
@@ -327,8 +329,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
     setCurrentFeatureIndex(0)
   }, [setSortMode, setSortDirection])
-
-  const handleBootstrapModeChange = handleBootstrapOptionChange
 
   // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
   const disagreementLookup = useMemo(() => {
@@ -398,6 +398,18 @@ const QualityView: React.FC<QualityViewProps> = ({
       prevSortRef.current = { sortMode, sortDirection }
     }
   }, [sortMode, sortDirection])
+
+  // ============================================================================
+  // ACTION LOGGING (useEffect-based)
+  // ============================================================================
+
+  // #14 Threshold drag (debounced) — only fires on user drag, not on initial load
+  const hasRenderedRef = useRef(false)
+  const logThresholdDrag = useMemo(() => createDebouncedLogger('stage2', 'threshold_drag', 800), [])
+  useEffect(() => {
+    if (!hasRenderedRef.current) { hasRenderedRef.current = true; return }
+    logThresholdDrag({ selectThreshold: tagAutomaticState?.selectThreshold, rejectThreshold: tagAutomaticState?.rejectThreshold })
+  }, [tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold, logThresholdDrag])
 
   // Helper function to compute quality counts from featureSelectionStates
   const getQualityCounts = useCallback((): QualityCommitCounts => {
@@ -522,7 +534,6 @@ const QualityView: React.FC<QualityViewProps> = ({
     if (hasRequiredSelections && needsScores) {
       // Skip if all features are already tagged - no point in re-computing similarity
       if (featureSelectionStates.size >= featureList.length) {
-        console.log('[QualityView] Skipping similarity sort - all', featureList.length, 'features already tagged')
         return
       }
 
@@ -658,15 +669,14 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
+    logAction('stage2', 'navigate_previous', {})
     setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
-    // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
   }, [])
 
   const handleNavigateNext = useCallback(() => {
     setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.min(displayFeatures.length - 1, i + 1))
-    // Note: Do NOT reset activeListSource here (matches FeatureSplitView behavior)
   }, [displayFeatures.length])
 
   // Reset to first feature in 'all' list (used after tagging in decision margin mode)
@@ -702,6 +712,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleWellExplainedClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
+    logAction('stage2', 'manual_tag', { tag: 'Well-Explained', previousTag, featureId })
 
     if (currentSelectionState === 'selected') {
       // Already selected: keep tag and navigate
@@ -724,6 +736,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleNeedRevisionClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
+    logAction('stage2', 'manual_tag', { tag: 'Need Revision', previousTag, featureId })
 
     if (currentSelectionState === 'rejected') {
       // Already rejected: keep tag and navigate
@@ -747,6 +761,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   const handleUnsureClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
+    logAction('stage2', 'manual_tag', { tag: 'Unsure', previousTag, featureId })
 
     if (currentSelectionState === 'selected') {
       // selected → rejected → null
@@ -769,6 +785,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     // Set feature ID first (survives mode switches)
     const feature = displayFeatures[index]
     if (feature) {
+      logAction('stage2', 'feature_click', { featureId: feature.featureId, index })
       setSelectedFeatureIdState(feature.featureId)
     }
     setCurrentFeatureIndex(index)
@@ -826,7 +843,14 @@ const QualityView: React.FC<QualityViewProps> = ({
   // ============================================================================
 
   const handleApplyTags = useCallback(() => {
-    console.log('[QualityView] Apply Tags clicked')
+    const selectTh = tagAutomaticState?.selectThreshold
+    const rejectTh = tagAutomaticState?.rejectThreshold
+    logAction('stage2', 'apply_tags', {
+      selectThreshold: selectTh,
+      rejectThreshold: rejectTh,
+      previewSelectCount: previewSelectIds.size,
+      previewRejectCount: previewRejectIds.size,
+    })
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('apply')
@@ -837,7 +861,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     // 3. Switch to decision margin sort and reset
     setSortMode('decisionMargin')
     setCurrentFeatureIndex(0)
-  }, [createCommit, applySimilarityTags, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode, tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold, previewSelectIds, previewRejectIds])
 
   // ============================================================================
   // TAG ALL HANDLERS
@@ -851,8 +875,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Handle Tag All - Tag all unsure as Need Revision (rejected)
   const handleTagAllNeedRevision = useCallback(() => {
-    console.log('[TagAll] Need Revision option clicked')
-
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
@@ -869,16 +891,13 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
     })
 
-    console.log('[TagAll] Tagged', taggedCount, 'features as Need Revision')
-
-    // 3. Apply the new states to store (effect will sync to current commit)
+    // 3. Log and apply the new states to store (effect will sync to current commit)
+    logAction('stage2', 'tag_all_need_revision', { count: taggedCount, totalFeatures: featureList.length })
     restoreFeatureSelectionStates(newStates, newSources)
   }, [featureList, featureSelectionStates, featureSelectionSources, restoreFeatureSelectionStates, createCommit])
 
   // Handle Tag All - By Decision Boundary
   const handleTagAllByBoundary = useCallback(() => {
-    console.log('[TagAll] By Decision Boundary (score=0) option clicked')
-
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
@@ -910,12 +929,8 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
     })
 
-    console.log('[TagAll] By Decision Boundary results:', {
-      wellExplainedAboveZero: selectedCount,
-      needRevisionBelowZero: rejectedCount
-    })
-
-    // 3. Apply the new states to store (effect will sync to current commit)
+    // 3. Log and apply the new states to store (effect will sync to current commit)
+    logAction('stage2', 'tag_all_by_boundary', { wellExplainedCount: selectedCount, needRevisionCount: rejectedCount })
     restoreFeatureSelectionStates(newStates, newSources)
   }, [featureList, featureSelectionStates, featureSelectionSources, similarityScores, restoreFeatureSelectionStates, createCommit])
 
@@ -965,7 +980,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               onStageChange={handleStageChange}
               bootstrapMode={bootstrapMode}
               bootstrapDirection={sortDirection}
-              onBootstrapModeChange={handleBootstrapModeChange}
+              onBootstrapModeChange={handleBootstrapOptionChange}
               onBootstrapOptionChange={handleBootstrapOptionChange}
               hasDiversityIds={diversityFeatureIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
@@ -975,9 +990,9 @@ const QualityView: React.FC<QualityViewProps> = ({
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
               byScoreLabel="Quality Score"
               hideTagged={hideTagged}
-              onHideTaggedChange={setHideTagged}
+              onHideTaggedChange={(v: boolean) => { logAction('stage2', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
               showDisagreementOnly={showDisagreementOnly}
-              onShowDisagreementOnlyChange={setShowDisagreementOnly}
+              onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage2', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
                 label: showDisagreementOnly
@@ -1129,8 +1144,8 @@ const QualityView: React.FC<QualityViewProps> = ({
                     {/* Next button */}
                     <button
                       className="nav__button"
-                      onClick={handleNavigateNext}
-                      disabled={currentFeatureIndex >= sortedFeatures.length - 1}
+                      onClick={() => { logAction('stage2', 'navigate_next', {}); handleNavigateNext() }}
+                      disabled={currentFeatureIndex >= displayFeatures.length - 1}
                     >
                       Next →
                     </button>
@@ -1172,7 +1187,7 @@ const QualityView: React.FC<QualityViewProps> = ({
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"
-            onClick={moveToNextStep}
+            onClick={() => { logAction('stage2', 'move_to_next_stage', {}); moveToNextStep() }}
             disabled={!allFeaturesTagged}
             title={allFeaturesTagged ? 'Proceed to Stage 3: Root Cause' : `Label all features first (${featureSelectionStates.size}/${featureList.length})`}
           >

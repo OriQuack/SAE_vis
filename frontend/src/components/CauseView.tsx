@@ -20,6 +20,7 @@ import {
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
 import { useResizeObserver } from '../lib/utils'
+import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -179,12 +180,10 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       // Check if cache is valid
       if (stage3DiversitySignature === signature && diversityFeatureIds.size > 0) {
-        console.log('[CauseView] Using cached diversity IDs:', diversityFeatureIds.size)
         return
       }
 
       try {
-        console.log('[CauseView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
@@ -354,8 +353,17 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [activeStage])
 
+  // ACTION LOGGING — margin threshold drag (debounced, skip mount)
+  const hasRenderedRef = useRef(false)
+  const logMarginDrag = useMemo(() => createDebouncedLogger('stage3', 'margin_threshold_drag', 800), [])
+  useEffect(() => {
+    if (!hasRenderedRef.current) { hasRenderedRef.current = true; return }
+    logMarginDrag({ threshold: causeMarginThreshold })
+  }, [causeMarginThreshold, logMarginDrag])
+
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
+    logAction('stage3', 'stage_change', { stage })
     setActiveStage(stage)
     // One-way convenience: set recommended sort for each stage
     if (stage === 'learn') {
@@ -371,6 +379,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
+    logAction('stage3', 'bootstrap_mode', { mode })
     if (mode === 'diversity') {
       setSortMode('diversity')
     } else {
@@ -379,8 +388,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
     setCurrentFeatureIndex(0)
   }, [setSortMode, setSelectedSortDirection])
-
-  const handleBootstrapModeChange = handleBootstrapOptionChange
 
   // Determine if we're in "Top" mode (Most Confident First)
   const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
@@ -610,12 +617,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     const featureId = sortedFilteredFeatureList[index]
     if (featureId !== undefined) {
       setSelectedFeatureIdState(featureId)
+      logAction('stage3', 'feature_click', { featureId, index })
     }
     setCurrentFeatureIndex(index)
   }, [sortedFilteredFeatureList])
 
   // Handle click on a point in RadViz scatter or histogram
   const handleUMAPFeatureSelect = useCallback((featureId: number) => {
+    logAction('stage3', 'radviz_click', { featureId })
     // Set feature ID first (survives mode switches)
     setSelectedFeatureIdState(featureId)
     // Try to find in main list
@@ -726,6 +735,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
+    logAction('stage3', 'navigate_prev', {})
     setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
     setCurrentFeatureIndex(i => Math.max(0, i - 1))
   }, [])
@@ -766,12 +776,23 @@ const CauseView: React.FC<CauseViewProps> = ({
     return causeSelectionSources.get(selectedFeatureData.featureId) || null
   }, [selectedFeatureData, causeSelectionSources])
 
+  // Helper to map internal category keys to readable tag labels for logging
+  const causeTagLabel = (cat: CauseCategory | 'unsure' | null): string => {
+    if (cat === 'noisy-activation') return 'Noisy Activation'
+    if (cat === 'missed-N-gram') return 'Missed Syntax'
+    if (cat === 'missed-context') return 'Missed Context'
+    if (cat === 'well-explained') return 'Well-Explained'
+    return 'Unsure'
+  }
+
   // Handle tag button click - toggle category on/off
   // Clicking same category: if user-confirmed, clear to unsure; if predicted, confirm
   // Clicking different category: set new category as click source
   const handleTagClick = useCallback((category: CauseCategory) => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+
+    logAction('stage3', 'manual_tag', { tag: causeTagLabel(category), previousTag: causeTagLabel(currentCauseCategory), featureId })
 
     const isSameCategory = currentCauseCategory === category
     const isAutoTagged = currentCauseSource === 'predicted'
@@ -793,10 +814,12 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
 
+    logAction('stage3', 'manual_tag', { tag: 'Unsure', previousTag: causeTagLabel(currentCauseCategory), featureId })
+
     // Clear the cause category to null (unsure)
     setCauseCategory(featureId, null)
     handlePostUnsureNavigation()
-  }, [selectedFeatureData, setCauseCategory, handlePostUnsureNavigation])
+  }, [selectedFeatureData, currentCauseCategory, setCauseCategory, handlePostUnsureNavigation])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -804,7 +827,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Tag ALL confident features (all three categories at once)
   const handleTagAllConfident = useCallback(() => {
-    console.log('[CauseView] Tag All Confident Features')
+    logAction('stage3', 'tag_all_confident', { count: filteredFeatureIds.length, totalFeatures: selectedFeatureIds?.size ?? 0 })
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
@@ -827,7 +850,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (batchUpdates.size > 0) {
       setCauseCategoriesBatch(batchUpdates)
     }
-  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit])
+  }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit, selectedFeatureIds?.size])
 
   // Tag remaining untagged features by decision boundary (highest margin category)
   // Note: SVM only predicts cause categories (pattern miss, context miss, noisy activation)
@@ -835,8 +858,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
     if (!selectedFeatureIds) return
-
-    console.log('[CauseView] Tag Remaining By Boundary clicked')
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('apply')
@@ -865,17 +886,17 @@ const CauseView: React.FC<CauseViewProps> = ({
       batchUpdates.set(featureId, bestCategory as 'noisy-activation' | 'missed-N-gram' | 'missed-context')
     })
 
+    // Log counts per category
+    const counts: Record<string, number> = { 'noisy-activation': 0, 'missed-N-gram': 0, 'missed-context': 0 }
+    batchUpdates.forEach((cat) => { counts[cat] = (counts[cat] || 0) + 1 })
+    logAction('stage3', 'tag_remaining_by_boundary', counts)
+
     // 3. Apply all updates in a single state change
     if (batchUpdates.size > 0) {
       setCauseCategoriesBatch(batchUpdates)
     }
     // Effect will sync changes to current commit
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategoriesBatch, createCommit])
-
-  // Handle next stage navigation (Stage 3 -> Stage 4)
-  const handleNextStage = useCallback(() => {
-    moveToNextStep()
-  }, [moveToNextStep])
 
   // Count how many remaining features will be tagged to each category by decision boundary
   // Note: SVM only predicts cause categories (excludes well-explained)
@@ -1079,7 +1100,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onStageChange={handleStageChange}
                   bootstrapMode={bootstrapMode}
                   bootstrapDirection={selectedSortDirection}
-                  onBootstrapModeChange={handleBootstrapModeChange}
+                  onBootstrapModeChange={handleBootstrapOptionChange}
                   onBootstrapOptionChange={handleBootstrapOptionChange}
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
@@ -1088,9 +1109,9 @@ const CauseView: React.FC<CauseViewProps> = ({
                   diversityLabel={`Representative ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
-                  onHideTaggedChange={setHideTagged}
+                  onHideTaggedChange={(v: boolean) => { logAction('stage3', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
                   showDisagreementOnly={showDisagreementOnly}
-                  onShowDisagreementOnlyChange={setShowDisagreementOnly}
+                  onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage3', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
                   hasDisagreementData={causeCommitteeVotes !== null && causeCommitteeVotes.size > 0}
                   badges={[{
                     label: showDisagreementOnly
@@ -1232,7 +1253,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       {/* Next button */}
                       <button
                         className="nav__button"
-                        onClick={handleNavigateNext}
+                        onClick={() => { logAction('stage3', 'navigate_next', {}); handleNavigateNext() }}
                         disabled={currentFeatureIndex >= sortedFilteredFeatureList.length - 1 || sortedFilteredFeatureList.length === 0}
                       >
                         Next →
@@ -1287,7 +1308,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   flipTracking: causeFlipTracking,
                   selectedFeatureId: selectedFeatureId,
                   visibleCategories,
-                  onVisibleCategoriesChange: setVisibleCategories,
+                  onVisibleCategoriesChange: (v: Set<FilterCategory>) => { logAction('stage3', 'visible_categories', { categories: Array.from(v) }); setVisibleCategories(v) },
                   onFeatureSelect: handleUMAPFeatureSelect,
                   stableFeatureIds,
                   hideTagged,
@@ -1330,7 +1351,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"
-            onClick={handleNextStage}
+            onClick={() => { logAction('stage3', 'move_to_next_stage', {}); moveToNextStep() }}
             disabled={!allTagged}
             title={allTagged ? 'Proceed to Stage 4' : `Label all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
           >

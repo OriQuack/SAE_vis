@@ -71,10 +71,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: flex-start;
-  padding: 8px 8px;
+  padding: 4px 8px;
   flex: 1 1 0;
   min-width: 0;
-  height: 100px;
+  height: 70px;
   background: #f1f5f9;
   border: 2px solid #cbd5e1;
   border-bottom: none;
@@ -85,7 +85,18 @@
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
   outline: none;
-  gap: 8px;
+  gap: 2px;
+}
+
+/* Stage 1 gets more width for its longer description */
+.stage-tab:nth-child(1) {
+  flex: 1.1 1 0;
+}
+.stage-tab:nth-child(2) {
+  flex: 1 1 0;
+}
+.stage-tab:nth-child(3) {
+  flex: 0.9 1 0;
 }
 
 .stage-tab:hover {
@@ -165,13 +176,15 @@
   pointer-events: none;
 }
 
-/* Stage header - number + label in one row */
+/* Stage header - number + label + instruction in one row */
 .stage-tab__header {
   display: flex;
   flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 /* Stage number badge */
@@ -227,17 +240,18 @@
   font-weight: 500;
 }
 
-/* Stage instruction */
+/* Stage instruction - inline secondary text */
 .stage-tab__instruction {
   font-size: 14px;
   font-weight: 500;
-  color: #7b7b7b;
-  text-align: center;
+  color: #94a3b8;
   line-height: 1.2;
-  max-width: 100%;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+  min-width: 0;
+  margin-left: 6px;
 }
 
 .stage-tab--active .stage-tab__instruction {
@@ -343,7 +357,7 @@
 @media (max-width: 1200px) {
   .stage-tab {
     max-width: 200px;
-    min-height: 120px;
+    min-height: 60px;
     padding: 6px 8px;
     gap: 3px;
   }
@@ -396,7 +410,7 @@
 @media (max-width: 1000px) {
   .stage-tab {
     max-width: 160px;
-    min-height: 110px;
+    min-height: 60px;
     padding: 5px 6px;
   }
 

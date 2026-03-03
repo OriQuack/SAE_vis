@@ -9,6 +9,7 @@ import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode } from '../lib/tagging-hooks'
+import { logAction } from '../lib/action-logger'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -166,10 +167,11 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   // Selection handlers
   const handleFragmentedClick = () => {
     if (!currentPair) return
+    const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
+    logAction('stage1', 'manual_tag', { tag: 'Incoherent Splitting', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
     // If already selected (Fragmented), keep tag and navigate
     if (pairSelectionState === 'selected') {
-      // Keep the tag, just navigate
       handlePostTagNavigation()
     } else {
       // Set to selected
@@ -180,17 +182,17 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Use centralized navigation logic
       handlePostTagNavigation()
     }
   }
 
   const handleMonosemanticClick = () => {
     if (!currentPair) return
+    const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
+    logAction('stage1', 'manual_tag', { tag: 'Monosemantic', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
     // If already rejected (Monosemantic), keep tag and navigate
     if (pairSelectionState === 'rejected') {
-      // Keep the tag, just navigate
       handlePostTagNavigation()
     } else {
       // Set to rejected
@@ -202,13 +204,14 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
-      // Use centralized navigation logic
       handlePostTagNavigation()
     }
   }
 
   const handleUnsureClick = () => {
     if (!currentPair) return
+    const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
+    logAction('stage1', 'manual_tag', { tag: 'Unsure', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
     // Clear selection (set to null)
     if (pairSelectionState === 'selected') {
@@ -402,7 +405,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
               {/* Next button */}
               <button
                 className="nav__button"
-                onClick={onNavigateNext}
+                onClick={() => { logAction('stage1', 'navigate_next', {}); onNavigateNext?.() }}
                 disabled={currentPairIndex >= pairList.length - 1 || !onNavigateNext}
               >
                 Next →

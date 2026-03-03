@@ -359,8 +359,10 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     {isCompleted ? '✓' : stage.stageOrder}
                   </div>
                   <div className="stage-tab__label">{stage.label}</div>
+                  {stage.instruction && (
+                    <span className="stage-tab__instruction">{stage.instruction}</span>
+                  )}
                 </div>
-                {stage.instruction && <div className="stage-tab__instruction">{stage.instruction}</div>}
                 {stageTags.length > 0 && (
                   <div className="stage-tab__tags">
                     {stageTags.map((node) => (

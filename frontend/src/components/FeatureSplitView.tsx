@@ -10,6 +10,7 @@ import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/ta
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import '../styles/FeatureSplitView.css'
 
 // ============================================================================
@@ -91,19 +92,16 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const selectedFeatureIds = useMemo(() => {
     // If revisiting Stage 1 and we have stored feature IDs, use those
     if (isRevisitingStage1 && stage1FinalCommit?.featureIds) {
-      console.log('[FeatureSplitView] Using stored Stage 1 feature IDs:', stage1FinalCommit.featureIds.size)
       return stage1FinalCommit.featureIds
     }
 
-    // These dependencies are necessary to trigger recalculation when Sankey selection changes
-    const _deps = { sankeyStructure, selectedSegment, tableSelectedNodeIds }
-    void _deps  // Consume the variable to avoid unused-vars warning
+    // These dependencies trigger recalculation when Sankey selection changes
+    void sankeyStructure
+    void selectedSegment
+    void tableSelectedNodeIds
     const features = getSelectedNodeFeatures()
     return features
   }, [getSelectedNodeFeatures, sankeyStructure, selectedSegment, tableSelectedNodeIds, isRevisitingStage1, stage1FinalCommit])
-
-  // Active list source is always 'all' (boundary lists removed)
-  const activeListSource = 'all' as const
 
   // ============================================================================
   // COMMIT HISTORY - Using centralized hook with storeSync
@@ -301,7 +299,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   useEffect(() => {
     // Only initialize when: not revisiting, no saved commit yet, and we have features
     if (!isRevisitingStage1 && !stage1FinalCommit && selectedFeatureIds && selectedFeatureIds.size > 0) {
-      console.log('[FeatureSplitView] Initializing Stage 1 commit with initial state:', selectedFeatureIds.size, 'features')
       setStage1FinalCommit({
         pairSelectionStates: new Map(),
         pairSelectionSources: new Map(),
@@ -326,13 +323,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       // Restore histogram state (including flipTracking for convergence indicator)
       if (stage1FinalCommit.histogramState) {
         const { histogramData, selectThreshold, rejectThreshold, flipTracking } = stage1FinalCommit.histogramState
-        console.log('[FeatureSplitView] 🔄 Restoring histogram state from stage1FinalCommit:', {
-          hasHistogramData: !!histogramData,
-          selectThreshold,
-          rejectThreshold,
-          flipTracking,
-          flipHistoryLength: flipTracking?.flipHistory?.length
-        })
         if (histogramData) {
           useVisualizationStore.setState({
             tagAutomaticState: {
@@ -439,12 +429,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
       // Check if cache is valid
       if (stage1DiversitySignature === signature && diversityPairIds.size > 0) {
-        console.log('[FeatureSplitView] Using cached diversity IDs:', diversityPairIds.size)
         return
       }
 
       try {
-        console.log('[FeatureSplitView] Fetching diversity IDs (signature:', signature, ')')
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
@@ -507,6 +495,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
+    logAction('stage1', 'stage_change', { stage })
     setActiveStage(stage)
     if (stage === 'learn') {
       setSortMode('decisionMargin')
@@ -521,6 +510,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
+    logAction('stage1', 'bootstrap_mode', { mode })
     if (mode === 'diversity') {
       setSortMode('diversity')
     } else {
@@ -530,8 +520,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
     setCurrentPairIndex(0)
   }, [setSortMode, setSortDirection])
-
-  const handleBootstrapModeChange = handleBootstrapOptionChange
 
   // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
   const disagreementLookup = useMemo(() => {
@@ -653,11 +641,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
       // Skip if all pairs are already tagged - no point in re-computing similarity
       if (pairSelectionStates.size >= allPairKeys.length) {
-        console.log('[FeatureSplitView] Skipping similarity sort - all', allPairKeys.length, 'pairs already tagged')
         return
       }
 
-      console.log('[FeatureSplitView] Computing similarity scores for', allPairKeys.length, 'pairs (stale:', scoresAreStale, ')')
       sortPairsBySimilarity(allPairKeys)
     }
   }, [pairList, rawPairList, pairSelectionStates, pairSelectionSources, lastPairSortedSelectionSignature, isPairSimilaritySortLoading, sortPairsBySimilarity])
@@ -760,6 +746,18 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
 
   // ============================================================================
+  // ACTION LOGGING — useEffect-based observers
+  // ============================================================================
+
+  // #11 Threshold drag (debounced) — only fires on user drag, not on initial load
+  const hasRenderedRef = useRef(false)
+  const logThresholdDrag = useMemo(() => createDebouncedLogger('stage1', 'threshold_drag', 800), [])
+  useEffect(() => {
+    if (!hasRenderedRef.current) { hasRenderedRef.current = true; return }
+    logThresholdDrag({ selectThreshold: tagAutomaticState?.selectThreshold, rejectThreshold: tagAutomaticState?.rejectThreshold })
+  }, [tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold, logThresholdDrag])
+
+  // ============================================================================
   // CLICK HANDLERS
   // ============================================================================
 
@@ -768,6 +766,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     if (index >= 0 && index < displayPairList.length) {
       const pair = displayPairList[index]
       if (pair) {
+        logAction('stage1', 'pair_click', { pairKey: pair.pairKey, index })
         setSelectedPairKeyState(pair.pairKey)
         fetchActivationExamples([pair.mainFeatureId, pair.similarFeatureId])
       }
@@ -780,12 +779,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // ============================================================================
 
   const handleNavigatePrevious = useCallback(() => {
-    setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
+    logAction('stage1', 'navigate_previous', {})
+    setSelectedPairKeyState(null)
     setCurrentPairIndex(prev => Math.max(0, prev - 1))
   }, [])
 
   const handleNavigateNext = useCallback(() => {
-    setSelectedPairKeyState(null)  // Clear stored state to allow normal navigation
+    setSelectedPairKeyState(null)
     setCurrentPairIndex(prev => Math.min(displayPairList.length - 1, prev + 1))
   }, [displayPairList.length])
 
@@ -795,7 +795,14 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handle Apply Tags button click
   const handleApplyTags = useCallback(() => {
-    console.log('[FeatureSplitView] Apply Tags clicked')
+    const selectTh = tagAutomaticState?.selectThreshold
+    const rejectTh = tagAutomaticState?.rejectThreshold
+    logAction('stage1', 'apply_tags', {
+      selectThreshold: selectTh,
+      rejectThreshold: rejectTh,
+      previewSelectCount: previewSelectKeys.size,
+      previewRejectCount: previewRejectKeys.size,
+    })
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('apply')
@@ -808,7 +815,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
     // 4. Reset to first page/pair
     setCurrentPairIndex(0)
-  }, [createCommit, applySimilarityTags, setSortMode])
+  }, [createCommit, applySimilarityTags, setSortMode, tagAutomaticState?.selectThreshold, tagAutomaticState?.rejectThreshold, previewSelectKeys, previewRejectKeys])
 
   // handleCommitClick is provided by the hook
 
@@ -824,10 +831,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Handle Tag All - Option 1: Tag all unsure as Monosemantic
   const handleTagAllMonosemantic = useCallback(() => {
-    console.log('[TagAll] Monosemantic option clicked')
-    console.log('[TagAll] pairList length:', pairList.length)
-    console.log('[TagAll] current pairSelectionStates size:', pairSelectionStates.size)
-
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
@@ -844,16 +847,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       }
     })
 
-    console.log('[TagAll] Tagged', taggedCount, 'pairs as Monosemantic')
-
-    // 3. Apply the new states to store (effect will sync to current commit)
+    // 3. Log and apply the new states to store (effect will sync to current commit)
+    logAction('stage1', 'tag_all_monosemantic', { count: taggedCount, totalPairs: pairList.length })
     restorePairSelectionStates(newStates, newSources)
   }, [pairList, pairSelectionStates, pairSelectionSources, restorePairSelectionStates, createCommit])
 
   // Handle Tag All - Option 2: Use SVM decision boundary (score >= 0 → Fragmented, score < 0 → Monosemantic)
   const handleTagAllByBoundary = useCallback(() => {
-    console.log('[TagAll] By Decision Boundary (score=0) option clicked')
-
     // 1. Create new commit FIRST (copies current state with manual tags only)
     createCommit('tagAll')
 
@@ -889,13 +889,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       }
     })
 
-    console.log('[TagAll] By Decision Boundary results:', {
-      fragmentedAboveZero: selectedCount,
-      monosemanticBelowZero: rejectedCount,
-      totalNewStates: newStates.size
-    })
-
-    // 3. Apply the new states to store (effect will sync to current commit)
+    // 3. Log and apply the new states to store (effect will sync to current commit)
+    logAction('stage1', 'tag_all_by_boundary', { fragmentedCount: selectedCount, monosemanticCount: rejectedCount })
     restorePairSelectionStates(newStates, newSources)
   }, [pairList, pairSelectionStates, pairSelectionSources, pairSimilarityScores, restorePairSelectionStates, createCommit])
 
@@ -994,7 +989,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               onStageChange={handleStageChange}
               bootstrapMode={bootstrapMode}
               bootstrapDirection={sortDirection}
-              onBootstrapModeChange={handleBootstrapModeChange}
+              onBootstrapModeChange={handleBootstrapOptionChange}
               onBootstrapOptionChange={handleBootstrapOptionChange}
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
@@ -1004,9 +999,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               diversityLabel={`Most Critical ${diversityPairIds.size}`}
               byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
-              onHideTaggedChange={setHideTagged}
+              onHideTaggedChange={(v: boolean) => { logAction('stage1', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
               showDisagreementOnly={showDisagreementOnly}
-              onShowDisagreementOnlyChange={setShowDisagreementOnly}
+              onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage1', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
                 label: showDisagreementOnly
@@ -1023,7 +1018,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               renderItem={renderPairItem}
               sortConfig={{ getDisplayScore }}
               currentIndex={mainListHighlightIndex}
-              isActive={activeListSource === 'all'}
+              isActive={true}
               scrollTargetIndex={scrollTargetIndex}
             />
           <FeatureSplitPairViewer
@@ -1031,7 +1026,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             pairList={displayPairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
-            activeListSource={activeListSource}
+            activeListSource="all"
             sortMode={sortMode}
             isLoading={isPairSimilaritySortLoading}
             isTemplateSort={isTemplateSort}
@@ -1067,7 +1062,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"
-            onClick={moveToNextStep}
+            onClick={() => { logAction('stage1', 'move_to_next_stage', {}); moveToNextStep() }}
             disabled={!allPairsTagged}
             title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Label all pairs first (${pairSelectionStates.size}/${rawPairList.length})`}
           >
