@@ -137,8 +137,8 @@
   border: 1.5px solid transparent;
   display: inline-flex;
   align-items: center;
-  line-height: 1.4;
-  min-height: 1.4em;
+  line-height: 1;
+  min-height: 13px;
 }
 
 /* Activation strength - orange gradient background */

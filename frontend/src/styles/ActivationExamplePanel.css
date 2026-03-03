@@ -144,18 +144,13 @@
 /* Newline symbol - visible by default */
 .newline-symbol {
   display: inline-block;
-  color: var(--unsure-gray);
+  color: #9ca3af;
   font-weight: 600;
   user-select: none;
-  transition: color 0.15s ease;
-  line-height: 1.4;
-  min-height: 1.4em;
+  line-height: 1;
+  min-height: 13px;
 }
 
-/* On hover of the newline token: darken symbol color for feedback */
-.activation-token--newline:hover .newline-symbol {
-  color: #6b7280;
-}
 
 .activation-example__ellipsis {
   color: var(--unsure-gray);
