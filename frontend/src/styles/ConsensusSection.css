@@ -7,7 +7,30 @@
 .consensus-section {
   display: flex;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: stretch;
+  border: 1px solid #e5e7eb;
+  border-radius: 4px;
+  padding: 4px;
+  gap: 0;
+}
+
+.consensus-section__column {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 4px;
+}
+
+.consensus-section__column--outlier {
+  border-left: 1px solid #e5e7eb;
+}
+
+.consensus-section__column-label {
+  font-size: 11px;
+  color: var(--text-secondary, #6b7280);
+  font-weight: 500;
 }
 
 .consensus-section__items {
@@ -46,12 +69,10 @@
 .consensus-item__pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  border-radius: 16px;
+  padding: 0px 4px;
+  border-radius: 8px;
   font-size: 12px;
   cursor: default;
-  transition: background-color 0.15s ease;
   max-width: 100%;
 }
 

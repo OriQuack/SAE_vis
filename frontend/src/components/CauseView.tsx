@@ -344,14 +344,16 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Derive bootstrapMode from sortMode (for StageAccordionList display)
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
 
-  // Auto-enable filters when entering Apply phase, reset when leaving
+  // Sync active stage to store + auto-enable filters when entering Apply phase
+  const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
+    setWorkflowActiveStage(activeStage)
     if (activeStage === 'apply') {
       setHideTagged(true)
     } else {
       setHideTagged(false)
     }
-  }, [activeStage])
+  }, [activeStage, setWorkflowActiveStage])
 
   // ACTION LOGGING — margin threshold drag (debounced, skip mount)
   const hasRenderedRef = useRef(false)
@@ -1175,7 +1177,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                     {/* Consensus + Parallel Coordinates row */}
                     <div className="cause-view__consensus-row-header">
-                      <span className="subheader">Consensus</span>
+                      <span className="subheader">Cross-explainer Consensus</span>
                       {/* Metrics legend */}
                       <div className="cause-view__metrics-legend">
                         <div className="legend-item">

@@ -1054,18 +1054,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Consensus Section - Clustered explanation phrases */}
                   <div className="quality-view__consensus-header">
-                    <span className="subheader">Consensus</span>
-                    {/* Cluster/Outlier legend */}
-                    <div className="quality-view__consensus-legend">
-                      <div className="legend-item">
-                        <span className="legend-dot legend-dot--filled" />
-                        <span className="legend-label">Cluster</span>
-                      </div>
-                      <div className="legend-item">
-                        <span className="legend-dot legend-dot--hollow" />
-                        <span className="legend-label">Outlier</span>
-                      </div>
-                    </div>
+                    <span className="subheader">Cross-explainer Consensus</span>
                   </div>
                   <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} />
 

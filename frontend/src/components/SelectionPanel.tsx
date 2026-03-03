@@ -192,6 +192,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     // Priority 1: User-confirmed tags respected (user intent takes precedence)
     if (isUserConfirmed(source) && category) return category
 
+    // During bootstrap, no threshold is shown — treat all non-manual as unsure
+    if (workflowActiveStage === 'bootstrap') return 'unsure'
+
     // Priority 2: Auto-tagged with margin check
     if (category && causeCategoryDecisionMargins) {
       const categoryScores = causeCategoryDecisionMargins.get(featureId)

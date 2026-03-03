@@ -225,7 +225,6 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   // Compute margin data for all features (uses effectiveThreshold for interactive updates)
   const marginData = useMemo((): MarginDataPoint[] => {
     const data: MarginDataPoint[] = []
-
     for (const featureId of featureIds) {
       const margin = computeFeatureMargin(featureId, causeCategoryDecisionMargins)
       const category = causeSelectionStates.get(featureId)
@@ -233,13 +232,18 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
       const isManual = isUserConfirmed(source)
 
       // Determine effective category (semantic - not based on mode)
-      // Below threshold = unsure (always), Above threshold = predicted category
+      // During bootstrap, keep predicted category as-is (no threshold reclassification)
+      // During learn/apply, below threshold = unsure, above threshold = predicted category
       let effectiveCategory: CauseCategory | 'unsure'
       if (isManual && category) {
         effectiveCategory = category
       } else if (category) {
-        const isUnsure = margin < effectiveThreshold
-        effectiveCategory = isUnsure ? 'unsure' : category
+        if (activeStage === 'bootstrap') {
+          effectiveCategory = 'unsure'
+        } else {
+          const isUnsure = margin < effectiveThreshold
+          effectiveCategory = isUnsure ? 'unsure' : category
+        }
       } else {
         effectiveCategory = 'unsure'
       }
@@ -253,7 +257,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
 
     return data
-  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold])
+  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold, activeStage])
 
   // Compute histogram bins (no clipping - show full range)
   const { bins, maxMargin, maxCount } = useMemo(() => {
@@ -610,7 +614,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               y={segment.y}
               width={segment.width}
               height={segment.height}
-              fill={segment.isManual || activeStage === 'bootstrap' ? segment.color : `url(#stripe-${segment.category})`}
+              fill={activeStage === 'bootstrap' || segment.isManual ? segment.color : `url(#stripe-${segment.category})`}
               opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
               style={{ cursor: 'pointer' }}
               onMouseEnter={(e) => handleBinMouseEnter(segment.binIndex, e)}

@@ -92,23 +92,32 @@ def smart_coordination(text: str) -> List[str]:
     return phrases if phrases else [text.strip()]
 
 
+_MAX_MODIFIER_SUBTREE = 10
+
+
 def _extend_with_modifiers(root, indices: set) -> None:
     """Extend index set by absorbing prep/acl/relcl/appos subtrees off root.
 
-    Excludes cc (coordinating conjunction) tokens at the boundary of subtrees
-    to prevent trailing 'and'/'or' when conj targets are outside the chunk.
+    Skips subtrees larger than _MAX_MODIFIER_SUBTREE tokens — their noun
+    chunks will still appear as separate phrases via doc.noun_chunks.
+    Strips trailing PUNCT and cc tokens from absorbed subtrees to prevent
+    dangling connectors and trailing commas.
     """
+    STRIP_DEPS = {"cc", "punct"}
     for child in root.children:
         if child.dep_ in ("prep", "acl", "relcl", "appos", "agent"):
             subtree_indices = set()
             for tok in child.subtree:
                 subtree_indices.add(tok.i)
-            # Remove trailing cc tokens whose conj target is outside the subtree
+            # Skip oversized subtrees — their noun chunks will be separate phrases
+            if len(subtree_indices) > _MAX_MODIFIER_SUBTREE:
+                continue
+            # Strip trailing cc/punct tokens
             if subtree_indices:
                 max_idx = max(subtree_indices)
                 while max_idx in subtree_indices:
                     tok = root.doc[max_idx]
-                    if tok.dep_ == "cc":
+                    if tok.dep_ in STRIP_DEPS:
                         subtree_indices.discard(max_idx)
                         max_idx -= 1
                     else:

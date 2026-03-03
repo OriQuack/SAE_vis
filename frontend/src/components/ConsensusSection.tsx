@@ -43,50 +43,54 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     onPhraseHover?.(null)
   }, [onPhraseHover])
 
-  // Calculate opacity based on consensus score (cluster_score / phrase_weight)
+  // Calculate opacity based on consensus score (cluster_score)
   // Range 0–3 mapped linearly to opacity 0.35–1.0
+  // Outliers always get minimum opacity (cluster_score=0 by design)
   const getOpacity = useCallback((item: ConsensusItem): number => {
-    const score = item.is_outlier
-      ? (item.phrase_weight ?? 0)
-      : (item.cluster_score ?? 0)
-
+    if (item.is_outlier) return 0.35
+    const score = item.cluster_score ?? 0
     return 0.35 + Math.min(score, 3) / 3 * 0.65
   }, [])
 
-  // Memoized opacity calculator using current items
-  const opacityMap = useMemo(() => {
-    if (!consensus?.items) return new Map<number, number>()
-
-    const map = new Map<number, number>()
-    consensus.items.forEach((item, idx) => {
-      map.set(idx, getOpacity(item))
-    })
-    return map
-  }, [consensus?.items, getOpacity])
+  // Split items into clusters and outliers
+  const { clusters, outliers } = useMemo(() => {
+    if (!consensus?.items) return { clusters: [] as ConsensusItem[], outliers: [] as ConsensusItem[] }
+    return {
+      clusters: consensus.items.filter(item => !item.is_outlier),
+      outliers: consensus.items.filter(item => item.is_outlier)
+    }
+  }, [consensus?.items])
 
   // Return null if no data - parent handles empty state in subheader
   if (!consensus || consensus.items.length === 0) {
     return null
   }
 
+  const renderPill = (item: ConsensusItem, idx: number) => (
+    <div
+      key={`${item.cluster_id}-${idx}`}
+      className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
+      style={{ '--pill-alpha': getOpacity(item) } as React.CSSProperties}
+      onMouseEnter={(e) => handleMouseEnter(e, item)}
+      onMouseLeave={handleMouseLeave}
+    >
+      <span className="consensus-item__phrase">{item.phrase}</span>
+    </div>
+  )
+
   return (
     <div className="consensus-section">
-      <div className="consensus-section__items">
-        {consensus.items.map((item, idx) => {
-          const opacity = opacityMap.get(idx) ?? 1
-
-          return (
-            <div
-              key={`${item.cluster_id}-${idx}`}
-              className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
-              style={{ '--pill-alpha': opacity } as React.CSSProperties}
-              onMouseEnter={(e) => handleMouseEnter(e, item)}
-              onMouseLeave={handleMouseLeave}
-            >
-              <span className="consensus-item__phrase">{item.phrase}</span>
-            </div>
-          )
-        })}
+      <div className="consensus-section__column">
+        <span className="consensus-section__column-label">Clusters</span>
+        <div className="consensus-section__items">
+          {clusters.map((item, idx) => renderPill(item, idx))}
+        </div>
+      </div>
+      <div className="consensus-section__column consensus-section__column--outlier">
+        <span className="consensus-section__column-label">Outliers</span>
+        <div className="consensus-section__items">
+          {outliers.map((item, idx) => renderPill(item, idx))}
+        </div>
       </div>
 
       {/* Tooltip with all info */}
@@ -104,10 +108,9 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
               : `Cluster (${tooltipData.item.cluster_size} phrases)`}
           </div>
           <div className="consensus-tooltip__metrics">
-            <span>Consensus: {(tooltipData.item.is_outlier
-              ? tooltipData.item.phrase_weight
-              : tooltipData.item.cluster_score
-            )?.toFixed(2) ?? '0.00'}/3</span>
+            <span>Consensus: {tooltipData.item.is_outlier
+              ? '0.00'
+              : (tooltipData.item.cluster_score?.toFixed(2) ?? '0.00')}/3</span>
             <span>Quality: {(tooltipData.item.is_outlier
               ? tooltipData.item.quality_score
               : tooltipData.item.avg_quality_score

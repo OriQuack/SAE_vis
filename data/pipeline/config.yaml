@@ -212,7 +212,7 @@ steps:
     outputs:
       main: "${output}/explanation_alignment.parquet"
     parameters:
-      chunk_method: "smart"        # "smart" (preserves noun coordination), "phrase", or "sentence"
+      chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
 
   # Step 13: Pre-aggregate SVM metrics for feature and pair classification
   step_13_svm_metrics:
@@ -237,7 +237,7 @@ steps:
     parameters:
       min_cluster_size: 2          # HDBSCAN min cluster size
       min_samples: 1               # HDBSCAN min samples
-      chunk_method: "smart"        # "smart" (preserves noun coordination), "phrase", or "sentence"
+      chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
 
 # Dependency graph - defines execution order
 # Format: step_name: [list of dependencies]

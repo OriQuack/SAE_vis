@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-02-23T20:25:15.253413",
+  "created_at": "2026-03-03T23:59:22.251642",
   "step_name": "Step 12: Explanation Alignment",
   "script_version": "2.0",
   "total_rows": 16384,
@@ -13,10 +13,10 @@
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "features_processed": 16384,
-    "features_with_alignments": 4217,
-    "total_aligned_groups": 4509,
+    "features_with_alignments": 4283,
+    "total_aligned_groups": 4581,
     "features_with_single_explanation": 0,
-    "features_with_no_alignments": 12167
+    "features_with_no_alignments": 12101
   },
   "result_stats": {
     "unique_feature_ids": 16384,
@@ -31,7 +31,7 @@
       "main": "data/output/explanation_alignment.parquet"
     },
     "parameters": {
-      "chunk_method": "smart"
+      "chunk_method": "aspect"
     },
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
     "global": {
