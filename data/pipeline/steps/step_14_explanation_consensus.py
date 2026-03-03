@@ -399,7 +399,11 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 coherence = 1.0
 
             # Calculate cluster score: sum of phrase weights in this cluster
-            cluster_score = sum(phrase_weights[i] for i in cluster_indices)
+            # Outliers get score 0 (no cross-explainer consensus)
+            if is_outlier:
+                cluster_score = 0.0
+            else:
+                cluster_score = sum(phrase_weights[i] for i in cluster_indices)
 
             # Build phrase details
             phrase_details = []
@@ -514,8 +518,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
         self.stats["total_outliers"] += 1
 
-        # Single phrase outlier: cluster_score = its phrase_weight
-        cluster_score = phrase_weight
+        # Outliers get score 0 (no cross-explainer consensus)
+        cluster_score = 0.0
 
         # Get quality score for this phrase's explainer
         quality_score = explainer_quality_scores.get(explainer_names[exp_idx], 0)
@@ -523,7 +527,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
         return {
             "feature_id": feature_id,
             "sae_id": self.sae_id,
-            "consensus_score": cluster_score,  # Single phrase contributes its weight
+            "consensus_score": 0.0,  # Outlier phrases don't contribute to consensus
             "num_clusters": 0,
             "num_outliers": 1,
             "clusters": [{

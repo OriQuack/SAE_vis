@@ -1038,7 +1038,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       // This applies in both Train (asc) and Apply (desc) stages in decisionMargin mode
       // Train: shows which features have predictions above threshold
       // Apply: shows which features will be auto-tagged
-      isAuto = sortMode === 'decisionMargin' && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
+      isAuto = activeStage !== 'bootstrap' && sortMode === 'decisionMargin' && !isUserConfirmed(causeSource) && effectiveCategory !== 'unsure'
     }
 
     const disagreementInfo = activeStage === 'apply' && !isUserConfirmed(causeSelectionSources.get(featureId)) ? disagreementLookup.get(featureId) : undefined
@@ -1282,10 +1282,9 @@ const CauseView: React.FC<CauseViewProps> = ({
             {/* ============================================================ */}
             {/* BOTTOM ROW: ThresholdTaggingPanel with cause mode */}
             {/* ============================================================ */}
-            <div className="cause-view__row-bottom">
-              {/* Cause mode uses causeProps for batch operations (BatchTaggingPanel).
-                  These handlers are required by interface but intentionally unused. */}
-              <ThresholdTaggingPanel
+            {/* Cause mode uses causeProps for batch operations (BatchTaggingPanel).
+                These handlers are required by interface but intentionally unused. */}
+            <ThresholdTaggingPanel
                 mode="cause"
                 tagCategoryId={TAG_CATEGORY_CAUSE}
                 leftListLabel=""
@@ -1293,6 +1292,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 histogramProps={{}}
                 onApplyTags={() => {}}
                 onTagAll={() => {}}
+                activeStage={activeStage}
                 causeProps={{
                   featureIds: selectedFeatureIds || new Set(),
                   causeCategoryDecisionMargins,
@@ -1302,7 +1302,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onThresholdChange: setCauseMarginThreshold,
                   sortMode,
                   sortDirection: selectedSortDirection,
-                  activeStage,
                   canTrainSVM,
                   manualTagCountsByCategory,
                   flipTracking: causeFlipTracking,
@@ -1342,8 +1341,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
                 }}
-              />
-            </div>
+            />
           </div>
         </div>
 

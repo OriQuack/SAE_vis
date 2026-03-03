@@ -109,7 +109,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     // Use measured container size for viewBox
     const width = containerSize.width
     const height = containerSize.height
-    const padding = { top: 10, bottom: 35, left: 40, right: 35 }
+    const padding = { top: 10, bottom: 24, left: 40, right: 35 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
@@ -391,7 +391,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
             <text
               key={i}
               x={tick.x}
-              y={sparklineData.xAxisY + 18}
+              y={sparklineData.xAxisY + 12}
               fontSize={12}
               fill="#666"
               textAnchor="middle"
@@ -403,9 +403,9 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           {/* X-axis label */}
           <text
             x={sparklineData.padding.left + sparklineData.chartWidth / 2}
-            y={sparklineData.xAxisY + 34}
+            y={sparklineData.xAxisY + 24}
             textAnchor="middle"
-            fontSize={14}
+            fontSize={12}
             fill="#666"
           >
             Iteration

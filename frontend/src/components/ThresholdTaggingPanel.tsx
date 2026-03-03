@@ -31,7 +31,6 @@ export interface CauseModeProps {
   onThresholdChange: (value: number) => void
   sortMode: SortMode
   sortDirection: 'asc' | 'desc'
-  activeStage: ActiveStage  // 'bootstrap' | 'train' | 'apply'
   canTrainSVM: boolean
   manualTagCountsByCategory: Record<string, number>
   // Flip tracking for ConvergenceIndicator (optional - null until implemented)
@@ -203,7 +202,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             sortDirection={causeProps.sortDirection}
             canTrainSVM={causeProps.canTrainSVM}
             manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
-            activeStage={causeProps.activeStage}
+            activeStage={activeStage}
             focusedFeatureId={causeProps.selectedFeatureId}
           />
         ) : (
@@ -271,11 +270,11 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 hideTagged={causeProps.hideTagged}
               />
               <div className="threshold-tagging-panel__batch-column">
-                <h4 className="subheader">Batch Labeling</h4>
+                <h4 className="subheader">Automatic Labeling</h4>
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
-                  disabled={!causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
+                  disabled={activeStage === 'bootstrap' || !causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
                   onConfirmAll={causeProps.onConfirmAll}
                   onTagAllUnsure={causeProps.onTagAllUnsure}
                 />
@@ -284,7 +283,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           ) : (
             /* Pair/Feature mode: BatchTagging only */
             <div className="threshold-tagging-panel__batch-column">
-              <h4 className="subheader">Batch Labeling</h4>
+              <h4 className="subheader">Automatic Labeling</h4>
               <BatchTaggingPanel
                 categories={[
                   {
@@ -305,7 +304,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                   }
                 ]}
                 unsureCount={remainingCount}
-                disabled={!tagAutomaticState?.histogramData}
+                disabled={activeStage === 'bootstrap' || !tagAutomaticState?.histogramData}
                 onApplyThreshold={onApplyTags}
                 thresholdCounts={thresholdCounts}
                 onTagAllAsCategory={() => onTagAll('left')}

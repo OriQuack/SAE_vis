@@ -21,7 +21,7 @@
   align-items: flex-end;
   justify-content: center;
   background: #ffffff;
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* Training state - dim while SVM is running */
@@ -35,6 +35,7 @@
 .cause-radviz__chart-wrapper {
   position: relative;
   flex-shrink: 0;
+  transform: translateY(14px);
 }
 
 /* Loading, error, and empty states */

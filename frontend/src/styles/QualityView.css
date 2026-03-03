@@ -98,6 +98,13 @@
   background-color: #ffffff;
 }
 
+/* Consensus section grows to fill space freed by fixed-height explanation row */
+.quality-view__right-panel .consensus-section {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .quality-view__placeholder-text {
   color: #9ca3af;
   font-size: 11px;
@@ -282,12 +289,12 @@
   display: flex;
   flex-direction: row;
   gap: 0;
-  min-height: 0;
-  flex: 1;  /* Share space with activation section */
+  flex-shrink: 0;
+  height: 90px;  /* Fixed height: fits 3 explainer rows at ~28px each */
   background-color: white;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  padding: 6px;
+  padding: 3px;
   position: relative;
 }
 
@@ -309,7 +316,7 @@
 .quality-view__explanation-content {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 2px;
   flex: 1;
   min-height: 0;
 }
@@ -338,7 +345,7 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
-  padding: 2px 6px;
+  padding: 2px;
 }
 
 .quality-view__explainer-name {
