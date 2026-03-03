@@ -293,15 +293,15 @@ const QualityView: React.FC<QualityViewProps> = ({
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
 
   // Auto-enable filters when entering Apply phase, reset when leaving
+  const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
+    setWorkflowActiveStage(activeStage)
     if (activeStage === 'apply') {
       setHideTagged(true)
-      setShowDisagreementOnly(true)
     } else {
       setHideTagged(false)
-      setShowDisagreementOnly(false)
     }
-  }, [activeStage])
+  }, [activeStage, setWorkflowActiveStage])
 
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
@@ -349,14 +349,23 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   const disagreementIds = useMemo(() => new Set(disagreementLookup.keys()), [disagreementLookup])
 
-  // Filter features based on hideTagged and showDisagreementOnly toggles
+  // Filter features based on hideTagged, showDisagreementOnly, and Apply-phase thresholds
   const displayFeatures = useMemo(() => {
     return sortedFeatures.filter(f => {
       if (hideTagged && featureSelectionStates.has(f.featureId)) return false
       if (showDisagreementOnly && !disagreementIds.has(String(f.featureId))) return false
+      // In Apply phase, only show items past thresholds
+      if (activeStage === 'apply' && tagAutomaticState?.histogramData) {
+        const score = similarityScores.get(f.featureId)
+        if (score === undefined) return false
+        const reject = tagAutomaticState.rejectThreshold ?? -0.8
+        const select = tagAutomaticState.selectThreshold ?? 0.8
+        if (score >= reject && score < select) return false
+      }
       return true
     })
-  }, [sortedFeatures, hideTagged, featureSelectionStates, showDisagreementOnly, disagreementIds])
+  }, [sortedFeatures, hideTagged, featureSelectionStates, showDisagreementOnly, disagreementIds,
+      activeStage, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, tagAutomaticState?.selectThreshold, similarityScores])
 
   // Extract feature IDs from displayFeatures for scroll hook
   const sortedFilteredFeatureIds = useMemo(() => {
@@ -555,25 +564,25 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   const previewRejectIds = useMemo(() => {
     const ids = new Set<number>()
+    if (!tagAutomaticState?.histogramData || activeStage !== 'apply') return ids
     const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
-    if (!tagAutomaticState?.histogramData) return ids
     featureList.forEach((f: { featureId: number }) => {
       const score = similarityScores.get(f.featureId)
       if (score !== undefined && score < rejectThreshold) ids.add(f.featureId)
     })
     return ids
-  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold])
+  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, activeStage])
 
   const previewSelectIds = useMemo(() => {
     const ids = new Set<number>()
+    if (!tagAutomaticState?.histogramData || activeStage !== 'apply') return ids
     const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    if (!tagAutomaticState?.histogramData) return ids
     featureList.forEach((f: { featureId: number }) => {
       const score = similarityScores.get(f.featureId)
       if (score !== undefined && score >= selectThreshold) ids.add(f.featureId)
     })
     return ids
-  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold])
+  }, [featureList, similarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold, activeStage])
 
   // ============================================================================
   // SELECTED FEATURE DATA (for right panel)
@@ -675,7 +684,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     onNavigateNext: handleNavigateNext,
     onResetToFirst: handleResetToFirst,
     isHistogramReady: !!tagAutomaticState?.histogramData,
-    hideTagged
+    hideTagged,
+    onClearStoredSelection: () => setSelectedFeatureIdState(null)
   })
 
   // ============================================================================
@@ -1100,20 +1110,13 @@ const QualityView: React.FC<QualityViewProps> = ({
                       ← Prev
                     </button>
 
-                    {/* Selection buttons - Need Revision | Unsure | Well-Explained */}
+                    {/* Selection buttons - Need Revision | Well-Explained */}
                     <TagButton
                       label="Need Revision"
                       variant="need-revision"
                       color={needRevisionColor}
                       isSelected={currentSelectionState === 'rejected'}
                       onClick={handleNeedRevisionClick}
-                    />
-                    <TagButton
-                      label="Unsure"
-                      variant="unsure"
-                      color={unsureColor}
-                      isSelected={currentSelectionState === null}
-                      onClick={handleUnsureClick}
                     />
                     <TagButton
                       label="Well-Explained"
@@ -1131,6 +1134,15 @@ const QualityView: React.FC<QualityViewProps> = ({
                     >
                       Next →
                     </button>
+
+                    {/* Unsure button */}
+                    <TagButton
+                      label="Unsure"
+                      variant="unsure"
+                      color={unsureColor}
+                      isSelected={currentSelectionState === null}
+                      onClick={handleUnsureClick}
+                    />
                   </div>
                 </>
               ) : (
@@ -1146,7 +1158,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             leftListLabel="Need Revision"
             rightListLabel="Well-Explained"
             histogramProps={{
-              filteredFeatureIds: selectedFeatureIds || undefined
+              filteredFeatureIds: selectedFeatureIds || undefined,
+              focusedItemId: selectedFeatureId != null ? String(selectedFeatureId) : null
             }}
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}

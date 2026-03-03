@@ -72,6 +72,7 @@ export interface ThresholdTaggingPanelProps {
     availablePairs?: Array<{pairKey: string; mainFeatureId: number; similarFeatureId: number}>
     filteredFeatureIds?: Set<number>
     threshold?: number
+    focusedItemId?: string | null
   }
 
   // Callbacks
@@ -203,6 +204,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             canTrainSVM={causeProps.canTrainSVM}
             manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
             activeStage={causeProps.activeStage}
+            focusedFeatureId={causeProps.selectedFeatureId}
           />
         ) : (
           <DecisionMarginHistogram
@@ -211,6 +213,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             filteredFeatureIds={histogramProps.filteredFeatureIds}
             threshold={histogramProps.threshold}
             activeStage={activeStage}
+            focusedItemId={histogramProps.focusedItemId}
           />
         )}
       </div>

@@ -82,6 +82,8 @@ interface CauseMarginHistogramProps {
   manualTagCountsByCategory?: Record<string, number>
   /** Active stage - controls threshold handle visibility (hidden in 'bootstrap') */
   activeStage?: ActiveStage
+  /** Feature ID to highlight in histogram */
+  focusedFeatureId?: number | null
 }
 
 interface MarginDataPoint {
@@ -189,7 +191,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   sortDirection = 'asc',
   canTrainSVM = true,
   manualTagCountsByCategory,
-  activeStage
+  activeStage,
+  focusedFeatureId
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(200)
@@ -390,6 +393,15 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     return segments
   }, [bins, dimensions.chart, yScale])
 
+  // Compute focused bin index from focusedFeatureId
+  const focusedBinIndex = useMemo(() => {
+    if (focusedFeatureId == null || bins.length === 0 || maxMargin <= 0) return null
+    const margin = computeFeatureMargin(focusedFeatureId, causeCategoryDecisionMargins)
+    const binWidth = maxMargin / NUM_BINS
+    const idx = Math.min(Math.floor(margin / binWidth), NUM_BINS - 1)
+    return idx >= 0 && idx < bins.length ? idx : null
+  }, [focusedFeatureId, bins, maxMargin, causeCategoryDecisionMargins])
+
   // Threshold position in pixels
   const thresholdX = xScale(effectiveThreshold)
 
@@ -477,14 +489,14 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             Label 2+ features in each category to see histogram.
           </div>
           <div className="cause-margin-histogram__progress-row">
-            <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: noisyActivationColor }}>
-              Noisy Activation: {manualTagCountsByCategory?.['noisy-activation'] || 0}/2
-            </span>
             <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedNgramColor }}>
               Missed Syntax: {manualTagCountsByCategory?.['missed-N-gram'] || 0}/2
             </span>
             <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: missedContextColor }}>
               Missed Context: {manualTagCountsByCategory?.['missed-context'] || 0}/2
+            </span>
+            <span className="cause-margin-histogram__progress-item" style={{ backgroundColor: noisyActivationColor }}>
+              Noisy Activation: {manualTagCountsByCategory?.['noisy-activation'] || 0}/2
             </span>
           </div>
         </div>
@@ -606,6 +618,23 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               onMouseLeave={handleBinMouseLeave}
             />
           ))}
+
+          {/* Focused feature bin highlight */}
+          {focusedBinIndex !== null && (() => {
+            const binWidth = dimensions.chart.width / NUM_BINS
+            return (
+              <rect
+                x={focusedBinIndex * binWidth}
+                y={0}
+                width={binWidth}
+                height={dimensions.chart.height}
+                fill="rgba(59, 130, 246, 0.12)"
+                stroke="rgba(59, 130, 246, 0.65)"
+                strokeWidth={1}
+                pointerEvents="none"
+              />
+            )
+          })()}
 
           {/* Y-axis line */}
           <line

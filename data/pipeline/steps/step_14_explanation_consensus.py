@@ -129,6 +129,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             "total_clusters": 0,
             "total_outliers": 0,
             "total_phrases": 0,
+            "single_explainer_clusters_reclassified": 0,
         }
 
         # Data holders
@@ -337,6 +338,19 @@ class ExplanationConsensusProcessor(BaseProcessor):
         )
         cluster_labels = clusterer.fit_predict(phrase_embeddings_normalized)
 
+        # Reclassify single-explainer clusters as outliers (cross-explainer consensus only)
+        for cluster_id_val in set(cluster_labels):
+            if cluster_id_val == -1:
+                continue
+            cluster_mask = cluster_labels == cluster_id_val
+            cluster_indices_check = np.where(cluster_mask)[0]
+            explainers_in_cluster = set(
+                explainer_names[phrases[idx][1]] for idx in cluster_indices_check
+            )
+            if len(explainers_in_cluster) < 2:
+                cluster_labels[cluster_mask] = -1
+                self.stats["single_explainer_clusters_reclassified"] += 1
+
         # Get activation centroid
         activation_centroid = self._get_activation_centroid(feature_id)
 
@@ -436,13 +450,16 @@ class ExplanationConsensusProcessor(BaseProcessor):
                 "phrases": phrase_details,
             })
 
-        # Compute consensus score: sum of all cluster scores (including outliers)
-        # Maximum possible = number of explainers (e.g., 3.0 for 3 LLMs)
+        # Compute consensus score: S = (1/N_exp) * sum of real cluster scores
+        # Outliers excluded; normalized by number of explainers → score in [0, 1]
         num_clusters = len([c for c in clusters if c["cluster_id"] != -1])
         num_outliers = len([c for c in clusters if c["cluster_id"] == -1])
 
-        # New scoring: sum all cluster scores (phrase weights already sum to 1 per explainer)
-        consensus_score = sum(c["cluster_score"] for c in clusters)
+        num_explainers = len(set(explainer_names))
+        real_cluster_scores = sum(
+            c["cluster_score"] for c in clusters if c["cluster_id"] != -1
+        )
+        consensus_score = real_cluster_scores / num_explainers if num_explainers > 0 else 0.0
 
         if num_clusters > 0:
             self.stats["features_with_clusters"] += 1

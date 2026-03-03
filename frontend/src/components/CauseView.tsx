@@ -349,10 +349,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   useEffect(() => {
     if (activeStage === 'apply') {
       setHideTagged(true)
-      setShowDisagreementOnly(true)
     } else {
       setHideTagged(false)
-      setShowDisagreementOnly(false)
     }
   }, [activeStage])
 
@@ -456,10 +454,6 @@ const CauseView: React.FC<CauseViewProps> = ({
       .filter(featureId => {
         if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
         if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
-        // In decision margin mode (Top or Low), show all features regardless of threshold
-        if (sortMode === 'decisionMargin') {
-          return true
-        }
         if (!isVisibleInCurrentMode(featureId)) return false
         return visibleCategories.has(getEffectiveCategory(featureId))
       })
@@ -753,7 +747,8 @@ const CauseView: React.FC<CauseViewProps> = ({
       setCurrentFeatureIndex(0)
     },
     isHistogramReady: causeCategoryDecisionMargins.size > 0,
-    hideTagged
+    hideTagged,
+    onClearStoredSelection: () => setSelectedFeatureIdState(null)
   })
 
   // ============================================================================
@@ -1206,13 +1201,6 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                       {/* Selection buttons - all features must have a tag */}
                       <TagButton
-                        label="Unsure"
-                        variant="unsure"
-                        color={unsureColor}
-                        isSelected={currentCauseCategory === 'unsure'}
-                        onClick={handleUnsureClick}
-                      />
-                      <TagButton
                         label="Missed Syntax"
                         variant="missed-N-gram"
                         color={missedNgramColor}
@@ -1249,6 +1237,15 @@ const CauseView: React.FC<CauseViewProps> = ({
                       >
                         Next →
                       </button>
+
+                      {/* Unsure button */}
+                      <TagButton
+                        label="Unsure"
+                        variant="unsure"
+                        color={unsureColor}
+                        isSelected={currentCauseCategory === 'unsure'}
+                        onClick={handleUnsureClick}
+                      />
                     </div>
                   </>
                 ) : (

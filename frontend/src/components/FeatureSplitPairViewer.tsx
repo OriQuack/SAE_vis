@@ -98,7 +98,7 @@ interface FeatureSplitPairViewerProps {
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
   hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
-
+  onClearStoredSelection?: () => void  // Clear stored selection state when hideTagged removes item
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -113,7 +113,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   isLoading = false,
   isTemplateSort: _isTemplateSort = true,
   onResetToFirstPair,
-  hideTagged = false
+  hideTagged = false,
+  onClearStoredSelection
 }) => {
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -158,7 +159,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     onNavigateNext: onNavigateNext || (() => {}),
     onResetToFirst: onResetToFirstPair || (() => {}),
     isHistogramReady: !!tagAutomaticState?.histogramData,
-    hideTagged
+    hideTagged,
+    onClearStoredSelection
   })
 
   // Selection handlers
@@ -381,20 +383,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 ← Prev
               </button>
 
-              {/* Selection buttons - Monosemantic | Unsure | Fragmented */}
+              {/* Selection buttons - Monosemantic | Fragmented */}
               <TagButton
                 label="Monosemantic"
                 variant="monosemantic"
                 color={monosemanticColor}
                 isSelected={pairSelectionState === 'rejected'}
                 onClick={handleMonosemanticClick}
-              />
-              <TagButton
-                label="Unsure"
-                variant="unsure"
-                color={unsureColor}
-                isSelected={pairSelectionState === null}
-                onClick={handleUnsureClick}
               />
               <TagButton
                 label="Incoherent Splitting"
@@ -412,6 +407,15 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
               >
                 Next →
               </button>
+
+              {/* Unsure button */}
+              <TagButton
+                label="Unsure"
+                variant="unsure"
+                color={unsureColor}
+                isSelected={pairSelectionState === null}
+                onClick={handleUnsureClick}
+              />
             </div>
           </>
         ) : (

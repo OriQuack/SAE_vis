@@ -259,6 +259,10 @@ interface AppState {
     committeeVotes: Map<string, CommitteeVoteInfo> | null  // QBC vote info per item
   } | null
 
+  // Active workflow stage (bootstrap/learn/apply) synced from views for SelectionPanel preview gating
+  workflowActiveStage: 'bootstrap' | 'learn' | 'apply'
+  setWorkflowActiveStage: (stage: 'bootstrap' | 'learn' | 'apply') => void
+
   // Whether threshold handle is currently being dragged (to prevent rapid updates)
   isDraggingThreshold: boolean
   setDraggingThreshold: (isDragging: boolean) => void
@@ -445,6 +449,9 @@ const initialState = {
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,
 
+  // Active workflow stage synced from views
+  workflowActiveStage: 'bootstrap' as const,
+
   // Whether threshold handle is currently being dragged
   isDraggingThreshold: false,
 
@@ -630,6 +637,7 @@ export const useStore = create<AppState>((set, get) => {
   ...createActivationActions(set, get),
 
   // Threshold drag state action
+  setWorkflowActiveStage: (stage: 'bootstrap' | 'learn' | 'apply') => set({ workflowActiveStage: stage }),
   setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
 
   // Cause margin threshold action

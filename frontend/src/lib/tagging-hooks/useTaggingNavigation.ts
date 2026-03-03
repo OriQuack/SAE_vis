@@ -35,6 +35,8 @@ interface UseTaggingNavigationOptions {
   isHistogramReady?: boolean
   /** Whether tagged items are hidden - disables auto-advance since item disappears from list */
   hideTagged?: boolean
+  /** Callback to clear stored selection state (e.g., selectedFeatureIdState/selectedPairKeyState) */
+  onClearStoredSelection?: () => void
 }
 
 interface UseTaggingNavigationReturn {
@@ -58,7 +60,8 @@ export function useTaggingNavigation(
     onResetToFirst,
     navigationDelay = 150,
     isHistogramReady = false,
-    hideTagged = false
+    hideTagged = false,
+    onClearStoredSelection
   } = options
 
   // Auto-advance when viewing 'all' list AND either:
@@ -80,7 +83,9 @@ export function useTaggingNavigation(
   // IMPORTANT: Skip all auto-navigation when hideTagged is true (item disappears, next appears at same index)
   const handlePostTagNavigation = useCallback(() => {
     if (hideTagged) {
-      // Don't navigate - tagged item will disappear and next item appears at same index
+      // Clear stored selection so index-based fallback takes over
+      // (next item will appear at same index after tagged item is removed)
+      onClearStoredSelection?.()
       return
     }
     if (sortMode === 'decisionMargin' && isHistogramReady) {
@@ -91,7 +96,7 @@ export function useTaggingNavigation(
       setTimeout(() => onNavigateNext(), navigationDelay)
     }
     // Otherwise: stay on current item
-  }, [hideTagged, sortMode, isHistogramReady, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay])
+  }, [hideTagged, sortMode, isHistogramReady, shouldAutoAdvance, canAdvance, onNavigateNext, onResetToFirst, navigationDelay, onClearStoredSelection])
 
   // Handle navigation after unsure click
   // Always advances (since clearing doesn't change sort order)

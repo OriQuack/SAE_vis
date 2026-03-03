@@ -188,7 +188,7 @@ steps:
     parameters:
       pattern_type_thresholds:
         semantic: 0.6
-        lexical: 0.15
+        lexical: 0.10
         ngram_jaccard: 0.10
 
   # Step 11: Process interfeature display data
@@ -201,7 +201,7 @@ steps:
     parameters:
       pattern_type_thresholds:
         semantic: 0.6
-        lexical: 0.15
+        lexical: 0.10
         ngram_jaccard: 0.10
 
   # Step 12: Explanation alignment (phrase matching)

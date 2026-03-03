@@ -110,12 +110,15 @@ export function getActivationColor(
  */
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
-  maxLength: number = 50
+  maxPixelWidth: number,
+  charWidth: number = 6.35,
+  tokenOverhead: number = 7
 ): { displayTokens: ActivationToken[], hasLeftEllipsis: boolean, hasRightEllipsis: boolean } {
-  const totalLength = tokens.reduce((sum, t) => sum + t.text.length, 0)
+  const tokenPixelCost = (t: ActivationToken) => t.text.length * charWidth + tokenOverhead
+  const totalPixelWidth = tokens.reduce((sum, t) => sum + tokenPixelCost(t), 0)
 
   // If everything fits, return all tokens
-  if (totalLength <= maxLength) {
+  if (totalPixelWidth <= maxPixelWidth) {
     return { displayTokens: tokens, hasLeftEllipsis: false, hasRightEllipsis: false }
   }
 
@@ -123,12 +126,12 @@ export function formatTokensWithEllipsis(
   const maxTokenIdx = tokens.findIndex(t => t.is_max)
   if (maxTokenIdx === -1) {
     // No max token found, fallback to simple truncation from start
-    let currentLength = 0
+    let currentWidth = 0
     const displayTokens: ActivationToken[] = []
     for (const token of tokens) {
-      if (currentLength + token.text.length > maxLength) break
+      if (currentWidth + tokenPixelCost(token) > maxPixelWidth) break
       displayTokens.push(token)
-      currentLength += token.text.length
+      currentWidth += tokenPixelCost(token)
     }
     return {
       displayTokens,
@@ -137,9 +140,9 @@ export function formatTokensWithEllipsis(
     }
   }
 
-  // Initial symmetric budget allocation
-  const maxTokenLength = tokens[maxTokenIdx].text.length
-  const remainingBudget = maxLength - maxTokenLength
+  // Initial symmetric budget allocation (in pixels)
+  const maxTokenWidth = tokenPixelCost(tokens[maxTokenIdx])
+  const remainingBudget = maxPixelWidth - maxTokenWidth
   let leftBudget = Math.floor(remainingBudget / 2)
   let rightBudget = remainingBudget - leftBudget
 
@@ -148,18 +151,18 @@ export function formatTokensWithEllipsis(
   // First pass: expand left side up to leftBudget
   let leftIdx = maxTokenIdx - 1
   let leftUsed = 0
-  while (leftIdx >= 0 && leftUsed + tokens[leftIdx].text.length <= leftBudget) {
+  while (leftIdx >= 0 && leftUsed + tokenPixelCost(tokens[leftIdx]) <= leftBudget) {
     selected.add(leftIdx)
-    leftUsed += tokens[leftIdx].text.length
+    leftUsed += tokenPixelCost(tokens[leftIdx])
     leftIdx--
   }
 
   // First pass: expand right side up to rightBudget
   let rightIdx = maxTokenIdx + 1
   let rightUsed = 0
-  while (rightIdx < tokens.length && rightUsed + tokens[rightIdx].text.length <= rightBudget) {
+  while (rightIdx < tokens.length && rightUsed + tokenPixelCost(tokens[rightIdx]) <= rightBudget) {
     selected.add(rightIdx)
-    rightUsed += tokens[rightIdx].text.length
+    rightUsed += tokenPixelCost(tokens[rightIdx])
     rightIdx++
   }
 
@@ -171,9 +174,9 @@ export function formatTokensWithEllipsis(
   if (leftIdx < 0 && leftUnused > 0) {
     rightBudget += leftUnused
     // Continue expanding right with extra budget
-    while (rightIdx < tokens.length && rightUsed + tokens[rightIdx].text.length <= rightBudget) {
+    while (rightIdx < tokens.length && rightUsed + tokenPixelCost(tokens[rightIdx]) <= rightBudget) {
       selected.add(rightIdx)
-      rightUsed += tokens[rightIdx].text.length
+      rightUsed += tokenPixelCost(tokens[rightIdx])
       rightIdx++
     }
   }
@@ -182,9 +185,9 @@ export function formatTokensWithEllipsis(
   if (rightIdx >= tokens.length && rightUnused > 0) {
     leftBudget += rightUnused
     // Continue expanding left with extra budget
-    while (leftIdx >= 0 && leftUsed + tokens[leftIdx].text.length <= leftBudget) {
+    while (leftIdx >= 0 && leftUsed + tokenPixelCost(tokens[leftIdx]) <= leftBudget) {
       selected.add(leftIdx)
-      leftUsed += tokens[leftIdx].text.length
+      leftUsed += tokenPixelCost(tokens[leftIdx])
       leftIdx--
     }
   }

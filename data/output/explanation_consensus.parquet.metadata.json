@@ -1,5 +1,5 @@
 {
-  "created_at": "2026-02-23T20:39:49.614513",
+  "created_at": "2026-03-03T17:12:24.473763",
   "step_name": "Step 14: Explanation Consensus",
   "script_version": "1.2",
   "total_rows": 16384,
@@ -14,11 +14,12 @@
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "features_processed": 16384,
-    "features_with_clusters": 12073,
-    "features_with_outliers_only": 4311,
-    "total_clusters": 28376,
-    "total_outliers": 48270,
-    "total_phrases": 134232
+    "features_with_clusters": 10735,
+    "features_with_outliers_only": 5649,
+    "total_clusters": 12964,
+    "total_outliers": 94385,
+    "total_phrases": 134232,
+    "single_explainer_clusters_reclassified": 15412
   },
   "result_stats": {
     "unique_feature_ids": 16384,

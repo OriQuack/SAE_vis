@@ -188,7 +188,6 @@ export const TagButton: React.FC<TagButtonProps> = ({
       onClick={onClick}
       style={{
         '--tag-color': color,
-        border: 'none'
       } as React.CSSProperties}
     >
       {label}

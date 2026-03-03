@@ -159,6 +159,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+  const workflowActiveStage = useVisualizationStore(state => state.workflowActiveStage)
   const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -470,8 +471,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
   }, [stage, tagAutomaticState, pairSelectionStates, pairSelectionSources, featureSelectionStates, featureSelectionSources, filteredFeatureIds, allClusterPairs])
 
-  // Preview is active when DecisionMarginHistogram has histogram data (user can drag thresholds)
-  const isPreviewActive = !!tagAutomaticState?.histogramData
+  // Preview is active only in 'apply' phase when histogram data exists
+  const isPreviewActive = !!tagAutomaticState?.histogramData && workflowActiveStage === 'apply'
   // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
   const showThresholdControls = thresholdVisualization?.visible ?? false
 

@@ -5,7 +5,7 @@ import featureValidatorLogo from '../assets/feature-validator-logo.svg';
 import '../styles/AppHeader.css';
 
 /**
- * Header component that displays InSAEght branding and SAE model information
+ * Header component that displays DECODE branding and SAE model information
  */
 const Header: React.FC = () => {
   // Get data from store
@@ -43,9 +43,9 @@ const Header: React.FC = () => {
 
   return (
     <div className="header">
-      {/* InSAEght Branding */}
+      {/* DECODE Branding */}
       <div className="header__branding">
-        <img src={featureValidatorLogo} alt="InSAEght" className="header__logo" />
+        <img src={featureValidatorLogo} alt="DECODE" className="header__logo" />
         <h1 className="header__title">DECODE</h1>
       </div>
 

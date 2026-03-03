@@ -495,15 +495,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
 
   // Auto-enable filters when entering Apply phase, reset when leaving
+  const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
+    setWorkflowActiveStage(activeStage)
     if (activeStage === 'apply') {
       setHideTagged(true)
-      setShowDisagreementOnly(true)
     } else {
       setHideTagged(false)
-      setShowDisagreementOnly(false)
     }
-  }, [activeStage])
+  }, [activeStage, setWorkflowActiveStage])
 
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
@@ -552,14 +552,23 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   const disagreementKeys = useMemo(() => new Set(disagreementLookup.keys()), [disagreementLookup])
 
-  // Filter pairs based on hideTagged and showDisagreementOnly toggles
+  // Filter pairs based on hideTagged, showDisagreementOnly, and Apply-phase thresholds
   const displayPairList = useMemo(() => {
     return pairList.filter(pair => {
       if (hideTagged && pairSelectionStates.has(pair.pairKey)) return false
       if (showDisagreementOnly && !disagreementKeys.has(pair.pairKey)) return false
+      // In Apply phase, only show items past thresholds
+      if (activeStage === 'apply' && tagAutomaticState?.histogramData) {
+        const score = pairSimilarityScores.get(pair.pairKey)
+        if (score === undefined) return false
+        const reject = tagAutomaticState.rejectThreshold ?? -0.8
+        const select = tagAutomaticState.selectThreshold ?? 0.8
+        if (score >= reject && score < select) return false
+      }
       return true
     })
-  }, [pairList, hideTagged, pairSelectionStates, showDisagreementOnly, disagreementKeys])
+  }, [pairList, hideTagged, pairSelectionStates, showDisagreementOnly, disagreementKeys,
+      activeStage, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, tagAutomaticState?.selectThreshold, pairSimilarityScores])
 
   // Extract pair keys from displayPairList for scroll hook
   const sortedFilteredPairKeys = useMemo(() => {
@@ -659,25 +668,25 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   const previewRejectKeys = useMemo(() => {
     const keys = new Set<string>()
+    if (!tagAutomaticState?.histogramData || activeStage !== 'apply') return keys
     const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
-    if (!tagAutomaticState?.histogramData) return keys
     rawPairList.forEach(p => {
       const score = pairSimilarityScores.get(p.pairKey)
       if (score !== undefined && score < rejectThreshold) keys.add(p.pairKey)
     })
     return keys
-  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold])
+  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, activeStage])
 
   const previewSelectKeys = useMemo(() => {
     const keys = new Set<string>()
+    if (!tagAutomaticState?.histogramData || activeStage !== 'apply') return keys
     const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    if (!tagAutomaticState?.histogramData) return keys
     rawPairList.forEach(p => {
       const score = pairSimilarityScores.get(p.pairKey)
       if (score !== undefined && score >= selectThreshold) keys.add(p.pairKey)
     })
     return keys
-  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold])
+  }, [rawPairList, pairSimilarityScores, tagAutomaticState?.histogramData, tagAutomaticState?.selectThreshold, activeStage])
 
   // Get tag color for header badge
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442'
@@ -809,9 +818,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
   // Check if all pairs are tagged (no unsure remaining) - enables Move to Next Stage button
   const allPairsTagged = useMemo(() => {
-    if (pairList.length === 0) return false
-    return pairList.every(pair => pairSelectionStates.has(pair.pairKey))
-  }, [pairList, pairSelectionStates])
+    if (rawPairList.length === 0) return false
+    return rawPairList.every(pair => pairSelectionStates.has(pair.pairKey))
+  }, [rawPairList, pairSelectionStates])
 
   // Handle Tag All - Option 1: Tag all unsure as Monosemantic
   const handleTagAllMonosemantic = useCallback(() => {
@@ -1031,6 +1040,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               setCurrentPairIndex(0)
             }}
             hideTagged={hideTagged}
+            onClearStoredSelection={() => setSelectedPairKeyState(null)}
           />
         </div>
 
@@ -1043,7 +1053,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           histogramProps={{
             availablePairs: rawPairList,
             filteredFeatureIds: selectedFeatureIds || undefined,
-            threshold: clusteringThreshold
+            threshold: clusteringThreshold,
+            focusedItemId: selectedPairKey
           }}
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
@@ -1058,7 +1069,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             className="action-button action-button--next"
             onClick={moveToNextStep}
             disabled={!allPairsTagged}
-            title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Label all pairs first (${pairSelectionStates.size}/${pairList.length})`}
+            title={allPairsTagged ? 'Proceed to Stage 2: Quality' : `Label all pairs first (${pairSelectionStates.size}/${rawPairList.length})`}
           >
             Move to Stage 2 Quality ↑
           </button>

@@ -372,6 +372,15 @@ Matches .nav__button style: white background, 11px font
   min-width: 55px;
 }
 
+.nav__button:focus {
+  outline: none;
+}
+
+.nav__button:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
 .nav__button:hover:not(:disabled) {
   background-color: #f3f4f6;
   border-color: #9ca3af;
@@ -397,6 +406,11 @@ Matches .nav__button style: white background, 11px font
   align-self: center;
 }
 
+/* Extra spacing before the unsure button (placed after Next) */
+.floating-controls .selection__button--unsure {
+  margin-left: 20px;
+}
+
 /* ============================================================================
    SELECTION/TAG BUTTONS - Tag buttons in floating controls
    All variants use --tag-color CSS variable set inline by TagButton component
@@ -407,10 +421,9 @@ Matches .nav__button style: white background, 11px font
   font-size: 14px;
   font-weight: 600;
   color: #000;
-  border: 2px solid rgba(0, 0, 0, 0.15);
-  border-radius: 4px;
+  border: 3px solid var(--tag-color);
+  border-radius: 5px;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -426,32 +439,42 @@ Matches .nav__button style: white background, 11px font
   outline: none;
 }
 
-.selection__button:focus-visible {
+.selection__button:focus:not(:focus-visible) {
   outline: none;
+  box-shadow: none;
+}
+
+.selection__button:focus-visible {
+  outline: 2px solid var(--tag-color);
+  outline-offset: 2px;
+}
+
+.selection__button:hover {
+  border-color: var(--tag-color);
 }
 
 .selection__button::before {
   content: '';
   position: absolute;
   inset: 0;
-  border-radius: 3px;
   background-color: var(--tag-color, var(--unsure-gray));
-  opacity: 1.0;
+  opacity: 0;
   z-index: -1;
+  transition: opacity 0.15s ease;
 }
 
 .selection__button.selected {
-  border-color: rgba(0, 0, 0, 0.4);
+  border-color: var(--tag-color);
   color: #000;
   font-weight: 600;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 1px 3px rgba(0, 0, 0, 0.1);
-  transform: scale(1.12);
 }
 
-.selection__button:hover:not(.selected) {
-  color: #000;
-  border-color: rgba(0, 0, 0, 0.3);
-  transform: scale(1.08);
+.selection__button.selected::before {
+  opacity: 1;
+}
+
+.selection__button:hover:not(.selected)::before {
+  opacity: 0.25;
 }
 
 /* ============================================================================

@@ -273,17 +273,28 @@ class ActivationDisplayProcessor(BaseProcessor):
         logger.info(f"Loaded similarity data for {len(self.similarity_df):,} features")
 
     def _process_tokens_array(self, tokens: List[str]) -> List[str]:
-        """Process token list, removing SentencePiece markers.
+        """Process token list, removing SentencePiece markers while preserving whitespace.
 
         Args:
             tokens: List of token strings (may have '▁' SentencePiece prefix)
 
         Returns:
-            List of processed tokens
+            List of processed tokens with whitespace chars preserved
         """
         if not tokens:
             return []
-        return [t.lstrip('▁').strip() for t in tokens]
+        result = []
+        for t in tokens:
+            stripped = t.lstrip('▁')
+            if stripped:
+                # Normal token or whitespace char ('\n', '\t') — keep as-is
+                result.append(stripped)
+            elif t:
+                # Was only ▁ markers → space token(s)
+                result.append(' ' * len(t))
+            else:
+                result.append(t)
+        return result
 
     def _extract_char_ngram_positions(self, ngram_data: Optional[Dict], prompt_id: int) -> List[Dict]:
         """Extract positions where a character n-gram appears for a specific prompt."""

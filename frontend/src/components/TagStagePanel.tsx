@@ -3,7 +3,7 @@ import {
   getTagCategoriesInOrder,
   getTagColor,
 } from '../lib/tag-system';
-import { type TagCategoryConfig } from '../lib/constants';
+import { type TagCategoryConfig, TAG_CATEGORY_REGENERATION } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
 import FlowPanel from './FlowPanel';
 import '../styles/TagStagePanel.css';
@@ -34,7 +34,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // const [badgePositions, setBadgePositions] = useState<Record<string, { left: number; right: number; y: number }>>({});
 
   // Get all stages in order
-  const stages = useMemo(() => getTagCategoriesInOrder(), []);
+  const stages = useMemo(() => getTagCategoriesInOrder().filter(s => s.id !== TAG_CATEGORY_REGENERATION), []);
 
   // Get store getters for consistent counts with SelectionBar
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts);
@@ -336,9 +336,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
           const isFuture = isStageFuture(stage.stageOrder);
-          // Reverse display order for stages 1 & 2 so positive tag appears left
           const stageTags = (nodesByStage[stage.stageOrder] || []).slice();
-          if (stage.stageOrder === 1 || stage.stageOrder === 2) stageTags.reverse();
 
           return (
               <button

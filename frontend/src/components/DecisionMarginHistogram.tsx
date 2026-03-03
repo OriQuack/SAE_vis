@@ -46,6 +46,7 @@ interface DecisionMarginHistogramProps {
   filteredFeatureIds?: Set<number>  // Selected feature IDs from Sankey segment
   threshold?: number  // Clustering threshold from Sankey (required for simplified flow)
   activeStage?: ActiveStage  // Controls threshold handle visibility (shown only in 'apply' phase)
+  focusedItemId?: string | null  // Pair key or feature ID (as string) to highlight in histogram
 }
 
 const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
@@ -53,7 +54,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   availablePairs,
   filteredFeatureIds,
   threshold,
-  activeStage
+  activeStage,
+  focusedItemId
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
@@ -416,6 +418,17 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
     return calculateCategoryStackedBars(histogramChart, categoryData, modeColors)
   }, [histogramChart, categoryData, modeColors])
 
+  // Compute focused bin index from focusedItemId
+  const focusedBinIndex = useMemo(() => {
+    if (!focusedItemId || !histogramChart || !histogramData?.scores) return null
+    const score = histogramData.scores[focusedItemId]
+    if (typeof score !== 'number') return null
+    const bins = histogramChart.bins
+    const idx = bins.findIndex((bin) => score >= bin.x0 && score < bin.x1)
+    const lastBinIndex = bins.length - 1
+    return idx === -1 && score === bins[lastBinIndex]?.x1 ? lastBinIndex : idx === -1 ? null : idx
+  }, [focusedItemId, histogramChart, histogramData])
+
   // Calculate axis ticks
   const xAxisTicks = useMemo(() => {
     if (!histogramChart) return []
@@ -705,6 +718,26 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                       />
                     )
                   })}
+
+                  {/* Focused item bin highlight */}
+                  {focusedBinIndex !== null && (() => {
+                    const bin = histogramChart.bins[focusedBinIndex]
+                    if (!bin) return null
+                    const binX = histogramChart.xScale(bin.x0)
+                    const binWidth = histogramChart.xScale(bin.x1) - binX
+                    return (
+                      <rect
+                        x={binX}
+                        y={0}
+                        width={binWidth}
+                        height={histogramChart.height}
+                        fill="rgba(59, 130, 246, 0.12)"
+                        stroke="rgba(59, 130, 246, 0.65)"
+                        strokeWidth={1}
+                        pointerEvents="none"
+                      />
+                    )
+                  })()}
 
                   {/* Center line at 0 */}
                   <line

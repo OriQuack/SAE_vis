@@ -174,10 +174,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     setPopoverStyle(style)
   }, [])
 
-  // Calculate max characters based on container width passed from parent
-  // Monospace fonts (Consolas/Monaco) at 11px: ~6.8px per character (conservative to prevent overflow)
-  const CHAR_WIDTH = 8
-  const maxLength = useMemo(() => Math.floor(containerWidth / CHAR_WIDTH), [containerWidth])
+  // containerWidth is passed directly to formatTokensWithEllipsis as pixel budget
 
   // Get the n-gram length for precise highlighting (backend provides this)
   // For char n-grams: number of characters; for word n-grams: not used (whole token highlighted)
@@ -265,7 +262,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
           const tokens = buildActivationTokens(example, example.prompt_tokens.length * 2)
 
           // Truncate based on available width (symmetric around max token with full tokens)
-          const { displayTokens } = formatTokensWithEllipsis(tokens, maxLength)
+          const { displayTokens } = formatTokensWithEllipsis(tokens, containerWidth)
 
           return (
             <div
@@ -311,7 +308,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                 {group.map((example, exIdx) => {
                   // Pass all tokens - use 2x length to ensure symmetric window covers full array
                   const tokens = buildActivationTokens(example, example.prompt_tokens.length * 2)
-                  const { displayTokens } = formatTokensWithEllipsis(tokens, maxLength)
+                  const { displayTokens } = formatTokensWithEllipsis(tokens, containerWidth)
 
                   return (
                     <div key={exIdx} className="activation-example__popover-row">

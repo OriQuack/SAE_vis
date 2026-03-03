@@ -8,7 +8,7 @@
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;  /* Monospace font for predictable character widths */
   font-size: 11px;
   font-weight: 500;
-  line-height: 1.4;
+  line-height: 1;
   display: flex;
   flex-direction: column;
   cursor: pointer;
@@ -104,22 +104,21 @@
  * ============================================================================ */
 
 .activation-token {
-  padding: 0px 2px;
+  padding: 1px 2px;
   border-radius: 2px;
-  transition: background-color 0.15s ease;
   white-space: pre;
   border: 1.5px solid transparent;  /* Reserve space for border to prevent layout shift */
   display: inline-flex;
   align-items: center;
-  min-height: 1.4em;
-  line-height: 1.4;
+  min-height: 13px;
+  line-height: 1;
   vertical-align: middle;
 }
 
 /* Pattern indicator (lexical patterns: char or word n-grams) */
 /* Word-level: Solid blue border for tokens with n-gram position data */
 .activation-token--ngram {
-  box-shadow: inset 0 0 0 1px #3b82f6;
+  box-shadow: inset 0 0 0 1.5px #3b82f6;
 }
 
 /* Character-level: Inline highlight for specific character substring within token */
@@ -127,15 +126,14 @@
 /* don't reliably render inset box-shadows due to lack of explicit box dimensions */
 .activation-token__ngram-char {
   border: 1.5px solid #3b82f6;
-  margin: 0 -1px;  /* Compensate for border to minimize layout shift */
+  margin: 0 -1.5px;  /* Compensate for border to minimize layout shift */
 }
 
 /* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
 /* Uses green closed border to differentiate from intra-feature blue border */
 /* Can coexist with confidence-based n-gram classes for dual highlighting */
 .activation-token--interfeature {
-  border: 2px solid #10b981;
-  margin: -0.5px 0;  /* Compensate for extra border size to prevent clipping */
+  border: 1.5px solid #10b981;
 }
 
 /* Newline token styling */
