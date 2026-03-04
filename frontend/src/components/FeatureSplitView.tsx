@@ -1036,6 +1036,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             }}
             hideTagged={hideTagged}
             onClearStoredSelection={() => setSelectedPairKeyState(null)}
+            onUndoNavigate={(pairKey) => setSelectedPairKeyState(pairKey)}
           />
         </div>
 

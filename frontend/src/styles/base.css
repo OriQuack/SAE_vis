@@ -418,7 +418,12 @@ Matches .nav__button style: white background, 11px font
 
 /* Extra spacing before the unsure button (placed after Next) */
 .floating-controls .selection__button--unsure {
-  margin-left: 20px;
+  margin-left: 50px;
+}
+
+/* Undo button - before prev */
+.floating-controls .nav__button--undo {
+  margin-right: 10px;
 }
 
 /* ============================================================================
@@ -629,7 +634,7 @@ Matches .nav__button style: white background, 11px font
 
 /* Monospace range label */
 .legend-range {
-  font-size: 9px;
+  font-size: 12px;
   font-family: 'Consolas', 'Monaco', monospace;
   color: var(--text-secondary, #6b7280);
 }

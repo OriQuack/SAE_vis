@@ -140,6 +140,10 @@ class FeatureTableRow(BaseModel):
         None,
         description="Intra-feature similarity: max(intra_ngram_jaccard, intra_semantic_sim) from svm_feature_metrics"
     )
+    consensus_score: Optional[float] = Field(
+        None,
+        description="Consensus score from HDBSCAN phrase clustering (0-1 range, normalized by num_explainers)"
+    )
     explainers: Dict[str, ExplainerScoreData] = Field(
         ...,
         description="Scores for each explainer (llama, qwen, openai)"

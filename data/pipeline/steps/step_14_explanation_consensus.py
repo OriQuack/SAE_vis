@@ -409,6 +409,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
         # Build cluster results
         clusters = []
         unique_labels = set(cluster_labels)
+        num_explainers = len(set(explainer_names))
 
         for cluster_id in sorted(unique_labels):
             cluster_mask = cluster_labels == cluster_id
@@ -450,12 +451,17 @@ class ExplanationConsensusProcessor(BaseProcessor):
             else:
                 coherence = 1.0
 
-            # Calculate cluster score: sum of phrase weights in this cluster
+            # Calculate cluster score: phrase weight sum scaled by explainer coverage
+            # coverage_factor = (|E_k| - 1) / (N_exp - 1): fraction of explainers beyond the first
             # Outliers get score 0 (no cross-explainer consensus)
             if is_outlier:
                 cluster_score = 0.0
             else:
-                cluster_score = sum(phrase_weights[i] for i in cluster_indices)
+                explainers_in_cluster = set(
+                    explainer_names[phrases[idx][1]] for idx in cluster_indices
+                )
+                coverage_factor = (len(explainers_in_cluster) - 1) / (num_explainers - 1) if num_explainers > 1 else 0.0
+                cluster_score = coverage_factor * sum(phrase_weights[i] for i in cluster_indices)
 
             # Build phrase details
             phrase_details = []
@@ -513,7 +519,6 @@ class ExplanationConsensusProcessor(BaseProcessor):
         num_clusters = len([c for c in clusters if c["cluster_id"] != -1])
         num_outliers = len([c for c in clusters if c["cluster_id"] == -1])
 
-        num_explainers = len(set(explainer_names))
         real_cluster_scores = sum(
             c["cluster_score"] for c in clusters if c["cluster_id"] != -1
         )

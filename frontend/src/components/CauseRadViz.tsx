@@ -606,7 +606,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                   r={6.5}
                   fill="none"
                   stroke={SELECTION_BLUE.DEFAULT}
-                  strokeWidth={1}
+                  strokeWidth={2.5}
                 />
                 {/* Point itself */}
                 {selectedPointData.isManual ? (

@@ -116,6 +116,9 @@ class TableDataService:
         # Load intra-feature similarity metrics from svm_feature_metrics.parquet
         self._intra_feature_sim_lookup: Dict[int, float] = self._load_intra_feature_sim_lookup()
 
+        # Load consensus_score from explanation_consensus.parquet
+        self._consensus_score_lookup: Dict[int, float] = self._load_consensus_score_lookup()
+
     # TODO: Loading from different parquet is actually stupid:
     # should be merged into main features.parquet in data pipeline
     def _load_intra_feature_sim_lookup(self) -> Dict[int, float]:
@@ -151,6 +154,20 @@ class TableDataService:
 
         except Exception as e:
             logger.warning(f"Could not load intra_feature_sim lookup: {e}")
+            return {}
+
+    def _load_consensus_score_lookup(self) -> Dict[int, float]:
+        """Load consensus_score from explanation_consensus.parquet."""
+        try:
+            consensus_file = self.data_service._resolve_data_path("explanation_consensus.parquet")
+            if not consensus_file.exists():
+                return {}
+            df = pl.read_parquet(consensus_file, columns=["feature_id", "consensus_score"])
+            lookup = dict(zip(df["feature_id"].to_list(), df["consensus_score"].to_list()))
+            logger.info(f"Loaded consensus_score lookup: {len(lookup)} features")
+            return lookup
+        except Exception as e:
+            logger.warning(f"Could not load consensus_score lookup: {e}")
             return {}
 
     def _get_default_explainers(self) -> List[str]:
@@ -686,11 +703,15 @@ class TableDataService:
                 # Get intra_feature_sim from pre-loaded lookup
                 intra_feature_sim = self._intra_feature_sim_lookup.get(feature_id)
 
+                # Get consensus_score from pre-loaded lookup
+                consensus_score = self._consensus_score_lookup.get(feature_id)
+
                 features.append(FeatureTableRow(
                     feature_id=feature_id,
                     decoder_similarity=decoder_similarity,
                     decoder_similarity_merge_threshold=merge_threshold,
                     intra_feature_sim=intra_feature_sim,
+                    consensus_score=consensus_score,
                     explainers=explainers_dict
                 ))
 

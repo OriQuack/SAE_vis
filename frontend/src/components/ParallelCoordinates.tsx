@@ -2,13 +2,13 @@
 // CAUSE METRIC PARALLEL COORDINATES
 // Parallel coordinates visualization for root cause metric scores
 // ============================================================================
-// Displays metrics as parallel vertical axes with connecting lines:
-// - Background lines: Stage 2 "Well-Explained" features (low opacity)
+// Displays metrics as parallel vertical axes with:
+// - Category bands: Median line + IQR shaded region per cause category
 // - Foreground line: Currently selected feature (vivid)
 //
 // Axes (left to right):
 // - Activation Example Sim (intraFeatureSim)
-// - LLM Explainer Semantic Sim (explainerSemanticSim)
+// - Explainer Consensus (consensusScore)
 // - Embedding (embedding)
 // - Detection (detection)
 // - Fuzz (fuzz)
@@ -16,6 +16,7 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
+import type { CategoryBand } from '../lib/parallel-coords-utils'
 import '../styles/ParallelCoordinates.css'
 
 // ============================================================================
@@ -23,8 +24,8 @@ import '../styles/ParallelCoordinates.css'
 // ============================================================================
 
 export interface ParallelCoordsProps {
-  /** Scores from Stage 2 "Well-Explained" features for background lines */
-  wellExplainedScores: Map<number, CauseMetricScores>
+  /** Summary bands per cause category (median + IQR) */
+  categoryBands: CategoryBand[]
   /** Scores of the currently selected feature for foreground line */
   currentScores: CauseMetricScores | null
   /** Optional className for container */
@@ -41,7 +42,7 @@ interface MetricConfig {
 // Define the 5 metrics in order (left to right)
 const METRICS: MetricConfig[] = [
   { key: 'intraFeatureSim', label: 'Activation Example Sim', shortLabel: 'Act. Sim' },
-  { key: 'explainerSemanticSim', label: 'LLM Explainer Semantic Sim', shortLabel: 'LLM Explainer Sim' },
+  { key: 'consensusScore', label: 'Explainer Consensus', shortLabel: 'Consensus' },
   { key: 'embedding', label: 'Embedding', shortLabel: 'Embedding' },
   { key: 'detection', label: 'Detection', shortLabel: 'Detection' },
   { key: 'fuzz', label: 'Fuzz', shortLabel: 'Fuzz' }
@@ -49,12 +50,16 @@ const METRICS: MetricConfig[] = [
 
 // Layout constants
 const MARGIN = { top: 6, right: 14, bottom: 28, left: 24 }
-const MIN_WIDTH = 250
+const FIXED_WIDTH = 200
 const MIN_HEIGHT = 80
 
-// Line colors (matches CauseView legend)
+// Line colors
 const LINE_COLOR = '#000000'
-const WELL_EXPLAINED_COLOR = '#22c55e'
+
+// Band rendering constants
+const BAND_FILL_OPACITY = 0.12
+const MEDIAN_STROKE_OPACITY = 0.6
+const MEDIAN_STROKE_WIDTH = 1.5
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -82,6 +87,51 @@ function generatePolylinePoints(
   return points.join(' ')
 }
 
+/**
+ * Generate polygon points for an IQR band (Q1 top edge → Q3 bottom edge).
+ * The polygon traces Q1 values left-to-right, then Q3 values right-to-left.
+ */
+function generateBandPolygon(
+  band: CategoryBand,
+  xScale: (index: number) => number,
+  yScale: (value: number) => number
+): string | null {
+  const topPoints: string[] = []  // Q3 values (higher on screen = lower y in SVG)
+  const bottomPoints: string[] = []  // Q1 values
+
+  for (let i = 0; i < METRICS.length; i++) {
+    const summary = band.metrics[METRICS[i].key]
+    if (!summary) continue
+    const x = xScale(i)
+    topPoints.push(`${x},${yScale(summary.q3)}`)
+    bottomPoints.push(`${x},${yScale(summary.q1)}`)
+  }
+
+  if (topPoints.length < 2) return null
+
+  // Trace: top left→right, then bottom right→left to close polygon
+  return [...topPoints, ...bottomPoints.reverse()].join(' ')
+}
+
+/**
+ * Generate polyline points for median values of a band.
+ */
+function generateMedianLine(
+  band: CategoryBand,
+  xScale: (index: number) => number,
+  yScale: (value: number) => number
+): string | null {
+  const points: string[] = []
+
+  for (let i = 0; i < METRICS.length; i++) {
+    const summary = band.metrics[METRICS[i].key]
+    if (!summary) continue
+    points.push(`${xScale(i)},${yScale(summary.median)}`)
+  }
+
+  return points.length >= 2 ? points.join(' ') : null
+}
+
 // ============================================================================
 // COMPONENT
 // ============================================================================
@@ -90,73 +140,59 @@ function generatePolylinePoints(
  * CauseMetricParallelCoords - Parallel coordinates visualization for cause metrics
  *
  * Shows:
- * - Background lines: Well-explained features from Stage 2 (low opacity)
+ * - Category bands: IQR shaded region + median line per cause category
  * - Foreground line: Currently selected feature (vivid, thicker)
  */
 export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
-  wellExplainedScores,
+  categoryBands,
   currentScores,
   className = ''
 }) => {
-  // SVG wrapper ref for size tracking (excludes legend)
+  // Track height dynamically via ResizeObserver
   const svgWrapperRef = useRef<HTMLDivElement>(null)
-  const [svgSize, setSvgSize] = useState({ width: MIN_WIDTH, height: MIN_HEIGHT })
+  const [svgHeight, setSvgHeight] = useState(MIN_HEIGHT)
 
-  // Track SVG wrapper size with ResizeObserver
   useEffect(() => {
     if (!svgWrapperRef.current) return
     const observer = new ResizeObserver(entries => {
       const rect = entries[0]?.contentRect
-      if (rect) {
-        setSvgSize({
-          width: Math.max(rect.width, MIN_WIDTH),
-          height: Math.max(rect.height, MIN_HEIGHT)
-        })
-      }
+      if (rect) setSvgHeight(Math.max(rect.height, MIN_HEIGHT))
     })
     observer.observe(svgWrapperRef.current)
     return () => observer.disconnect()
   }, [])
 
-  // Calculate dimensions and scales (responsive to SVG wrapper size)
-  const { width, height, innerHeight, xScale, yScale } = useMemo(() => {
-    const w = svgSize.width
-    const h = svgSize.height
-    const iw = w - MARGIN.left - MARGIN.right
-    const ih = h - MARGIN.top - MARGIN.bottom
+  // Fixed width, dynamic height
+  const { innerHeight, xScale, yScale } = useMemo(() => {
+    const iw = FIXED_WIDTH - MARGIN.left - MARGIN.right
+    const ih = svgHeight - MARGIN.top - MARGIN.bottom
 
-    // X scale: map axis index (0-4) to x position
     const xs = scaleLinear()
       .domain([0, METRICS.length - 1])
       .range([0, iw])
 
-    // Y scale: map metric value (0-1) to y position (inverted: 0 at bottom)
     const ys = scaleLinear()
       .domain([0, 1])
       .range([ih, 0])
 
     return {
-      width: w,
-      height: h,
       innerHeight: ih,
       xScale: (i: number) => xs(i) ?? 0,
       yScale: (v: number) => ys(v) ?? 0
     }
-  }, [svgSize])
+  }, [svgHeight])
 
-  // Generate background lines (well-explained features)
-  const backgroundLines = useMemo(() => {
-    const lines: Array<{ id: number; points: string }> = []
-
-    wellExplainedScores.forEach((scores, featureId) => {
-      const points = generatePolylinePoints(scores, xScale, yScale)
-      if (points) {
-        lines.push({ id: featureId, points })
-      }
-    })
-
-    return lines
-  }, [wellExplainedScores, xScale, yScale])
+  // Generate band polygons and median lines
+  const bandShapes = useMemo(() => {
+    return categoryBands
+      .filter(band => band.count >= 2)
+      .map(band => ({
+        band,
+        polygon: generateBandPolygon(band, xScale, yScale),
+        medianLine: generateMedianLine(band, xScale, yScale)
+      }))
+      .filter(s => s.polygon || s.medianLine)
+  }, [categoryBands, xScale, yScale])
 
   // Generate foreground line (current feature)
   const foregroundLine = useMemo(() => {
@@ -172,8 +208,11 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
     }))
   }, [xScale])
 
+  // Check if we have any data at all
+  const hasData = categoryBands.some(b => b.count > 0)
+
   // Empty state
-  if (wellExplainedScores.size === 0 && !currentScores) {
+  if (!hasData && !currentScores) {
     return (
       <div className={`cause-metric-parallel-coords ${className}`.trim()}>
         <div className="cause-metric-parallel-coords__placeholder">
@@ -185,11 +224,10 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
 
   return (
     <div className={`cause-metric-parallel-coords ${className}`.trim()}>
-      {/* SVG wrapper for size measurement */}
       <div ref={svgWrapperRef} className="cause-metric-parallel-coords__svg-wrapper">
         <svg
-          width={width}
-          height={height}
+          width={FIXED_WIDTH}
+          height={svgHeight}
           className="cause-metric-parallel-coords__svg"
         >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
@@ -245,14 +283,31 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
             strokeDasharray="4 3"
           />
 
-          {/* Background lines (well-explained features) */}
-          {backgroundLines.map(({ id, points }) => (
-            <polyline
-              key={id}
-              points={points}
-              className="cause-metric-parallel-coords__background-line"
-              style={{ stroke: WELL_EXPLAINED_COLOR }}
-            />
+          {/* Category bands: IQR polygon + median line */}
+          {bandShapes.map(({ band, polygon, medianLine }) => (
+            <g key={band.category}>
+              {/* IQR shaded band */}
+              {polygon && (
+                <polygon
+                  points={polygon}
+                  fill={band.color}
+                  fillOpacity={BAND_FILL_OPACITY}
+                  stroke="none"
+                />
+              )}
+              {/* Median line */}
+              {medianLine && (
+                <polyline
+                  points={medianLine}
+                  fill="none"
+                  stroke={band.color}
+                  strokeWidth={MEDIAN_STROKE_WIDTH}
+                  strokeOpacity={MEDIAN_STROKE_OPACITY}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              )}
+            </g>
           ))}
 
           {/* Foreground line (current feature) */}

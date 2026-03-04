@@ -786,6 +786,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     // Set batch flag - histogram update will add flip history entry with isBatch: true
     set({
       pendingBatchOperation: true,
+      lastClickTagAction: null,
       pairSelectionStates: newPairSelectionStates,
       pairSelectionSources: newPairSelectionSources,
       tagAutomaticState: {

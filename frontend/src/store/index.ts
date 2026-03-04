@@ -189,6 +189,15 @@ interface AppState {
   minimizeSimilarityTaggingPopover: () => void
   restoreSimilarityTaggingPopover: () => void
 
+  // Undo last click tag action
+  lastClickTagAction: {
+    stage: 'pair' | 'feature' | 'cause'
+    pairKey?: string
+    featureId?: number
+  } | null
+  setLastClickTagAction: (action: { stage: 'pair' | 'feature' | 'cause'; pairKey?: string; featureId?: number } | null) => void
+  undoLastClickTag: () => void
+
   // Node selection actions
   toggleNodeSelection: (nodeId: string) => void
   clearNodeSelection: () => void
@@ -425,6 +434,9 @@ const initialState = {
 
   // Batch operation flag - prevents double flip history entry on "Tag by Threshold"
   pendingBatchOperation: false,
+
+  // Undo last click tag action
+  lastClickTagAction: null,
 
   // Pair similarity sort state (for feature split table)
   pairSimilarityScores: new Map<string, number>(),
@@ -704,7 +716,8 @@ export const useStore = create<AppState>((set, get) => {
     set({
       causeSelectionStates: new Map(states),
       causeSelectionSources: new Map(sources),
-      causeLastClassificationSignature: signature
+      causeLastClassificationSignature: signature,
+      lastClickTagAction: null
     })
     console.log('[Store.restoreCauseSelectionStates] Restored cause selection states:', states.size, 'features, signature set')
   },
@@ -960,6 +973,53 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
+  // Undo last click tag action
+  setLastClickTagAction: (action) => {
+    set({ lastClickTagAction: action })
+  },
+
+  undoLastClickTag: () => {
+    const state = get()
+    const { lastClickTagAction } = state
+    if (!lastClickTagAction) return
+
+    const { stage, pairKey, featureId } = lastClickTagAction
+
+    if (stage === 'pair' && pairKey) {
+      const newStates = new Map(state.pairSelectionStates)
+      const newSources = new Map(state.pairSelectionSources)
+      newStates.delete(pairKey)
+      newSources.delete(pairKey)
+      set({
+        pairSelectionStates: newStates,
+        pairSelectionSources: newSources,
+        lastClickTagAction: null,
+        donePairSelectionStates: null
+      })
+    } else if (stage === 'feature' && featureId != null) {
+      const newStates = new Map(state.featureSelectionStates)
+      const newSources = new Map(state.featureSelectionSources)
+      newStates.delete(featureId)
+      newSources.delete(featureId)
+      set({
+        featureSelectionStates: newStates,
+        featureSelectionSources: newSources,
+        lastClickTagAction: null,
+        doneFeatureSelectionStates: null
+      })
+    } else if (stage === 'cause' && featureId != null) {
+      const newStates = new Map(state.causeSelectionStates)
+      const newSources = new Map(state.causeSelectionSources)
+      newStates.delete(featureId)
+      newSources.delete(featureId)
+      set({
+        causeSelectionStates: newStates,
+        causeSelectionSources: newSources,
+        lastClickTagAction: null
+      })
+    }
+  },
+
   restorePairSelectionStates: (states: Map<string, 'selected' | 'rejected'>, sources: Map<string, 'click' | 'threshold' | 'predicted'>) => {
     // Compute signature from restored states to prevent SVM re-training
     const selectedKeys: string[] = []
@@ -977,7 +1037,8 @@ export const useStore = create<AppState>((set, get) => {
       pairSelectionStates: new Map(states),
       pairSelectionSources: new Map(sources),
       donePairSelectionStates: null,
-      lastPairSortedSelectionSignature: signature
+      lastPairSortedSelectionSignature: signature,
+      lastClickTagAction: null
     })
   },
 
@@ -998,7 +1059,8 @@ export const useStore = create<AppState>((set, get) => {
       featureSelectionStates: new Map(states),
       featureSelectionSources: new Map(sources),
       doneFeatureSelectionStates: null,
-      lastSortedSelectionSignature: signature
+      lastSortedSelectionSignature: signature,
+      lastClickTagAction: null
     })
   },
 
@@ -1065,7 +1127,8 @@ export const useStore = create<AppState>((set, get) => {
 
       return {
         causeSelectionStates: newStates,
-        causeSelectionSources: newSources
+        causeSelectionSources: newSources,
+        lastClickTagAction: null
       }
     })
   },

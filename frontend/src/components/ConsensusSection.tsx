@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import chroma from 'chroma-js'
 import type { ConsensusResponse, ConsensusItem } from '../types'
 import { D3_SCHEME_TABLEAU10 } from '../lib/constants'
+import { BUCKET_COLORS, BUCKETS, toBucket } from './CrossMetricConsensus'
 import { Tooltip } from './Tooltip'
 import '../styles/ConsensusSection.css'
 
@@ -48,7 +49,7 @@ function getConsensusOpacity(consensusScore: number): number {
 // CONSENSUS LEGEND - Compact inline legend for subheader row
 // ============================================================================
 
-/** Compact legend showing teal consensus opacity ramp */
+/** Compact legend showing teal consensus opacity ramp + metric score buckets */
 export const ConsensusLegend: React.FC = React.memo(() => (
   <div className="legend-group">
     <div className="legend-item">
@@ -64,6 +65,22 @@ export const ConsensusLegend: React.FC = React.memo(() => (
       </span>
       <span className="legend-range">0–3</span>
     </div>
+    <div className="legend-separator" />
+    <div className="legend-item">
+      <span className="legend-label">Metric Score:</span>
+    </div>
+    {BUCKETS.map((b, i) => {
+      const match = b.label.match(/^([<>≥≤]?)(.+)$/)
+      const prefix = match?.[1] ?? ''
+      const rest = match?.[2] ?? b.label
+      return (
+        <div key={i} className="legend-item">
+          <span className="legend-swatch" style={{ backgroundColor: BUCKET_COLORS[i] }} />
+          {prefix && <span className="legend-label" style={{ marginLeft: 0 }}>{prefix}</span>}
+          <span className="legend-range">{rest}</span>
+        </div>
+      )
+    })}
   </div>
 ))
 
@@ -147,18 +164,25 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     return null
   }
 
-  const renderPill = (item: ConsensusItem, idx: number) => (
-    <div
-      key={`${item.cluster_id}-${idx}`}
-      className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
-      style={getPillStyle(item)}
-      onMouseEnter={(e) => handleMouseEnter(e, item)}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
-    >
-      <span className="consensus-item__phrase">{item.phrase}</span>
-    </div>
-  )
+  const renderPill = (item: ConsensusItem, idx: number) => {
+    const qualityScore = item.is_outlier ? item.quality_score : item.avg_quality_score
+    const dotColor = qualityScore != null ? BUCKET_COLORS[toBucket(qualityScore)] : undefined
+    return (
+      <div
+        key={`${item.cluster_id}-${idx}`}
+        className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
+        style={getPillStyle(item)}
+        onMouseEnter={(e) => handleMouseEnter(e, item)}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <span className="consensus-item__phrase">{item.phrase}</span>
+        {dotColor && (
+          <span className="consensus-item__tag" style={{ backgroundColor: dotColor }} />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="consensus-section">

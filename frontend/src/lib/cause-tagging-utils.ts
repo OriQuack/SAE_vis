@@ -14,7 +14,7 @@ export type CauseCategory = 'noisy-activation' | 'missed-N-gram' | 'missed-conte
 
 export interface CauseMetricScores {
   // Aggregated scores
-  /** Noisy Activation score: Avg(intraFeatureSim, explainerSemanticSim) */
+  /** Noisy Activation score: Avg(intraFeatureSim, consensusScore) */
   noisyActivation: number | null
   /** Missed Context score: Avg(embedding, detection) */
   missedContext: number | null
@@ -24,25 +24,14 @@ export interface CauseMetricScores {
   // Component scores for detailed visualization
   /** Intra-feature similarity (component of noisyActivation) */
   intraFeatureSim: number | null
-  /** Explainer semantic similarity (component of noisyActivation) */
-  explainerSemanticSim: number | null
+  /** Consensus score from HDBSCAN phrase clustering (component of noisyActivation) */
+  consensusScore: number | null
   /** Embedding score (component of missedContext) */
   embedding: number | null
   /** Detection score (component of missedContext) */
   detection: number | null
   /** Fuzz score (same as missedNgram) */
   fuzz: number | null
-}
-
-export interface CauseTagResult {
-  category: CauseCategory
-  scores: CauseMetricScores
-}
-
-export interface AutoTagResult {
-  causeStates: Map<number, CauseCategory>
-  causeSources: Map<number, 'predicted'>
-  causeScores: Map<number, CauseMetricScores>
 }
 
 // ============================================================================
@@ -84,29 +73,6 @@ function averageValues(values: (number | null | undefined)[]): number | null {
  */
 export function calculateIntraFeatureSimilarity(row: FeatureTableRow | null | undefined): number | null {
   return row?.intra_feature_sim ?? null
-}
-
-/**
- * Calculate explanation semantic similarity from ExplainerScoreData
- * Returns average of all pairwise semantic_similarity values across explainers
- */
-export function calculateExplainerSemanticSimilarity(
-  explainers: Record<string, ExplainerScoreData> | null | undefined
-): number | null {
-  if (!explainers) return null
-
-  const allPairwiseValues: number[] = []
-
-  for (const explainerData of Object.values(explainers)) {
-    if (explainerData.semantic_similarity) {
-      // semantic_similarity is Record<string, number> (e.g., {"qwen": 0.93, "openai": 0.87})
-      const pairwiseValues = Object.values(explainerData.semantic_similarity)
-      allPairwiseValues.push(...pairwiseValues)
-    }
-  }
-
-  if (allPairwiseValues.length === 0) return null
-  return allPairwiseValues.reduce((sum, v) => sum + v, 0) / allPairwiseValues.length
 }
 
 /**
@@ -242,7 +208,7 @@ export function calculateCauseMetricScores(
       missedContext: null,
       missedNgram: null,
       intraFeatureSim: null,
-      explainerSemanticSim: null,
+      consensusScore: null,
       embedding: null,
       detection: null,
       fuzz: null
@@ -253,8 +219,8 @@ export function calculateCauseMetricScores(
 
   // Calculate Noisy Activation score components
   const intraFeatureSim = calculateIntraFeatureSimilarity(row)
-  const explainerSemanticSim = calculateExplainerSemanticSimilarity(explainers)
-  const noisyActivation = averageValues([intraFeatureSim, explainerSemanticSim])
+  const consensusScore = row?.consensus_score ?? null
+  const noisyActivation = averageValues([intraFeatureSim, consensusScore])
 
   // Calculate Missed Context score components
   const embedding = calculateEmbeddingScore(explainers)
@@ -272,42 +238,11 @@ export function calculateCauseMetricScores(
     missedNgram,
     // Component scores
     intraFeatureSim,
-    explainerSemanticSim,
+    consensusScore,
     embedding,
     detection,
     fuzz
   }
-}
-
-/**
- * Determine cause tag based on scores
- *
- * Logic: Choose the tag with the minimum score (lowest = worst = root cause)
- */
-export function determineCauseTag(scores: CauseMetricScores): CauseCategory {
-  const { noisyActivation, missedContext, missedNgram } = scores
-
-  // Build list of valid scores with their categories
-  const candidates: Array<{ score: number; category: CauseCategory }> = []
-
-  if (noisyActivation !== null) {
-    candidates.push({ score: noisyActivation, category: 'noisy-activation' })
-  }
-  if (missedContext !== null) {
-    candidates.push({ score: missedContext, category: 'missed-context' })
-  }
-  if (missedNgram !== null) {
-    candidates.push({ score: missedNgram, category: 'missed-N-gram' })
-  }
-
-  // If no valid scores, default to noisy-activation
-  if (candidates.length === 0) {
-    return 'noisy-activation'
-  }
-
-  // Find minimum score and return its category
-  const min = candidates.reduce((a, b) => a.score < b.score ? a : b)
-  return min.category
 }
 
 /**
@@ -345,57 +280,6 @@ export function calculateMetricScoresOnly(
   console.log('[cause-tagging-utils] Calculated metric scores for', featureIds.size, 'features (no tags assigned)')
 
   return causeScores
-}
-
-/**
- * Auto-tag all features based on their metric scores
- *
- * @param featureIds - Set of feature IDs to tag
- * @param tableData - Table data containing feature rows (includes intra_feature_sim from backend)
- * @returns AutoTagResult with cause states, sources, and scores
- */
-export function autoTagFeatures(
-  featureIds: Set<number>,
-  tableData: { features: FeatureTableRow[] } | null
-): AutoTagResult {
-  const causeStates = new Map<number, CauseCategory>()
-  const causeSources = new Map<number, 'predicted'>()
-  const causeScores = new Map<number, CauseMetricScores>()
-
-  if (!tableData?.features) {
-    console.warn('[cause-tagging-utils] No table data available for auto-tagging')
-    return { causeStates, causeSources, causeScores }
-  }
-
-  // Build feature lookup map
-  const featureMap = new Map<number, FeatureTableRow>()
-  for (const row of tableData.features) {
-    featureMap.set(row.feature_id, row)
-  }
-
-  // Process each feature
-  for (const featureId of featureIds) {
-    const row = featureMap.get(featureId)
-
-    // Calculate scores
-    const scores = calculateCauseMetricScores(row)
-
-    // Determine tag
-    const category = determineCauseTag(scores)
-
-    // Store results
-    causeStates.set(featureId, category)
-    causeSources.set(featureId, 'predicted')
-    causeScores.set(featureId, scores)
-  }
-
-  console.log('[cause-tagging-utils] Auto-tagged', featureIds.size, 'features:', {
-    noisyActivation: Array.from(causeStates.values()).filter(c => c === 'noisy-activation').length,
-    missedContext: Array.from(causeStates.values()).filter(c => c === 'missed-context').length,
-    missedNgram: Array.from(causeStates.values()).filter(c => c === 'missed-N-gram').length
-  })
-
-  return { causeStates, causeSources, causeScores }
 }
 
 // ============================================================================

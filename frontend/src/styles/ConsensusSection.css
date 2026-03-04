@@ -69,11 +69,12 @@
 .consensus-item__pill {
   display: inline-flex;
   align-items: center;
-  padding: 0px 4px;
+  padding: 0px 0px 0px 4px;
   border-radius: 8px;
   font-size: 13px;
   cursor: default;
   max-width: 100%;
+  overflow: hidden;
 }
 
 /* Cluster (medoid) style - filled with teal at consensus opacity */
@@ -102,6 +103,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Quality score tag (colored right-side tab) */
+.consensus-item__tag {
+  width: 12px;
+  align-self: stretch;
+  flex-shrink: 0;
+  margin-left: 4px;
+  border-left: 1px solid white;
 }
 
 /* ============================================================================

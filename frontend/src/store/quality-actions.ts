@@ -591,6 +591,7 @@ export const createQualityActions = (set: any, get: any) => ({
     // Set batch flag - histogram update will add flip history entry with isBatch: true
     set({
       pendingBatchOperation: true,
+      lastClickTagAction: null,
       featureSelectionStates: newSelectionStates,
       featureSelectionSources: newSelectionSources,
       tagAutomaticState: {

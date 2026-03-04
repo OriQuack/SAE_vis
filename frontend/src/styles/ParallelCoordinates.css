@@ -4,17 +4,16 @@
  * ============================================================================ */
 
 .cause-metric-parallel-coords {
-  width: 100%;
   height: 100%;
+  flex-shrink: 0;
   display: flex;
   flex-direction: column;
 }
 
-/* SVG wrapper - fills remaining space */
+/* SVG wrapper - fills available height */
 .cause-metric-parallel-coords__svg-wrapper {
   flex: 1;
   min-height: 0;
-  min-width: 0;
   overflow: hidden;
 }
 
@@ -45,15 +44,6 @@
   dominant-baseline: middle;
 }
 
-/* Background lines (well-explained features) */
-.cause-metric-parallel-coords__background-line {
-  fill: none;
-  stroke-width: 1;
-  opacity: 0.05;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 /* Foreground line (current feature) */
 .cause-metric-parallel-coords__foreground-line {
   fill: none;
@@ -77,8 +67,4 @@
   text-align: center;
 }
 
-/* Random baseline tick at 0.5 */
-.cause-metric-parallel-coords__random-tick {
-  stroke: #B22222;
-  stroke-width: 1.5;
-}
+

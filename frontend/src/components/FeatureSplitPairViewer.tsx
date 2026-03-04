@@ -100,6 +100,7 @@ interface FeatureSplitPairViewerProps {
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
   hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
   onClearStoredSelection?: () => void  // Clear stored selection state when hideTagged removes item
+  onUndoNavigate?: (pairKey: string) => void  // Navigate to undone pair after undo
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -115,7 +116,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   isTemplateSort: _isTemplateSort = true,
   onResetToFirstPair,
   hideTagged = false,
-  onClearStoredSelection
+  onClearStoredSelection,
+  onUndoNavigate
 }) => {
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -123,6 +125,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const tableData = useVisualizationStore(state => state.tableData)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+  const lastClickTagAction = useVisualizationStore(state => state.lastClickTagAction)
+  const setLastClickTagAction = useVisualizationStore(state => state.setLastClickTagAction)
+  const undoLastClickTag = useVisualizationStore(state => state.undoLastClickTag)
 
   // Container width for activating examples (responsive to resize)
   const [containerWidth, setContainerWidth] = useState(1400)
@@ -182,6 +187,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
+      setLastClickTagAction({ stage: 'pair', pairKey: currentPair.pairKey })
       handlePostTagNavigation()
     }
   }
@@ -204,6 +210,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         // selected -> rejected
         togglePairSelection(currentPair.mainFeatureId, currentPair.similarFeatureId)
       }
+      setLastClickTagAction({ stage: 'pair', pairKey: currentPair.pairKey })
       handlePostTagNavigation()
     }
   }
@@ -224,6 +231,15 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
     }
     // Use centralized navigation logic (always advances for unsure)
     handlePostUnsureNavigation()
+  }
+
+  // Undo handler: revert tag and navigate to the undone pair
+  const handleUndoClick = () => {
+    const pairKey = lastClickTagAction?.pairKey
+    undoLastClickTag()
+    if (pairKey && onUndoNavigate) {
+      onUndoNavigate(pairKey)
+    }
   }
 
   // Get activation data (only if currentPair exists)
@@ -377,6 +393,16 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
             {/* Floating control panel at bottom */}
             <div className="floating-controls">
+              {/* Undo button */}
+              <button
+                className="nav__button nav__button--undo"
+                onClick={handleUndoClick}
+                disabled={!lastClickTagAction}
+                title="Undo last tag"
+              >
+                ↩ Undo
+              </button>
+
               {/* Previous button */}
               <button
                 className="nav__button"

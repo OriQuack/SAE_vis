@@ -106,6 +106,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
   const activationExamples = useVisualizationStore(state => state.activationExamples)
   const toggleFeatureSelection = useVisualizationStore(state => state.toggleFeatureSelection)
+  const lastClickTagAction = useVisualizationStore(state => state.lastClickTagAction)
+  const setLastClickTagAction = useVisualizationStore(state => state.setLastClickTagAction)
+  const undoLastClickTag = useVisualizationStore(state => state.undoLastClickTag)
 
   // Stage 2 revisiting state
   const isRevisitingStage2 = useVisualizationStore(state => state.isRevisitingStage2)
@@ -730,10 +733,11 @@ const QualityView: React.FC<QualityViewProps> = ({
         toggleFeatureSelection(featureId)
         toggleFeatureSelection(featureId)
       }
+      setLastClickTagAction({ stage: 'feature', featureId })
       // Use centralized navigation logic
       handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction])
 
   // Handle Need Revision click (rejected)
   const handleNeedRevisionClick = useCallback(() => {
@@ -755,10 +759,11 @@ const QualityView: React.FC<QualityViewProps> = ({
         // selected → rejected
         toggleFeatureSelection(featureId)
       }
+      setLastClickTagAction({ stage: 'feature', featureId })
       // Use centralized navigation logic
       handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction])
 
   // Handle Unsure click (clear selection)
   const handleUnsureClick = useCallback(() => {
@@ -1122,6 +1127,20 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Floating control panel at bottom */}
                   <div className="floating-controls">
+                    {/* Undo button */}
+                    <button
+                      className="nav__button nav__button--undo"
+                      onClick={() => {
+                        const featureId = lastClickTagAction?.featureId
+                        undoLastClickTag()
+                        if (featureId != null) setSelectedFeatureIdState(featureId)
+                      }}
+                      disabled={!lastClickTagAction}
+                      title="Undo last tag"
+                    >
+                      ↩ Undo
+                    </button>
+
                     {/* Previous button */}
                     <button
                       className="nav__button"

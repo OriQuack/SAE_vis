@@ -11,8 +11,8 @@ interface CrossMetricConsensusProps {
   featureRow: FeatureTableRow | null
 }
 
-// Score range buckets — spaced to fit a square layout
-const BUCKETS = [
+// Score range buckets — spaced to fit a square layout (exported for ConsensusSection)
+export const BUCKETS = [
   { label: '<0.5', cx: 15 },
   { label: '0.5–0.75', cx: 44 },
   { label: '0.75–1.00', cx: 73 },
@@ -24,10 +24,10 @@ const ROW_HEIGHT = 28
 
 const STAMP_COLOR = '#374151'  // gray-700, uniform for all stamps
 
-// Bucket circle fill colors: NR → interpolated → WE (same pattern as ConsensusSection)
+// Bucket circle fill colors: NR → interpolated → WE (exported for ConsensusSection)
 const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
 const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
-const BUCKET_COLORS = [
+export const BUCKET_COLORS = [
   chroma.mix(NR_COLOR, WE_COLOR, 0.0, 'lab').hex(),   // <0.5 = Need Revision
   chroma.mix(NR_COLOR, WE_COLOR, 0.5, 'lab').hex(),   // 0.5–0.75 = middle
   chroma.mix(NR_COLOR, WE_COLOR, 1.0, 'lab').hex(),   // ≥0.75 = Well-Explained
@@ -38,7 +38,7 @@ function avgScorerSet(s: ScorerScoreSet): number | null {
   return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null
 }
 
-function toBucket(score: number): number {
+export function toBucket(score: number): number {
   if (score < 0.5) return 0
   if (score < 0.75) return 1
   return 2
@@ -138,16 +138,6 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
       </svg>
       <span className="legend-label">Fuzz</span>
     </div>
-    <div className="legend-separator" />
-    <div className="legend-item">
-      <span className="legend-label">Metric Score:</span>
-    </div>
-    {BUCKETS.map((b, i) => (
-      <div key={i} className="legend-item">
-        <span className="legend-swatch" style={{ backgroundColor: BUCKET_COLORS[i] }} />
-        <span className="legend-range">{b.label}</span>
-      </div>
-    ))}
   </div>
 ))
 

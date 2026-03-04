@@ -371,6 +371,7 @@ export interface FeatureTableRow {
   feature_id: number
   decoder_similarity?: Array<DecoderSimilarFeature> | null  // List of top similar features with cosine similarity scores
   intra_feature_sim?: number  // max(intra_ngram_jaccard, intra_semantic_sim) from backend
+  consensus_score?: number  // consensus score from HDBSCAN phrase clustering
   explainers: Record<string, ExplainerScoreData>
   // NEW: activating examples (lazy loaded)
   activation_examples?: ActivationExamples

@@ -19,6 +19,8 @@ import {
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
+import { computeCategoryBands } from '../lib/parallel-coords-utils'
+import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import '../styles/CauseView.css'
@@ -87,6 +89,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const setCauseCategory = useVisualizationStore(state => state.setCauseCategory)
   const setCauseCategoriesBatch = useVisualizationStore(state => state.setCauseCategoriesBatch)
   const initializeCauseMetricScores = useVisualizationStore(state => state.initializeCauseMetricScores)
+  const lastClickTagAction = useVisualizationStore(state => state.lastClickTagAction)
+  const setLastClickTagAction = useVisualizationStore(state => state.setLastClickTagAction)
+  const undoLastClickTag = useVisualizationStore(state => state.undoLastClickTag)
 
   // SVM decision margins for auto-tagging by decision boundary
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
@@ -464,9 +469,10 @@ const CauseView: React.FC<CauseViewProps> = ({
         if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
         if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
         if (!isVisibleInCurrentMode(featureId)) return false
+        if (isTopMode) return true
         return visibleCategories.has(getEffectiveCategory(featureId))
       })
-  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, visibleCategories, getEffectiveCategory, showDisagreementOnly, disagreementFeatureIds])
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, visibleCategories, getEffectiveCategory, showDisagreementOnly, disagreementFeatureIds])
 
   // Main list scroll hook - scroll to item when clicked in subviews
   const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
@@ -520,27 +526,58 @@ const CauseView: React.FC<CauseViewProps> = ({
     return true
   }, [selectedFeatureIds, causeSelectionSources])
 
-  // Compute metric scores for Stage 2 "Well-Explained" features (for parallel coords background)
-  const wellExplainedScores = useMemo(() => {
-    const map = new Map<number, ReturnType<typeof calculateCauseMetricScores>>()
-    if (!tableData?.features) return map
+  // Compute category bands for parallel coordinates (median + IQR per category)
+  const categoryBands = useMemo(() => {
+    if (!tableData?.features) return []
 
     // Build feature lookup for score calculation
     const featureMap = new Map<number, FeatureTableRow>(
       tableData.features.map((f: FeatureTableRow) => [f.feature_id, f])
     )
 
-    featureSelectionStates.forEach((state, featureId) => {
-      if (state === 'selected') {  // Well-Explained in Stage 2
-        const row = featureMap.get(featureId)
-        if (row) {
-          const scores = calculateCauseMetricScores(row)
-          map.set(featureId, scores)
-        }
+    // Helper: compute CauseMetricScores for a set of feature IDs
+    const buildScoresMap = (featureIds: Iterable<number>) => {
+      const scores = new Map<number, ReturnType<typeof calculateCauseMetricScores>>()
+      for (const fid of featureIds) {
+        const row = featureMap.get(fid)
+        if (row) scores.set(fid, calculateCauseMetricScores(row))
       }
+      return scores
+    }
+
+    // 1. Well-Explained: from Stage 2 selected features
+    const wellExplainedIds: number[] = []
+    featureSelectionStates.forEach((state, fid) => {
+      if (state === 'selected') wellExplainedIds.push(fid)
     })
-    return map
-  }, [featureSelectionStates, tableData])
+
+    // 2. Cause categories: from Stage 3 tags
+    const causeGroups = new Map<string, number[]>()
+    causeSelectionStates.forEach((cat, fid) => {
+      if (cat === 'well-explained') return // already counted above
+      if (!causeGroups.has(cat)) causeGroups.set(cat, [])
+      causeGroups.get(cat)!.push(fid)
+    })
+
+    // Build the categoryScoresMap
+    const categoryScoresMap = new Map<string, Map<number, ReturnType<typeof calculateCauseMetricScores>>>()
+    categoryScoresMap.set('well-explained', buildScoresMap(wellExplainedIds))
+    for (const [cat, ids] of causeGroups) {
+      categoryScoresMap.set(cat, buildScoresMap(ids))
+    }
+
+    // Build color/label maps from legend
+    const legend = getCauseCategoryLegend()
+    const colorMap = new Map<string, string>()
+    const labelMap = new Map<string, string>()
+    for (const item of legend) {
+      if (item.category === 'unsure') continue
+      colorMap.set(item.category, item.color)
+      labelMap.set(item.category, item.label)
+    }
+
+    return computeCategoryBands(categoryScoresMap, colorMap, labelMap)
+  }, [featureSelectionStates, causeSelectionStates, tableData])
 
   // Reset feature index when visible categories change (auto-select first feature)
   useEffect(() => {
@@ -808,8 +845,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
+    setLastClickTagAction({ stage: 'cause', featureId })
     handlePostTagNavigation()
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, handlePostTagNavigation, handlePostUnsureNavigation])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, handlePostTagNavigation, handlePostUnsureNavigation, setLastClickTagAction])
 
   // Handle Unsure click - clear cause category
   const handleUnsureClick = useCallback(() => {
@@ -1147,7 +1185,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
-                      <div className="cause-view__legend">
+                      <div className="legend-group">
                         <div className="legend-item">
                           <span className="legend-sample legend-sample--activation">token</span>:
                           <span className="legend-label">Activation Strength</span>
@@ -1177,15 +1215,18 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                     {/* Consensus + Parallel Coordinates row */}
                     <div className="cause-view__consensus-row-header">
-                      <span className="subheader">Cross-explainer Consensus</span>
+                      <span className="subheader">Explainer Consensus</span>
+                      <div style={{ flex: 1 }} />
                       <ConsensusLegend />
-                      {/* Metrics legend */}
-                      <div className="legend-group cause-view__metrics-legend">
+                      <div className="legend-separator" />
+                      <div className="legend-group">
                         <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />
-                          </svg>
-                          <span className="legend-label">Well-Explained ({wellExplainedScores.size})</span>
+                          <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#6b7280" strokeWidth="1.5" /></svg>
+                          <span className="legend-label">Median</span>
+                        </div>
+                        <div className="legend-item">
+                          <svg width="16" height="8"><rect x="0" y="0" width="16" height="8" fill="#6b7280" fillOpacity="0.18" /></svg>
+                          <span className="legend-label">Q1-Q3</span>
                         </div>
                         <div className="legend-item">
                           <svg width="24" height="12">
@@ -1206,7 +1247,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <ConsensusSection consensus={consensus} />
                       <div className="cause-view__metrics-container">
                         <CauseMetricParallelCoords
-                          wellExplainedScores={wellExplainedScores}
+                          categoryBands={categoryBands}
                           currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
                         />
                       </div>
@@ -1214,6 +1255,20 @@ const CauseView: React.FC<CauseViewProps> = ({
 
                     {/* ---- Floating control panel ---- */}
                     <div className="floating-controls">
+                      {/* Undo button */}
+                      <button
+                        className="nav__button nav__button--undo"
+                        onClick={() => {
+                          const featureId = lastClickTagAction?.featureId
+                          undoLastClickTag()
+                          if (featureId != null) setSelectedFeatureIdState(featureId)
+                        }}
+                        disabled={!lastClickTagAction}
+                        title="Undo last tag"
+                      >
+                        ↩ Undo
+                      </button>
+
                       {/* Previous button */}
                       <button
                         className="nav__button"
@@ -1228,28 +1283,28 @@ const CauseView: React.FC<CauseViewProps> = ({
                         label="Missed Syntax"
                         variant="missed-N-gram"
                         color={missedNgramColor}
-                        isSelected={currentCauseCategory === 'missed-N-gram'}
+                        isSelected={currentCauseCategory === 'missed-N-gram' && currentCauseSource !== 'predicted'}
                         onClick={() => handleTagClick('missed-N-gram')}
                       />
                       <TagButton
                         label="Missed Context"
                         variant="missed-context"
                         color={missedContextColor}
-                        isSelected={currentCauseCategory === 'missed-context'}
+                        isSelected={currentCauseCategory === 'missed-context' && currentCauseSource !== 'predicted'}
                         onClick={() => handleTagClick('missed-context')}
                       />
                       <TagButton
                         label="Noisy Activation"
                         variant="noisy-activation"
                         color={noisyActivationColor}
-                        isSelected={currentCauseCategory === 'noisy-activation'}
+                        isSelected={currentCauseCategory === 'noisy-activation' && currentCauseSource !== 'predicted'}
                         onClick={() => handleTagClick('noisy-activation')}
                       />
                       <TagButton
                         label="Well-Explained"
                         variant="well-explained"
                         color={wellExplainedColor}
-                        isSelected={currentCauseCategory === 'well-explained'}
+                        isSelected={currentCauseCategory === 'well-explained' && currentCauseSource !== 'predicted'}
                         onClick={() => handleTagClick('well-explained')}
                       />
 
@@ -1267,7 +1322,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         label="Unsure"
                         variant="unsure"
                         color={unsureColor}
-                        isSelected={currentCauseCategory === 'unsure'}
+                        isSelected={currentCauseCategory === 'unsure' && currentCauseSource !== 'predicted'}
                         onClick={handleUnsureClick}
                       />
                     </div>

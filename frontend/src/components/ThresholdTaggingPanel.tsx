@@ -224,7 +224,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           {mode === 'cause' && causeProps ? (
             <>
               <h4 className="subheader subheader--with-value">
-                Prediction Flip Rate
+                Stability Chart
                 {causeProps.flipTracking?.flipHistory?.length ? (
                   <span className="subheader__value">
                     {(causeProps.flipTracking.flipHistory[causeProps.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
@@ -239,7 +239,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           ) : (
             <>
               <h4 className="subheader subheader--with-value">
-                Prediction Flip Rate
+                Stability Chart
                 {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
                   <span className="subheader__value">
                     {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%

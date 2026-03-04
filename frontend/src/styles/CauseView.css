@@ -120,7 +120,7 @@
 
 /* Activation section - content only (HAS border) */
 .cause-view__activation-section {
-  height: 160px;
+  height: 174px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -185,15 +185,6 @@
   border: none;
 }
 
-.cause-view__legend {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  flex-shrink: 0;
-  font-size: 11px;
-  padding: 0 8px;
-}
-
 .cause-view__activation-examples {
   overflow-y: auto;
   overflow-x: hidden;
@@ -233,16 +224,9 @@
  * EXPLANATION ROW - Left metrics (no border) + Right explanation (bordered)
  * ============================================================================ */
 
-/* Metrics legend - wider gaps between SVG line legends (overrides .legend-group default) */
-.cause-view__metrics-legend {
-  gap: 12px;
-}
-
-/* Cause metrics container - 35% width beside consensus */
+/* Cause metrics container - fixed width beside consensus */
 .cause-view__metrics-container {
-  flex: 0 0 35%;
-  min-width: 0;
-  min-height: 0;
+  flex-shrink: 0;
   display: flex;
   align-items: stretch;
   border: 1px solid #e5e7eb;
