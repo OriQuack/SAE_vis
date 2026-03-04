@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-03-04T15:01:02.542182",
+  "created_at": "2026-03-04T15:55:02.504910",
   "step_name": "Step 14: Explanation Consensus",
   "script_version": "1.2",
-  "total_rows": 100,
+  "total_rows": 16384,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -13,16 +13,16 @@
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
-    "features_processed": 100,
-    "features_with_clusters": 64,
-    "features_with_outliers_only": 36,
-    "total_clusters": 69,
-    "total_outliers": 515,
-    "total_phrases": 681,
-    "single_explainer_clusters_reclassified": 439
+    "features_processed": 16384,
+    "features_with_clusters": 13484,
+    "features_with_outliers_only": 2900,
+    "total_clusters": 16109,
+    "total_outliers": 58021,
+    "total_phrases": 109445,
+    "single_explainer_clusters_reclassified": 39066
   },
   "result_stats": {
-    "unique_feature_ids": 100,
+    "unique_feature_ids": 16384,
     "unique_sae_ids": 1
   },
   "config_used": {
@@ -36,7 +36,7 @@
     },
     "parameters": {
       "clustering_method": "agglomerative",
-      "agglomerative_threshold": 0.4,
+      "agglomerative_threshold": 0.5,
       "agglomerative_linkage": "average",
       "min_cluster_size": 2,
       "min_samples": 1,

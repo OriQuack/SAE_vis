@@ -4,20 +4,34 @@
   align-items: center;
   flex-shrink: 0;
   border-right: 1px solid #e5e7eb;
-  padding: 0 3px;
+  padding-right: 2px;
 }
 
 .cross-metric-consensus {
   flex: 1;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
 }
 
 .cross-metric-consensus svg {
   display: block;
 }
 
+/* Legend — uses shared .legend-item / .legend-label from FeatureSplitPairViewer.css */
 .cross-metric-legend {
+  display: flex;
+  align-items: center;
+  gap: 0;
+}
+
+.cross-metric-legend > .legend-item {
+  border-right: none;
+  padding-right: 4px;
+  margin-right: 4px;
+}
+
+.cross-metric-legend__swatch {
+  display: block;
   flex-shrink: 0;
-  padding: 1px 0;
 }

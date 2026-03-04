@@ -121,14 +121,12 @@ const renderActivationToken = (
   example: QuantileExample,
   ngramLength: number,
   interFeaturePositions?: ActivationExampleProps['interFeaturePositions'],
-  isContinuation?: boolean,
-  isBeforeContinuation?: boolean
 ): React.ReactNode => {
   const { highlight, charOffset } = getTokenHighlight(token.position, example)
   const hasWordUnderline = highlight && charOffset === null
   const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
-  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''} ${isContinuation ? 'activation-token--continuation' : ''} ${isBeforeContinuation ? 'activation-token--before-continuation' : ''}`
+  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`
   const bgColor = token.activation_value
     ? getActivationColor(token.activation_value, example.max_activation)
     : undefined
@@ -136,13 +134,12 @@ const renderActivationToken = (
   // Split leading spaces from activated tokens to prevent merged highlights
   const leadingSpaces = token.activation_value && token.text.match(/^ +/)
   if (leadingSpaces) {
-    // Apply before-continuation to the word span (not the space span)
-    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''} ${isBeforeContinuation ? 'activation-token--before-continuation' : ''}`
+    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`
     return (
       <React.Fragment key={tokenIdx}>
         <span className="activation-token">{leadingSpaces[0]}</span>
         <span className={wordClassName} style={{ backgroundColor: bgColor }}>
-          {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset, ngramLength)}
+          {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset !== null ? charOffset - leadingSpaces[0].length : charOffset, ngramLength)}
         </span>
       </React.Fragment>
     )
@@ -314,11 +311,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                const prevToken = tokenIdx > 0 ? displayTokens[tokenIdx - 1] : null
-                const nextToken = displayTokens[tokenIdx + 1]
-                const isCont = !!token.activation_value && !!prevToken?.activation_value && !token.text.startsWith(' ') && tokenIdx > 0
-                const isBeforeCont = !!token.activation_value && !!nextToken?.activation_value && !!nextToken && !nextToken.text.startsWith(' ')
-                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, isCont, isBeforeCont)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions)
               })}
             </div>
           )
@@ -342,11 +335,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        const prevToken = tokenIdx > 0 ? displayTokens[tokenIdx - 1] : null
-                        const nextToken = displayTokens[tokenIdx + 1]
-                        const isCont = !!token.activation_value && !!prevToken?.activation_value && !token.text.startsWith(' ') && tokenIdx > 0
-                        const isBeforeCont = !!token.activation_value && !!nextToken?.activation_value && !!nextToken && !nextToken.text.startsWith(' ')
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, isCont, isBeforeCont)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions)
                       })}
                     </div>
                   )

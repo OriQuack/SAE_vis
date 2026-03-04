@@ -1052,6 +1052,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Consensus Section - Clustered explanation phrases */}
                   <div className="quality-view__consensus-header">
                     <span className="subheader">Explainer Consensus</span>
+                    <div style={{ flex: 1 }} />
                     <ConsensusLegend />
                   </div>
                   <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} />
@@ -1059,8 +1060,10 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Explanation Header */}
                   <div className="quality-view__explanation-header">
                     <span className="subheader">Metric Consensus</span>
-                    <CrossMetricLegend />
+                    <div className="quality-view__legend-separator" />
                     <span className="subheader">Explanations</span>
+                    <div style={{ flex: 1 }} />
+                    <CrossMetricLegend />
                   </div>
 
                   {/* Explanation Section - All Explainers (plain text) */}

@@ -269,6 +269,7 @@
   min-height: 0;
   overflow-y: auto;
   flex: 1;
+  padding-left: 3px;
 }
 
 /* Content wrapper for explainer blocks */

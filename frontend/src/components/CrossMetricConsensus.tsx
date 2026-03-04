@@ -1,5 +1,7 @@
 import React from 'react'
+import chroma from 'chroma-js'
 import type { FeatureTableRow, ExplainerScoreData, ScorerScoreSet } from '../types'
+import { getTagColor } from '../lib/tag-system'
 import '../styles/CrossMetricConsensus.css'
 
 interface CrossMetricConsensusProps {
@@ -9,16 +11,25 @@ interface CrossMetricConsensusProps {
 
 // Score range buckets — spaced to fit a square layout
 const BUCKETS = [
-  { label: '<0.5', cx: 16 },
-  { label: '0.5–0.75', cx: 48 },
-  { label: '≥0.75', cx: 80 },
+  { label: '<0.5', cx: 15 },
+  { label: '0.5–0.75', cx: 44 },
+  { label: '≥0.75', cx: 73 },
 ] as const
 
-const CIRCLE_R = 13
-const SVG_WIDTH = 96
-const ROW_HEIGHT = 30
+const CIRCLE_R = 12
+const SVG_WIDTH = 88
+const ROW_HEIGHT = 28
 
 const STAMP_COLOR = '#374151'  // gray-700, uniform for all stamps
+
+// Bucket circle fill colors: NR → interpolated → WE (same pattern as ConsensusSection)
+const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
+const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
+const BUCKET_COLORS = [
+  chroma.mix(NR_COLOR, WE_COLOR, 0.0, 'lab').hex(),   // <0.5 = Need Revision
+  chroma.mix(NR_COLOR, WE_COLOR, 0.5, 'lab').hex(),   // 0.5–0.75 = middle
+  chroma.mix(NR_COLOR, WE_COLOR, 1.0, 'lab').hex(),   // ≥0.75 = Well-Explained
+] as const
 
 function avgScorerSet(s: ScorerScoreSet): number | null {
   const vals = [s.s1, s.s2, s.s3].filter((v): v is number => v !== null && v !== undefined)
@@ -55,7 +66,7 @@ function getMetricPlacements(data: ExplainerScoreData | undefined): MetricPlacem
   return placements
 }
 
-// Render stamp shapes. Fixed nesting order (outside→inside): square embedding → diamond fuzz → circle detection
+// Render stamp shapes. Fixed nesting order (outside→inside): square embedding → diamond detection → circle fuzz
 // All rendered concentrically in the same bucket circle.
 function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: number) {
   const inBucket = placements.filter(p => p.bucket === bucketIdx)
@@ -73,11 +84,11 @@ function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: numb
   const DIAMOND_D = 8
   const CIRCLE_STAMP_R = 4
 
-  // Diamond (fuzz) — rotated square for perfect 90° angles, rendered first so it appears behind square
-  if (hasFuzz) {
-    const side = DIAMOND_D * Math.SQRT2  // side length so diagonal = DIAMOND_D * 2
+  // Diamond (detection) — rotated square for perfect 90° angles, rendered first so it appears behind square
+  if (hasDetection) {
+    const side = DIAMOND_D * Math.SQRT2
     stamps.push(
-      <rect key="fuzz" x={cx - side / 2} y={cy - side / 2} width={side} height={side}
+      <rect key="det" x={cx - side / 2} y={cy - side / 2} width={side} height={side}
         transform={`rotate(45 ${cx} ${cy})`}
         fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
     )
@@ -89,10 +100,10 @@ function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: numb
         fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
     )
   }
-  // Circle (detection) — innermost, smallest
-  if (hasDetection) {
+  // Circle (fuzz) — innermost, smallest
+  if (hasFuzz) {
     stamps.push(
-      <circle key="det" cx={cx} cy={cy} r={CIRCLE_STAMP_R}
+      <circle key="fuzz" cx={cx} cy={cy} r={CIRCLE_STAMP_R}
         fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
     )
   }
@@ -100,28 +111,28 @@ function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: numb
   return stamps
 }
 
-// Compact inline legend matching consensus-legend style
+// Compact inline legend matching activation panel legend-item / legend-label style
 export const CrossMetricLegend: React.FC = React.memo(() => (
   <div className="cross-metric-legend">
-    <span className="cross-metric-legend__group">
-      <svg width={12} height={12} viewBox="0 0 12 12">
+    <div className="legend-item">
+      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
       </svg>
-      <span className="cross-metric-legend__label">Embed</span>
-    </span>
-    <span className="cross-metric-legend__group">
-      <svg width={12} height={12} viewBox="0 0 12 12">
+      <span className="legend-label">Embed</span>
+    </div>
+    <div className="legend-item">
+      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <rect x={2.5} y={2.5} width={7} height={7} transform="rotate(45 6 6)"
           fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
       </svg>
-      <span className="cross-metric-legend__label">Fuzz</span>
-    </span>
-    <span className="cross-metric-legend__group">
-      <svg width={12} height={12} viewBox="0 0 12 12">
+      <span className="legend-label">Detect</span>
+    </div>
+    <div className="legend-item">
+      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <circle cx={6} cy={6} r={4} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
       </svg>
-      <span className="cross-metric-legend__label">Detect</span>
-    </span>
+      <span className="legend-label">Fuzz</span>
+    </div>
   </div>
 ))
 
@@ -147,13 +158,14 @@ const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerId
                 x1={BUCKETS[0].cx} y1={cy}
                 x2={BUCKETS[2].cx} y2={cy}
                 stroke={isEmpty ? '#d1d5db' : '#9ca3af'}
-                strokeWidth={1}
+                strokeWidth={3}
               />
-              {/* Bucket circles */}
+              {/* Bucket circles — colored by score range */}
               {BUCKETS.map((b, bi) => (
                 <circle key={bi} cx={b.cx} cy={cy} r={CIRCLE_R}
-                  fill="white"
-                  stroke={isEmpty ? '#d1d5db' : '#9ca3af'}
+                  fill={isEmpty ? 'white' : BUCKET_COLORS[bi]}
+                  fillOpacity={1}
+                  stroke={isEmpty ? '#d1d5db' : BUCKET_COLORS[bi]}
                   strokeWidth={1}
                 />
               ))}

@@ -36,7 +36,7 @@
 .consensus-section__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 3px 6px;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -76,9 +76,10 @@
   max-width: 100%;
 }
 
-/* Cluster (medoid) style - filled with quality color at consensus opacity */
+/* Cluster (medoid) style - filled with teal at consensus opacity */
 .consensus-item__pill--medoid {
   background-color: var(--pill-bg, rgba(107, 114, 128, 0.2));
+  border: 1px solid #ccc;
 }
 
 .consensus-item__pill--medoid:hover {
@@ -88,7 +89,7 @@
 /* Outlier style - border only with quality color at full opacity */
 .consensus-item__pill--outlier {
   background-color: transparent;
-  border: 2px solid var(--pill-border-color, #6b7280);
+  border: 1px solid #ccc;
 }
 
 .consensus-item__pill--outlier:hover {
@@ -167,19 +168,13 @@
 .consensus-legend {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-left: auto;
+  gap: 0;
 }
 
-.consensus-legend__group {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.consensus-legend__label {
-  font-size: 10px;
-  color: var(--text-tertiary, #9ca3af);
+.consensus-legend > .legend-item {
+  border-right: none;
+  padding-right: 4px;
+  margin-right: 4px;
 }
 
 .consensus-legend__ramp {
@@ -192,10 +187,11 @@
   width: 10px;
   height: 10px;
   border-radius: 1px;
+  border: 1px solid #ccc;
 }
 
 .consensus-legend__range {
   font-size: 9px;
   font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-tertiary, #9ca3af);
+  color: var(--text-secondary, #6b7280);
 }

@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import chroma from 'chroma-js'
 import type { ConsensusResponse, ConsensusItem } from '../types'
-import { getTagColor } from '../lib/tag-system'
+import { D3_SCHEME_TABLEAU10 } from '../lib/constants'
 import '../styles/ConsensusSection.css'
 
 // ============================================================================
@@ -21,33 +21,17 @@ interface TooltipData {
   item: ConsensusItem
 }
 
-// Quality color: discrete 6-step interpolation between Need Revision and Well-Explained
-const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
-const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
+// Base teal color for consensus encoding
+const TEAL_CHROMA = chroma(D3_SCHEME_TABLEAU10.TEAL)
 
-const QUALITY_STEPS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] as const
-const QUALITY_COLORS = QUALITY_STEPS.map(t => chroma.mix(NR_COLOR, WE_COLOR, t, 'lab').hex())
-
-function getQualityColor(qualityScore: number): string {
-  let t: number
-  if (qualityScore < 0.5)      t = 0.0
-  else if (qualityScore < 0.6) t = 0.2
-  else if (qualityScore < 0.7) t = 0.4
-  else if (qualityScore < 0.8) t = 0.6
-  else if (qualityScore < 0.9) t = 0.8
-  else                         t = 1.0
-  return chroma.mix(NR_COLOR, WE_COLOR, t, 'lab').hex()
-}
-
-// Consensus opacity: discrete 6-step mapping from score range [0, 3]
-const OPACITY_STEPS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0] as const
+// Consensus opacity: discrete 5-step mapping from score range [0, 3]
+const OPACITY_STEPS = [0.2, 0.4, 0.6, 0.8, 1.0] as const
 
 function getConsensusOpacity(consensusScore: number): number {
-  if (consensusScore < 0.5)      return 0.0
-  else if (consensusScore < 1.0) return 0.2
-  else if (consensusScore < 1.5) return 0.4
-  else if (consensusScore < 2.0) return 0.6
-  else if (consensusScore < 2.5) return 0.8
+  if (consensusScore < 0.6)      return 0.2
+  else if (consensusScore < 1.2) return 0.4
+  else if (consensusScore < 1.8) return 0.6
+  else if (consensusScore < 2.4) return 0.8
   else                           return 1.0
 }
 
@@ -55,31 +39,22 @@ function getConsensusOpacity(consensusScore: number): number {
 // CONSENSUS LEGEND - Compact inline legend for subheader row
 // ============================================================================
 
-/** Compact legend showing quality color ramp + consensus opacity ramp */
+/** Compact legend showing teal consensus opacity ramp */
 export const ConsensusLegend: React.FC = React.memo(() => (
   <div className="consensus-legend">
-    <span className="consensus-legend__group">
-      <span className="consensus-legend__label">Quality</span>
-      <span className="consensus-legend__ramp">
-        {QUALITY_COLORS.map((color, i) => (
-          <span key={i} className="consensus-legend__swatch" style={{ backgroundColor: color }} />
-        ))}
-      </span>
-      <span className="consensus-legend__range">NR — WE</span>
-    </span>
-    <span className="consensus-legend__group">
-      <span className="consensus-legend__label">Consensus</span>
+    <div className="legend-item">
+      <span className="legend-label">Explainer Consensus:</span>
       <span className="consensus-legend__ramp">
         {OPACITY_STEPS.map((op, i) => (
           <span
             key={i}
             className="consensus-legend__swatch"
-            style={{ backgroundColor: `rgba(100,100,100,${op})`, border: op === 0 ? '1px solid #ccc' : 'none' }}
+            style={{ backgroundColor: TEAL_CHROMA.alpha(op).css() }}
           />
         ))}
       </span>
       <span className="consensus-legend__range">0 — 3</span>
-    </span>
+    </div>
   </div>
 ))
 
@@ -113,24 +88,17 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
 
   // Get pill visual encoding for an item
   const getPillStyle = useCallback((item: ConsensusItem): React.CSSProperties => {
-    const quality = item.is_outlier
-      ? (item.quality_score ?? 0)
-      : (item.avg_quality_score ?? 0)
-    const color = getQualityColor(quality)
-    const c = chroma(color)
-
     if (item.is_outlier) {
       return {
-        '--pill-border-color': c.css(),
-        '--pill-hover-bg': c.alpha(0.1).css(),
+        '--pill-hover-bg': TEAL_CHROMA.alpha(0.1).css(),
       } as React.CSSProperties
     }
 
     const consensusScore = item.cluster_score ?? 0
     const alpha = getConsensusOpacity(consensusScore)
     return {
-      '--pill-bg': c.alpha(alpha).css(),
-      '--pill-hover-bg': c.alpha(Math.min(alpha + 0.15, 1)).css(),
+      '--pill-bg': TEAL_CHROMA.alpha(alpha).css(),
+      '--pill-hover-bg': TEAL_CHROMA.alpha(Math.min(alpha + 0.15, 1)).css(),
     } as React.CSSProperties
   }, [])
 

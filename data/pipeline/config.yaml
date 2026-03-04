@@ -236,7 +236,7 @@ steps:
       explanation_consensus: "${output}/explanation_consensus.parquet"
     parameters:
       clustering_method: "agglomerative"  # "hdbscan" or "agglomerative"
-      agglomerative_threshold: 0.4    # cosine distance cutoff (0.4 = cosine_sim > 0.6)
+      agglomerative_threshold: 0.5     # cosine distance cutoff
       agglomerative_linkage: "average"  # average linkage for cosine distance
       # HDBSCAN params (kept for swapping back)
       min_cluster_size: 2

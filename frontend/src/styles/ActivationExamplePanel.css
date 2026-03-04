@@ -120,22 +120,6 @@
   border-radius: 2px;
 }
 
-/* Collapse gap between sub-word tokens (multi-BPE-token words)
- * When consecutive activated tokens form the same word (no leading space),
- * remove inner padding/border-radius and use negative margin to close the
- * 3px gap left by the two transparent borders (1.5px each). */
-.activation-token--activated.activation-token--continuation {
-  padding-left: 0;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-}
-
-.activation-token--activated.activation-token--before-continuation {
-  padding-right: 0;
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
 /* Pattern indicator (lexical patterns: char or word n-grams) */
 /* Word-level: Solid blue border for tokens with n-gram position data */
 .activation-token--ngram {
@@ -147,7 +131,6 @@
 /* don't reliably render inset box-shadows due to lack of explicit box dimensions */
 .activation-token__ngram-char {
   border: 1.5px solid #3b82f6;
-  margin: 0 -1.5px;  /* Compensate for border to minimize layout shift */
 }
 
 /* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
