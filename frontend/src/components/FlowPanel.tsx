@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { NEUTRAL_ICON_COLORS } from '../lib/constants'
+import { NEUTRAL_ICON_COLORS, SELECTION_BLUE } from '../lib/constants'
 import { calculateFlowLayout, splitLabel } from '../lib/flow-utils'
 import { useVisualizationStore } from '../store/index'
 import '../styles/FlowPanel.css'
@@ -202,7 +202,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill={SELECTION_BLUE.DEFAULT} opacity="1.0" />
             </marker>
           </defs>
 
@@ -284,7 +284,7 @@ const FlowPanel: React.FC = () => {
                 <path
                   d={edge.path}
                   fill="none"
-                  stroke={isEdgeSelected ? '#3b82f6' : NEUTRAL_ICON_COLORS.ICON_LIGHT}
+                  stroke={isEdgeSelected ? SELECTION_BLUE.DEFAULT : NEUTRAL_ICON_COLORS.ICON_LIGHT}
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -341,8 +341,8 @@ const FlowPanel: React.FC = () => {
                         width={node.width}
                         height={node.height}
                         rx="3"
-                        fill={isSelected ? '#dbeafe' : '#f8fafc'}
-                        stroke={isSelected ? '#3b82f6' : '#cbd5e1'}
+                        fill={isSelected ? SELECTION_BLUE.LIGHTER : '#f8fafc'}
+                        stroke={isSelected ? SELECTION_BLUE.DEFAULT : '#cbd5e1'}
                         strokeWidth={isSelected ? '2' : '1.5'}
                       />
                       <text
@@ -351,7 +351,7 @@ const FlowPanel: React.FC = () => {
                         textAnchor="middle"
                         dominantBaseline="central"
                         fontSize="10"
-                        fill={isSelected ? '#1e40af' : '#64748b'}
+                        fill={isSelected ? SELECTION_BLUE.TEXT : '#64748b'}
                         fontWeight={isSelected ? '700' : '600'}
                       >
                         {node.label}

@@ -144,14 +144,14 @@
 /* Pattern indicator (lexical patterns: char or word n-grams) */
 /* Word-level: Solid blue border for tokens with n-gram position data */
 .activation-token--ngram {
-  box-shadow: inset 0 0 0 1.5px #3b82f6;
+  box-shadow: inset 0 0 0 1.5px var(--selection-blue);
 }
 
 /* Character-level: Inline highlight for specific character substring within token */
 /* Use regular border (not box-shadow) since inline elements inside flex containers */
 /* don't reliably render inset box-shadows due to lack of explicit box dimensions */
 .activation-token__ngram-char {
-  border: 2px solid #3b82f6;
+  border: 2px solid var(--selection-blue);
 }
 
 /* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */

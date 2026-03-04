@@ -64,7 +64,7 @@
   width: 16px;
   height: 16px;
   border: 2px solid var(--border-color, #e5e7eb);
-  border-top-color: var(--color-primary, #3b82f6);
+  border-top-color: var(--color-primary, var(--selection-blue));
   border-radius: 50%;
   animation: radviz-spin 0.8s linear infinite;
 }
@@ -107,7 +107,7 @@
   font-size: 12px;
   font-weight: 700;
   color: #ffffff;
-  background-color: #3b82f6;
+  background-color: var(--selection-blue);
   border-radius: 50%;
   flex-shrink: 0;
   margin-top: 2px;  /* Align with first line of text */

@@ -1084,7 +1084,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       <div className="quality-view__explanation-content">
                         {tableData?.explainer_ids && tableData.explainer_ids.length > 0 ? (
                           tableData.explainer_ids.map((explainerId: string) => {
-                            const explanationText = selectedFeatureData?.row?.explainers?.[explainerId]?.explanation_text
+                            const explanationText = selectedFeatureData?.row?.explainers?.[explainerId]?.explanation_text?.trim()
                             return (
                               <div
                                 key={explainerId}

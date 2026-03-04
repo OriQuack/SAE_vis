@@ -202,31 +202,31 @@
 
 /* Available state - Highlight when action is ready */
 .table-selection-panel__button--available {
-  background: #dbeafe;
-  border-color: #93c5fd;
-  color: #1e40af;
+  background: var(--selection-blue-lighter);
+  border-color: var(--selection-blue-muted);
+  color: var(--selection-blue-text);
 }
 
 .table-selection-panel__button--available:hover {
-  background: #bfdbfe;
-  border-color: #60a5fa;
+  background: var(--selection-blue-light);
+  border-color: var(--selection-blue-mid);
 }
 
 /* Done Button - Primary style */
 .table-selection-panel__button--done {
-  background: #3b82f6;
+  background: var(--selection-blue);
   color: white;
-  border-color: #3b82f6;
+  border-color: var(--selection-blue);
 }
 
 .table-selection-panel__button--done:hover:not(:disabled) {
-  background: #2563eb;
-  border-color: #2563eb;
+  background: var(--selection-blue-hover);
+  border-color: var(--selection-blue-hover);
 }
 
 .table-selection-panel__button--done:disabled {
-  background: #93c5fd;
-  border-color: #93c5fd;
+  background: var(--selection-blue-muted);
+  border-color: var(--selection-blue-muted);
 }
 
 /* Clear Button - Danger style */
@@ -243,34 +243,34 @@
 
 /* Go Back to Histogram Button */
 .table-selection-panel__button--histogram {
-  background: #2196f3;
+  background: var(--selection-blue);
   color: white;
-  border-color: #2196f3;
+  border-color: var(--selection-blue);
   font-weight: 600;
 }
 
 .table-selection-panel__button--histogram:hover:not(:disabled) {
-  background: #1976d2;
-  border-color: #1976d2;
+  background: var(--selection-blue-hover);
+  border-color: var(--selection-blue-hover);
 }
 
 /* Highlighted state - continuous pulsing animation */
 .table-selection-panel__button--highlighted {
   animation: pulse-highlight 1.5s ease-in-out infinite;
-  box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+  box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
 }
 
 @keyframes pulse-highlight {
   0% {
-    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0.7);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
     transform: scale(1);
   }
   50% {
-    box-shadow: 0 0 0 6px rgba(33, 150, 243, 0);
+    box-shadow: 0 0 0 6px rgba(59, 130, 246, 0);
     transform: scale(1.02);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(33, 150, 243, 0);
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
     transform: scale(1);
   }
 }
@@ -281,7 +281,7 @@
   width: 12px;
   height: 12px;
   border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  border-top: 2px solid var(--selection-blue);
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-right: 6px;
@@ -486,11 +486,11 @@
 
 /* Active/current commit - blue border only, not filled */
 .commit-history__circle--active {
-  border: 2px solid #3b82f6;
+  border: 2px solid var(--selection-blue);
 }
 
 .commit-history__circle--active .commit-history__circle-number {
-  color: #3b82f6;
+  color: var(--selection-blue);
   font-size: 12px;
   font-weight: 600;
 }

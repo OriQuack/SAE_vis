@@ -49,7 +49,7 @@
   font-size: 12px;
   font-weight: 700;
   color: #ffffff;
-  background-color: #3b82f6;
+  background-color: var(--selection-blue);
   border-radius: 50%;
   margin-right: 0;
   flex-shrink: 0;

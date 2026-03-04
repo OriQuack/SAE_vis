@@ -9,7 +9,7 @@
   --sankey-button-radius: 12px;
   --sankey-button-offset: 15px;
   --sankey-modal-overlay: rgba(0, 0, 0, 0.5);
-  --sankey-button-add: #3b82f6;
+  --sankey-button-add: var(--selection-blue);
   --sankey-button-remove: #ef4444;
 }
 

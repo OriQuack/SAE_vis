@@ -10,7 +10,7 @@ import {
 import type { CategoryCounts } from '../lib/histogram-utils'
 import { getSelectionColors, STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, SELECTION_BLUE } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import type { ActiveStage } from './StageAccordionList'
@@ -731,8 +731,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                         y={0}
                         width={binWidth}
                         height={histogramChart.height}
-                        fill="rgba(59, 130, 246, 0.12)"
-                        stroke="rgba(59, 130, 246, 0.65)"
+                        fill={SELECTION_BLUE.HIGHLIGHT}
+                        stroke={SELECTION_BLUE.HIGHLIGHT_STROKE}
                         strokeWidth={1}
                         pointerEvents="none"
                       />

@@ -28,7 +28,7 @@
 
 .regeneration-view__download-btn {
   padding: 10px 20px;
-  background-color: #3b82f6;
+  background-color: var(--selection-blue);
   color: white;
   border: none;
   border-radius: 6px;
@@ -39,11 +39,11 @@
 }
 
 .regeneration-view__download-btn:hover {
-  background-color: #2563eb;
+  background-color: var(--selection-blue-hover);
 }
 
 .regeneration-view__download-btn:active {
-  background-color: #1d4ed8;
+  background-color: var(--selection-blue-active);
 }
 
 /* Sankey takes 3/4, Summary takes 1/4 */

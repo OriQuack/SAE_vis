@@ -11,7 +11,7 @@ import {
 } from '../lib/radviz-utils'
 import { getCauseColor, computeCategoryContours, type CauseCategory, type CategoryContour } from '../lib/cause-visualization-utils'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, SELECTION_BLUE } from '../lib/constants'
 import {
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
@@ -605,7 +605,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                   cy={selectedPointData.cy}
                   r={6.5}
                   fill="none"
-                  stroke="#3b82f6"
+                  stroke={SELECTION_BLUE.DEFAULT}
                   strokeWidth={1}
                 />
                 {/* Point itself */}

@@ -34,13 +34,13 @@ interface TooltipData {
 const TEAL_CHROMA = chroma(D3_SCHEME_TABLEAU10.TEAL)
 
 // Consensus opacity: discrete 5-step mapping from score range [0, 3]
-const OPACITY_STEPS = [0.2, 0.4, 0.6, 0.8, 1.0] as const
+const OPACITY_STEPS = [0.1, 0.325, 0.55, 0.775, 1.0] as const
 
 function getConsensusOpacity(consensusScore: number): number {
-  if (consensusScore < 0.6)      return 0.2
-  else if (consensusScore < 1.2) return 0.4
-  else if (consensusScore < 1.8) return 0.6
-  else if (consensusScore < 2.4) return 0.8
+  if (consensusScore < 0.6)      return 0.1
+  else if (consensusScore < 1.2) return 0.325
+  else if (consensusScore < 1.8) return 0.55
+  else if (consensusScore < 2.4) return 0.775
   else                           return 1.0
 }
 

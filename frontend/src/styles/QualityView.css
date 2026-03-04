@@ -309,12 +309,12 @@
 }
 
 .quality-view__explainer-name--highlighted {
-  background-color: rgb(59, 130, 246);
+  background-color: var(--selection-blue);
 }
 
 /* Phrase highlight for consensus pill hover */
 .quality-view__phrase-highlight {
-  background-color: rgba(59, 130, 246, 0.15);
+  background-color: rgba(59, 130, 246, 0.15); /* Uses --selection-blue with alpha */
   border-radius: 2px;
   padding: 0;
   color: inherit;

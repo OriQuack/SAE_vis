@@ -70,7 +70,7 @@
 /* Active state - tab rises up and connects to content below */
 .stage-selector__tab--active {
   background: white;
-  border-color: #3b82f6;
+  border-color: var(--selection-blue);
   box-shadow: 0 -2px 6px rgba(59, 130, 246, 0.15);
   z-index: 10;
 }
@@ -108,9 +108,9 @@
     background: #f1f5f9;
   }
   50% {
-    border-color: #3b82f6;
+    border-color: var(--selection-blue);
     box-shadow: 0 -2px 6px rgba(59, 130, 246, 0.3);
-    background: #dbeafe;
+    background: var(--selection-blue-lighter);
   }
 }
 
@@ -128,7 +128,7 @@
 }
 
 .stage-selector__tab--active .stage-selector__number {
-  color: #3b82f6;
+  color: var(--selection-blue);
 }
 
 .stage-selector__tab--disabled .stage-selector__number {
@@ -217,7 +217,7 @@
 
 .stage-selector__option-btn--active {
   background: white;
-  color: #1e40af;
+  color: var(--selection-blue-text);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
@@ -275,7 +275,7 @@
 
 .stage-selector__checkbox-label input[type="checkbox"]:checked {
   background: white;
-  border-color: #3b82f6;
+  border-color: var(--selection-blue);
 }
 
 .stage-selector__checkbox-label input[type="checkbox"]:checked::after {
@@ -285,7 +285,7 @@
   top: 0.5px;
   width: 4px;
   height: 7px;
-  border: solid #3b82f6;
+  border: solid var(--selection-blue);
   border-width: 0 1.5px 1.5px 0;
   transform: rotate(45deg);
 }

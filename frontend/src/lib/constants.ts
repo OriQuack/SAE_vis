@@ -407,6 +407,22 @@ export const NEUTRAL_ICON_COLORS = {
  */
 export const UNSURE_GRAY = '#e0e0e0'
 
+/**
+ * Selection Blue - Primary interactive color palette
+ * Matches CSS custom properties in base.css :root
+ * Used for: stage symbols, selection indicators, active tabs, buttons, highlights
+ */
+export const SELECTION_BLUE = {
+  DEFAULT: '#3b82f6',
+  HOVER: '#2563eb',
+  ACTIVE: '#1d4ed8',
+  LIGHT: '#bfdbfe',
+  LIGHTER: '#dbeafe',
+  TEXT: '#1e40af',
+  HIGHLIGHT: 'rgba(59, 130, 246, 0.12)',
+  HIGHLIGHT_STROKE: 'rgba(59, 130, 246, 0.65)',
+} as const
+
 // ============================================================================
 // SANKEY DIAGRAM COLORS - Centralized color definitions for Sankey visualization
 // Easy to modify in one place for consistent styling across the diagram
@@ -417,7 +433,7 @@ export const SANKEY_COLORS = {
 
   // Node colors
   NODE_BORDER: '#d1d5db',             // Gray border for nodes (--border-thick)
-  NODE_BORDER_SELECTED: '#2563eb',    // Blue border for selected nodes
+  NODE_BORDER_SELECTED: SELECTION_BLUE.HOVER,    // Blue border for selected nodes
   ROOT_FILL: '#e0e0e0',               // Root node fill (same as UNSURE_GRAY without alpha)
   NODE_OPACITY: 1,                 // Slightly transparent for softer appearance
 
@@ -429,7 +445,7 @@ export const SANKEY_COLORS = {
   SEGMENT_STROKE: '#ffffff',          // White stroke between segments
 
   // Selection indicator
-  SELECTION_BORDER: '#2563eb',        // Blue selection highlight
+  SELECTION_BORDER: SELECTION_BLUE.HOVER,        // Blue selection highlight
 
   // Scroll indicator
   SCROLL_INDICATOR_FILL: 'rgba(30, 41, 59, 0.25)',

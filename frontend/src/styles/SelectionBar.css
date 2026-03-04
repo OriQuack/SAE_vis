@@ -217,7 +217,7 @@
 
 .selection-state-bar__legend-preview {
   font-weight: 600;
-  color: #3b82f6; /* Blue to indicate preview/change */
+  color: var(--selection-blue); /* Blue to indicate preview/change */
 }
 
 /* Responsive adjustments */
@@ -261,5 +261,5 @@
 
 .selection-state-bar__tooltip-preview {
   font-weight: 600;
-  color: #3b82f6; /* Blue to indicate preview/change */
+  color: var(--selection-blue); /* Blue to indicate preview/change */
 }

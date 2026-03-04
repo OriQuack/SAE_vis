@@ -111,7 +111,7 @@
 
 .scrollable-list__column-header--clickable:hover .column-header__switch-badge {
   opacity: 1;
-  color: #3b82f6;
+  color: var(--selection-blue);
 }
 
 /* Pulse animation for auto-switch feedback */
@@ -124,7 +124,7 @@
     background-color: transparent;
   }
   50% {
-    background-color: #bfdbfe; /* Same as .scrollable-list-item--highlighted */
+    background-color: var(--selection-blue-light); /* Same as .scrollable-list-item--highlighted */
   }
 }
 
@@ -196,12 +196,12 @@
 
 /* Highlighted items (e.g., same cluster) */
 .scrollable-list-item--highlighted {
-  background-color: #bfdbfe;
+  background-color: var(--selection-blue-light);
 }
 
 /* Current/selected item - use outline to avoid layout shifts */
 .scrollable-list-item--current {
-  outline: 3px solid #3b82f6;
+  outline: 3px solid var(--selection-blue);
   outline-offset: -1px;
   border-radius: 6px;
   background-color: white;
@@ -210,7 +210,7 @@
 
 /* When current item is also highlighted */
 .scrollable-list-item--current.scrollable-list-item--highlighted {
-  background-color: #bfdbfe;
+  background-color: var(--selection-blue-light);
 }
 
 /* Ensure children have no extra margins */

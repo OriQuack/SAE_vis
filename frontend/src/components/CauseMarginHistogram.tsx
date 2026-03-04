@@ -3,7 +3,7 @@ import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 import { Tooltip } from './Tooltip'
 import { formatCount } from '../lib/utils'
-import { TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
+import { TAG_CATEGORY_CAUSE, UNSURE_GRAY, SELECTION_BLUE } from '../lib/constants'
 import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
@@ -632,8 +632,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
                 y={0}
                 width={binWidth}
                 height={dimensions.chart.height}
-                fill="rgba(59, 130, 246, 0.12)"
-                stroke="rgba(59, 130, 246, 0.65)"
+                fill={SELECTION_BLUE.HIGHLIGHT}
+                stroke={SELECTION_BLUE.HIGHLIGHT_STROKE}
                 strokeWidth={1}
                 pointerEvents="none"
               />

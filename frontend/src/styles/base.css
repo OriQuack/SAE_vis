@@ -17,6 +17,16 @@
 
   /* Selection State Colors - Matches UNSURE_GRAY from lib/constants.ts */
   --unsure-gray: #e0e0e0ff;   /* Unsure/untagged state - badges, buttons, bars, tags */
+
+  /* Selection Blue - Primary interactive color palette */
+  --selection-blue: #3b82f6;
+  --selection-blue-hover: #2563eb;
+  --selection-blue-active: #1d4ed8;
+  --selection-blue-light: #bfdbfe;
+  --selection-blue-lighter: #dbeafe;
+  --selection-blue-text: #1e40af;
+  --selection-blue-muted: #93c5fd;
+  --selection-blue-mid: #60a5fa;
 }
 
 /* Reset and base styles */
@@ -233,16 +243,16 @@ Matches .nav__button style: white background, 11px font
 
 /* Next stage variant - Blue background when enabled, gray when disabled */
 .action-button--next {
-  background-color: #3b82f6;
+  background-color: var(--selection-blue);
   color: #ffffff;
-  border-color: #2563eb;
+  border-color: var(--selection-blue-hover);
   font-weight: 600;
   box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
 }
 
 .action-button--next:hover:not(:disabled) {
-  background-color: #2563eb;
-  border-color: #1d4ed8;
+  background-color: var(--selection-blue-hover);
+  border-color: var(--selection-blue-active);
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
@@ -579,7 +589,7 @@ Matches .nav__button style: white background, 11px font
 
 /* Within-feature pattern - blue border (medium confidence) */
 .legend-sample--intra {
-  box-shadow: inset 0 0 0 2px #3b82f6;
+  box-shadow: inset 0 0 0 2px var(--selection-blue);
 }
 
 /* Cross-feature pattern - green border (all sides) */
