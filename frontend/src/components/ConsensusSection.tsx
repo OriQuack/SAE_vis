@@ -149,7 +149,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           className="consensus-tooltip"
           style={{
             left: tooltipData.position.x + 10,
-            top: tooltipData.position.y + 10
+            bottom: window.innerHeight - tooltipData.position.y + 10
           }}
         >
           <div className="consensus-tooltip__header">

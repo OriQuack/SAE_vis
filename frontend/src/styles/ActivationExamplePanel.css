@@ -106,7 +106,6 @@
 .activation-token {
   border-radius: 2px;
   white-space: pre;
-  border: 1px solid transparent;  /* Reserve space for border to prevent layout shift */
   display: inline-flex;
   align-items: center;
   min-height: 13px;

@@ -1,7 +1,9 @@
-import React from 'react'
+import React, { useState } from 'react'
 import chroma from 'chroma-js'
 import type { FeatureTableRow, ExplainerScoreData, ScorerScoreSet } from '../types'
 import { getTagColor } from '../lib/tag-system'
+import { getExplainerDisplayName } from '../lib/table-data-utils'
+import { Tooltip } from './Tooltip'
 import '../styles/CrossMetricConsensus.css'
 
 interface CrossMetricConsensusProps {
@@ -121,14 +123,14 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
       <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
       </svg>
-      <span className="legend-label">Embed</span>
+      <span className="legend-label">Embedding</span>
     </div>
     <div className="legend-item">
       <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <rect x={2.5} y={2.5} width={7} height={7} transform="rotate(45 6 6)"
           fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
       </svg>
-      <span className="legend-label">Detect</span>
+      <span className="legend-label">Detection</span>
     </div>
     <div className="legend-item">
       <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">

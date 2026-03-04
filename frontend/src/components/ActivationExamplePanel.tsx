@@ -137,7 +137,7 @@ const renderActivationToken = (
     const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`
     return (
       <React.Fragment key={tokenIdx}>
-        <span className="activation-token">{leadingSpaces[0]}</span>
+        <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
         <span className={wordClassName} style={{ backgroundColor: bgColor }}>
           {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset !== null ? charOffset - leadingSpaces[0].length : charOffset, ngramLength)}
         </span>
