@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-03-04T00:12:21.985961",
+  "created_at": "2026-03-04T15:01:02.542182",
   "step_name": "Step 14: Explanation Consensus",
   "script_version": "1.2",
-  "total_rows": 16384,
+  "total_rows": 100,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -13,16 +13,16 @@
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
-    "features_processed": 16384,
-    "features_with_clusters": 9319,
-    "features_with_outliers_only": 7065,
-    "total_clusters": 12471,
-    "total_outliers": 73357,
-    "total_phrases": 109445,
-    "single_explainer_clusters_reclassified": 8967
+    "features_processed": 100,
+    "features_with_clusters": 64,
+    "features_with_outliers_only": 36,
+    "total_clusters": 69,
+    "total_outliers": 515,
+    "total_phrases": 681,
+    "single_explainer_clusters_reclassified": 439
   },
   "result_stats": {
-    "unique_feature_ids": 16384,
+    "unique_feature_ids": 100,
     "unique_sae_ids": 1
   },
   "config_used": {
@@ -35,8 +35,14 @@
       "explanation_consensus": "data/output/explanation_consensus.parquet"
     },
     "parameters": {
+      "clustering_method": "agglomerative",
+      "agglomerative_threshold": 0.4,
+      "agglomerative_linkage": "average",
       "min_cluster_size": 2,
       "min_samples": 1,
+      "cluster_selection_epsilon": 0.0,
+      "cluster_selection_method": "eom",
+      "metric": "cosine",
       "chunk_method": "aspect"
     },
     "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",

@@ -7,7 +7,7 @@ import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/ta
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
-import ConsensusSection from './ConsensusSection'
+import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -1178,6 +1178,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* Consensus + Parallel Coordinates row */}
                     <div className="cause-view__consensus-row-header">
                       <span className="subheader">Cross-explainer Consensus</span>
+                      <ConsensusLegend />
                       {/* Metrics legend */}
                       <div className="cause-view__metrics-legend">
                         <div className="legend-item">

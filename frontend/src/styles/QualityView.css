@@ -340,7 +340,7 @@
 .quality-view__phrase-highlight {
   background-color: rgba(59, 130, 246, 0.15);
   border-radius: 2px;
-  padding: 0 1px;
+  padding: 0;
   color: inherit;
 }
 

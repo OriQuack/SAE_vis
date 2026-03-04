@@ -320,12 +320,14 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
             positions = []
             for token_idx, token in enumerate(window_tokens):
                 token_normalized = normalize_token(token).lower()
+                # +1 for ▁-prefixed tokens: matches step_10's ▁ → ' ' display
+                offset_adj = 1 if token.startswith('▁') else 0
 
                 for char_offset in range(len(token_normalized) - len(char_ngram) + 1):
                     if token_normalized[char_offset:char_offset + len(char_ngram)] == char_ngram:
                         positions.append({
                             'token_position': int(window_offset + token_idx),
-                            'char_offset': int(char_offset)
+                            'char_offset': int(char_offset + offset_adj)
                         })
 
             if positions:

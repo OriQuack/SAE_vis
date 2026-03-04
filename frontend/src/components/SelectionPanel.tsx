@@ -327,7 +327,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       total: featureSet.size
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, workflowActiveStage])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds

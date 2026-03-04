@@ -273,27 +273,26 @@ class ActivationDisplayProcessor(BaseProcessor):
         logger.info(f"Loaded similarity data for {len(self.similarity_df):,} features")
 
     def _process_tokens_array(self, tokens: List[str]) -> List[str]:
-        """Process token list, removing SentencePiece markers while preserving whitespace.
+        """Process token list, replacing SentencePiece markers with spaces to preserve word boundaries.
 
         Args:
             tokens: List of token strings (may have '▁' SentencePiece prefix)
 
         Returns:
-            List of processed tokens with whitespace chars preserved
+            List of processed tokens with leading spaces for word-start tokens
         """
         if not tokens:
             return []
         result = []
         for t in tokens:
-            stripped = t.lstrip('▁')
-            if stripped:
-                # Normal token or whitespace char ('\n', '\t') — keep as-is
-                result.append(stripped)
-            elif t:
-                # Was only ▁ markers → space token(s)
-                result.append(' ' * len(t))
+            if t.startswith('▁'):
+                stripped = t.lstrip('▁')
+                if stripped:
+                    result.append(' ' + stripped)   # '▁the' → ' the'
+                else:
+                    result.append(' ' * len(t))     # '▁' → ' '  (space token)
             else:
-                result.append(t)
+                result.append(t)                    # 'eavor' → 'eavor' (sub-word)
         return result
 
     def _extract_char_ngram_positions(self, ngram_data: Optional[Dict], prompt_id: int) -> List[Dict]:
@@ -491,6 +490,13 @@ class ActivationDisplayProcessor(BaseProcessor):
 
             # Use unified ngram_positions from selected best n-gram
             ngram_positions = self._extract_unified_ngram_positions(best_ngram, row_dict["prompt_id"])
+
+            # Adjust char_offset for tokens that gained a leading space from ▁ → ' '
+            for pos in ngram_positions:
+                if pos.get("char_offset") is not None:
+                    token_idx = pos["token_position"]
+                    if token_idx < len(raw_tokens) and raw_tokens[token_idx].startswith('▁'):
+                        pos["char_offset"] += 1  # Account for prepended space
 
             example_data_list.append({
                 "prompt_id": row_dict["prompt_id"],

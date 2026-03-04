@@ -12,7 +12,8 @@ import ActivationExample from './ActivationExamplePanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
-import ConsensusSection from './ConsensusSection'
+import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
+import CrossMetricConsensus, { CrossMetricLegend } from './CrossMetricConsensus'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import '../styles/QualityView.css'
@@ -27,18 +28,14 @@ import '../styles/ThresholdTaggingPanel.css'
 function segmentTextByPhrases(text: string, phrases: string[]): Array<{ text: string; highlight: boolean }> {
   if (!text || phrases.length === 0) return [{ text, highlight: false }]
 
-  const lower = text.toLowerCase()
-
-  // Find all phrase occurrences as intervals
+  // Find all phrase occurrences as intervals using word-boundary matching
   const intervals: Array<[number, number]> = []
   for (const phrase of phrases) {
-    const phraseLower = phrase.toLowerCase()
-    let startIdx = 0
-    while (startIdx < lower.length) {
-      const found = lower.indexOf(phraseLower, startIdx)
-      if (found === -1) break
-      intervals.push([found, found + phraseLower.length])
-      startIdx = found + 1
+    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
+    let match: RegExpExecArray | null
+    while ((match = regex.exec(text)) !== null) {
+      intervals.push([match.index, match.index + match[0].length])
     }
   }
 
@@ -1054,17 +1051,26 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Consensus Section - Clustered explanation phrases */}
                   <div className="quality-view__consensus-header">
-                    <span className="subheader">Cross-explainer Consensus</span>
+                    <span className="subheader">Explainer Consensus</span>
+                    <ConsensusLegend />
                   </div>
                   <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} />
 
                   {/* Explanation Header */}
                   <div className="quality-view__explanation-header">
+                    <span className="subheader">Metric Consensus</span>
+                    <CrossMetricLegend />
                     <span className="subheader">Explanations</span>
                   </div>
 
                   {/* Explanation Section - All Explainers (plain text) */}
                   <div className="quality-view__explanation-row">
+                    <div className="cross-metric-column">
+                      <CrossMetricConsensus
+                        explainerIds={tableData?.explainer_ids || []}
+                        featureRow={selectedFeatureData?.row || null}
+                      />
+                    </div>
                     <div className="quality-view__explanation-section">
                       <div className="quality-view__explanation-content">
                         {tableData?.explainer_ids && tableData.explainer_ids.length > 0 ? (

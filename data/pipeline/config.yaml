@@ -235,8 +235,15 @@ steps:
     outputs:
       explanation_consensus: "${output}/explanation_consensus.parquet"
     parameters:
-      min_cluster_size: 2          # HDBSCAN min cluster size
-      min_samples: 1               # HDBSCAN min samples
+      clustering_method: "agglomerative"  # "hdbscan" or "agglomerative"
+      agglomerative_threshold: 0.4    # cosine distance cutoff (0.4 = cosine_sim > 0.6)
+      agglomerative_linkage: "average"  # average linkage for cosine distance
+      # HDBSCAN params (kept for swapping back)
+      min_cluster_size: 2
+      min_samples: 1
+      cluster_selection_epsilon: 0.0
+      cluster_selection_method: "eom"
+      metric: "cosine"
       chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
 
 # Dependency graph - defines execution order

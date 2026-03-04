@@ -115,8 +115,14 @@ class ExplanationConsensusProcessor(BaseProcessor):
         )
 
         self.proc_params = {
+            "clustering_method": params.get("clustering_method", "hdbscan"),
+            "agglomerative_threshold": params.get("agglomerative_threshold", 0.4),
+            "agglomerative_linkage": params.get("agglomerative_linkage", "average"),
             "min_cluster_size": params.get("min_cluster_size", 2),
             "min_samples": params.get("min_samples", 1),
+            "cluster_selection_epsilon": params.get("cluster_selection_epsilon", 0.0),
+            "cluster_selection_method": params.get("cluster_selection_method", "eom"),
+            "metric": params.get("metric", "euclidean"),
             "chunk_method": params.get("chunk_method", "smart"),
             "embedding_model": embedding_model,
         }
@@ -263,6 +269,33 @@ class ExplanationConsensusProcessor(BaseProcessor):
         distances = np.linalg.norm(embeddings - centroid, axis=1)
         return int(np.argmin(distances))
 
+    def _cluster_agglomerative(self, embeddings: np.ndarray) -> np.ndarray:
+        """Cluster embeddings using agglomerative clustering with cosine distance.
+
+        Args:
+            embeddings: L2-normalized embedding matrix (n_phrases, embedding_dim)
+
+        Returns:
+            Array of 0-indexed cluster labels (no -1 outliers)
+        """
+        from scipy.spatial.distance import pdist
+        from scipy.cluster.hierarchy import linkage, fcluster
+
+        threshold = self.proc_params["agglomerative_threshold"]
+        linkage_method = self.proc_params["agglomerative_linkage"]
+
+        # Compute pairwise cosine distances
+        distances = pdist(embeddings, metric="cosine")
+
+        # Hierarchical clustering
+        Z = linkage(distances, method=linkage_method)
+
+        # Cut tree at threshold (fcluster returns 1-indexed labels)
+        labels = fcluster(Z, t=threshold, criterion="distance")
+
+        # Convert to 0-indexed to match HDBSCAN convention
+        return labels - 1
+
     def _process_feature(self, feature_id: int) -> Dict[str, Any]:
         """Process a single feature's explanations.
 
@@ -330,13 +363,32 @@ class ExplanationConsensusProcessor(BaseProcessor):
         phrase_texts = [p[0] for p in phrases]
         phrase_embeddings_normalized = self._embed_phrases_aligned(phrase_texts)
 
-        # Cluster with HDBSCAN
-        clusterer = hdbscan.HDBSCAN(
-            min_cluster_size=self.proc_params["min_cluster_size"],
-            min_samples=self.proc_params["min_samples"],
-            metric='euclidean'
-        )
-        cluster_labels = clusterer.fit_predict(phrase_embeddings_normalized)
+        # Cluster phrases
+        clustering_method = self.proc_params["clustering_method"]
+        if clustering_method == "agglomerative":
+            cluster_labels = self._cluster_agglomerative(phrase_embeddings_normalized)
+        else:
+            # HDBSCAN clustering
+            metric = self.proc_params["metric"]
+            if metric == "cosine":
+                # BallTree doesn't support cosine; precompute distance matrix instead
+                # For L2-normalized vectors: cosine_distance = 1 - dot(a, b)
+                cosine_sim = phrase_embeddings_normalized @ phrase_embeddings_normalized.T
+                distance_matrix = np.clip(1.0 - cosine_sim, 0.0, 2.0).astype(np.float64)
+                hdbscan_metric = "precomputed"
+                hdbscan_input = distance_matrix
+            else:
+                hdbscan_metric = metric
+                hdbscan_input = phrase_embeddings_normalized
+
+            clusterer = hdbscan.HDBSCAN(
+                min_cluster_size=self.proc_params["min_cluster_size"],
+                min_samples=self.proc_params["min_samples"],
+                metric=hdbscan_metric,
+                cluster_selection_epsilon=self.proc_params["cluster_selection_epsilon"],
+                cluster_selection_method=self.proc_params["cluster_selection_method"]
+            )
+            cluster_labels = clusterer.fit_predict(hdbscan_input)
 
         # Reclassify single-explainer clusters as outliers (cross-explainer consensus only)
         for cluster_id_val in set(cluster_labels):

@@ -111,6 +111,50 @@ const shouldHighlightInterfeature = (
   }
 }
 
+/**
+ * Render an activation token, splitting leading spaces from activated tokens
+ * so consecutive highlighted words don't visually merge into one orange block.
+ */
+const renderActivationToken = (
+  token: { text: string; activation_value?: number; is_max?: boolean; is_newline?: boolean; position: number },
+  tokenIdx: number,
+  example: QuantileExample,
+  ngramLength: number,
+  interFeaturePositions?: ActivationExampleProps['interFeaturePositions'],
+  isContinuation?: boolean,
+  isBeforeContinuation?: boolean
+): React.ReactNode => {
+  const { highlight, charOffset } = getTokenHighlight(token.position, example)
+  const hasWordUnderline = highlight && charOffset === null
+  const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
+
+  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''} ${isContinuation ? 'activation-token--continuation' : ''} ${isBeforeContinuation ? 'activation-token--before-continuation' : ''}`
+  const bgColor = token.activation_value
+    ? getActivationColor(token.activation_value, example.max_activation)
+    : undefined
+
+  // Split leading spaces from activated tokens to prevent merged highlights
+  const leadingSpaces = token.activation_value && token.text.match(/^ +/)
+  if (leadingSpaces) {
+    // Apply before-continuation to the word span (not the space span)
+    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''} ${isBeforeContinuation ? 'activation-token--before-continuation' : ''}`
+    return (
+      <React.Fragment key={tokenIdx}>
+        <span className="activation-token">{leadingSpaces[0]}</span>
+        <span className={wordClassName} style={{ backgroundColor: bgColor }}>
+          {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset, ngramLength)}
+        </span>
+      </React.Fragment>
+    )
+  }
+
+  return (
+    <span key={tokenIdx} className={className} style={{ backgroundColor: bgColor }}>
+      {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
+    </span>
+  )
+}
+
 // Helper function to generate appropriate whitespace symbol
 const getWhitespaceSymbol = (text: string): string => {
   const newlineCount = (text.match(/\n/g) || []).length
@@ -270,26 +314,11 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                // Unified highlighting: backend decides word vs char
-                const { highlight, charOffset } = getTokenHighlight(token.position, example)
-                // Word n-grams: charOffset is null, highlight entire token via CSS
-                // Char n-grams: charOffset is set, highlight substring
-                const hasWordUnderline = highlight && charOffset === null
-                const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
-
-                return (
-                  <span
-                    key={tokenIdx}
-                    className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
-                    style={{
-                      backgroundColor: token.activation_value
-                        ? getActivationColor(token.activation_value, example.max_activation)
-                        : 'transparent'
-                    }}
-                  >
-                    {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
-                  </span>
-                )
+                const prevToken = tokenIdx > 0 ? displayTokens[tokenIdx - 1] : null
+                const nextToken = displayTokens[tokenIdx + 1]
+                const isCont = !!token.activation_value && !!prevToken?.activation_value && !token.text.startsWith(' ') && tokenIdx > 0
+                const isBeforeCont = !!token.activation_value && !!nextToken?.activation_value && !!nextToken && !nextToken.text.startsWith(' ')
+                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, isCont, isBeforeCont)
               })}
             </div>
           )
@@ -313,24 +342,11 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        // Unified highlighting: backend decides word vs char
-                        const { highlight, charOffset } = getTokenHighlight(token.position, example)
-                        const hasWordUnderline = highlight && charOffset === null
-                        const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
-
-                        return (
-                          <span
-                            key={tokenIdx}
-                            className={`activation-token ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`}
-                            style={{
-                              backgroundColor: token.activation_value
-                                ? getActivationColor(token.activation_value, example.max_activation)
-                                : 'transparent'
-                            }}
-                          >
-                            {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
-                          </span>
-                        )
+                        const prevToken = tokenIdx > 0 ? displayTokens[tokenIdx - 1] : null
+                        const nextToken = displayTokens[tokenIdx + 1]
+                        const isCont = !!token.activation_value && !!prevToken?.activation_value && !token.text.startsWith(' ') && tokenIdx > 0
+                        const isBeforeCont = !!token.activation_value && !!nextToken?.activation_value && !!nextToken && !nextToken.text.startsWith(' ')
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, isCont, isBeforeCont)
                       })}
                     </div>
                   )

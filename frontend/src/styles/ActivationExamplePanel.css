@@ -104,7 +104,6 @@
  * ============================================================================ */
 
 .activation-token {
-  padding: 1px 2px;
   border-radius: 2px;
   white-space: pre;
   border: 1.5px solid transparent;  /* Reserve space for border to prevent layout shift */
@@ -113,6 +112,28 @@
   min-height: 13px;
   line-height: 1;
   vertical-align: middle;
+}
+
+/* Activation highlight (orange intensity based on activation value) */
+.activation-token--activated {
+  padding: 1.5px 0px;
+  border-radius: 2px;
+}
+
+/* Collapse gap between sub-word tokens (multi-BPE-token words)
+ * When consecutive activated tokens form the same word (no leading space),
+ * remove inner padding/border-radius and use negative margin to close the
+ * 3px gap left by the two transparent borders (1.5px each). */
+.activation-token--activated.activation-token--continuation {
+  padding-left: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.activation-token--activated.activation-token--before-continuation {
+  padding-right: 0;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
 }
 
 /* Pattern indicator (lexical patterns: char or word n-grams) */

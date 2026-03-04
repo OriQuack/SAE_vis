@@ -76,24 +76,23 @@
   max-width: 100%;
 }
 
-/* Cluster (medoid) style - filled neutral gray, alpha scaled by consensus */
+/* Cluster (medoid) style - filled with quality color at consensus opacity */
 .consensus-item__pill--medoid {
-  background-color: rgba(107, 114, 128, calc(0.2 * var(--pill-alpha, 1)));
+  background-color: var(--pill-bg, rgba(107, 114, 128, 0.2));
 }
 
 .consensus-item__pill--medoid:hover {
-  background-color: rgba(107, 114, 128, calc(0.35 * var(--pill-alpha, 1)));
+  background-color: var(--pill-hover-bg, rgba(107, 114, 128, 0.35));
 }
 
-/* Outlier style - hollow neutral gray (border only), alpha scaled by consensus */
+/* Outlier style - border only with quality color at full opacity */
 .consensus-item__pill--outlier {
   background-color: transparent;
-  border: 1.5px solid rgba(107, 114, 128, calc(0.5 * var(--pill-alpha, 1)));
+  border: 2px solid var(--pill-border-color, #6b7280);
 }
 
 .consensus-item__pill--outlier:hover {
-  background-color: rgba(107, 114, 128, calc(0.1 * var(--pill-alpha, 1)));
-  border-color: rgba(107, 114, 128, calc(0.7 * var(--pill-alpha, 1)));
+  background-color: var(--pill-hover-bg, rgba(107, 114, 128, 0.1));
 }
 
 /* Phrase text */
@@ -161,3 +160,42 @@
   color: var(--text-secondary, #6b7280);
 }
 
+/* ============================================================================
+ * CONSENSUS LEGEND - Compact inline legend for subheader row
+ * ============================================================================ */
+
+.consensus-legend {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.consensus-legend__group {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.consensus-legend__label {
+  font-size: 10px;
+  color: var(--text-tertiary, #9ca3af);
+}
+
+.consensus-legend__ramp {
+  display: flex;
+  gap: 1px;
+}
+
+.consensus-legend__swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 1px;
+}
+
+.consensus-legend__range {
+  font-size: 9px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  color: var(--text-tertiary, #9ca3af);
+}

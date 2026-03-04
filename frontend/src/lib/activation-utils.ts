@@ -65,8 +65,8 @@ export function buildActivationTokens(
   // Build token array with activation metadata
   return tokens.map((text, relativeIdx) => {
     const absolutePos = startIndex + relativeIdx
-    // Check if token contains whitespace: newlines, carriage returns, tabs, or spaces
-    const containsWhitespace = /[\n\r\t ]/.test(text) || text === '\\n' || text === '\\r' || text === '\\t' || text === ' '
+    // Check if token is pure whitespace (newlines, carriage returns, tabs, or spaces only)
+    const containsWhitespace = /^[\n\r\t ]+$/.test(text) || text === '\\n' || text === '\\r' || text === '\\t'
     return {
       text,
       position: absolutePos,
