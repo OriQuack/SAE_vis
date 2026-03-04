@@ -7,6 +7,8 @@
 
 import { scaleLinear } from 'd3-scale'
 import type { QuantileExample } from '../types'
+import { D3_SCHEME_TABLEAU10 } from './constants'
+import { addOpacityToHex } from './color-utils'
 
 /**
  * Token with activation highlighting metadata
@@ -80,7 +82,7 @@ export function buildActivationTokens(
 /**
  * Get background color based on activation strength
  *
- * Uses orange gradient: white (0) → light orange (0.5) → full orange (1.0)
+ * Uses Tableau10 orange gradient: transparent (0) → 50% orange (0.5) → full orange (1.0)
  */
 export function getActivationColor(
   activationValue: number,
@@ -90,7 +92,11 @@ export function getActivationColor(
 
   const colorScale = scaleLinear<string>()
     .domain([0, 0.5, 1])
-    .range(['#ffffff', '#fed7aa', '#fb923c'])  // white → light orange → orange
+    .range([
+      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0),
+      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0.35),
+      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0.75),
+    ])
 
   return colorScale(normalized)
 }
@@ -111,8 +117,8 @@ export function getActivationColor(
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
   maxPixelWidth: number,
-  charWidth: number = 6.7,
-  tokenOverhead: number = 0
+  charWidth: number = 6.8,
+  tokenOverhead: number = 2
 ): { displayTokens: ActivationToken[], hasLeftEllipsis: boolean, hasRightEllipsis: boolean } {
   const tokenPixelCost = (t: ActivationToken) => t.text.length * charWidth + tokenOverhead
   const totalPixelWidth = tokens.reduce((sum, t) => sum + tokenPixelCost(t), 0)

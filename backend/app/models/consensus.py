@@ -15,6 +15,8 @@ class ClusterPhrase(BaseModel):
     quality_score: Optional[float] = None
     distance_to_medoid: float
     activation_similarity: float
+    start_char: Optional[int] = None
+    end_char: Optional[int] = None
 
 
 class ConsensusItem(BaseModel):
@@ -27,6 +29,8 @@ class ConsensusItem(BaseModel):
     avg_quality_score: Optional[float] = None
     is_outlier: bool
     phrase_weight: Optional[float] = None
+    start_char: Optional[int] = None
+    end_char: Optional[int] = None
     cluster_size: Optional[int] = None
     cluster_score: Optional[float] = None
     cluster_coherence: Optional[float] = None

@@ -138,7 +138,7 @@ const renderActivationToken = (
     return (
       <React.Fragment key={tokenIdx}>
         <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
-        <span className={wordClassName} style={{ backgroundColor: bgColor }}>
+        <span className={wordClassName} style={{ '--activation-color': bgColor } as React.CSSProperties}>
           {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset !== null ? charOffset - leadingSpaces[0].length : charOffset, ngramLength)}
         </span>
       </React.Fragment>
@@ -146,7 +146,7 @@ const renderActivationToken = (
   }
 
   return (
-    <span key={tokenIdx} className={className} style={{ backgroundColor: bgColor }}>
+    <span key={tokenIdx} className={className} style={{ '--activation-color': bgColor } as React.CSSProperties}>
       {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
     </span>
   )

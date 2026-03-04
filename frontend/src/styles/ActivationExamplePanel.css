@@ -6,15 +6,16 @@
   position: relative;  /* Positioning context for absolute popover */
   width: 100%;  /* Fill entire table cell */
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;  /* Monospace font for predictable character widths */
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   display: flex;
   flex-direction: column;
+  gap: 2px;
   cursor: pointer;
-  height: 54px;  /* Default: 3 quantiles × 18px each */
-  min-height: 54px;
-  max-height: 54px;
+  height: 58px;  /* Default: 3 quantiles × 18px + 2 gaps × 2px */
+  min-height: 58px;
+  max-height: 58px;
   overflow: hidden;  /* Clip preview content to container */
   z-index: 1;  /* Create stacking context */
 }
@@ -27,35 +28,35 @@
 }
 
 .activation-example--quantiles-2 {
-  height: 36px;
-  min-height: 36px;
-  max-height: 36px;
+  height: 38px;
+  min-height: 38px;
+  max-height: 38px;
 }
 
 .activation-example--quantiles-3 {
-  height: 54px;
-  min-height: 54px;
-  max-height: 54px;
+  height: 58px;
+  min-height: 58px;
+  max-height: 58px;
 }
 
 .activation-example--quantiles-4 {
-  height: 72px;
-  min-height: 72px;
-  max-height: 72px;
+  height: 78px;
+  min-height: 78px;
+  max-height: 78px;
 }
 
 /* Custom height for 6 examples (e.g., [2,2,1,1] pattern) */
 .activation-example--rows-6 {
-  height: 108px;
-  min-height: 108px;
-  max-height: 108px;
+  height: 118px;
+  min-height: 118px;
+  max-height: 118px;
 }
 
 /* Custom height for 8 examples (e.g., [2,2,2,2] pattern) */
 .activation-example--rows-8 {
-  height: 144px;
-  min-height: 144px;
-  max-height: 144px;
+  height: 158px;
+  min-height: 158px;
+  max-height: 158px;
 }
 
 /* Elevate z-index when hovered to ensure popover appears above adjacent cells */
@@ -115,7 +116,29 @@
 
 /* Activation highlight (orange intensity based on activation value) */
 .activation-token--activated {
+  position: relative;
   border-radius: 2px;
+}
+
+/* Extend activation background beyond token bounds */
+.activation-token--activated::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: -2px;
+  right: -2px;
+  background-color: var(--activation-color);
+  border-radius: 2px;
+  z-index: -1;
+}
+
+/* Consecutive highlighted tokens: suppress inner extensions to prevent overlap */
+.activation-token--activated:has(+ .activation-token--activated)::before {
+  right: 0;
+}
+.activation-token--activated + .activation-token--activated::before {
+  left: 0;
 }
 
 /* Pattern indicator (lexical patterns: char or word n-grams) */

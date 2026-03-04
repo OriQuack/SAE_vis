@@ -44,7 +44,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from core.base import BaseProcessor, load_yaml_config, resolve_variables
 from core.logging import setup_logging
-from core.phrases import chunk_text, extract_all_phrases
+from core.phrases import chunk_text, extract_all_phrases_with_offsets
 from core.embeddings import get_projection_modules, apply_projection_layers
 
 # Lazy imports for heavy dependencies
@@ -335,20 +335,20 @@ class ExplanationConsensusProcessor(BaseProcessor):
             avg_quality = (detection + fuzz + embedding) / 3
             explainer_quality_scores[explainer] = avg_quality
 
-        # Extract phrases
-        phrases = extract_all_phrases(explanations, self.proc_params["chunk_method"])
+        # Extract phrases with character offsets
+        phrases = extract_all_phrases_with_offsets(explanations, self.proc_params["chunk_method"])
         self.stats["total_phrases"] += len(phrases)
 
         # Calculate phrase weights: each explanation contributes 1.0 total
         # Each phrase gets 1/n weight where n = number of phrases from that explanation
         phrases_per_explainer: Dict[int, int] = {}
-        for text, exp_idx, phrase_idx in phrases:
+        for text, exp_idx, phrase_idx, start_char, end_char in phrases:
             if exp_idx not in phrases_per_explainer:
                 phrases_per_explainer[exp_idx] = 0
             phrases_per_explainer[exp_idx] += 1
 
         phrase_weights = []
-        for text, exp_idx, phrase_idx in phrases:
+        for text, exp_idx, phrase_idx, start_char, end_char in phrases:
             weight = 1.0 / phrases_per_explainer[exp_idx]
             phrase_weights.append(weight)
 
@@ -429,7 +429,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             else:
                 medoid_global_idx = cluster_indices[0] if len(cluster_indices) > 0 else 0
 
-            medoid_phrase_text, medoid_exp_idx, medoid_phrase_idx = phrases[medoid_global_idx]
+            medoid_phrase_text, medoid_exp_idx, medoid_phrase_idx, medoid_start_char, medoid_end_char = phrases[medoid_global_idx]
             medoid_explainer = explainer_names[medoid_exp_idx]
             medoid_embedding = phrase_embeddings_normalized[medoid_global_idx]
 
@@ -460,7 +460,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             # Build phrase details
             phrase_details = []
             for local_idx, global_idx in enumerate(cluster_indices):
-                phrase_text, exp_idx, phrase_idx = phrases[global_idx]
+                phrase_text, exp_idx, phrase_idx, start_char, end_char = phrases[global_idx]
                 phrase_embedding = phrase_embeddings_normalized[global_idx]
 
                 # Distance to medoid
@@ -487,6 +487,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
                     "distance_to_medoid": distance_to_medoid,
                     "activation_similarity": activation_sim,
                     "is_outlier": is_outlier,
+                    "start_char": start_char,
+                    "end_char": end_char,
                 })
 
             # Calculate cluster-level average quality score (simple average of all phrases)
@@ -555,7 +557,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             return self._create_empty_result(feature_id)
 
         # Single phrase is treated as outlier
-        phrase_text, exp_idx, phrase_idx = phrases[0]
+        phrase_text, exp_idx, phrase_idx, start_char, end_char = phrases[0]
         phrase_weight = phrase_weights[0] if phrase_weights else 1.0
 
         activation_centroid = self._get_activation_centroid(feature_id)
@@ -598,6 +600,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
                     "distance_to_medoid": 0.0,
                     "activation_similarity": activation_sim,
                     "is_outlier": True,
+                    "start_char": start_char,
+                    "end_char": end_char,
                 }],
             }],
         }
@@ -668,6 +672,8 @@ class ExplanationConsensusProcessor(BaseProcessor):
             pl.Field("distance_to_medoid", pl.Float32),
             pl.Field("activation_similarity", pl.Float32),
             pl.Field("is_outlier", pl.Boolean),
+            pl.Field("start_char", pl.UInt32),
+            pl.Field("end_char", pl.UInt32),
         ])
 
         cluster_struct = pl.Struct([

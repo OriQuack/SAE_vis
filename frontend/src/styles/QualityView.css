@@ -289,6 +289,7 @@
   border-radius: 4px;
   min-width: 65px;
   text-align: center;
+  transition: background-color 0.05s ease;
 }
 
 .quality-view__explainer-text {
@@ -305,6 +306,10 @@
   color: #9ca3af;
   font-size: 12px;
   font-style: italic;
+}
+
+.quality-view__explainer-name--highlighted {
+  background-color: rgb(59, 130, 246);
 }
 
 /* Phrase highlight for consensus pill hover */

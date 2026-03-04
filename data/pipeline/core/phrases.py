@@ -191,6 +191,48 @@ def _index_sets_to_phrases(index_sets: List[set], doc) -> List[str]:
     return phrases
 
 
+def _index_sets_to_phrases_with_offsets(index_sets: List[set], doc) -> List[Tuple[str, int, int]]:
+    """Convert sets of token indices into phrases with character offsets.
+
+    For non-contiguous token spans, returns the full span (first token start
+    to last token end) so the offset is always a valid substring of the source.
+
+    Returns:
+        List of (phrase_text, start_char, end_char) tuples
+    """
+    phrases = []
+    for indices in index_sets:
+        if not indices:
+            continue
+        sorted_idx = sorted(indices)
+        # Split into contiguous runs
+        runs = []
+        run_start = sorted_idx[0]
+        prev = sorted_idx[0]
+        for idx in sorted_idx[1:]:
+            if idx == prev + 1:
+                prev = idx
+            else:
+                runs.append((run_start, prev))
+                run_start = idx
+                prev = idx
+        runs.append((run_start, prev))
+
+        # Extract text for each run
+        run_texts = []
+        for start, end in runs:
+            s = doc[start].idx
+            e = doc[end].idx + len(doc[end].text)
+            run_texts.append(doc.text[s:e])
+
+        phrase_text = " ".join(run_texts)
+        # Full span offset: first token start → last token end
+        span_start = doc[sorted_idx[0]].idx
+        span_end = doc[sorted_idx[-1]].idx + len(doc[sorted_idx[-1]].text)
+        phrases.append((phrase_text, span_start, span_end))
+    return phrases
+
+
 def _merge_conj_chains(chunk_spans: List[set], chunk_simple: List[bool],
                        chunk_roots: list, doc) -> None:
     """Merge simple coordinated chunks connected by conj relations in-place.
@@ -410,6 +452,135 @@ def aspect_phrases(text: str) -> List[str]:
     return result if result else [text.strip()]
 
 
+def aspect_phrases_with_offsets(text: str) -> List[Tuple[str, int, int]]:
+    """Extract aspect-oriented phrases with character offsets.
+
+    Same logic as aspect_phrases() but returns (phrase_text, start_char, end_char).
+    For gap-recovered phrases, offsets come from token positions.
+    For merged spans, offsets span from first to last token in the set.
+
+    Returns:
+        List of (phrase_text, start_char, end_char) tuples, or [(text, 0, len(text))] as fallback
+    """
+    if not text or not text.strip():
+        return []
+
+    text = text.strip()
+    nlp = _get_nlp()
+    doc = nlp(text)
+
+    # Collect index sets from noun chunks + their modifier subtrees
+    chunk_spans = []
+    chunk_simple = []
+    chunk_roots = []
+    for chunk in doc.noun_chunks:
+        original = set(range(chunk.start, chunk.end))
+        indices = set(original)
+        _extend_with_modifiers(chunk.root, indices)
+        chunk_spans.append(indices)
+        chunk_simple.append(indices == original)
+        chunk_roots.append(chunk.root)
+
+    if not chunk_spans:
+        return [(text.strip(), 0, len(text))]
+
+    # Merge simple coordinated chunks (conj-chain merge)
+    _merge_conj_chains(chunk_spans, chunk_simple, chunk_roots, doc)
+
+    # Filter empty spans
+    chunk_spans = [s for s in chunk_spans if s]
+
+    # Merge overlapping spans
+    merged = _merge_overlapping_sets(chunk_spans)
+
+    # Compute covered token set for gap recovery
+    covered = set()
+    for s in merged:
+        covered.update(s)
+
+    # Convert merged spans to phrases with offsets
+    phrases_with_offsets = _index_sets_to_phrases_with_offsets(merged, doc)
+
+    # Recover gap phrases with offsets
+    gap_phrases_with_offsets = _recover_gaps_with_offsets(covered, doc)
+    phrases_with_offsets.extend(gap_phrases_with_offsets)
+
+    # Sort by start_char position
+    phrases_with_offsets.sort(key=lambda x: x[1])
+
+    # Deduplicate by phrase text, strip, filter empties
+    seen = set()
+    result = []
+    for phrase_text, sc, ec in phrases_with_offsets:
+        phrase_text = phrase_text.strip()
+        if phrase_text and phrase_text not in seen:
+            seen.add(phrase_text)
+            result.append((phrase_text, sc, ec))
+
+    return result if result else [(text.strip(), 0, len(text))]
+
+
+def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
+    """Recover uncovered content tokens as phrases with character offsets.
+
+    Same logic as _recover_gaps() but returns (phrase_text, start_char, end_char).
+    """
+    CONTENT_POS = {"NOUN", "PROPN"}
+    STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
+
+    all_indices = set(range(len(doc)))
+    uncovered = sorted(all_indices - covered)
+
+    if not uncovered:
+        return []
+
+    # Group into contiguous runs
+    runs = []
+    run_start = uncovered[0]
+    prev = uncovered[0]
+    for idx in uncovered[1:]:
+        if idx == prev + 1:
+            prev = idx
+        else:
+            runs.append((run_start, prev))
+            run_start = idx
+            prev = idx
+    runs.append((run_start, prev))
+
+    recovered = []
+    for start, end in runs:
+        has_content = False
+        for idx in range(start, end + 1):
+            tok = doc[idx]
+            if tok.pos_ in CONTENT_POS:
+                has_content = True
+                break
+            if tok.dep_ == "conj" and tok.head.i in covered:
+                has_content = True
+                break
+
+        if not has_content:
+            continue
+
+        # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE
+        indices = list(range(start, end + 1))
+        while indices and doc[indices[0]].pos_ in STRIP_POS:
+            indices.pop(0)
+        while indices and doc[indices[-1]].pos_ in STRIP_POS:
+            indices.pop()
+
+        if not indices:
+            continue
+
+        start_char = doc[indices[0]].idx
+        end_char = doc[indices[-1]].idx + len(doc[indices[-1]].text)
+        phrase = doc.text[start_char:end_char].strip()
+        if phrase:
+            recovered.append((phrase, start_char, end_char))
+
+    return recovered
+
+
 def chunk_text(text: str, method: str = "smart") -> List[str]:
     """Split text into chunks for analysis.
 
@@ -457,4 +628,44 @@ def extract_all_phrases(
         phrases = chunk_text(text, method)
         for phrase_idx, phrase in enumerate(phrases):
             result.append((phrase, exp_idx, phrase_idx))
+    return result
+
+
+def extract_all_phrases_with_offsets(
+    explanations: List[str],
+    method: str = "smart"
+) -> List[Tuple[str, int, int, int, int]]:
+    """Extract all phrases with character offsets relative to source explanation.
+
+    Args:
+        explanations: List of explanation texts
+        method: Chunking method ("smart", "aspect", "phrase", or "sentence")
+
+    Returns:
+        List of (phrase_text, exp_idx, phrase_idx, start_char, end_char) tuples
+    """
+    result = []
+    for exp_idx, text in enumerate(explanations):
+        if not text or not text.strip():
+            continue
+        if method == "aspect":
+            # aspect_phrases_with_offsets returns offsets directly
+            phrases_with_offsets = aspect_phrases_with_offsets(text)
+            for phrase_idx, (phrase_text, sc, ec) in enumerate(phrases_with_offsets):
+                result.append((phrase_text, exp_idx, phrase_idx, sc, ec))
+        else:
+            # For other methods, phrases are substrings — find offsets via text.index()
+            phrases = chunk_text(text, method)
+            search_from = 0
+            for phrase_idx, phrase in enumerate(phrases):
+                try:
+                    idx = text.index(phrase, search_from)
+                    sc = idx
+                    ec = idx + len(phrase)
+                    search_from = ec  # advance cursor to avoid re-matching
+                except ValueError:
+                    # Fallback: couldn't find phrase as substring
+                    sc = 0
+                    ec = 0
+                result.append((phrase, exp_idx, phrase_idx, sc, ec))
     return result

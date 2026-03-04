@@ -567,13 +567,13 @@ Matches .nav__button style: white background, 11px font
   min-height: 13px;
 }
 
-/* Activation strength - orange gradient background */
+/* Activation strength - Tableau10 orange (#f28e2c) gradient matching getActivationColor */
 .legend-sample--activation {
   background: linear-gradient(90deg,
-    rgba(255, 165, 0, 0.1) 0%,
-    rgba(255, 165, 0, 0.3) 20%,
-    rgba(255, 140, 0, 0.7) 60%,
-    rgba(255, 120, 0, 0.9) 100%);
+    rgba(242, 142, 44, 0.1) 0%,
+    rgba(242, 142, 44, 0.35) 30%,
+    rgba(242, 142, 44, 0.55) 60%,
+    rgba(242, 142, 44, 0.75) 100%);
   border: none;
 }
 

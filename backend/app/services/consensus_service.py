@@ -1,8 +1,8 @@
 """
 Consensus service for loading and processing explanation consensus data.
 
-Loads explanation_consensus.parquet and returns clustered phrases
-ranked by activation similarity for visualization in ExplanationPanel.
+Loads explanation_consensus.parquet and returns clustered phrases with
+character offsets, ranked by activation similarity for visualization.
 """
 
 import logging
@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Dict, Optional
 
 import polars as pl
+
+from app.services.table_data_service import MODEL_NAME_MAP
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +94,7 @@ class ConsensusService:
         real_cluster_score_sum = 0.0
         for cluster in clusters_data:
             for phrase in cluster.get("phrases", []):
-                explainer = phrase.get("explainer", "")
+                explainer = MODEL_NAME_MAP.get(phrase.get("explainer", ""), phrase.get("explainer", ""))
                 if explainer:
                     all_explainers.add(explainer)
             if cluster.get("cluster_id", -1) != -1:
@@ -115,16 +117,18 @@ class ConsensusService:
                     items.append({
                         "cluster_id": -1,
                         "phrase": phrase.get("text", ""),
-                        "explainer": phrase.get("explainer", ""),
+                        "explainer": MODEL_NAME_MAP.get(phrase.get("explainer", ""), phrase.get("explainer", "")),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0)),
                         "quality_score": float(phrase.get("quality_score", 0.0)),
                         "is_outlier": True,
-                        "phrase_weight": float(phrase.get("phrase_weight", 0.0))
+                        "phrase_weight": float(phrase.get("phrase_weight", 0.0)),
+                        "start_char": int(phrase.get("start_char", 0)),
+                        "end_char": int(phrase.get("end_char", 0)),
                     })
             else:
                 # Cluster: add medoid with cluster info
                 medoid_phrase = cluster.get("medoid_phrase", "")
-                medoid_explainer = cluster.get("medoid_explainer", "")
+                medoid_explainer = MODEL_NAME_MAP.get(cluster.get("medoid_explainer", ""), cluster.get("medoid_explainer", ""))
                 medoid_activation_sim = float(cluster.get("medoid_activation_similarity", 0.0))
                 cluster_score = float(cluster.get("cluster_score", 0.0))
                 cluster_coherence = float(cluster.get("cluster_coherence", 0.0))
@@ -135,15 +139,25 @@ class ConsensusService:
                 for phrase in phrases:
                     cluster_phrases.append({
                         "text": phrase.get("text", ""),
-                        "explainer": phrase.get("explainer", ""),
+                        "explainer": MODEL_NAME_MAP.get(phrase.get("explainer", ""), phrase.get("explainer", "")),
                         "phrase_weight": float(phrase.get("phrase_weight", 0.0)),
                         "quality_score": float(phrase.get("quality_score", 0.0)),
                         "distance_to_medoid": float(phrase.get("distance_to_medoid", 0.0)),
-                        "activation_similarity": float(phrase.get("activation_similarity", 0.0))
+                        "activation_similarity": float(phrase.get("activation_similarity", 0.0)),
+                        "start_char": int(phrase.get("start_char", 0)),
+                        "end_char": int(phrase.get("end_char", 0)),
                     })
 
                 # Get cluster-level average quality score
                 cluster_avg_quality = float(cluster.get("cluster_avg_quality_score", 0.0))
+
+                # Get medoid offsets from its phrase data
+                medoid_sc, medoid_ec = 0, 0
+                for cp in cluster_phrases:
+                    if cp["distance_to_medoid"] == 0.0 and cp["explainer"] == medoid_explainer:
+                        medoid_sc = cp["start_char"]
+                        medoid_ec = cp["end_char"]
+                        break
 
                 items.append({
                     "cluster_id": cluster_id,
@@ -152,6 +166,8 @@ class ConsensusService:
                     "activation_similarity": medoid_activation_sim,
                     "avg_quality_score": cluster_avg_quality,
                     "is_outlier": False,
+                    "start_char": medoid_sc,
+                    "end_char": medoid_ec,
                     "cluster_size": len(cluster_phrases),
                     "cluster_score": cluster_score,
                     "cluster_coherence": cluster_coherence,

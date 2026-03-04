@@ -753,6 +753,8 @@ export interface ClusterPhrase {
   quality_score?: number          // avg(detection, fuzz, embedding) for the explainer
   distance_to_medoid: number
   activation_similarity: number
+  start_char?: number             // Character offset start in source explanation
+  end_char?: number               // Character offset end in source explanation
 }
 
 /**
@@ -767,6 +769,8 @@ export interface ConsensusItem {
   avg_quality_score?: number      // For clusters: average quality of all phrases
   is_outlier: boolean
   phrase_weight?: number          // Only for outliers (individual phrase weight)
+  start_char?: number             // Character offset start in source explanation
+  end_char?: number               // Character offset end in source explanation
   cluster_size?: number           // Only for clusters
   cluster_score?: number          // Sum of phrase weights in cluster (max ~1.0 per cluster)
   cluster_coherence?: number      // Only for clusters

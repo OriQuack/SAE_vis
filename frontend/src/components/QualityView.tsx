@@ -12,7 +12,7 @@ import ActivationExample from './ActivationExamplePanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
-import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
+import ConsensusSection, { ConsensusLegend, type PhraseHighlightData } from './ConsensusSection'
 import CrossMetricConsensus, { CrossMetricLegend } from './CrossMetricConsensus'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
@@ -24,18 +24,24 @@ import '../styles/ThresholdTaggingPanel.css'
 // ============================================================================
 // Layout: [Top: feature list + right panel] | [Bottom: ThresholdTaggingPanel]
 
-// Segment text into highlighted and non-highlighted parts based on phrase matches
-function segmentTextByPhrases(text: string, phrases: string[]): Array<{ text: string; highlight: boolean }> {
-  if (!text || phrases.length === 0) return [{ text, highlight: false }]
+// Segment text into highlighted and non-highlighted parts using character offsets
+function segmentTextByOffsets(
+  text: string,
+  phraseData: PhraseHighlightData[],
+  explainerId: string,
+): Array<{ text: string; highlight: boolean }> {
+  if (!text || phraseData.length === 0) return [{ text, highlight: false }]
 
-  // Find all phrase occurrences as intervals using word-boundary matching
+  // Filter to phrases for this explainer and collect valid intervals
   const intervals: Array<[number, number]> = []
-  for (const phrase of phrases) {
-    const escaped = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const regex = new RegExp(`\\b${escaped}\\b`, 'gi')
-    let match: RegExpExecArray | null
-    while ((match = regex.exec(text)) !== null) {
-      intervals.push([match.index, match.index + match[0].length])
+  for (const p of phraseData) {
+    if (p.explainer !== explainerId) continue
+    if (p.start_char === 0 && p.end_char === 0) continue  // no offset data
+    // Clamp to text length
+    const start = Math.max(0, p.start_char)
+    const end = Math.min(text.length, p.end_char)
+    if (start < end) {
+      intervals.push([start, end])
     }
   }
 
@@ -126,7 +132,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
 
   // Phrases to highlight in explanation text (from consensus pill hover)
-  const [highlightPhrases, setHighlightPhrases] = useState<string[] | null>(null)
+  const [highlightPhrases, setHighlightPhrases] = useState<PhraseHighlightData[] | null>(null)
 
   // Diversity sort: IDs of diverse features (Kennard-Stone samples) to show first
   // Cached in store to prevent refetch on view navigation
@@ -1085,7 +1091,9 @@ const QualityView: React.FC<QualityViewProps> = ({
                                 className="quality-view__explainer-block"
                               >
                                 <span
-                                  className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}`}
+                                  className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}${
+                                    highlightPhrases?.some(p => p.explainer === explainerId) ? ' quality-view__explainer-name--highlighted' : ''
+                                  }`}
                                 >
                                   {getExplainerDisplayName(explainerId)}
                                 </span>
@@ -1095,7 +1103,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                                   ) : !highlightPhrases ? (
                                     explanationText
                                   ) : (
-                                    segmentTextByPhrases(explanationText, highlightPhrases).map((seg, i) =>
+                                    segmentTextByOffsets(explanationText, highlightPhrases, explainerId).map((seg, i) =>
                                       seg.highlight
                                         ? <mark key={i} className="quality-view__phrase-highlight">{seg.text}</mark>
                                         : <span key={i}>{seg.text}</span>

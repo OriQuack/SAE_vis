@@ -12,9 +12,17 @@ import '../styles/ConsensusSection.css'
 // Parent components (QualityView, CauseView) handle data fetching and subheader.
 // Hover shows tooltip with all cluster phrases.
 
+/** Phrase highlight data passed on hover — includes text + explainer + character offsets */
+export interface PhraseHighlightData {
+  text: string
+  explainer: string
+  start_char: number
+  end_char: number
+}
+
 interface ConsensusSectionProps {
   consensus: ConsensusResponse | null
-  onPhraseHover?: (phrases: string[] | null) => void
+  onPhraseHover?: (data: PhraseHighlightData[] | null) => void
 }
 
 interface TooltipData {
@@ -74,10 +82,27 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
       item
     })
     if (onPhraseHover) {
-      const phrases = item.is_outlier
-        ? [item.phrase]
-        : item.cluster_phrases?.map(p => p.text) || [item.phrase]
-      onPhraseHover(phrases)
+      if (item.is_outlier) {
+        onPhraseHover([{
+          text: item.phrase,
+          explainer: item.explainer,
+          start_char: item.start_char ?? 0,
+          end_char: item.end_char ?? 0,
+        }])
+      } else {
+        const data = (item.cluster_phrases ?? []).map(p => ({
+          text: p.text,
+          explainer: p.explainer,
+          start_char: p.start_char ?? 0,
+          end_char: p.end_char ?? 0,
+        }))
+        onPhraseHover(data.length > 0 ? data : [{
+          text: item.phrase,
+          explainer: item.explainer,
+          start_char: item.start_char ?? 0,
+          end_char: item.end_char ?? 0,
+        }])
+      }
     }
   }, [onPhraseHover])
 
