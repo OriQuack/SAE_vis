@@ -1180,7 +1180,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <span className="subheader">Cross-explainer Consensus</span>
                       <ConsensusLegend />
                       {/* Metrics legend */}
-                      <div className="cause-view__metrics-legend">
+                      <div className="legend-group cause-view__metrics-legend">
                         <div className="legend-item">
                           <svg width="24" height="12">
                             <line x1="0" y1="6" x2="24" y2="6" stroke={wellExplainedColor} strokeWidth="1" opacity="0.4" />

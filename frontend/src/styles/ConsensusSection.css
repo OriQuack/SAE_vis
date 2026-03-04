@@ -161,37 +161,4 @@
   color: var(--text-secondary, #6b7280);
 }
 
-/* ============================================================================
- * CONSENSUS LEGEND - Compact inline legend for subheader row
- * ============================================================================ */
-
-.consensus-legend {
-  display: flex;
-  align-items: center;
-  gap: 0;
-}
-
-.consensus-legend > .legend-item {
-  border-right: none;
-  padding-right: 4px;
-  margin-right: 4px;
-}
-
-.consensus-legend__ramp {
-  display: flex;
-  gap: 1px;
-}
-
-.consensus-legend__swatch {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 1px;
-  border: 1px solid #ccc;
-}
-
-.consensus-legend__range {
-  font-size: 9px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-secondary, #6b7280);
-}
+/* Legend uses unified .legend-group, .legend-swatch, .legend-range, .legend-ramp from base.css */

@@ -111,63 +111,7 @@
   padding: 0 8px;
 }
 
-/* Individual legend item */
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding-right: 8px;
-  margin-right: 8px;
-  border-right: 1px solid #d1d5db;
-}
-
-/* Remove separator from last item */
-.legend-item:last-child {
-  border-right: none;
-  margin-right: 0;
-  padding-right: 0;
-}
-
-/* Sample token styling */
-.legend-sample {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 12px;
-  padding: 0px 2px;
-  border-radius: 2px;
-  border: 1.5px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  line-height: 1;
-  min-height: 13px;
-}
-
-/* Activation strength - orange gradient background */
-.legend-sample--activation {
-  background: linear-gradient(90deg,
-    rgba(255, 165, 0, 0.1) 0%,
-    rgba(255, 165, 0, 0.3) 20%,
-    rgba(255, 140, 0, 0.7) 60%,
-    rgba(255, 120, 0, 0.9) 100%);
-  border: none;
-}
-
-/* Within-feature pattern - blue border (medium confidence) */
-.legend-sample--intra {
-  box-shadow: inset 0 0 0 2px #3b82f6;
-}
-
-/* Cross-feature pattern - green border (all sides) */
-.legend-sample--inter {
-  border: 2px solid #10b981;
-}
-
-/* Label text */
-.legend-label {
-  font-size: 12px;
-  font-weight: 500;
-  color: #6b7280;
-  white-space: nowrap;
-}
+/* Legend items use unified .legend-item, .legend-label, .legend-sample* from base.css */
 
 /* ============================================================================
  * PAIR INFO ELEMENTS

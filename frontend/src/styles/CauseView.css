@@ -233,20 +233,9 @@
  * EXPLANATION ROW - Left metrics (no border) + Right explanation (bordered)
  * ============================================================================ */
 
-/* Metrics legend - right-aligned */
+/* Metrics legend - wider gaps between SVG line legends (overrides .legend-group default) */
 .cause-view__metrics-legend {
-  display: flex;
-  align-items: center;
   gap: 12px;
-}
-
-.cause-view__metrics-legend .legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-right: none;
-  margin-right: 0;
-  padding-right: 0;
 }
 
 /* Cause metrics container - 35% width beside consensus */

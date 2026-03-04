@@ -113,7 +113,10 @@ function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: numb
 
 // Compact inline legend matching activation panel legend-item / legend-label style
 export const CrossMetricLegend: React.FC = React.memo(() => (
-  <div className="cross-metric-legend">
+  <div className="legend-group">
+    <div className="legend-item">
+      <span className="legend-label">Metric:</span>
+    </div>
     <div className="legend-item">
       <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
         <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
@@ -133,6 +136,16 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
       </svg>
       <span className="legend-label">Fuzz</span>
     </div>
+    <div className="legend-separator" />
+    <div className="legend-item">
+      <span className="legend-label">Metric Score:</span>
+    </div>
+    {BUCKETS.map((b, i) => (
+      <div key={i} className="legend-item">
+        <span className="legend-swatch" style={{ backgroundColor: BUCKET_COLORS[i] }} />
+        <span className="legend-range">{b.label}</span>
+      </div>
+    ))}
   </div>
 ))
 

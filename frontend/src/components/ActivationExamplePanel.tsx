@@ -69,7 +69,7 @@ const renderTokenContent = (
 
     return (
       <>
-        {before}
+        {before && <span>{before}</span>}
         <span className="activation-token__ngram-char">{highlight}</span>
         {after}
       </>

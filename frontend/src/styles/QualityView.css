@@ -128,37 +128,7 @@
 
 /* Note: Feature ID uses .panel-header__id from FeatureSplitPairViewer.css */
 
-.quality-view__legend {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
-  font-size: 11px;
-}
-
-.quality-view__legend-separator {
-  width: 1px;
-  height: 16px;
-  background-color: #d1d5db;
-  margin: 0 8px;
-}
-
-/* Square swatch for color scale legend */
-.legend-swatch {
-  display: inline-block;
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  border: 0.5px solid #e5e7eb;
-}
-
-/* Rectangle swatch for phrase-wise legend (shape indicator) */
-.legend-swatch-rect {
-  display: inline-block;
-  width: 20px;
-  height: 12px;
-  border-radius: 2px;
-}
+/* Legend uses unified .legend-group, .legend-separator from base.css */
 
 /* ============================================================================
  * ACTIVATION SECTION - Matches .activation-panel styling

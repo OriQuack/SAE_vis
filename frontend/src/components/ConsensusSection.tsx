@@ -41,19 +41,19 @@ function getConsensusOpacity(consensusScore: number): number {
 
 /** Compact legend showing teal consensus opacity ramp */
 export const ConsensusLegend: React.FC = React.memo(() => (
-  <div className="consensus-legend">
+  <div className="legend-group">
     <div className="legend-item">
       <span className="legend-label">Explainer Consensus:</span>
-      <span className="consensus-legend__ramp">
+      <span className="legend-ramp">
         {OPACITY_STEPS.map((op, i) => (
           <span
             key={i}
-            className="consensus-legend__swatch"
+            className="legend-swatch"
             style={{ backgroundColor: TEAL_CHROMA.alpha(op).css() }}
           />
         ))}
       </span>
-      <span className="consensus-legend__range">0 — 3</span>
+      <span className="legend-range">0–3</span>
     </div>
   </div>
 ))

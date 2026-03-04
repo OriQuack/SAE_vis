@@ -106,7 +106,7 @@
 .activation-token {
   border-radius: 2px;
   white-space: pre;
-  border: 1.5px solid transparent;  /* Reserve space for border to prevent layout shift */
+  border: 1px solid transparent;  /* Reserve space for border to prevent layout shift */
   display: inline-flex;
   align-items: center;
   min-height: 13px;
@@ -116,7 +116,6 @@
 
 /* Activation highlight (orange intensity based on activation value) */
 .activation-token--activated {
-  padding: 1.5px 0px;
   border-radius: 2px;
 }
 
@@ -130,14 +129,14 @@
 /* Use regular border (not box-shadow) since inline elements inside flex containers */
 /* don't reliably render inset box-shadows due to lack of explicit box dimensions */
 .activation-token__ngram-char {
-  border: 1.5px solid #3b82f6;
+  border: 2px solid #3b82f6;
 }
 
 /* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
 /* Uses green closed border to differentiate from intra-feature blue border */
 /* Can coexist with confidence-based n-gram classes for dual highlighting */
 .activation-token--interfeature {
-  border: 1.5px solid #10b981;
+  border: 2px solid #10b981;
 }
 
 /* Newline token styling */

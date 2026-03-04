@@ -1020,7 +1020,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}
-                    <div className="quality-view__legend">
+                    <div className="legend-group">
                       <div className="legend-item">
                         <span className="legend-sample legend-sample--activation">token</span>:
                         <span className="legend-label">Activation Strength</span>
@@ -1060,7 +1060,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                   {/* Explanation Header */}
                   <div className="quality-view__explanation-header">
                     <span className="subheader">Metric Consensus</span>
-                    <div className="quality-view__legend-separator" />
+                    <div className="legend-separator" />
                     <span className="subheader">Explanations</span>
                     <div style={{ flex: 1 }} />
                     <CrossMetricLegend />
