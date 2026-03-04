@@ -15,7 +15,7 @@ interface CrossMetricConsensusProps {
 const BUCKETS = [
   { label: '<0.5', cx: 15 },
   { label: '0.5–0.75', cx: 44 },
-  { label: '≥0.75', cx: 73 },
+  { label: '0.75–1.00', cx: 73 },
 ] as const
 
 const CIRCLE_R = 12
@@ -56,13 +56,13 @@ function getMetricPlacements(data: ExplainerScoreData | undefined): MetricPlacem
   if (data.embedding !== null && data.embedding !== undefined) {
     placements.push({ metric: 'embedding', bucket: toBucket(data.embedding) })
   }
-  const fuzzAvg = avgScorerSet(data.fuzz)
-  if (fuzzAvg !== null) {
-    placements.push({ metric: 'fuzz', bucket: toBucket(fuzzAvg) })
-  }
   const detAvg = avgScorerSet(data.detection)
   if (detAvg !== null) {
     placements.push({ metric: 'detection', bucket: toBucket(detAvg) })
+  }
+  const fuzzAvg = avgScorerSet(data.fuzz)
+  if (fuzzAvg !== null) {
+    placements.push({ metric: 'fuzz', bucket: toBucket(fuzzAvg) })
   }
 
   return placements
@@ -151,11 +151,26 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
   </div>
 ))
 
+const METRIC_LABELS: Record<string, string> = {
+  embedding: 'Embedding',
+  fuzz: 'Fuzz',
+  detection: 'Detection',
+}
+
+function getMetricScore(data: ExplainerScoreData, metric: 'embedding' | 'fuzz' | 'detection'): number | null {
+  if (metric === 'embedding') return data.embedding ?? null
+  if (metric === 'fuzz') return avgScorerSet(data.fuzz)
+  return avgScorerSet(data.detection)
+}
+
 const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerIds, featureRow }) => {
   const hasData = featureRow && explainerIds.length > 0
   const topPad = CIRCLE_R + 1  // first circle center
   const rowSpacing = ROW_HEIGHT
   const totalHeight = topPad + (Math.max(explainerIds.length, 1) - 1) * rowSpacing + CIRCLE_R + 1
+
+  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
   return (
     <div className="cross-metric-consensus">
@@ -167,7 +182,22 @@ const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerId
           const isEmpty = placements.length === 0
 
           return (
-            <g key={explainerId}>
+            <g key={explainerId}
+              style={{ cursor: isEmpty ? 'default' : 'pointer' }}
+              onMouseEnter={(e) => {
+                if (isEmpty) return
+                setHoveredIdx(rowIdx)
+                setTooltipPos({ x: e.clientX, y: e.clientY })
+              }}
+              onMouseMove={(e) => {
+                if (isEmpty) return
+                setTooltipPos({ x: e.clientX, y: e.clientY })
+              }}
+              onMouseLeave={() => {
+                setHoveredIdx(null)
+                setTooltipPos(null)
+              }}
+            >
               {/* Connecting line */}
               <line
                 x1={BUCKETS[0].cx} y1={cy}
@@ -190,6 +220,34 @@ const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerId
           )
         })}
       </svg>
+      {hoveredIdx !== null && tooltipPos && (() => {
+        const eid = explainerIds[hoveredIdx]
+        const data = featureRow?.explainers?.[eid]
+        if (!data) return null
+        const placements = getMetricPlacements(data)
+        return (
+          <Tooltip position={tooltipPos}>
+            <Tooltip.Header>{getExplainerDisplayName(eid)}</Tooltip.Header>
+            {placements.map(p => (
+              <div key={p.metric} className="tooltip__row" style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                <svg width={12} height={12} viewBox="0 0 12 12" style={{ flexShrink: 0 }}>
+                  {p.metric === 'embedding' && (
+                    <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
+                  )}
+                  {p.metric === 'detection' && (
+                    <rect x={2.5} y={2.5} width={7} height={7} transform="rotate(45 6 6)"
+                      fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
+                  )}
+                  {p.metric === 'fuzz' && (
+                    <circle cx={6} cy={6} r={4} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
+                  )}
+                </svg>
+                <span>{METRIC_LABELS[p.metric]}: {getMetricScore(data, p.metric)?.toFixed(2) ?? '—'}</span>
+              </div>
+            ))}
+          </Tooltip>
+        )
+      })()}
     </div>
   )
 }

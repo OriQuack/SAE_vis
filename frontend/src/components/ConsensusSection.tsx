@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import chroma from 'chroma-js'
 import type { ConsensusResponse, ConsensusItem } from '../types'
 import { D3_SCHEME_TABLEAU10 } from '../lib/constants'
+import { Tooltip } from './Tooltip'
 import '../styles/ConsensusSection.css'
 
 // ============================================================================
@@ -111,6 +112,11 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     }
   }, [consensus?.items])
 
+  // Handle mouse move on item — update tooltip position to follow cursor
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    setTooltipData(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)
+  }, [])
+
   // Return null if no data - parent handles empty state in subheader
   if (!consensus || consensus.items.length === 0) {
     return null
@@ -122,6 +128,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
       className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
       style={getPillStyle(item)}
       onMouseEnter={(e) => handleMouseEnter(e, item)}
+      onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
     >
       <span className="consensus-item__phrase">{item.phrase}</span>
@@ -144,45 +151,38 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
       </div>
 
       {/* Tooltip with all info */}
-      {tooltipData && (
-        <div
-          className="consensus-tooltip"
-          style={{
-            left: tooltipData.position.x + 10,
-            bottom: window.innerHeight - tooltipData.position.y + 10
-          }}
-        >
-          <div className="consensus-tooltip__header">
-            {tooltipData.item.is_outlier
-              ? `Outlier`
-              : `Cluster (${tooltipData.item.cluster_size} phrases)`}
+      <Tooltip position={tooltipData?.position ?? null}>
+        <Tooltip.Header>
+          {tooltipData?.item.is_outlier
+            ? `Outlier`
+            : `Cluster (${tooltipData?.item.cluster_size} phrases)`}
+        </Tooltip.Header>
+        <Tooltip.Summary showSeparator={!onPhraseHover && !tooltipData?.item.is_outlier && !!tooltipData?.item.cluster_phrases}>
+          Consensus: {tooltipData?.item.is_outlier
+            ? '0.00'
+            : (tooltipData?.item.cluster_score?.toFixed(2) ?? '0.00')} / 3.00
+          <br />
+          Avg. Metric Score: {(tooltipData?.item.is_outlier
+            ? tooltipData?.item.quality_score
+            : tooltipData?.item.avg_quality_score
+          )?.toFixed(2) ?? '0.00'} / 1.00
+        </Tooltip.Summary>
+        {/* Show all phrases for clusters */}
+        {!onPhraseHover && !tooltipData?.item.is_outlier && tooltipData?.item.cluster_phrases && (
+          <div className="consensus-tooltip__phrases">
+            {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
+              <span key={pIdx} className="consensus-tooltip__phrase">
+                {phrase.text}
+                {phrase.quality_score !== undefined && (
+                  <span className="consensus-tooltip__phrase-weight">
+                    (Q: {phrase.quality_score.toFixed(2)})
+                  </span>
+                )}
+              </span>
+            ))}
           </div>
-          <div className="consensus-tooltip__metrics">
-            <span>Consensus: {tooltipData.item.is_outlier
-              ? '0.00'
-              : (tooltipData.item.cluster_score?.toFixed(2) ?? '0.00')}/3</span>
-            <span>Quality: {(tooltipData.item.is_outlier
-              ? tooltipData.item.quality_score
-              : tooltipData.item.avg_quality_score
-            )?.toFixed(2) ?? '0.00'}/1</span>
-          </div>
-          {/* Show all phrases for clusters */}
-          {!onPhraseHover && !tooltipData.item.is_outlier && tooltipData.item.cluster_phrases && (
-            <div className="consensus-tooltip__phrases">
-              {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
-                <span key={pIdx} className="consensus-tooltip__phrase">
-                  {phrase.text}
-                  {phrase.quality_score !== undefined && (
-                    <span className="consensus-tooltip__phrase-weight">
-                      (Q: {phrase.quality_score.toFixed(2)})
-                    </span>
-                  )}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+        )}
+      </Tooltip>
     </div>
   )
 }

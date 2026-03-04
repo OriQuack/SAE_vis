@@ -111,8 +111,8 @@ export function getActivationColor(
 export function formatTokensWithEllipsis(
   tokens: ActivationToken[],
   maxPixelWidth: number,
-  charWidth: number = 6.35,
-  tokenOverhead: number = 7
+  charWidth: number = 6.7,
+  tokenOverhead: number = 0
 ): { displayTokens: ActivationToken[], hasLeftEllipsis: boolean, hasRightEllipsis: boolean } {
   const tokenPixelCost = (t: ActivationToken) => t.text.length * charWidth + tokenOverhead
   const totalPixelWidth = tokens.reduce((sum, t) => sum + tokenPixelCost(t), 0)

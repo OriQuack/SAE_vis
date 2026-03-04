@@ -105,36 +105,8 @@
 }
 
 /* ============================================================================
- * HOVER TOOLTIP
+ * HOVER TOOLTIP (phrase content inside reusable Tooltip component)
  * ============================================================================ */
-
-.consensus-tooltip {
-  position: fixed;
-  z-index: 1000;
-  background: white;
-  border: 1px solid var(--border-thin, #e5e7eb);
-  border-radius: 6px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  padding: 8px 10px;
-  max-width: 280px;
-  pointer-events: none;
-}
-
-.consensus-tooltip__header {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-secondary, #6b7280);
-  margin-bottom: 4px;
-}
-
-.consensus-tooltip__metrics {
-  display: flex;
-  gap: 12px;
-  font-size: 11px;
-  font-family: 'Consolas', 'Monaco', monospace;
-  color: var(--text-secondary, #6b7280);
-  margin-bottom: 6px;
-}
 
 .consensus-tooltip__phrases {
   display: flex;
