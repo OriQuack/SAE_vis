@@ -424,7 +424,7 @@ def get_legacy_script_mapping() -> Dict[str, tuple]:
             scripts_dir / "7_explanation_alignment.py",
             config_dir / "7_explanation_alignment.json"
         ),
-        "step_13_svm_metrics": (
+        "step_14_svm_metrics": (
             scripts_dir / "9_explanation_embedding_barycentric.py",
             config_dir / "9_explanation_embedding_barycentric.json"
         ),
@@ -526,8 +526,8 @@ def get_refactored_steps() -> Set[str]:
         "step_10_activation_display",
         "step_11_interfeature_display",
         "step_12_explanation_alignment",
-        "step_13_svm_metrics",
-        "step_14_explanation_consensus",
+        "step_13_explanation_consensus",
+        "step_14_svm_metrics",
     }
 
 

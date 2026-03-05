@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 13: SVM Metrics Pre-computation
+Step 14: SVM Metrics Pre-computation
 
 This step pre-aggregates metrics used by backend services for SVM-based classification:
 - cause_service.py (Stage 3 cause classification)
@@ -11,13 +11,14 @@ Output:
 1. svm_feature_metrics.parquet - Feature-level metrics (1 row per feature)
 2. svm_pair_metrics.parquet - Pair-level metrics (1 row per pair)
 
-Feature Metrics Schema (14 columns):
+Feature Metrics Schema (15 columns):
 - feature_id: UInt32
 - score_embedding: Float32 (mean across 3 explainers)
 - score_fuzz: Float32 (mean across 3 explainers)
 - score_detection: Float32 (mean across 3 explainers)
 - explanation_semantic_sim: Float32 (mean across 3 explainers)
 - frac_nonzero: Float32 (mean across 3 explainers)
+- consensus_score: Float32 (cross-explainer phrase clustering agreement from explanation_consensus)
 - intra_ngram_jaccard: Float32 (max of char/word ngram from activation_display)
 - intra_ngram_jaccard_std: Float32 (std of pairwise Jaccard for the best k-size)
 - intra_semantic_sim: Float32 (from activation_display)
@@ -61,7 +62,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
     @property
     def step_name(self) -> str:
-        return "Step 13: SVM Metrics"
+        return "Step 14: SVM Metrics"
 
     @property
     def version(self) -> str:
@@ -85,6 +86,9 @@ class SvmMetricsProcessor(BaseProcessor):
         self.interfeature_similarity_path = self._resolve_path(
             inputs.get("interfeature_similarity", f"{paths.get('output', 'data/output')}/interfeature_similarity.parquet")
         )
+        self.explanation_consensus_path = self._resolve_path(
+            inputs.get("explanation_consensus", f"{paths.get('output', 'data/output')}/explanation_consensus.parquet")
+        )
 
         # Output paths
         outputs = self.config.get("outputs", {})
@@ -106,6 +110,7 @@ class SvmMetricsProcessor(BaseProcessor):
         self.features_df: Optional[pl.DataFrame] = None
         self.activation_df: Optional[pl.DataFrame] = None
         self.interfeature_df: Optional[pl.DataFrame] = None
+        self.consensus_df: Optional[pl.DataFrame] = None
 
     def _load_data(self) -> None:
         """Load all required data files."""
@@ -126,6 +131,15 @@ class SvmMetricsProcessor(BaseProcessor):
             raise FileNotFoundError(f"Interfeature similarity file not found: {self.interfeature_similarity_path}")
         self.interfeature_df = pl.read_parquet(self.interfeature_similarity_path)
         logger.info(f"Loaded {len(self.interfeature_df):,} interfeature similarity rows")
+
+        logger.info(f"Loading explanation consensus from {self.explanation_consensus_path}")
+        if not self.explanation_consensus_path.exists():
+            raise FileNotFoundError(f"Explanation consensus file not found: {self.explanation_consensus_path}")
+        self.consensus_df = pl.read_parquet(
+            self.explanation_consensus_path,
+            columns=["feature_id", "consensus_score"]
+        )
+        logger.info(f"Loaded {len(self.consensus_df):,} consensus rows")
 
     def _prepare_feature_metrics(self) -> pl.DataFrame:
         """Prepare feature-level metrics with extracted and aggregated scores."""
@@ -348,10 +362,21 @@ class SvmMetricsProcessor(BaseProcessor):
             how="left"
         )
 
+        # Join consensus_score from explanation_consensus
+        logger.info("Joining consensus scores...")
+        consensus_prepared = self.consensus_df.with_columns([
+            pl.col("feature_id").cast(pl.UInt32),
+        ])
+        feature_df = feature_df.join(
+            consensus_prepared,
+            on="feature_id",
+            how="left"
+        )
+
         # Fill any remaining nulls
         fill_cols = [
             "score_embedding", "score_fuzz", "score_detection",
-            "explanation_semantic_sim", "frac_nonzero",
+            "explanation_semantic_sim", "frac_nonzero", "consensus_score",
             "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
             "score_embedding_std", "score_fuzz_std", "score_detection_std",
             "explanation_semantic_sim_std", "intra_semantic_sim_std"
@@ -372,7 +397,7 @@ class SvmMetricsProcessor(BaseProcessor):
         # Cast all float columns to Float32
         float_cols = [
             "score_embedding", "score_fuzz", "score_detection",
-            "explanation_semantic_sim", "frac_nonzero",
+            "explanation_semantic_sim", "frac_nonzero", "consensus_score",
             "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
             "score_embedding_std", "score_fuzz_std", "score_detection_std",
             "explanation_semantic_sim_std", "intra_semantic_sim_std"
@@ -480,6 +505,7 @@ class SvmMetricsProcessor(BaseProcessor):
             "score_detection": pl.Float32,
             "explanation_semantic_sim": pl.Float32,
             "frac_nonzero": pl.Float32,
+            "consensus_score": pl.Float32,
             "intra_ngram_jaccard": pl.Float32,
             "intra_ngram_jaccard_std": pl.Float32,
             "intra_semantic_sim": pl.Float32,
@@ -508,7 +534,7 @@ def main():
         full_config = load_yaml_config(args.config)
         full_config = resolve_variables(full_config)
         # Extract step-specific config if present
-        config = full_config.get("steps", {}).get("step_13_svm_metrics", {})
+        config = full_config.get("steps", {}).get("step_14_svm_metrics", {})
         if not config:
             # Fallback: treat entire config as step config (legacy format)
             config = full_config
@@ -519,7 +545,7 @@ def main():
         if config_path.exists():
             full_config = load_yaml_config(config_path)
             full_config = resolve_variables(full_config)
-            config = full_config.get("steps", {}).get("step_13_svm_metrics", {})
+            config = full_config.get("steps", {}).get("step_14_svm_metrics", {})
             config["sae_id"] = full_config.get("global", {}).get("sae_id_sanitized", "")
             config["global"] = full_config.get("global", {})
         else:

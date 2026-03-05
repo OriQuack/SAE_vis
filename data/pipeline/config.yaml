@@ -214,20 +214,8 @@ steps:
     parameters:
       chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
 
-  # Step 13: Pre-aggregate SVM metrics for feature and pair classification
-  step_13_svm_metrics:
-    enabled: true
-    inputs:
-      features: "${output}/features.parquet"
-      activation_display: "${output}/activation_display.parquet"
-      interfeature_similarity: "${output}/interfeature_similarity.parquet"
-    outputs:
-      feature_metrics: "${output}/svm_feature_metrics.parquet"
-      pair_metrics: "${output}/svm_pair_metrics.parquet"
-    parameters: {}  # No parameters needed - simple aggregation
-
-  # Step 14: Explanation consensus analysis (phrase clustering)
-  step_14_explanation_consensus:
+  # Step 13: Explanation consensus analysis (phrase clustering)
+  step_13_explanation_consensus:
     enabled: true
     inputs:
       features: "${output}/features.parquet"
@@ -246,6 +234,19 @@ steps:
       metric: "cosine"
       chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
 
+  # Step 14: Pre-aggregate SVM metrics for feature and pair classification
+  step_14_svm_metrics:
+    enabled: true
+    inputs:
+      features: "${output}/features.parquet"
+      activation_display: "${output}/activation_display.parquet"
+      interfeature_similarity: "${output}/interfeature_similarity.parquet"
+      explanation_consensus: "${output}/explanation_consensus.parquet"
+    outputs:
+      feature_metrics: "${output}/svm_feature_metrics.parquet"
+      pair_metrics: "${output}/svm_pair_metrics.parquet"
+    parameters: {}  # No parameters needed - simple aggregation
+
 # Dependency graph - defines execution order
 # Format: step_name: [list of dependencies]
 dependencies:
@@ -261,8 +262,8 @@ dependencies:
   step_10_activation_display: [step_01_activations, step_08_activation_similarity]
   step_11_interfeature_display: [step_09_interfeature_similarity]
   step_12_explanation_alignment: [step_07_features]
-  step_13_svm_metrics: [step_07_features, step_10_activation_display, step_11_interfeature_display]
-  step_14_explanation_consensus: [step_07_features, step_05_activation_embeddings]
+  step_13_explanation_consensus: [step_07_features, step_05_activation_embeddings]
+  step_14_svm_metrics: [step_07_features, step_10_activation_display, step_11_interfeature_display, step_13_explanation_consensus]
 
 # Output files required by backend (for verification)
 backend_required:

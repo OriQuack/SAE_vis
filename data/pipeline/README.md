@@ -47,7 +47,8 @@ pipeline/
 │   ├── step_01_activations.py
 │   ├── step_02_decoder_similarity.py
 │   ├── ...
-│   └── step_13_svm_metrics.py
+│   ├── step_13_explanation_consensus.py
+│   └── step_14_svm_metrics.py
 └── logs/               # Step execution logs
 ```
 
@@ -67,7 +68,8 @@ pipeline/
 | 10 | Create frontend-optimized activation display | `output/activation_display.parquet` |
 | 11 | Process interfeature display data | `output/interfeature_similarity.parquet` |
 | 12 | Generate cross-explainer phrase alignments | `output/explanation_alignment.parquet` |
-| 13 | Pre-aggregate SVM metrics for classification | `output/svm_feature_metrics.parquet`, `output/svm_pair_metrics.parquet` |
+| 13 | Explanation consensus (phrase clustering) | `output/explanation_consensus.parquet` |
+| 14 | Pre-aggregate SVM metrics for classification | `output/svm_feature_metrics.parquet`, `output/svm_pair_metrics.parquet` |
 
 ## Output Files (Backend Required)
 
@@ -108,7 +110,10 @@ step_04_explanation_embeddings            │                         │
                                           step_12_explanation_alignment
                                                     │
                                                     ▼
-                                          step_13_svm_metrics
+                                          step_13_explanation_consensus
+                                                    │
+                                                    ▼
+                                          step_14_svm_metrics
 ```
 
 ## Configuration
@@ -143,7 +148,7 @@ Each step writes logs to `pipeline/logs/{step_name}.log` for debugging.
 
 ```bash
 # Regenerate only SVM metrics (after schema changes)
-python data/pipeline/run.py --steps step_13_svm_metrics
+python data/pipeline/run.py --steps step_14_svm_metrics
 
 # Regenerate activation display and downstream
 python data/pipeline/run.py --from step_10_activation_display

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Step 14: Explanation Consensus (Phrase Clustering)
+Step 13: Explanation Consensus (Phrase Clustering)
 
 This step analyzes consensus of explanations across LLM explainers using
 HDBSCAN clustering and semantic similarity with activation centroids.
@@ -74,7 +74,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
 
     @property
     def step_name(self) -> str:
-        return "Step 14: Explanation Consensus"
+        return "Step 13: Explanation Consensus"
 
     @property
     def version(self) -> str:
@@ -719,7 +719,7 @@ def main():
         full_config = load_yaml_config(args.config)
         full_config = resolve_variables(full_config)
         # Extract step-specific config if present
-        config = full_config.get("steps", {}).get("step_14_explanation_consensus", {})
+        config = full_config.get("steps", {}).get("step_13_explanation_consensus", {})
         if not config:
             # Fallback: treat entire config as step config (legacy format)
             config = full_config
@@ -730,7 +730,7 @@ def main():
         if config_path.exists():
             full_config = load_yaml_config(config_path)
             full_config = resolve_variables(full_config)
-            config = full_config.get("steps", {}).get("step_14_explanation_consensus", {})
+            config = full_config.get("steps", {}).get("step_13_explanation_consensus", {})
             config["sae_id"] = full_config.get("global", {}).get("sae_id_sanitized", "")
             config["global"] = full_config.get("global", {})
         else:

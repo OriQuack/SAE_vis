@@ -43,9 +43,9 @@ FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM
 CLICK_WEIGHT = 1.0
 THRESHOLD_WEIGHT = 0.2
 
-# 13D feature metrics for SVM (used by similarity_sort + cause)
+# 14D feature metrics for SVM (used by similarity_sort + cause)
 SVM_FEATURE_METRICS = [
-    # Mean metrics (7)
+    # Mean metrics (8)
     'intra_ngram_jaccard',       # Activation-level: max(char_ngram, word_ngram) - lexical consistency
     'intra_semantic_sim',        # Activation-level: semantic_similarity - semantic consistency
     'score_embedding',           # Score: embedding-based scoring
@@ -53,6 +53,7 @@ SVM_FEATURE_METRICS = [
     'score_detection',           # Score: detection score
     'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations
     'log_frac_nonzero',          # Neuronpedia: log(frac_nonzero + 1e-8) - sparse activation handling
+    'consensus_score',           # Consensus: cross-explainer phrase clustering agreement [0, 1]
     # Std metrics (6) - captures cross-explainer disagreement and activation variability
     'intra_ngram_jaccard_std',   # Activation-level: lexical consistency std (pairwise Jaccard variability)
     'intra_semantic_sim_std',    # Activation-level: semantic consistency std (variability within feature)
