@@ -193,7 +193,6 @@ class CommitteeVoteInfo(BaseModel):
     svm_prediction: int = Field(..., description="SVM prediction (0 or 1)")
     rf_prediction: int = Field(..., description="Random Forest prediction (0 or 1)")
     mlp_prediction: int = Field(..., description="MLP prediction (0 or 1)")
-    vote_entropy: float = Field(..., description="Vote entropy (0 to ~1.58 for 3 models)")
 
 
 class SimilarityHistogramResponse(BaseModel):

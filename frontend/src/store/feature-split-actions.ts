@@ -437,7 +437,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
         }
 
         // Extract committee votes from histogram response
-        let committeeVotes: Map<string, { svm_prediction: 0 | 1; rf_prediction: 0 | 1; mlp_prediction: 0 | 1; vote_entropy: number }> | null = null
+        let committeeVotes: Map<string, { svm_prediction: 0 | 1; rf_prediction: 0 | 1; mlp_prediction: 0 | 1 }> | null = null
 
         if (histogramData?.committee_votes) {
           committeeVotes = new Map(
@@ -447,7 +447,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
                 svm_prediction: info.svm_prediction,
                 rf_prediction: info.rf_prediction,
                 mlp_prediction: info.mlp_prediction,
-                vote_entropy: info.vote_entropy
               }
             ])
           )
@@ -582,7 +581,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
           }]
 
       // Extract committee votes from histogram response
-      let committeeVotes: Map<string, { svm_prediction: 0 | 1; rf_prediction: 0 | 1; mlp_prediction: 0 | 1; vote_entropy: number }> | null = null
+      let committeeVotes: Map<string, { svm_prediction: 0 | 1; rf_prediction: 0 | 1; mlp_prediction: 0 | 1 }> | null = null
 
       if (histogramData?.committee_votes) {
         committeeVotes = new Map(
@@ -592,7 +591,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
               svm_prediction: info.svm_prediction,
               rf_prediction: info.rf_prediction,
               mlp_prediction: info.mlp_prediction,
-              vote_entropy: info.vote_entropy
             }
           ])
         )

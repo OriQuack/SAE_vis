@@ -28,7 +28,7 @@ from ..models.classification import (
     WeightedPairKey, CommitteeVoteInfo
 )
 from .committee_service import CommitteeService
-from .data_constants import CLICK_WEIGHT, THRESHOLD_WEIGHT
+from .data_constants import CLICK_WEIGHT, THRESHOLD_WEIGHT, SVM_PAIR_INTRA_METRICS
 from .data_service import DataService
 from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 from .svm_utils import train_svm_model, score_with_svm, build_similarity_histogram_response
@@ -38,16 +38,6 @@ logger = logging.getLogger(__name__)
 
 class PairSimilarityService:
     """Service for calculating feature pair similarity scores."""
-
-    # 4 intra-feature metrics used for PAIR SVM similarity calculation
-    # Used with A+B and |A-B| operations (8 dims total)
-    # Note: Pair-specific inter-feature metrics and decoder similarity are handled separately
-    PAIR_METRICS = [
-        'intra_ngram_jaccard',       # Feature-level: lexical consistency within activations (max of char/word)
-        'intra_ngram_jaccard_std',   # Feature-level: lexical consistency std (pairwise Jaccard variability)
-        'intra_semantic_sim',        # Feature-level: semantic consistency within activations (mean)
-        'intra_semantic_sim_std',    # Feature-level: semantic consistency std (variability)
-    ]
 
     def __init__(
         self,
@@ -328,7 +318,6 @@ class PairSimilarityService:
                     svm_prediction=info["svm_prediction"],
                     rf_prediction=info["rf_prediction"],
                     mlp_prediction=info["mlp_prediction"],
-                    vote_entropy=info["vote_entropy"]
                 )
                 for pk, info in committee_votes.items()
             }
@@ -395,7 +384,7 @@ class PairSimilarityService:
                 ]).collect()
 
                 # Fill nulls with 0 for missing metrics
-                for metric in self.PAIR_METRICS:
+                for metric in SVM_PAIR_INTRA_METRICS:
                     if metric in result_df.columns:
                         result_df = result_df.with_columns(pl.col(metric).fill_null(0.0))
                     else:
@@ -438,7 +427,7 @@ class PairSimilarityService:
                 result_df = result_df.join(activation_df, on="feature_id", how="left")
 
             # Fill nulls with 0 for missing metrics
-            for metric in self.PAIR_METRICS:
+            for metric in SVM_PAIR_INTRA_METRICS:
                 if metric not in result_df.columns:
                     result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
                 else:
@@ -824,7 +813,7 @@ class PairSimilarityService:
         # Convert to numpy for SVM - use PAIR_METRICS (3 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
-            metrics_df[metric].to_numpy() for metric in self.PAIR_METRICS
+            metrics_df[metric].to_numpy() for metric in SVM_PAIR_INTRA_METRICS
         ])
 
         # Build index lookup once - O(n) total instead of O(n) per pair

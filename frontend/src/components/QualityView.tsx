@@ -13,6 +13,7 @@ import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import ConsensusSection, { ConsensusLegend, type PhraseHighlightData } from './ConsensusSection'
+import { ExplanationWithPopover } from './ExplanationPanel'
 import CrossMetricConsensus, { CrossMetricLegend } from './CrossMetricConsensus'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
@@ -284,7 +285,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     getDefaultScore: (f: typeof featureList[0]) => f.qualityScore,
     decisionMarginScores: similarityScores,
     diversityIds: diversityFeatureIds,
-    defaultLabel: 'Quality Score',
+    defaultLabel: 'Avg. Metric Score',
     defaultDirection: 'asc',
     templateMode: 'decisionMargin',
     templateDirection: 'asc',
@@ -302,11 +303,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
     setWorkflowActiveStage(activeStage)
-    if (activeStage === 'apply') {
-      setHideTagged(true)
-    } else {
-      setHideTagged(false)
-    }
   }, [activeStage, setWorkflowActiveStage])
 
   // Handlers for stage changes
@@ -320,9 +316,10 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSortMode('decisionMargin')
       setSortDirection('desc')
     }
+    setHideTagged(stage === 'apply')
     setCurrentFeatureIndex(0)
     setSelectedFeatureIdState(null)
-  }, [setSortMode, setSortDirection])
+  }, [setSortMode, setSortDirection, setHideTagged])
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
@@ -346,7 +343,7 @@ const QualityView: React.FC<QualityViewProps> = ({
         const majorityLabel = info.rf_prediction === 1 ? 'Selected' : 'Rejected'
         lookup.set(key, {
           isDisagreement: true,
-          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}`
         })
       }
     })
@@ -362,6 +359,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       if (showDisagreementOnly && !disagreementIds.has(String(f.featureId))) return false
       // In Apply phase, only show items past thresholds
       if (activeStage === 'apply' && tagAutomaticState?.histogramData) {
+        if (featureSelectionStates.has(f.featureId)) return true
         const score = similarityScores.get(f.featureId)
         if (score === undefined) return false
         const reject = tagAutomaticState.rejectThreshold ?? -0.8
@@ -714,6 +712,14 @@ const QualityView: React.FC<QualityViewProps> = ({
     return featureSelectionStates.get(selectedFeatureData.featureId) || null
   }, [selectedFeatureData, featureSelectionStates])
 
+  // Preview state: show stripe when item is in threshold region but not yet applied
+  const currentPreviewState = useMemo(() => {
+    if (!selectedFeatureData || currentSelectionState !== null) return null
+    if (previewSelectIds.has(selectedFeatureData.featureId)) return 'selected' as const
+    if (previewRejectIds.has(selectedFeatureData.featureId)) return 'rejected' as const
+    return null
+  }, [selectedFeatureData, currentSelectionState, previewSelectIds, previewRejectIds])
+
   // Handle Well-Explained click (selected)
   const handleWellExplainedClick = useCallback(() => {
     if (!selectedFeatureData) return
@@ -996,7 +1002,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               shouldPulseLearn={hasVisitedMostReps}
               shouldPulseApply={isFlipRateStable}
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
-              byScoreLabel="Quality Score"
+              byScoreLabel="Avg. Metric Score"
               hideTagged={hideTagged}
               onHideTaggedChange={(v: boolean) => { logAction('stage2', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
               showDisagreementOnly={showDisagreementOnly}
@@ -1102,19 +1108,24 @@ const QualityView: React.FC<QualityViewProps> = ({
                                 >
                                   {getExplainerDisplayName(explainerId)}
                                 </span>
-                                <span className="quality-view__explainer-text">
-                                  {!explanationText ? (
+                                {!explanationText ? (
+                                  <span className="quality-view__explainer-text">
                                     <span className="quality-view__no-explanation">No explanation available</span>
-                                  ) : !highlightPhrases ? (
-                                    explanationText
-                                  ) : (
-                                    segmentTextByOffsets(explanationText, highlightPhrases, explainerId).map((seg, i) =>
-                                      seg.highlight
-                                        ? <mark key={i} className="quality-view__phrase-highlight">{seg.text}</mark>
-                                        : <span key={i}>{seg.text}</span>
-                                    )
-                                  )}
-                                </span>
+                                  </span>
+                                ) : (
+                                  <ExplanationWithPopover
+                                    text={explanationText}
+                                    className="quality-view__explainer-text"
+                                  >
+                                    {highlightPhrases ? (
+                                      segmentTextByOffsets(explanationText, highlightPhrases, explainerId).map((seg, i) =>
+                                        seg.highlight
+                                          ? <mark key={i} className="quality-view__phrase-highlight">{seg.text}</mark>
+                                          : <span key={i}>{seg.text}</span>
+                                      )
+                                    ) : undefined}
+                                  </ExplanationWithPopover>
+                                )}
                               </div>
                             )
                           })
@@ -1127,20 +1138,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
                   {/* Floating control panel at bottom */}
                   <div className="floating-controls">
-                    {/* Undo button */}
-                    <button
-                      className="nav__button nav__button--undo"
-                      onClick={() => {
-                        const featureId = lastClickTagAction?.featureId
-                        undoLastClickTag()
-                        if (featureId != null) setSelectedFeatureIdState(featureId)
-                      }}
-                      disabled={!lastClickTagAction}
-                      title="Undo last tag"
-                    >
-                      ↩ Undo
-                    </button>
-
                     {/* Previous button */}
                     <button
                       className="nav__button"
@@ -1155,14 +1152,16 @@ const QualityView: React.FC<QualityViewProps> = ({
                       label="Need Revision"
                       variant="need-revision"
                       color={needRevisionColor}
-                      isSelected={currentSelectionState === 'rejected'}
+                      isSelected={currentSelectionState === 'rejected' || currentPreviewState === 'rejected'}
+                      isAuto={currentPreviewState === 'rejected'}
                       onClick={handleNeedRevisionClick}
                     />
                     <TagButton
                       label="Well-Explained"
                       variant="well-explained"
                       color={wellExplainedColor}
-                      isSelected={currentSelectionState === 'selected'}
+                      isSelected={currentSelectionState === 'selected' || currentPreviewState === 'selected'}
+                      isAuto={currentPreviewState === 'selected'}
                       onClick={handleWellExplainedClick}
                     />
 
@@ -1175,14 +1174,28 @@ const QualityView: React.FC<QualityViewProps> = ({
                       Next →
                     </button>
 
-                    {/* Unsure button */}
-                    <TagButton
-                      label="Unsure"
-                      variant="unsure"
-                      color={unsureColor}
-                      isSelected={currentSelectionState === null}
-                      onClick={handleUnsureClick}
-                    />
+                    {/* Secondary actions: Unsure + Undo */}
+                    <div className="floating-controls__secondary">
+                      <TagButton
+                        label="Unsure"
+                        variant="unsure"
+                        color={unsureColor}
+                        isSelected={currentSelectionState === null}
+                        onClick={handleUnsureClick}
+                      />
+                      <button
+                        className="nav__button nav__button--undo"
+                        onClick={() => {
+                          const featureId = lastClickTagAction?.featureId
+                          undoLastClickTag()
+                          if (featureId != null) setSelectedFeatureIdState(featureId)
+                        }}
+                        disabled={!lastClickTagAction}
+                        title="Undo last tag"
+                      >
+                        ↩ Undo
+                      </button>
+                    </div>
                   </div>
                 </>
               ) : (

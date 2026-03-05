@@ -132,16 +132,13 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   // Get pill visual encoding for an item
   const getPillStyle = useCallback((item: ConsensusItem): React.CSSProperties => {
     if (item.is_outlier) {
-      return {
-        '--pill-hover-bg': TEAL_CHROMA.alpha(0.1).css(),
-      } as React.CSSProperties
+      return {} as React.CSSProperties
     }
 
     const consensusScore = item.cluster_score ?? 0
     const alpha = getConsensusOpacity(consensusScore)
     return {
       '--pill-bg': TEAL_CHROMA.alpha(alpha).css(),
-      '--pill-hover-bg': TEAL_CHROMA.alpha(Math.min(alpha + 0.15, 1)).css(),
     } as React.CSSProperties
   }, [])
 
@@ -187,15 +184,21 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   return (
     <div className="consensus-section">
       <div className="consensus-section__column">
-        <span className="consensus-section__column-label">Clusters</span>
+        <span className="instruction-subheader">Clusters</span>
         <div className="consensus-section__items">
-          {clusters.map((item, idx) => renderPill(item, idx))}
+          {clusters.length > 0
+            ? clusters.map((item, idx) => renderPill(item, idx))
+            : <span className="consensus-section__empty">No clusters</span>
+          }
         </div>
       </div>
       <div className="consensus-section__column consensus-section__column--outlier">
-        <span className="consensus-section__column-label">Outliers</span>
+        <span className="instruction-subheader">Outliers</span>
         <div className="consensus-section__items">
-          {outliers.map((item, idx) => renderPill(item, idx))}
+          {outliers.length > 0
+            ? outliers.map((item, idx) => renderPill(item, idx))
+            : <span className="consensus-section__empty">No outliers</span>
+          }
         </div>
       </div>
 
@@ -222,11 +225,6 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
             {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
               <span key={pIdx} className="consensus-tooltip__phrase">
                 {phrase.text}
-                {phrase.quality_score !== undefined && (
-                  <span className="consensus-tooltip__phrase-weight">
-                    (Q: {phrase.quality_score.toFixed(2)})
-                  </span>
-                )}
               </span>
             ))}
           </div>

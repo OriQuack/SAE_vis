@@ -252,21 +252,6 @@
   position: relative;
 }
 
-/* Explanation popover - shows full text on hover, covers the header */
-.explanation-popover {
-  background: #f9fafb;
-  border: 1px solid #d1d5db;
-  border-radius: 4px;
-  padding: 4px 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  font-size: 14px;
-  font-weight: 400;
-  color: #1f2937;
-  white-space: normal;
-  word-wrap: break-word;
-  pointer-events: none;
-}
-
 .activation-panel__examples {
   overflow-y: auto;
   overflow-x: hidden;

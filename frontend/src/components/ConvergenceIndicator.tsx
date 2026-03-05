@@ -6,28 +6,13 @@ import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUS
 import { getTagColor } from '../lib/tag-system'
 import { Tooltip } from './Tooltip'
 
-// Tooltip data types
-type TooltipDataSegment = {
-  type: 'segment'
+// Tooltip data type
+type TooltipData = {
   iteration: number
   segments: Array<{ category: string; count: number; color: string; label: string }>
   total: number
   flipRate: number | null  // null for iteration 0
 }
-
-type TooltipDataAllLinks = {
-  type: 'allLinks'
-  fromIteration: number
-  toIteration: number
-  totalFlipped: number
-  links: Array<{
-    sourceColor: string
-    targetColor: string
-    count: number
-  }>
-}
-
-type TooltipData = TooltipDataSegment | TooltipDataAllLinks
 
 interface ConvergenceIndicatorProps {
   flipTracking: FlipTrackingInfo | null
@@ -53,7 +38,6 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null)
-  const [hoveredGapIndex, setHoveredGapIndex] = useState<number | null>(null)
 
   // Use resize observer for responsive sizing
   const { ref: containerRef, size: containerSize } = useResizeObserver<HTMLDivElement>({
@@ -420,7 +404,6 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
                 setHoveredBarIndex(barIndex)
                 setTooltipPosition({ x: e.clientX, y: e.clientY })
                 setTooltipData({
-                  type: 'segment',
                   iteration: bar.iteration,
                   segments: bar.segments.map(seg => ({
                     category: seg.category,
@@ -456,30 +439,23 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
           ))}
 
           {/* Flip transition links between consecutive bars */}
-          {sparklineData.links?.map((link, linkIndex) => {
-            // Check if this link belongs to the currently hovered gap
-            const isInHoveredGap = hoveredGapIndex !== null &&
-              sparklineData.gaps?.[hoveredGapIndex]?.fromIteration === link.fromIteration &&
-              sparklineData.gaps?.[hoveredGapIndex]?.toIteration === link.toIteration
-
-            return (
-              <path
-                key={`link-${linkIndex}`}
-                d={`M ${link.sourceX},${link.sourceY}
-                    C ${(link.sourceX + link.targetX) / 2},${link.sourceY}
-                      ${(link.sourceX + link.targetX) / 2},${link.targetY}
-                      ${link.targetX},${link.targetY}
-                    L ${link.targetX},${link.targetY + link.height}
-                    C ${(link.sourceX + link.targetX) / 2},${link.targetY + link.height}
-                      ${(link.sourceX + link.targetX) / 2},${link.sourceY + link.height}
-                      ${link.sourceX},${link.sourceY + link.height}
-                    Z`}
-                fill={`url(#link-gradient-${linkIndex})`}
-                opacity={isInHoveredGap ? 0.9 : 0.7}
-                style={{ pointerEvents: 'none' }}
-              />
-            )
-          })}
+          {sparklineData.links?.map((link, linkIndex) => (
+            <path
+              key={`link-${linkIndex}`}
+              d={`M ${link.sourceX},${link.sourceY}
+                  C ${(link.sourceX + link.targetX) / 2},${link.sourceY}
+                    ${(link.sourceX + link.targetX) / 2},${link.targetY}
+                    ${link.targetX},${link.targetY}
+                  L ${link.targetX},${link.targetY + link.height}
+                  C ${(link.sourceX + link.targetX) / 2},${link.targetY + link.height}
+                    ${(link.sourceX + link.targetX) / 2},${link.sourceY + link.height}
+                    ${link.sourceX},${link.sourceY + link.height}
+                  Z`}
+              fill={`url(#link-gradient-${linkIndex})`}
+              opacity={0.7}
+              style={{ pointerEvents: 'none' }}
+            />
+          ))}
 
           {/* Transparent hover blocks between bars for easier link interaction */}
           {sparklineData.gaps?.map((gap, gapIndex) => (
@@ -492,28 +468,57 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
               fill="transparent"
               style={{ cursor: gap.links.length > 0 ? 'pointer' : 'default' }}
               onMouseEnter={(e) => {
-                if (gap.links.length === 0) return
-                setHoveredGapIndex(gapIndex)
+                const midX = gap.x + gap.width / 2
+                const svgEl = e.currentTarget.closest('svg')
+                if (!svgEl) return
+                const pt = svgEl.createSVGPoint()
+                pt.x = e.clientX
+                pt.y = e.clientY
+                const svgP = pt.matrixTransform(svgEl.getScreenCTM()!.inverse())
+                const nearBarIndex = svgP.x < midX ? gapIndex : gapIndex + 1
+                const bar = sparklineData!.bars[nearBarIndex]
+                if (!bar) return
+                setHoveredBarIndex(nearBarIndex)
                 setTooltipPosition({ x: e.clientX, y: e.clientY })
-                const totalFlipped = gap.links.reduce((sum, l) => sum + l.count, 0)
                 setTooltipData({
-                  type: 'allLinks',
-                  fromIteration: gap.fromIteration,
-                  toIteration: gap.toIteration,
-                  totalFlipped,
-                  links: gap.links.map(l => ({
-                    sourceColor: l.sourceColor,
-                    targetColor: l.targetColor,
-                    count: l.count
-                  }))
+                  iteration: bar.iteration,
+                  segments: bar.segments.map(seg => ({
+                    category: seg.category,
+                    count: seg.count,
+                    color: seg.color,
+                    label: seg.label
+                  })),
+                  total: bar.totalCount,
+                  flipRate: bar.iteration > 0 ? bar.flipRate : null
                 })
               }}
               onMouseMove={(e) => {
-                if (gap.links.length === 0) return
+                const midX = gap.x + gap.width / 2
+                const svgEl = e.currentTarget.closest('svg')
+                if (!svgEl) return
+                const pt = svgEl.createSVGPoint()
+                pt.x = e.clientX
+                pt.y = e.clientY
+                const svgP = pt.matrixTransform(svgEl.getScreenCTM()!.inverse())
+                const nearBarIndex = svgP.x < midX ? gapIndex : gapIndex + 1
+                const bar = sparklineData!.bars[nearBarIndex]
+                if (!bar) return
+                setHoveredBarIndex(nearBarIndex)
                 setTooltipPosition({ x: e.clientX, y: e.clientY })
+                setTooltipData({
+                  iteration: bar.iteration,
+                  segments: bar.segments.map(seg => ({
+                    category: seg.category,
+                    count: seg.count,
+                    color: seg.color,
+                    label: seg.label
+                  })),
+                  total: bar.totalCount,
+                  flipRate: bar.iteration > 0 ? bar.flipRate : null
+                })
               }}
               onMouseLeave={() => {
-                setHoveredGapIndex(null)
+                setHoveredBarIndex(null)
                 setTooltipPosition(null)
                 setTooltipData(null)
               }}
@@ -547,51 +552,21 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       {/* Tooltip */}
       {tooltipData && (
         <Tooltip position={tooltipPosition}>
-          {tooltipData.type === 'segment' && (
-            <>
-              <Tooltip.Header>Iteration {tooltipData.iteration}</Tooltip.Header>
-              <Tooltip.Summary showSeparator={tooltipData.flipRate === null}>
-                {tooltipData.flipRate !== null
-                  ? `Flip Rate: ${(tooltipData.flipRate * 100).toFixed(1)}%`
-                  : `Total: ${tooltipData.total.toLocaleString()} features`
-                }
-              </Tooltip.Summary>
-              {tooltipData.flipRate !== null && (
-                <Tooltip.Summary>Total: {tooltipData.total.toLocaleString()} features</Tooltip.Summary>
-              )}
-              {tooltipData.segments.map((seg, i) => (
-                <Tooltip.Row key={i} color={seg.color}>
-                  {seg.label}: {seg.count.toLocaleString()}
-                </Tooltip.Row>
-              ))}
-            </>
-          )}
-          {tooltipData.type === 'allLinks' && (
-            <>
-              <Tooltip.Header>
-                Iteration {tooltipData.fromIteration} → {tooltipData.toIteration}
-              </Tooltip.Header>
-              <Tooltip.Summary showSeparator={false}>
-                {tooltipData.totalFlipped.toLocaleString()} feature{tooltipData.totalFlipped !== 1 ? 's' : ''} changed
-              </Tooltip.Summary>
-              {tooltipData.links.map((link, i) => (
-                <div key={i} className="tooltip__transition-row">
-                  <span
-                    className="tooltip__swatch"
-                    style={{ backgroundColor: link.sourceColor }}
-                  />
-                  <span className="tooltip__transition-arrow">→</span>
-                  <span
-                    className="tooltip__swatch"
-                    style={{ backgroundColor: link.targetColor }}
-                  />
-                  <span className="tooltip__transition-count">
-                    {link.count.toLocaleString()}
-                  </span>
-                </div>
-              ))}
-            </>
-          )}
+          <Tooltip.Header>Iteration {tooltipData.iteration}</Tooltip.Header>
+          <Tooltip.Summary showSeparator={false}>
+            {tooltipData.flipRate !== null
+              ? `Flip Rate: ${(tooltipData.flipRate * 100).toFixed(1)}%`
+              : 'Flip Rate: N/A'
+            }
+          </Tooltip.Summary>
+          <Tooltip.Summary>
+            Total: {tooltipData.total.toLocaleString()} features
+          </Tooltip.Summary>
+          {tooltipData.segments.map((seg, i) => (
+            <Tooltip.Row key={i} color={seg.color}>
+              {seg.label}: {seg.count.toLocaleString()}
+            </Tooltip.Row>
+          ))}
         </Tooltip>
       )}
     </div>

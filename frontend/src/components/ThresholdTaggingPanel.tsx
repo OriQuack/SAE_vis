@@ -274,7 +274,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
-                  disabled={activeStage === 'bootstrap' || !causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
+                  disabled={activeStage !== 'apply' || !causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
                   onConfirmAll={causeProps.onConfirmAll}
                   onTagAllUnsure={causeProps.onTagAllUnsure}
                 />
@@ -304,7 +304,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                   }
                 ]}
                 unsureCount={remainingCount}
-                disabled={activeStage === 'bootstrap' || !tagAutomaticState?.histogramData}
+                disabled={activeStage !== 'apply' || !tagAutomaticState?.histogramData}
                 onApplyThreshold={onApplyTags}
                 thresholdCounts={thresholdCounts}
                 onTagAllAsCategory={() => onTagAll('left')}

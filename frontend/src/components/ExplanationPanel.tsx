@@ -1,6 +1,95 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import type { HighlightSegment } from '../types'
 import { getSemanticSimilarityColor } from '../lib/color-utils'
+
+// ============================================================================
+// EXPLANATION WITH POPOVER - Shared component for truncated text with hover
+// ============================================================================
+interface ExplanationWithPopoverProps {
+  text: string
+  hasNoActivations?: boolean
+  className?: string       // Custom class for the container
+  children?: React.ReactNode  // Custom inline content (popover always shows plain text)
+}
+
+export const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text, hasNoActivations = false, className = 'panel-header__explanation', children }) => {
+  const [showPopover, setShowPopover] = useState(false)
+  const [forcePopover, setForcePopover] = useState(false)
+  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const computePopoverStyle = (el: HTMLElement): React.CSSProperties => {
+    const rect = el.getBoundingClientRect()
+    return {
+      position: 'fixed',
+      left: `${rect.left - 4}px`,
+      bottom: `${window.innerHeight - rect.top - 25}px`,
+      maxWidth: `${rect.width + 4}px`,
+      zIndex: 10000
+    }
+  }
+
+  // Auto-show popover when highlighted marks fall in truncated region
+  useEffect(() => {
+    if (!children || !containerRef.current) {
+      setForcePopover(false)
+      return
+    }
+    const el = containerRef.current
+    if (el.scrollWidth <= el.clientWidth) {
+      setForcePopover(false)
+      return
+    }
+    const marks = el.querySelectorAll('mark')
+    if (marks.length === 0) {
+      setForcePopover(false)
+      return
+    }
+    const containerRight = el.getBoundingClientRect().right
+    let cutoff = false
+    marks.forEach(mark => {
+      if (mark.getBoundingClientRect().right > containerRight) cutoff = true
+    })
+    if (cutoff) {
+      setPopoverStyle(computePopoverStyle(el))
+      setForcePopover(true)
+    } else {
+      setForcePopover(false)
+    }
+  }, [children])
+
+  if (hasNoActivations) {
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  if (text.includes('No explanation available from Neuronpedia')) {
+    return <span className="explanation--unavailable">No Explanation available</span>
+  }
+
+  const handleMouseEnter = () => {
+    if (!containerRef.current) return
+    const el = containerRef.current
+    if (el.scrollWidth <= el.clientWidth) return
+    setPopoverStyle(computePopoverStyle(el))
+    setShowPopover(true)
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      className={className}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={() => setShowPopover(false)}
+    >
+      {children ?? text}
+      {(showPopover || forcePopover) && (
+        <div className="explanation-popover" style={popoverStyle}>
+          {children ?? text}
+        </div>
+      )}
+    </div>
+  )
+}
 
 interface HighlightedExplanationProps {
   segments: HighlightSegment[]

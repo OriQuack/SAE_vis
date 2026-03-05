@@ -1,7 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
+import { ExplanationWithPopover } from './ExplanationPanel'
 import { TagButton } from './Indicators'
 import { UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -11,64 +12,6 @@ import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode } from '../lib/tagging-hooks'
 import { logAction } from '../lib/action-logger'
 import '../styles/FeatureSplitPairViewer.css'
-
-// ============================================================================
-// EXPLANATION WITH POPOVER - Inline component for truncated text with hover
-// ============================================================================
-interface ExplanationWithPopoverProps {
-  text: string
-  hasNoActivations?: boolean  // If true, show "No Explanation available" instead
-}
-
-const ExplanationWithPopover: React.FC<ExplanationWithPopoverProps> = ({ text, hasNoActivations = false }) => {
-  const [showPopover, setShowPopover] = useState(false)
-  const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  // If feature has no activations, any explanation is hallucinated
-  if (hasNoActivations) {
-    return <span className="explanation--unavailable">No Explanation available</span>
-  }
-
-  // Check for hallucinated/placeholder explanations from Neuronpedia
-  if (text.includes('No explanation available from Neuronpedia')) {
-    return <span className="explanation--unavailable">No Explanation available</span>
-  }
-
-  const handleMouseEnter = () => {
-    if (!containerRef.current) return
-    // Get the parent header element for full width
-    const header = containerRef.current.closest('.panel-header__content')
-    if (!header) return
-    const rect = header.getBoundingClientRect()
-
-    // Position popover over the header, aligned right
-    setPopoverStyle({
-      position: 'fixed',
-      right: `${window.innerWidth - rect.right}px`,
-      top: `${rect.top}px`,
-      maxWidth: `${rect.width}px`,
-      zIndex: 10000
-    })
-    setShowPopover(true)
-  }
-
-  return (
-    <div
-      ref={containerRef}
-      className="panel-header__explanation"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={() => setShowPopover(false)}
-    >
-      {text}
-      {showPopover && (
-        <div className="explanation-popover" style={popoverStyle}>
-          {text}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ============================================================================
 // FEATURE SPLIT PAIR VIEWER COMPONENT
@@ -101,6 +44,8 @@ interface FeatureSplitPairViewerProps {
   hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
   onClearStoredSelection?: () => void  // Clear stored selection state when hideTagged removes item
   onUndoNavigate?: (pairKey: string) => void  // Navigate to undone pair after undo
+  previewSelectKeys?: Set<string>  // Pairs in select threshold region (before Apply)
+  previewRejectKeys?: Set<string>  // Pairs in reject threshold region (before Apply)
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -117,7 +62,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   onResetToFirstPair,
   hideTagged = false,
   onClearStoredSelection,
-  onUndoNavigate
+  onUndoNavigate,
+  previewSelectKeys,
+  previewRejectKeys
 }) => {
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -152,6 +99,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
   // Get selection state for current pair
   const pairSelectionState = currentPair ? pairSelectionStates.get(currentPair.pairKey) || null : null
+  // Preview state: show stripe when item is in threshold region but not yet applied
+  const currentPairPreview = useMemo(() => {
+    if (!currentPair || pairSelectionState !== null) return null
+    if (previewSelectKeys?.has(currentPair.pairKey)) return 'selected' as const
+    if (previewRejectKeys?.has(currentPair.pairKey)) return 'rejected' as const
+    return null
+  }, [currentPair, pairSelectionState, previewSelectKeys, previewRejectKeys])
 
   // NOTE: activating examples are pre-fetched by parent (FeatureSplitView) for the entire page
   // This component just reads from the activationExamples cache
@@ -393,16 +347,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
             {/* Floating control panel at bottom */}
             <div className="floating-controls">
-              {/* Undo button */}
-              <button
-                className="nav__button nav__button--undo"
-                onClick={handleUndoClick}
-                disabled={!lastClickTagAction}
-                title="Undo last tag"
-              >
-                ↩ Undo
-              </button>
-
               {/* Previous button */}
               <button
                 className="nav__button"
@@ -417,14 +361,16 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 label="Monosemantic"
                 variant="monosemantic"
                 color={monosemanticColor}
-                isSelected={pairSelectionState === 'rejected'}
+                isSelected={pairSelectionState === 'rejected' || currentPairPreview === 'rejected'}
+                isAuto={currentPairPreview === 'rejected'}
                 onClick={handleMonosemanticClick}
               />
               <TagButton
                 label="Incoherent Splitting"
                 variant="fragmented"
                 color={fragmentedColor}
-                isSelected={pairSelectionState === 'selected'}
+                isSelected={pairSelectionState === 'selected' || currentPairPreview === 'selected'}
+                isAuto={currentPairPreview === 'selected'}
                 onClick={handleFragmentedClick}
               />
 
@@ -437,14 +383,24 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 Next →
               </button>
 
-              {/* Unsure button */}
-              <TagButton
-                label="Unsure"
-                variant="unsure"
-                color={unsureColor}
-                isSelected={pairSelectionState === null}
-                onClick={handleUnsureClick}
-              />
+              {/* Secondary actions: Unsure + Undo */}
+              <div className="floating-controls__secondary">
+                <TagButton
+                  label="Unsure"
+                  variant="unsure"
+                  color={unsureColor}
+                  isSelected={pairSelectionState === null}
+                  onClick={handleUnsureClick}
+                />
+                <button
+                  className="nav__button nav__button--undo"
+                  onClick={handleUndoClick}
+                  disabled={!lastClickTagAction}
+                  title="Undo last tag"
+                >
+                  ↩ Undo
+                </button>
+              </div>
             </div>
           </>
         ) : (

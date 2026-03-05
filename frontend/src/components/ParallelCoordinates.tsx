@@ -50,7 +50,7 @@ const METRICS: MetricConfig[] = [
 
 // Layout constants
 const MARGIN = { top: 6, right: 14, bottom: 28, left: 24 }
-const FIXED_WIDTH = 200
+const FIXED_WIDTH = 250
 const MIN_HEIGHT = 80
 
 // Line colors
@@ -58,7 +58,7 @@ const LINE_COLOR = '#000000'
 
 // Band rendering constants
 const BAND_FILL_OPACITY = 0.12
-const MEDIAN_STROKE_OPACITY = 0.6
+const MEDIAN_STROKE_OPACITY = 1
 const MEDIAN_STROKE_WIDTH = 1.5
 
 // ============================================================================

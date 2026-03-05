@@ -614,7 +614,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               y={segment.y}
               width={segment.width}
               height={segment.height}
-              fill={activeStage === 'bootstrap' || segment.isManual ? segment.color : `url(#stripe-${segment.category})`}
+              fill={activeStage === 'bootstrap' || segment.isManual || segment.category === 'unsure' ? segment.color : `url(#stripe-${segment.category})`}
               opacity={hoveredBinIndex === segment.binIndex ? 1 : 0.85}
               style={{ cursor: 'pointer' }}
               onMouseEnter={(e) => handleBinMouseEnter(segment.binIndex, e)}

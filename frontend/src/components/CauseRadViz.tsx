@@ -132,7 +132,8 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     causeSelectionStates.forEach((category: string, featureId: number) => {
       const source = causeSelectionSources.get(featureId)
       // Include both 'click' and 'threshold' for weighted SVM training
-      if (source === 'click' || source === 'threshold') {
+      // Exclude well-explained (non-cause) categories from SVM training data
+      if ((source === 'click' || source === 'threshold') && CAUSE_CATEGORIES.includes(category)) {
         manualTags.set(category, (manualTags.get(category) || 0) + 1)
         selections[featureId] = { category, source }
       }
@@ -156,9 +157,10 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   // This prevents infinite loops by only triggering when the SET of manual tag IDs changes
   const manualTagsSignature = useMemo(() => {
     const manualIds: number[] = []
-    causeSelectionStates.forEach((_category, featureId) => {
+    causeSelectionStates.forEach((category, featureId) => {
       const source = causeSelectionSources.get(featureId)
-      if (source === 'click' || source === 'threshold') {
+      // Only include cause categories — well-explained tags should not trigger SVM retraining
+      if ((source === 'click' || source === 'threshold') && CAUSE_CATEGORIES.includes(category)) {
         manualIds.push(featureId)
       }
     })

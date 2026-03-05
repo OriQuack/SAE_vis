@@ -144,7 +144,7 @@
   min-height: 0;
   display: flex;
   flex-direction: row;
-  gap: 8px;
+  gap: 4px;
 }
 
 /* Let consensus section fill available height in CauseView (override 90px max-height from ConsensusSection.css) */

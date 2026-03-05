@@ -304,7 +304,7 @@ export const METRIC_DISPLAY_NAMES: Record<string, string> = {
   [METRIC_SCORE_FUZZ]: "Fuzz Score",
   [METRIC_SCORE_DETECTION]: "Detection Score",
   [METRIC_SCORE_EMBEDDING]: "Embedding Score",
-  [METRIC_QUALITY_SCORE]: "Quality Score",
+  [METRIC_QUALITY_SCORE]: "Avg. Metric Score",
   'decision_margin': "Decision Margin"
 }
 

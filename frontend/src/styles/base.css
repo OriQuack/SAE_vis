@@ -416,14 +416,14 @@ Matches .nav__button style: white background, 11px font
   align-self: center;
 }
 
-/* Extra spacing before the unsure button (placed after Next) */
-.floating-controls .selection__button--unsure {
-  margin-left: 50px;
-}
-
-/* Undo button - before prev */
-.floating-controls .nav__button--undo {
-  margin-right: 10px;
+/* Secondary action group (Unsure + Undo) - visually separated from main controls */
+.floating-controls__secondary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 20px;
+  padding-left: 20px;
+  border-left: 1px solid #d1d5db;
 }
 
 /* ============================================================================
@@ -492,6 +492,10 @@ Matches .nav__button style: white background, 11px font
   opacity: 0.25;
 }
 
+.selection__button.selected.striped::before {
+  opacity: 0;
+}
+
 /* ============================================================================
    NEXT STAGE COLUMN - Right-side column for stage navigation
    ============================================================================ */
@@ -519,6 +523,21 @@ Matches .nav__button style: white background, 11px font
 /* ============================================================================
    EMPTY/UNAVAILABLE STATES - Common placeholder text styles
    ============================================================================ */
+
+/* Explanation popover - shows full text on hover, covers the header */
+.explanation-popover {
+  background: #f9fafb;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  padding: 4px 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-size: 14px;
+  font-weight: 400;
+  color: #1f2937;
+  white-space: normal;
+  word-wrap: break-word;
+  pointer-events: none;
+}
 
 .explanation--unavailable {
   color: #6b7280;

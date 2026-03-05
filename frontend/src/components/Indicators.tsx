@@ -1,6 +1,6 @@
 import React from 'react'
 import { getTagColor } from '../lib/tag-system'
-import { getStripeGradient } from '../lib/color-utils'
+import { getStripeGradient, addOpacityToHex, STRIPE_PATTERN } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
@@ -172,6 +172,7 @@ interface TagButtonProps {
   isSelected: boolean        // Whether button shows selected state
   onClick: () => void        // Click handler
   className?: string         // Additional CSS classes (optional)
+  isAuto?: boolean           // Whether this tag was auto-assigned (shows stripe pattern)
 }
 
 export const TagButton: React.FC<TagButtonProps> = ({
@@ -180,14 +181,25 @@ export const TagButton: React.FC<TagButtonProps> = ({
   color,
   isSelected,
   onClick,
-  className = ''
+  className = '',
+  isAuto = false
 }) => {
+  const showStripe = isAuto && isSelected
+
+  const stripeStyle: React.CSSProperties | undefined = showStripe
+    ? {
+        backgroundColor: '#ffffff',
+        backgroundImage: `repeating-linear-gradient(${STRIPE_PATTERN.rotation}deg, #ffffff, #ffffff ${STRIPE_PATTERN.gapWidth}px, ${addOpacityToHex(color, 0.35)} ${STRIPE_PATTERN.gapWidth}px, ${addOpacityToHex(color, 0.35)} ${STRIPE_PATTERN.width}px)`
+      }
+    : undefined
+
   return (
     <button
-      className={`selection__button selection__button--${variant} ${isSelected ? 'selected' : ''} ${className}`.trim()}
+      className={`selection__button selection__button--${variant} ${isSelected ? 'selected' : ''} ${showStripe ? 'striped' : ''} ${className}`.trim()}
       onClick={onClick}
       style={{
         '--tag-color': color,
+        ...stripeStyle
       } as React.CSSProperties}
     >
       {label}

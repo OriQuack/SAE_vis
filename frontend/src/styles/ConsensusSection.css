@@ -10,7 +10,7 @@
   align-items: stretch;
   border: 1px solid #e5e7eb;
   border-radius: 4px;
-  padding: 4px;
+  padding: 2px;
   gap: 0;
 }
 
@@ -19,19 +19,14 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 4px;
+  gap: 2px;
+  padding: 0 2px;
 }
 
 .consensus-section__column--outlier {
   border-left: 1px solid #e5e7eb;
 }
 
-.consensus-section__column-label {
-  font-size: 11px;
-  color: var(--text-secondary, #6b7280);
-  font-weight: 500;
-}
 
 .consensus-section__items {
   display: flex;
@@ -40,7 +35,7 @@
   flex: 1;
   min-width: 0;
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 1px;
   align-content: flex-start;
 }
 
@@ -84,7 +79,7 @@
 }
 
 .consensus-item__pill--medoid:hover {
-  background-color: var(--pill-hover-bg, rgba(107, 114, 128, 0.35));
+  outline: 1px solid var(--selection-blue);
 }
 
 /* Outlier style - border only with quality color at full opacity */
@@ -94,15 +89,13 @@
 }
 
 .consensus-item__pill--outlier:hover {
-  background-color: var(--pill-hover-bg, rgba(107, 114, 128, 0.1));
+  outline: 1px solid var(--selection-blue);
 }
 
 /* Phrase text */
 .consensus-item__phrase {
   color: var(--text-primary, #1f2937);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-weight: 500;
 }
 
 /* Quality score tag (colored right-side tab) */
@@ -114,6 +107,19 @@
   border-left: 1px solid white;
 }
 
+/* Empty placeholder */
+.consensus-section__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-size: 12px;
+  color: #9ca3af;
+  opacity: 0.6;
+  font-style: italic;
+}
+
 /* ============================================================================
  * HOVER TOOLTIP (phrase content inside reusable Tooltip component)
  * ============================================================================ */
@@ -122,25 +128,23 @@
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  max-height: 150px;
-  overflow-y: auto;
 }
 
 .consensus-tooltip__phrase {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 0px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
   background-color: rgba(107, 114, 128, 0.2);
+  border: 1px solid #ccc;
   color: var(--text-primary, #1f2937);
 }
 
-.consensus-tooltip__phrase-weight {
-  font-family: 'Consolas', 'Monaco', monospace;
-  font-size: 10px;
-  color: var(--text-secondary, #6b7280);
+/* Wider tooltip for consensus section */
+.consensus-section .tooltip {
+  max-width: 400px;
 }
 
 /* Legend uses unified .legend-group, .legend-swatch, .legend-range, .legend-ramp from base.css */

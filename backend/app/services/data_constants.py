@@ -63,6 +63,21 @@ SVM_FEATURE_METRICS = [
     'score_detection_std',
 ]
 
+# 4D intra-feature metrics for pair SVM (used with A+B and |A-B| → 8 dims)
+SVM_PAIR_INTRA_METRICS = [
+    'intra_ngram_jaccard',       # Feature-level: lexical consistency (max of char/word)
+    'intra_ngram_jaccard_std',   # Feature-level: lexical consistency std
+    'intra_semantic_sim',        # Feature-level: semantic consistency (mean)
+    'intra_semantic_sim_std',    # Feature-level: semantic consistency std
+]
+
+# 3D pair-specific inter-feature metrics for pair SVM
+SVM_PAIR_INTER_METRICS = [
+    'inter_ngram_jaccard',       # Pair: max(char_jaccard, word_jaccard)
+    'inter_semantic_sim',        # Pair: semantic similarity between activations
+    'decoder_sim',               # Pair: decoder weight cosine similarity
+]
+
 # Stage 3 cause categories
 CAUSE_CATEGORIES = [
     'noisy-activation',

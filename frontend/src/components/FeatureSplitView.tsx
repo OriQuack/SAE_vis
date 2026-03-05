@@ -486,11 +486,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
     setWorkflowActiveStage(activeStage)
-    if (activeStage === 'apply') {
-      setHideTagged(true)
-    } else {
-      setHideTagged(false)
-    }
   }, [activeStage, setWorkflowActiveStage])
 
   // Handlers for stage changes
@@ -504,9 +499,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       setSortMode('decisionMargin')
       setSortDirection('desc')
     }
+    setHideTagged(stage === 'apply')
     setCurrentPairIndex(0)
     setSelectedPairKeyState(null)
-  }, [setSortMode, setSortDirection])
+  }, [setSortMode, setSortDirection, setHideTagged])
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
@@ -531,7 +527,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         const majorityLabel = info.rf_prediction === 1 ? 'Selected' : 'Rejected'
         lookup.set(key, {
           isDisagreement: true,
-          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}\nEntropy: ${info.vote_entropy.toFixed(3)}`
+          tooltipText: `SVM: ${info.svm_prediction === 1 ? 'Selected' : 'Rejected'}\nMajority (RF+MLP): ${majorityLabel}`
         })
       }
     })
@@ -547,6 +543,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       if (showDisagreementOnly && !disagreementKeys.has(pair.pairKey)) return false
       // In Apply phase, only show items past thresholds
       if (activeStage === 'apply' && tagAutomaticState?.histogramData) {
+        if (pairSelectionStates.has(pair.pairKey)) return true
         const score = pairSimilarityScores.get(pair.pairKey)
         if (score === undefined) return false
         const reject = tagAutomaticState.rejectThreshold ?? -0.8
@@ -1037,6 +1034,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             hideTagged={hideTagged}
             onClearStoredSelection={() => setSelectedPairKeyState(null)}
             onUndoNavigate={(pairKey) => setSelectedPairKeyState(pairKey)}
+            previewSelectKeys={previewSelectKeys}
+            previewRejectKeys={previewRejectKeys}
           />
         </div>
 

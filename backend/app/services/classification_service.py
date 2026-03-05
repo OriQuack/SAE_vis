@@ -375,7 +375,6 @@ class ClassificationService:
                     svm_prediction=info["svm_prediction"],
                     rf_prediction=info["rf_prediction"],
                     mlp_prediction=info["mlp_prediction"],
-                    vote_entropy=info["vote_entropy"]
                 )
                 for fid, info in committee_votes.items()
             }
@@ -622,6 +621,8 @@ class ClassificationService:
             negative_weights = []
             for fid, item in cause_selections.items():
                 if fid in feature_id_to_idx:
+                    if item.category not in CAUSE_CATEGORIES:
+                        continue  # skip well-explained or unknown categories
                     idx = feature_id_to_idx[fid]
                     weight = id_to_weight.get(fid, CLICK_WEIGHT)
                     if item.category == category:

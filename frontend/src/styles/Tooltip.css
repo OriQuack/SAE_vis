@@ -40,7 +40,7 @@
 }
 
 .tooltip__summary {
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-primary, #1f2937);
   margin-bottom: 6px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color, #e5e7eb);
@@ -49,7 +49,7 @@
 .tooltip__summary--no-separator {
   border-bottom: none;
   padding-bottom: 0;
-  margin-bottom: 4px;
+  margin-bottom: 0;
 }
 
 .tooltip__row {
@@ -57,7 +57,7 @@
   align-items: center;
   gap: 6px;
   margin-top: 2px;
-  color: var(--text-secondary, #6b7280);
+  color: var(--text-primary, #1f2937);
 }
 
 .tooltip__swatch {
@@ -80,26 +80,3 @@
 }
 
 /* Transition row - for showing category transitions with arrow */
-.tooltip__transition-row {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  margin-top: 6px;
-  color: var(--text-secondary, #6b7280);
-}
-
-.tooltip__transition-arrow {
-  color: var(--text-tertiary, #9ca3af);
-  font-size: 12px;
-}
-
-.tooltip__transition-label {
-  margin-left: 4px;
-  font-size: 12px;
-}
-
-.tooltip__transition-count {
-  margin-left: 4px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}

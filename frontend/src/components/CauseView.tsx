@@ -1217,8 +1217,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <div className="cause-view__consensus-row-header">
                       <span className="subheader">Explainer Consensus</span>
                       <div style={{ flex: 1 }} />
-                      <ConsensusLegend />
-                      <div className="legend-separator" />
                       <div className="legend-group">
                         <div className="legend-item">
                           <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#6b7280" strokeWidth="1.5" /></svg>
@@ -1242,33 +1240,21 @@ const CauseView: React.FC<CauseViewProps> = ({
                           <span className="legend-label">Random</span>
                         </div>
                       </div>
+                      <div className="legend-separator" />
+                      <ConsensusLegend />
                     </div>
                     <div className="cause-view__consensus-with-metrics">
-                      <ConsensusSection consensus={consensus} />
                       <div className="cause-view__metrics-container">
                         <CauseMetricParallelCoords
                           categoryBands={categoryBands}
                           currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
                         />
                       </div>
+                      <ConsensusSection consensus={consensus} />
                     </div>
 
                     {/* ---- Floating control panel ---- */}
                     <div className="floating-controls">
-                      {/* Undo button */}
-                      <button
-                        className="nav__button nav__button--undo"
-                        onClick={() => {
-                          const featureId = lastClickTagAction?.featureId
-                          undoLastClickTag()
-                          if (featureId != null) setSelectedFeatureIdState(featureId)
-                        }}
-                        disabled={!lastClickTagAction}
-                        title="Undo last tag"
-                      >
-                        ↩ Undo
-                      </button>
-
                       {/* Previous button */}
                       <button
                         className="nav__button"
@@ -1283,28 +1269,32 @@ const CauseView: React.FC<CauseViewProps> = ({
                         label="Missed Syntax"
                         variant="missed-N-gram"
                         color={missedNgramColor}
-                        isSelected={currentCauseCategory === 'missed-N-gram' && currentCauseSource !== 'predicted'}
+                        isSelected={currentCauseCategory === 'missed-N-gram'}
+                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'missed-N-gram'}
                         onClick={() => handleTagClick('missed-N-gram')}
                       />
                       <TagButton
                         label="Missed Context"
                         variant="missed-context"
                         color={missedContextColor}
-                        isSelected={currentCauseCategory === 'missed-context' && currentCauseSource !== 'predicted'}
+                        isSelected={currentCauseCategory === 'missed-context'}
+                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'missed-context'}
                         onClick={() => handleTagClick('missed-context')}
                       />
                       <TagButton
                         label="Noisy Activation"
                         variant="noisy-activation"
                         color={noisyActivationColor}
-                        isSelected={currentCauseCategory === 'noisy-activation' && currentCauseSource !== 'predicted'}
+                        isSelected={currentCauseCategory === 'noisy-activation'}
+                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'noisy-activation'}
                         onClick={() => handleTagClick('noisy-activation')}
                       />
                       <TagButton
                         label="Well-Explained"
                         variant="well-explained"
                         color={wellExplainedColor}
-                        isSelected={currentCauseCategory === 'well-explained' && currentCauseSource !== 'predicted'}
+                        isSelected={currentCauseCategory === 'well-explained'}
+                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'well-explained'}
                         onClick={() => handleTagClick('well-explained')}
                       />
 
@@ -1317,14 +1307,29 @@ const CauseView: React.FC<CauseViewProps> = ({
                         Next →
                       </button>
 
-                      {/* Unsure button */}
-                      <TagButton
-                        label="Unsure"
-                        variant="unsure"
-                        color={unsureColor}
-                        isSelected={currentCauseCategory === 'unsure' && currentCauseSource !== 'predicted'}
-                        onClick={handleUnsureClick}
-                      />
+                      {/* Secondary actions: Unsure + Undo */}
+                      <div className="floating-controls__secondary">
+                        <TagButton
+                          label="Unsure"
+                          variant="unsure"
+                          color={unsureColor}
+                          isSelected={currentCauseCategory === 'unsure'}
+                          isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'unsure'}
+                          onClick={handleUnsureClick}
+                        />
+                        <button
+                          className="nav__button nav__button--undo"
+                          onClick={() => {
+                            const featureId = lastClickTagAction?.featureId
+                            undoLastClickTag()
+                            if (featureId != null) setSelectedFeatureIdState(featureId)
+                          }}
+                          disabled={!lastClickTagAction}
+                          title="Undo last tag"
+                        >
+                          ↩ Undo
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : (

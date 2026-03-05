@@ -260,8 +260,10 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
               Math.abs(statistics.min || 0),
               Math.abs(statistics.max || 0)
             )
-            const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
-            const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+            const defaultSelect = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
+            const defaultReject = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+            const selectThreshold = tagAutomaticState?.selectThreshold ?? defaultSelect
+            const rejectThreshold = tagAutomaticState?.rejectThreshold ?? defaultReject
 
             setThresholds({ select: selectThreshold, reject: rejectThreshold })
             // Update store's tagAutomaticState so SelectionPanel can show preview

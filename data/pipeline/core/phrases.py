@@ -93,6 +93,8 @@ def smart_coordination(text: str) -> List[str]:
 
 
 _MAX_MODIFIER_SUBTREE = 10
+_CONTENT_POS = {"NOUN", "PROPN", "VERB", "ADJ"}
+_STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
 
 
 def _extend_with_modifiers(root, indices: set) -> None:
@@ -310,13 +312,12 @@ def _recover_gaps(covered: set, doc) -> List[str]:
     """Recover uncovered content tokens as additional phrases.
 
     Finds tokens not in any covered span, groups them into contiguous runs,
-    and keeps runs that contain a NOUN/PROPN token or a token with dep=conj
-    whose head is in a covered span. Strips leading/trailing PUNCT/CCONJ.
+    and keeps runs that contain a content word (NOUN/PROPN/VERB/ADJ) or a
+    token with dep=conj whose head is in a covered span. Strips leading/
+    trailing PUNCT/CCONJ/SCONJ/SPACE.
 
     Returns list of recovered phrase strings.
     """
-    CONTENT_POS = {"NOUN", "PROPN"}
-    STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
 
     all_indices = set(range(len(doc)))
     uncovered = sorted(all_indices - covered)
@@ -337,13 +338,13 @@ def _recover_gaps(covered: set, doc) -> List[str]:
             prev = idx
     runs.append((run_start, prev))
 
-    # Filter: keep runs with NOUN/PROPN or conj-of-covered
+    # Filter: keep runs with content words or conj-of-covered
     recovered = []
     for start, end in runs:
         has_content = False
         for idx in range(start, end + 1):
             tok = doc[idx]
-            if tok.pos_ in CONTENT_POS:
+            if tok.pos_ in _CONTENT_POS:
                 has_content = True
                 break
             if tok.dep_ == "conj" and tok.head.i in covered:
@@ -353,11 +354,11 @@ def _recover_gaps(covered: set, doc) -> List[str]:
         if not has_content:
             continue
 
-        # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE
+        # Strip leading/trailing function-word tokens
         indices = list(range(start, end + 1))
-        while indices and doc[indices[0]].pos_ in STRIP_POS:
+        while indices and doc[indices[0]].pos_ in _STRIP_POS:
             indices.pop(0)
-        while indices and doc[indices[-1]].pos_ in STRIP_POS:
+        while indices and doc[indices[-1]].pos_ in _STRIP_POS:
             indices.pop()
 
         if not indices:
@@ -524,9 +525,8 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
     """Recover uncovered content tokens as phrases with character offsets.
 
     Same logic as _recover_gaps() but returns (phrase_text, start_char, end_char).
+    Uses _CONTENT_POS (NOUN/PROPN/VERB/ADJ) for content word detection.
     """
-    CONTENT_POS = {"NOUN", "PROPN"}
-    STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
 
     all_indices = set(range(len(doc)))
     uncovered = sorted(all_indices - covered)
@@ -552,7 +552,7 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
         has_content = False
         for idx in range(start, end + 1):
             tok = doc[idx]
-            if tok.pos_ in CONTENT_POS:
+            if tok.pos_ in _CONTENT_POS:
                 has_content = True
                 break
             if tok.dep_ == "conj" and tok.head.i in covered:
@@ -564,9 +564,9 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
 
         # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE
         indices = list(range(start, end + 1))
-        while indices and doc[indices[0]].pos_ in STRIP_POS:
+        while indices and doc[indices[0]].pos_ in _STRIP_POS:
             indices.pop(0)
-        while indices and doc[indices[-1]].pos_ in STRIP_POS:
+        while indices and doc[indices[-1]].pos_ in _STRIP_POS:
             indices.pop()
 
         if not indices:

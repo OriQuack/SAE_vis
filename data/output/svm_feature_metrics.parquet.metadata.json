@@ -1,7 +1,7 @@
 {
-  "step_name": "Step 13: SVM Metrics",
+  "step_name": "Step 14: SVM Metrics",
   "version": "4.0",
-  "created_at": "2026-03-04T15:41:08.827609",
+  "created_at": "2026-03-05T16:49:35.832214",
   "row_count": 16384,
   "columns": [
     "feature_id",
@@ -17,7 +17,8 @@
     "intra_ngram_jaccard",
     "intra_ngram_jaccard_std",
     "intra_semantic_sim",
-    "intra_semantic_sim_std"
+    "intra_semantic_sim_std",
+    "consensus_score"
   ],
   "schema": {
     "feature_id": "UInt32",
@@ -33,7 +34,8 @@
     "intra_ngram_jaccard": "Float32",
     "intra_ngram_jaccard_std": "Float32",
     "intra_semantic_sim": "Float32",
-    "intra_semantic_sim_std": "Float32"
+    "intra_semantic_sim_std": "Float32",
+    "consensus_score": "Float32"
   },
   "stats": {
     "features_processed": 16384,

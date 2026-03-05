@@ -1,6 +1,6 @@
 {
-  "created_at": "2026-03-04T22:38:49.782732",
-  "step_name": "Step 14: Explanation Consensus",
+  "created_at": "2026-03-05T16:49:32.383321",
+  "step_name": "Step 13: Explanation Consensus",
   "script_version": "1.2",
   "total_rows": 16384,
   "schema": {
@@ -14,12 +14,12 @@
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
     "features_processed": 16384,
-    "features_with_clusters": 13484,
-    "features_with_outliers_only": 2900,
-    "total_clusters": 16109,
-    "total_outliers": 58021,
-    "total_phrases": 109445,
-    "single_explainer_clusters_reclassified": 39066
+    "features_with_clusters": 13844,
+    "features_with_outliers_only": 2540,
+    "total_clusters": 17855,
+    "total_outliers": 75329,
+    "total_phrases": 135343,
+    "single_explainer_clusters_reclassified": 48019
   },
   "result_stats": {
     "unique_feature_ids": 16384,

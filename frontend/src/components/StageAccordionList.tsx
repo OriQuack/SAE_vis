@@ -247,7 +247,7 @@ export function StageAccordionList<T>({
             </label>
           )}
           {activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange !== undefined && (
-            <label className="stage-selector__checkbox-label">
+            <label className="stage-selector__checkbox-label stage-selector__checkbox-label--disagreement">
               <input
                 type="checkbox"
                 checked={showDisagreementOnly ?? false}

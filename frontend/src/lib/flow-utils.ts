@@ -229,7 +229,7 @@ export function calculateFlowLayout(
     { id: 'average-op', label: 'μ', x: 515, y: 102, width: 28, height: 24, nodeType: 'text' },
 
     // Quality Score (final output from average)
-    { id: 'quality-score', label: 'Quality Score', x: 385, y: 155, width: 114, height: 18, nodeType: 'text' }
+    { id: 'quality-score', label: 'Avg. Metric Score', x: 385, y: 155, width: 126, height: 18, nodeType: 'text' }
   ]
 
   // Calculate badges for nodes and create final node list

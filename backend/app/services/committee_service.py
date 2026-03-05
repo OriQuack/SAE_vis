@@ -2,8 +2,8 @@
 Query by Committee (QBC) Service for Active Learning.
 
 Trains Random Forest and MLP models alongside SVM to detect disagreement cases
-where SVM is confident but other models disagree. Uses vote entropy to measure
-agreement across the committee.
+where SVM is confident but other models disagree. Uses majority voting to detect
+disagreement across the committee.
 """
 
 import numpy as np
@@ -24,7 +24,6 @@ class CommitteePrediction:
     svm_prediction: int      # 0 or 1
     rf_prediction: int       # 0 or 1
     mlp_prediction: int      # 0 or 1
-    vote_entropy: float      # 0 to ~1.58 (log2(3) for 3 models)
 
 
 @dataclass
@@ -160,11 +159,7 @@ class CommitteeService:
         back-propagation."
         """
         try:
-            # Architecture based on sample size
-            if n_samples < 20:
-                hidden_layer_sizes = (16,)  # Single small layer
-            else:
-                hidden_layer_sizes = (32, 16)
+            hidden_layer_sizes = (32, 16)
 
             mlp = WeightedMLPClassifier(
                 hidden_layer_sizes=hidden_layer_sizes,
@@ -199,7 +194,7 @@ class CommitteeService:
         scaler: Optional[StandardScaler]
     ) -> Dict[int, CommitteePrediction]:
         """
-        Get predictions from committee and compute vote entropy.
+        Get predictions from committee using majority voting.
 
         Args:
             X: Feature matrix (N_samples, N_features)
@@ -224,7 +219,6 @@ class CommitteeService:
                     svm_prediction=int(svm_preds[i]),
                     rf_prediction=int(svm_preds[i]),  # Fallback to SVM
                     mlp_prediction=int(svm_preds[i]),  # Fallback to SVM
-                    vote_entropy=0.0
                 )
             return results
 
@@ -243,35 +237,21 @@ class CommitteeService:
         else:
             mlp_preds = svm_preds  # Fallback to SVM
 
-        # Compute vote entropy for each sample
+        # Build prediction results
         for i in range(n_samples):
             svm_pred = int(svm_preds[i])
             rf_pred = int(rf_preds[i])
             mlp_pred = int(mlp_preds[i])
 
-            # Count votes
-            votes = [svm_pred, rf_pred, mlp_pred]
-            vote_counts = [votes.count(0), votes.count(1)]
-
-            # Compute vote entropy: H = -sum(p * log2(p))
-            vote_entropy = 0.0
-            for count in vote_counts:
-                if count > 0:
-                    p = count / 3
-                    vote_entropy -= p * np.log2(p)
-
             results[i] = CommitteePrediction(
                 svm_prediction=svm_pred,
                 rf_prediction=rf_pred,
                 mlp_prediction=mlp_pred,
-                vote_entropy=float(vote_entropy)
             )
 
         # Log summary
-        avg_entropy = np.mean([r.vote_entropy for r in results.values()])
         logger.info(
-            f"[CommitteeService] Committee predictions: "
-            f"{n_samples} samples, avg entropy={avg_entropy:.3f}"
+            f"[CommitteeService] Committee predictions: {n_samples} samples"
         )
 
         return results
@@ -299,7 +279,6 @@ class CommitteeService:
                     "svm_prediction": pred.svm_prediction,
                     "rf_prediction": pred.rf_prediction,
                     "mlp_prediction": pred.mlp_prediction,
-                    "vote_entropy": pred.vote_entropy
                 }
         return result
 

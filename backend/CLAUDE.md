@@ -130,8 +130,8 @@ class CommitteeService:
         return rf, mlp, scaler
 
     def get_committee_predictions(self, X, svm_preds, rf, mlp):
-        # Returns CommitteePrediction with vote_entropy for each sample
-        # High entropy = disagreement between models (potential outlier)
+        # Returns CommitteePrediction for each sample
+        # Disagreement = majority voting differs from SVM (potential outlier)
 ```
 
 **Use Cases**:
@@ -352,8 +352,8 @@ Get similarity histogram with committee votes
   "statistics": {"min": -1.2, "max": 1.5, "mean": 0.3, "median": 0.2},
   "total_items": 8,
   "committee_votes": {
-    "1": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 0, "vote_entropy": 0.92},
-    "2": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 1, "vote_entropy": 0.0}
+    "1": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 0},
+    "2": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 1}
   }
 }
 ```
