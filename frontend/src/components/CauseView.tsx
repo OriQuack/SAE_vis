@@ -3,7 +3,7 @@ import { useVisualizationStore } from '../store/index'
 import type { FeatureTableRow, ConsensusResponse, FlipTrackingInfo } from '../types'
 import * as api from '../api'
 import { getFeatureConsensus } from '../api'
-import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, type ActiveStage, type BootstrapMode, type SortMode } from '../lib/tagging-hooks/useSortableList'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
@@ -12,7 +12,7 @@ import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
-import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
+import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import {
   calculateCauseMetricScores,
@@ -114,6 +114,11 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
+
+  // Deferred navigation state: hold current selection during SVM retraining
+  const pendingNavRef = useRef<'tag' | 'unsure' | null>(null)
+  const wasClassifyingRef = useRef(false)
+  const [deferringNav, setDeferringNav] = useState(false)
 
   // Consensus data for selected feature
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
@@ -368,12 +373,20 @@ const CauseView: React.FC<CauseViewProps> = ({
     logMarginDrag({ threshold: causeMarginThreshold })
   }, [causeMarginThreshold, logMarginDrag])
 
+  // Save/restore bootstrap sort config when transitioning between stages
+  const lastBootstrapSortRef = useRef<{ mode: SortMode; direction: 'asc' | 'desc' }>({ mode: 'diversity', direction: 'asc' })
+
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
     logAction('stage3', 'stage_change', { stage })
+    if (activeStage === 'bootstrap') {
+      lastBootstrapSortRef.current = { mode: sortMode, direction: selectedSortDirection }
+    }
     setActiveStage(stage)
-    // One-way convenience: set recommended sort for each stage
-    if (stage === 'learn') {
+    if (stage === 'bootstrap') {
+      setSortMode(lastBootstrapSortRef.current.mode)
+      setSelectedSortDirection(lastBootstrapSortRef.current.direction)
+    } else if (stage === 'learn') {
       setSortMode('decisionMargin')
       setSelectedSortDirection('asc')
     } else if (stage === 'apply') {
@@ -382,7 +395,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
     setCurrentFeatureIndex(0)
     setSelectedFeatureIdState(null)
-  }, [setSortMode, setSelectedSortDirection])
+  }, [activeStage, sortMode, selectedSortDirection, setSortMode, setSelectedSortDirection])
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {
@@ -584,6 +597,53 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentFeatureIndex(0)
   }, [visibleCategories])
 
+  // Execute deferred navigation after SVM classification completes
+  useEffect(() => {
+    if (!deferringNav) return
+
+    // Shared navigation logic — decides advance-next vs reset-to-first
+    const navigateAfterTag = () => {
+      const navType = pendingNavRef.current
+      pendingNavRef.current = null
+      setDeferringNav(false)
+
+      if (navType === 'tag') {
+        if (hideTagged) {
+          // Tagged item will disappear — clear stored ID so index-based fallback takes over
+          setSelectedFeatureIdState(null)
+        } else if (sortMode === 'decisionMargin' && causeCategoryDecisionMargins.size > 0) {
+          // Decision margin mode with histogram: reset to first (list re-sorts)
+          setSelectedFeatureIdState(null)
+          setCurrentFeatureIndex(0)
+        } else {
+          // Default/diversity mode: advance to next item
+          setSelectedFeatureIdState(null)
+          setCurrentFeatureIndex(i => Math.min(sortedFilteredFeatureList.length - 1, i + 1))
+        }
+      } else {
+        // Unsure: advance to next
+        setSelectedFeatureIdState(null)
+        setCurrentFeatureIndex(i => Math.min(sortedFilteredFeatureList.length - 1, i + 1))
+      }
+    }
+
+    if (causeClassificationLoading) {
+      wasClassifyingRef.current = true
+    } else if (wasClassifyingRef.current) {
+      // SVM just finished → navigate using shared logic
+      wasClassifyingRef.current = false
+      navigateAfterTag()
+    }
+
+    // Fallback: if SVM never starts loading, navigate directly
+    const timer = setTimeout(() => {
+      if (!wasClassifyingRef.current) {
+        navigateAfterTag()
+      }
+    }, 100)
+    return () => clearTimeout(timer)
+  }, [deferringNav, causeClassificationLoading, sortedFilteredFeatureList, hideTagged, sortMode, causeCategoryDecisionMargins])
+
   // Compute selected feature ID - prefer stored state, fallback to index-based
   // This is the source of truth for which feature is selected
   const selectedFeatureId = useMemo(() => {
@@ -784,31 +844,26 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentFeatureIndex(i => Math.min(sortedFilteredFeatureList.length - 1, i + 1))
   }, [sortedFilteredFeatureList.length])
 
-  // Post-tagging navigation hook (same pattern as FeatureSplitView and QualityView)
-  const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
-    activeListSource,
-    sortMode,
-    currentIndex: currentFeatureIndex,
-    listLength: sortedFilteredFeatureList.length,
-    onNavigateNext: handleNavigateNext,
-    onResetToFirst: () => {
-      setSelectedFeatureIdState(null)  // Clear stored state to allow normal navigation
-      setCurrentFeatureIndex(0)
-    },
-    isHistogramReady: causeCategoryDecisionMargins.size > 0,
-    hideTagged,
-    onClearStoredSelection: () => setSelectedFeatureIdState(null)
-  })
+  // NOTE: useTaggingNavigation removed — deferred nav effect handles all post-tag
+  // navigation directly to avoid double renders from the hook's internal setTimeout
 
   // ============================================================================
   // TAG BUTTON HANDLERS
   // ============================================================================
 
-  // Get current feature's effective category (considering margin threshold and well-explained segment)
+  // Get current feature's effective category — phase-aware:
+  // Bootstrap: only manual tags, everything else is unsure
+  // Learn/Apply: threshold-aware effective category
   const currentCauseCategory = useMemo(() => {
     if (!selectedFeatureData) return null
-    return getEffectiveCategory(selectedFeatureData.featureId)
-  }, [selectedFeatureData, getEffectiveCategory])
+    const featureId = selectedFeatureData.featureId
+    if (activeStage === 'bootstrap') {
+      const source = causeSelectionSources.get(featureId)
+      if (!isUserConfirmed(source)) return 'unsure'
+      return causeSelectionStates.get(featureId) || 'unsure'
+    }
+    return getEffectiveCategory(featureId)
+  }, [selectedFeatureData, getEffectiveCategory, activeStage, causeSelectionSources, causeSelectionStates])
 
   const currentCauseSource = useMemo(() => {
     if (!selectedFeatureData) return null
@@ -836,18 +891,23 @@ const CauseView: React.FC<CauseViewProps> = ({
     const isSameCategory = currentCauseCategory === category
     const isAutoTagged = currentCauseSource === 'predicted'
 
+    // Pin the tagged feature so detail panel stays stable during deferral
+    setSelectedFeatureIdState(featureId)
+
     if (isSameCategory && !isAutoTagged) {
       // Already manually selected same category - toggle off to unsure
       setCauseCategory(featureId, null)
-      handlePostUnsureNavigation()
+      pendingNavRef.current = 'unsure'
+      setDeferringNav(true)
       return
     }
 
     // Either confirming auto tag or changing category - update with manual source
     setCauseCategory(featureId, category)
     setLastClickTagAction({ stage: 'cause', featureId })
-    handlePostTagNavigation()
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, handlePostTagNavigation, handlePostUnsureNavigation, setLastClickTagAction])
+    pendingNavRef.current = 'tag'
+    setDeferringNav(true)
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, setLastClickTagAction])
 
   // Handle Unsure click - clear cause category
   const handleUnsureClick = useCallback(() => {
@@ -856,10 +916,13 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     logAction('stage3', 'manual_tag', { tag: 'Unsure', previousTag: causeTagLabel(currentCauseCategory), featureId })
 
+    // Pin the tagged feature so detail panel stays stable during deferral
+    setSelectedFeatureIdState(featureId)
     // Clear the cause category to null (unsure)
     setCauseCategory(featureId, null)
-    handlePostUnsureNavigation()
-  }, [selectedFeatureData, currentCauseCategory, setCauseCategory, handlePostUnsureNavigation])
+    pendingNavRef.current = 'unsure'
+    setDeferringNav(true)
+  }, [selectedFeatureData, currentCauseCategory, setCauseCategory])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -1176,6 +1239,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Right: Feature detail panel */}
               <div className="cause-view__top-right-panel" ref={rightPanelRef}>
+                {deferringNav && (
+                  <div className="cause-view__detail-loading-overlay" />
+                )}
                 {selectedFeatureData ? (
                   <>
                     {/* ---- Activation Section (top half) ---- */}
@@ -1270,7 +1336,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         variant="missed-N-gram"
                         color={missedNgramColor}
                         isSelected={currentCauseCategory === 'missed-N-gram'}
-                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'missed-N-gram'}
+                        isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'missed-N-gram'}
                         onClick={() => handleTagClick('missed-N-gram')}
                       />
                       <TagButton
@@ -1278,7 +1344,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         variant="missed-context"
                         color={missedContextColor}
                         isSelected={currentCauseCategory === 'missed-context'}
-                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'missed-context'}
+                        isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'missed-context'}
                         onClick={() => handleTagClick('missed-context')}
                       />
                       <TagButton
@@ -1286,7 +1352,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         variant="noisy-activation"
                         color={noisyActivationColor}
                         isSelected={currentCauseCategory === 'noisy-activation'}
-                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'noisy-activation'}
+                        isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'noisy-activation'}
                         onClick={() => handleTagClick('noisy-activation')}
                       />
                       <TagButton
@@ -1294,7 +1360,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         variant="well-explained"
                         color={wellExplainedColor}
                         isSelected={currentCauseCategory === 'well-explained'}
-                        isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'well-explained'}
+                        isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'well-explained'}
                         onClick={() => handleTagClick('well-explained')}
                       />
 
@@ -1314,7 +1380,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                           variant="unsure"
                           color={unsureColor}
                           isSelected={currentCauseCategory === 'unsure'}
-                          isAuto={currentCauseSource === 'predicted' && currentCauseCategory === 'unsure'}
+                          isAuto={false}
                           onClick={handleUnsureClick}
                         />
                         <button

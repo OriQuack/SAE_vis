@@ -7,7 +7,7 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning
+**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning + action logging
 
 ## Important Development Principles
 
@@ -113,23 +113,24 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (29 files)
+├── components/                    # React Components (30 files)
 │   ├── ActivationExamplePanel.tsx # Activation display panel with n-gram highlighting
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
 │   ├── CauseMarginHistogram.tsx  # Decision margin histogram for Stage 3
 │   ├── CauseRadViz.tsx           # RadViz scatter plot for cause categories (Stage 3)
 │   ├── CauseView.tsx             # Stage 3: Root cause analysis
-│   ├── ConsensusSection.tsx      # Consensus phrase clustering display
+│   ├── ConsensusSection.tsx      # Consensus phrase clustering display with char offset highlighting
 │   ├── ConvergenceIndicator.tsx  # Decision Flip Rate sparkline
+│   ├── CrossMetricConsensus.tsx  # Cross-metric consensus heatmap (score agreement across explainers)
 │   ├── DecisionMarginHistogram.tsx # SVM decision margin histogram
 │   ├── ExplanationPanel.tsx      # Explanation text with highlights
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
-│   ├── OverviewSummary.tsx       # Stage 4: Manual vs auto tagging breakdown
-│   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization
+│   ├── OverviewSummary.tsx       # Stage 4: Manual vs auto labeling breakdown
+│   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization with category bands
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
 │   ├── RegenerationView.tsx      # Stage 4: Summary overview
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
@@ -143,8 +144,9 @@ frontend/src/
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
 │   └── Tooltip.tsx               # Reusable tooltip with composition pattern
-├── lib/                          # Utilities (20 files + 7 tagging hooks)
-│   ├── constants.ts              # App constants, tag categories, metrics
+├── lib/                          # Utilities (21 files + 7 tagging hooks)
+│   ├── action-logger.ts          # Frontend action logging (buffers + flushes to /api/action-log)
+│   ├── constants.ts              # App constants, tag categories, metrics, SELECTION_BLUE palette
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
 │   ├── sankey-histogram-utils.ts # Inline histograms
@@ -158,6 +160,7 @@ frontend/src/
 │   ├── circle-encoding-utils.ts  # Circle encoding for scores
 │   ├── activation-utils.ts       # Activation processing
 │   ├── pairUtils.ts              # Pair key utilities
+│   ├── parallel-coords-utils.ts  # Parallel coordinates summary statistics (median/IQR)
 │   ├── cause-tagging-utils.ts    # Cause category metric calculations
 │   ├── cause-visualization-utils.ts  # Cause scales, contours, colors
 │   ├── radviz-utils.ts           # RadViz positioning, anchors, scales
@@ -181,17 +184,18 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (28 files)
+├── styles/                       # CSS Files (29 files)
 │   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── App.css                   # Main app layout
 │   ├── AppHeader.css             # Header styles
-│   ├── base.css                  # Base styles, CSS variables, unified styling
+│   ├── base.css                  # Base styles, CSS variables, unified styling, SELECTION_BLUE
 │   ├── BatchTaggingPanel.css     # Batch tagging panel styles
 │   ├── CauseMarginHistogram.css  # Stage 3 histogram styles
 │   ├── CauseRadViz.css           # RadViz scatter styles (Stage 3)
 │   ├── CauseView.css             # Stage 3 styles
 │   ├── ConsensusSection.css      # Consensus phrase clustering styles
 │   ├── ConvergenceIndicator.css  # Decision Flip Rate sparkline styles
+│   ├── CrossMetricConsensus.css  # Cross-metric consensus heatmap styles
 │   ├── DecisionMarginHistogram.css # Decision margin histogram styles
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
@@ -359,7 +363,13 @@ frontend/src/
 - Displays HDBSCAN-clustered phrases sorted by activation similarity
 - Shows cluster medoids with expansion to view all phrases
 - Visual indicators for outliers vs clustered phrases
+- Character offset highlighting (start_char/end_char) for phrase-in-explanation alignment
 - Loads data via POST /api/feature-consensus endpoint
+
+**CrossMetricConsensus.tsx** - Cross-Metric Consensus Heatmap
+- Displays score agreement matrix across explainers and scorers
+- Shows score range buckets with color coding
+- Integrated with ConsensusSection for per-feature analysis
 
 **Indicators.tsx** - Visual Indicators
 - **TagBadge**: Unified tag badge showing Feature ID + Tag Name with category colors
@@ -368,10 +378,24 @@ frontend/src/
 - Circle encoding for score visualization
 - Auto-tag stripe pattern overlay for threshold/predicted items
 
+**ParallelCoordinates.tsx** - Parallel Coordinates Visualization
+- Multi-axis parallel coordinates for cause category metrics
+- Category bands showing median/IQR per tagged group
+- Uses parallel-coords-utils.ts for summary statistics
+
 **Tooltip.tsx** - Reusable Tooltip
 - Composition pattern for flexible content: Tooltip.Header, Tooltip.Summary, Tooltip.Row
 - Positioned tooltips with automatic viewport boundary detection
 - Consistent styling across all visualizations (histogram, RadViz, etc.)
+
+## Action Logging
+
+Frontend action logger (`lib/action-logger.ts`) records user interaction events:
+- Buffers events in memory and flushes to `POST /api/action-log` every 5 seconds
+- Uses `navigator.sendBeacon` for guaranteed delivery on tab close
+- Provides `logAction(stage, event, details)` and `createDebouncedLogger()` for continuous events
+- Records: sequence number, ISO timestamp, elapsed time, stage, event, details
+- Controlled by `LOGGING_ENABLED` flag (currently `true`)
 
 ## SVM-Based Similarity Scoring
 
@@ -400,10 +424,12 @@ Reusable React hooks for tagging functionality across stages:
 |------|---------|
 | `useThresholdPreview` | Manages threshold preview state and calculations |
 | `useTaggingStatus` | Tracks tagging status (ready, pending, complete) |
-| `useCommitHistory` | Manages commit history for state snapshots |
+| `useCommitHistory` | Manages commit history for state snapshots (with flip tracking) |
 | `useMainListScroll` | Manages scrollable list positioning |
 | `useSortableList` | Sortable list with Bootstrap/Learn/Apply stages |
 | `useTaggingNavigation` | Handles keyboard/click navigation between tags |
+
+**Deleted hooks**: `useBoundaryItems`, `useListNavigation` (functionality consolidated into main views)
 
 ## Development Workflow
 
@@ -504,6 +530,7 @@ const debouncedUpdate = useMemo(
 | POST /api/feature-consensus | Consensus phrases for a feature |
 | POST /api/activation-examples | On-demand activation data |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
+| POST /api/action-log | Append action log entries (JSONL) |
 
 ## Common Issues & Solutions
 

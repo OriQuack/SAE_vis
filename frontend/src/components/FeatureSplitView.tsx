@@ -6,7 +6,7 @@ import FeatureSplitPairViewer from './FeatureSplitPairViewer'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, DisagreementIndicator } from './Indicators'
-import { useSortableList, type ActiveStage, type BootstrapMode } from '../lib/tagging-hooks/useSortableList'
+import { useSortableList, type ActiveStage, type BootstrapMode, type SortMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createPairCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
@@ -488,11 +488,20 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setWorkflowActiveStage(activeStage)
   }, [activeStage, setWorkflowActiveStage])
 
+  // Save/restore bootstrap sort config when transitioning between stages
+  const lastBootstrapSortRef = useRef<{ mode: SortMode; direction: 'asc' | 'desc' }>({ mode: 'diversity', direction: 'asc' })
+
   // Handlers for stage changes
   const handleStageChange = useCallback((stage: ActiveStage) => {
     logAction('stage1', 'stage_change', { stage })
+    if (activeStage === 'bootstrap') {
+      lastBootstrapSortRef.current = { mode: sortMode, direction: sortDirection }
+    }
     setActiveStage(stage)
-    if (stage === 'learn') {
+    if (stage === 'bootstrap') {
+      setSortMode(lastBootstrapSortRef.current.mode)
+      setSortDirection(lastBootstrapSortRef.current.direction)
+    } else if (stage === 'learn') {
       setSortMode('decisionMargin')
       setSortDirection('asc')
     } else if (stage === 'apply') {
@@ -502,7 +511,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     setHideTagged(stage === 'apply')
     setCurrentPairIndex(0)
     setSelectedPairKeyState(null)
-  }, [setSortMode, setSortDirection, setHideTagged])
+  }, [activeStage, sortMode, sortDirection, setSortMode, setSortDirection, setHideTagged])
 
   // Bootstrap option cycling handler
   const handleBootstrapOptionChange = useCallback((mode: BootstrapMode) => {

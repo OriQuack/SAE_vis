@@ -7,7 +7,7 @@ Professional guidance for the FastAPI backend of the SAE Feature Visualization r
 **Purpose**: Provide stateless feature grouping, clustering, and SVM-based classification APIs for frontend visualization
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: SVM-based classification (binary + multi-class) + Query by Committee (QBC) active learning + hierarchical clustering
+**Key Innovation**: SVM-based classification (binary + multi-class) + Query by Committee (QBC) active learning + hierarchical clustering + action logging
 
 ## Important Development Principles
 
@@ -57,30 +57,17 @@ async def get_feature_groups(filters, metric, thresholds):
 ```
 
 ### 2. Hierarchical Clustering Service
-Hierarchical clustering of features by decoder weight similarity:
+Hierarchical clustering of features by decoder weight similarity with multi-criteria pair filtering:
 
 ```python
 # services/hierarchical_cluster_candidate_service.py
-def get_all_cluster_pairs(feature_ids, threshold):
-    # 1. Get decoder weights for features
-    weights = decoder_weights[feature_ids]
-
-    # 2. Compute cosine similarity
-    similarity_matrix = cosine_similarity(weights)
-
-    # 3. Hierarchical clustering
-    clusters = fcluster(linkage(1 - similarity_matrix), threshold)
-
-    # 4. Generate all pairs within clusters
-    pairs = []
-    for cluster_id in unique_clusters:
-        cluster_features = features_in_cluster[cluster_id]
-        for i, j in combinations(cluster_features, 2):
-            pairs.append({
-                "pair_key": f"{min(i,j)}-{max(i,j)}",
-                "similarity": similarity_matrix[i, j]
-            })
-    return pairs
+# Builds three data structures from interfeature_similarity.parquet:
+# 1. pair_data: {f1: {f2: {decoder_sim, semantic_sim}}} - all pair similarities
+# 2. top_semantic: {f1: set(f2, ...)} - top 10 semantic-similar features per feature
+# 3. top_lexical: {f1: set(f2, ...)} - top 10 lexical-similar (max(char_ngram, word_ngram))
+#
+# Pair filtering: C1 (decoder_sim > threshold) AND (C2_semantic OR C2_lexical)
+# Fallback: best decoder pair per feature if no pairs pass filtering
 ```
 
 ### 3. Classification Service (SVM-Based)
@@ -109,7 +96,7 @@ build_similarity_histogram_response(scores, ...)          # Histogram response b
 ```
 
 ### 4. Committee Service (QBC)
-Query by Committee approach using RF + MLP alongside SVM:
+Query by Committee approach using RF + MLP alongside SVM with majority voting:
 
 ```python
 # services/committee_service.py
@@ -123,15 +110,16 @@ class CommitteeService:
         rf = RandomForestClassifier(n_estimators=100, max_depth=5)
         rf.fit(X_train, y_train, sample_weight=sample_weights)
 
-        # 2. Train MLP
-        mlp = MLPClassifier(hidden_layer_sizes=(64, 32), max_iter=500)
+        # 2. Train MLP (fixed architecture: (32, 16))
+        mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=500)
         mlp.fit(X_train_scaled, y_train)
 
         return rf, mlp, scaler
 
     def get_committee_predictions(self, X, svm_preds, rf, mlp):
-        # Returns CommitteePrediction for each sample
+        # Returns CommitteePrediction for each sample (svm/rf/mlp predictions)
         # Disagreement = majority voting differs from SVM (potential outlier)
+        # Note: vote_entropy removed — uses simple majority voting instead
 ```
 
 **Use Cases**:
@@ -181,6 +169,21 @@ def get_feature_consensus(feature_id):
     # Load pre-computed phrase clusters from explanation_consensus.parquet
     # Return medoid phrases + outliers sorted by activation similarity
     # Includes cluster coherence, phrase weights, and consensus scores
+    # Includes start_char/end_char offsets for phrase highlighting in explanations
+    # Recomputes consensus_score normalized by num_explainers
+    # Maps raw explainer names to display names via MODEL_NAME_MAP
+```
+
+### 9. Action Log Endpoint
+Receives batches of frontend action log entries and appends to JSONL file:
+
+```python
+# api/action_log.py
+@router.post("/action-log")
+async def append_action_log(entries: list[dict]):
+    # Appends entries to backend/logs/action-log.jsonl
+    # Frontend buffers events and flushes every 5 seconds
+    # Uses sendBeacon for guaranteed delivery on tab close
 ```
 
 ## Project Structure
@@ -189,8 +192,9 @@ def get_feature_consensus(feature_id):
 backend/
 ├── app/
 │   ├── main.py                    # FastAPI application + lifespan
-│   ├── api/                       # API endpoints (9 files)
+│   ├── api/                       # API endpoints (11 files)
 │   │   ├── __init__.py           # Router aggregation
+│   │   ├── action_log.py         # Frontend action log (JSONL append)
 │   │   ├── activation_examples.py # Activation data
 │   │   ├── classification.py     # SVM classification (binary + multi-class, 6 endpoints)
 │   │   ├── cluster_candidates.py # Clustering endpoint
@@ -200,7 +204,7 @@ backend/
 │   │   ├── filters.py            # Filter options
 │   │   ├── histogram.py          # Histogram data
 │   │   └── table.py              # Table data
-│   ├── models/                    # Pydantic schemas (10 files)
+│   ├── models/                    # Pydantic schemas (11 files)
 │   │   ├── activation_examples.py # Activation example models
 │   │   ├── classification.py     # SVM classification models (binary + cause)
 │   │   ├── cluster_candidates.py # Clustering models
@@ -310,7 +314,7 @@ Sort features by SVM similarity
 ```
 
 #### POST /api/pair-similarity-sort
-Sort pairs by SVM similarity (19-dimensional vectors)
+Sort pairs by SVM similarity (11-dimensional vectors)
 
 **Request**:
 ```json
@@ -354,6 +358,7 @@ Get similarity histogram with committee votes
   "committee_votes": {
     "1": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 0},
     "2": {"svm_prediction": 1, "rf_prediction": 1, "mlp_prediction": 1}
+    // Note: vote_entropy field removed — uses majority voting instead
   }
 }
 ```
@@ -447,6 +452,8 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
       "explainer": "gemini",
       "activation_similarity": 0.85,
       "is_outlier": false,
+      "start_char": 0,
+      "end_char": 15,
       "cluster_size": 3,
       "cluster_score": 1.2,
       "cluster_coherence": 0.92,
@@ -466,6 +473,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 | POST /api/stage3-quality-scores | Score Need Revision features for Stage 3 entry |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
+| POST /api/action-log | Append frontend action log entries (JSONL) |
 | GET /health | Health check |
 
 ## Data Requirements
@@ -500,8 +508,8 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Location**: `/data/output/explanation_consensus.parquet`
 - **Purpose**: HDBSCAN phrase clustering with activation similarity scoring
 - **Size**: ~4.1MB
-- **Key Columns**: feature_id, consensus_score, num_clusters, num_outliers, clusters (nested)
-- **Used by**: consensus_service.py for phrase clustering visualization
+- **Key Columns**: feature_id, consensus_score, num_clusters, num_outliers, clusters (nested with start_char/end_char offsets)
+- **Used by**: consensus_service.py for phrase clustering visualization, table_data_service.py for consensus_score lookup
 
 #### interfeature_similarity.parquet
 - **Location**: `/data/output/interfeature_similarity.parquet`
@@ -513,8 +521,8 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Location**: `/data/output/svm_feature_metrics.parquet`
 - **Purpose**: Pre-aggregated feature-level metrics for SVM (Stage 2/3)
 - **Size**: ~569KB
-- **Key Columns**: Mean metrics across explainers (score_embedding, score_fuzz, score_detection, etc.)
-- **Used by**: classification_service.py, pair_similarity_service.py
+- **Key Columns**: Mean metrics across explainers (score_embedding, score_fuzz, score_detection, consensus_score, etc.)
+- **Used by**: classification_service.py (14D SVM feature vectors), pair_similarity_service.py (4D intra-feature vectors)
 
 #### svm_pair_metrics.parquet
 - **Location**: `/data/output/svm_pair_metrics.parquet`

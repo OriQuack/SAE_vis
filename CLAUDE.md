@@ -161,16 +161,16 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (29 files)
-│   │   ├── lib/          # D3 utilities, helpers (20 files + 7 tagging hooks)
+│   │   ├── components/    # UI components (30 files)
+│   │   ├── lib/          # D3 utilities, helpers (21 files + 7 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (28 files)
+│   │   ├── styles/       # CSS files (29 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
 ├── backend/            # FastAPI server
 │   ├── app/
-│   │   ├── api/          # Endpoints (10 files)
+│   │   ├── api/          # Endpoints (11 files)
 │   │   ├── models/       # Pydantic schemas (11 files)
 │   │   └── services/     # Business logic (15 files)
 │   └── CLAUDE.md         # Backend docs
@@ -288,6 +288,7 @@ Items can be tagged via three mechanisms (tracked in TagSource type):
 | POST /api/feature-consensus | Get consensus phrases for a feature |
 | POST /api/activation-examples | Activation data (on-demand) |
 | GET /api/activation-examples-cached | Pre-computed activation blob |
+| POST /api/action-log | Append frontend action log entries (JSONL) |
 | GET /health | Health check |
 
 ## Development Workflow
@@ -331,6 +332,7 @@ Implementation of the WWW '25 paper "Thematic-LM: A LLM-based Multi-agent System
 
 ### Logs
 - **Backend Log**: `/home/dohyun/interface/backend.log` - All backend server output is logged here
+- **Action Log**: `/home/dohyun/interface/backend/logs/action-log.jsonl` - Frontend user interaction events (JSONL format)
 
 ### Common Tasks
 ```bash
