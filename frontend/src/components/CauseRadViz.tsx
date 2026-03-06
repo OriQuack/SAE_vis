@@ -48,8 +48,6 @@ interface CauseRadVizProps {
   hideTagged?: boolean
 }
 
-// Margin configuration
-const MARGIN = { top: 0, right: 0, bottom: 0, left: 0 }
 
 const CauseRadViz: React.FC<CauseRadVizProps> = ({
   featureIds,
@@ -60,21 +58,13 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   activeStage,
   hideTagged = false
 }) => {
-  const containerElRef = useRef<HTMLDivElement | null>(null)
-
   // Use standardized resize observer hook for consistent behavior
-  const { ref: resizeRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
+  const { ref: containerRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
     defaultWidth: propWidth || 400,
     defaultHeight: propHeight || 400,
     debounceMs: 16,
     debugId: 'cause-radviz'
   })
-
-  // Combined ref callback for both resize observer and element ref
-  const containerRef = useCallback((node: HTMLDivElement | null) => {
-    containerElRef.current = node
-    resizeRef(node)
-  }, [resizeRef])
 
   // Square proportion: use minimum of width/height to fit within container
   const size = Math.min(measuredSize.width, measuredSize.height) || propHeight || propWidth || 400
@@ -90,7 +80,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
 
   // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
   // Both 'click' and 'threshold' sources count for SVM training (with different weights)
-  const { canUseDecisionSpace, manualCauseSelections, manualTagCounts: _manualTagCounts } = useMemo(() => {
+  const { canUseDecisionSpace, manualCauseSelections } = useMemo(() => {
     const manualTags = new Map<string, number>()
     const selections: Record<number, { category: string; source: 'click' | 'threshold' }> = {}
 
@@ -104,17 +94,11 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       }
     })
 
-    const counts: Record<string, number> = {}
-    for (const cat of CAUSE_CATEGORIES) {
-      counts[cat] = manualTags.get(cat) || 0
-    }
-
     const missingCount = CAUSE_CATEGORIES.filter(cat => (manualTags.get(cat) || 0) < MIN_TAGS_PER_CATEGORY).length
 
     return {
       canUseDecisionSpace: missingCount === 0,
       manualCauseSelections: selections,
-      manualTagCounts: counts
     }
   }, [causeSelectionStates, causeSelectionSources])
 
@@ -164,9 +148,9 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- canUseDecisionSpace, manualCauseSelections accessed via closure; Zustand actions stable
   }, [featureIds, manualTagsSignature])
 
-  // Chart dimensions
-  const chartWidth = size - MARGIN.left - MARGIN.right
-  const chartHeight = size - MARGIN.top - MARGIN.bottom
+  // Chart dimensions (same as size — no margins)
+  const chartWidth = size
+  const chartHeight = size
 
   // Compute D3 scales
   const scales = useMemo(() => {

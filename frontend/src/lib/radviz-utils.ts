@@ -295,7 +295,6 @@ export interface HexbinData {
  * @param hexRadius - Hex cell radius in pixels
  * @param getCategory - Function to get category for a feature ID
  * @param getColor - Function to get color for a category
- * @param excludeFeatureIds - Feature IDs to exclude (manually tagged, rendered individually)
  * @returns Array of HexbinData for rendering
  */
 export function computeHexbinData(
@@ -304,12 +303,10 @@ export function computeHexbinData(
   hexRadius: number,
   getCategory: (featureId: number) => string,
   getColor: (category: string) => string,
-  excludeFeatureIds?: Set<number>
 ): HexbinData[] {
-  // Convert to pixel coordinates, filtering out excluded IDs
+  // Convert to pixel coordinates
   const pixelPoints: [number, number, number][] = []  // [px, py, featureId]
   for (const point of points) {
-    if (excludeFeatureIds?.has(point.feature_id)) continue
     pixelPoints.push([
       scales.xScale(point.x),
       scales.yScale(point.y),

@@ -19,7 +19,6 @@ import {
   PANEL_RIGHT,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE,
   SANKEY_COLORS,
   UNSURE_GRAY
 } from '../lib/constants'
@@ -624,27 +623,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
               >
                 Need Revision
               </span>
-              {' '}features will be classified into{' '}
-              <span
-                className="view-tag-badge"
-                style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '' }}
-              >
-                Missed Syntax
-              </span>
-              {', '}
-              <span
-                className="view-tag-badge"
-                style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '' }}
-              >
-                Missed Context
-              </span>
-              {', '}
-              <span
-                className="view-tag-badge"
-                style={{ backgroundColor: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '' }}
-              >
-                Noisy Activation
-              </span>
+              {' '}features are passed to the Failure Attribution stage
             </span>
           </>
         ) : (
