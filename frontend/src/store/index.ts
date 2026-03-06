@@ -154,6 +154,7 @@ interface AppState {
   buildSankeyFromFeatureIds: (featureIds: number[], panel?: PanelSide) => Promise<void>
   activateStage2: (panel?: PanelSide) => Promise<void>
   activateStage3: (panel?: PanelSide) => Promise<void>
+  activateStage4: (panel?: PanelSide) => Promise<void>
   updateStageThreshold: (stageNumber: 1 | 2, newThreshold: number, panel?: PanelSide) => Promise<void>
   recomputeD3StructureV2: (panel?: PanelSide) => void
 

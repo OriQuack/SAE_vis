@@ -98,8 +98,11 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
 
-    // Scale: X by index, Y by flip rate (fixed 0-100%)
-    const maxRate = 1.0  // Fixed at 100%
+    // Dynamic y-axis max: use max flip rate with headroom, floored at 10%
+    const rawMax = Math.max(...history.filter(e => e.iteration > 0).map(e => e.flipRate), 0)
+    const withHeadroom = rawMax * 1.2
+    // Round up to nearest 5% tick for clean axis labels
+    const maxRate = Math.max(0.10, Math.ceil(withHeadroom * 20) / 20)
     const xScale = (i: number) => padding.left + (i / Math.max(1, history.length - 1)) * chartWidth
     const yScale = (rate: number) => padding.top + chartHeight - (rate / maxRate) * chartHeight
 
@@ -121,20 +124,22 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
       ? 'M ' + linePoints.map(p => `${p.x},${p.y}`).join(' L ')
       : null
 
-    // Y-axis ticks (fixed 0% and 100%)
+    // Y-axis ticks (0% and dynamic max)
     const yTicks = [
       { y: yScale(0), label: '0%' },
-      { y: yScale(1.0), label: '100%' }
+      { y: yScale(maxRate), label: `${Math.round(maxRate * 100)}%` }
     ]
 
     // X-axis line position
     const xAxisY = padding.top + chartHeight
 
-    // Calculate threshold reference lines (all visible with fixed scale)
-    const thresholdLines = THRESHOLD_LINES.map(threshold => ({
-      y: yScale(threshold),
-      label: `${Math.round(threshold * 100)}%`
-    }))
+    // Only show threshold reference lines that fall within the dynamic max
+    const thresholdLines = THRESHOLD_LINES
+      .filter(threshold => threshold <= maxRate)
+      .map(threshold => ({
+        y: yScale(threshold),
+        label: `${Math.round(threshold * 100)}%`
+      }))
 
     // X-axis ticks (show every iteration with actual iteration numbers)
     const xTicks = history.map((entry, i) => ({

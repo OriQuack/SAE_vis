@@ -1,10 +1,9 @@
 .overview-summary {
   display: flex;
   flex-direction: column;
-  height: calc(100% - 24px);
+  height: 100%;
   min-width: 220px;
   background-color: #ffffff;
-  margin-top: 24px;
 }
 
 .overview-summary__content {

@@ -4,7 +4,8 @@ import { getTagColor } from '../lib/tag-system'
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE
+  TAG_CATEGORY_CAUSE,
+  TAG_CATEGORIES
 } from '../lib/constants'
 import '../styles/OverviewSummary.css'
 
@@ -116,7 +117,7 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
       <div className="overview-summary__content">
         {/* Stage 1 */}
         <div className="overview-summary__stage">
-          <div className="subheader">1. Detect Feature Splitting</div>
+          <div className="subheader">1. {TAG_CATEGORIES[TAG_CATEGORY_FEATURE_SPLITTING].label}</div>
           <div className="overview-summary__tags">
             {renderTagRow(
               'Incoherent Splitting',
@@ -133,7 +134,7 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
 
         {/* Stage 2 */}
         <div className="overview-summary__stage">
-          <div className="subheader">2. Check Quality</div>
+          <div className="subheader">2. {TAG_CATEGORIES[TAG_CATEGORY_QUALITY].label}</div>
           <div className="overview-summary__tags">
             {renderTagRow(
               'Well-Explained',
@@ -150,7 +151,7 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
 
         {/* Stage 3 */}
         <div className="overview-summary__stage">
-          <div className="subheader">3. Investigate Cause</div>
+          <div className="subheader">3. {TAG_CATEGORIES[TAG_CATEGORY_CAUSE].label}</div>
           <div className="overview-summary__tags">
             {Object.entries(stage3Counts).map(([key, counts]) => {
               const displayName = CAUSE_TAG_CONFIG[key]?.display || key

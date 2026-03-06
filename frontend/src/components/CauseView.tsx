@@ -9,7 +9,7 @@ import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY, PANEL_LEFT } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
@@ -23,6 +23,7 @@ import { computeCategoryBands } from '../lib/parallel-coords-utils'
 import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
+import ExportResultsPopup from './ExportResultsPopup'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -99,8 +100,13 @@ const CauseView: React.FC<CauseViewProps> = ({
   const causeFlipTracking = useVisualizationStore(state => state.causeFlipTracking)
   const causeCommitteeVotes = useVisualizationStore(state => state.causeCommitteeVotes)
 
-  // Stage navigation
-  const moveToNextStep = useVisualizationStore(state => state.moveToNextStep)
+  // Stage navigation - activateStage4 splits Sankey into cause terminal nodes
+  const activateStage4 = useVisualizationStore(state => state.activateStage4)
+
+  // Export state
+  const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
+  const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
+  const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
 
   // Shared margin threshold from store (used by UMAPScatter and SelectionPanel)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
@@ -149,9 +155,13 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Filter state: which categories to show (shared with UMAPScatter)
   // Initially show only 'unsure' - user starts by reviewing uncertain features
   type FilterCategory = CauseCategory | 'unsure'
-  const [visibleCategories, setVisibleCategories] = useState<Set<FilterCategory>>(
+  const [visibleCategories] = useState<Set<FilterCategory>>(
     new Set(['unsure'])
   )
+
+  // Export popup state
+  const [showExportPopup, setShowExportPopup] = useState(false)
+  const [exportFileName, setExportFileName] = useState('')
 
   // Mark as already auto-tagged when revisiting (prevents re-initialization)
   useEffect(() => {
@@ -465,30 +475,50 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Apply visibility filters AFTER sorting
   const sortedFilteredFeatureList = useMemo(() => {
-    if (sortMode === 'diversity') {
-      // Diversity mode: hook already filtered to medoids, but still apply hideTagged filter
-      const featureIds = sortedFeatureItems.map(item => item.featureId)
-      return featureIds.filter(featureId => {
-        if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
-        if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
-        return true
-      })
-    }
+    const featureIds = sortedFeatureItems.map(item => item.featureId)
 
-    // Other modes: apply visibility filters
-    return sortedFeatureItems
-      .map(item => item.featureId)
-      .filter(featureId => {
-        if (hideTagged && isUserConfirmed(causeSelectionSources.get(featureId))) return false
-        if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
-        if (!isVisibleInCurrentMode(featureId)) return false
-        if (isTopMode) return true
-        return visibleCategories.has(getEffectiveCategory(featureId))
-      })
-  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources, isVisibleInCurrentMode, isTopMode, visibleCategories, getEffectiveCategory, showDisagreementOnly, disagreementFeatureIds])
+    return featureIds.filter(featureId => {
+      const source = causeSelectionSources.get(featureId)
+      const userConfirmed = isUserConfirmed(source)
+
+      // 1. Hide labeled filter
+      if (hideTagged && userConfirmed) return false
+
+      // 2. Disagreement filter
+      if (showDisagreementOnly && !disagreementFeatureIds.has(featureId)) return false
+
+      // 3. Diversity mode: no further filtering (medoids already curated by hook)
+      if (sortMode === 'diversity') return true
+
+      // 4. Apply phase (isTopMode): enforce margin threshold for ALL features
+      if (isTopMode) {
+        const categoryScores = causeCategoryDecisionMargins?.get(featureId)
+        if (!categoryScores) return true
+        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+        return margin >= causeMarginThreshold
+      }
+
+      // 5. Non-Apply modes: user-confirmed bypass category filter but respect threshold
+      if (!hideTagged && userConfirmed) {
+        const categoryScores = causeCategoryDecisionMargins?.get(featureId)
+        if (!categoryScores) return true  // No scores yet (Bootstrap) = show it
+        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+        return margin < causeMarginThreshold  // Learn mode: only show below threshold
+      }
+
+      // 6. Non-confirmed: mode-based visibility (threshold check)
+      if (!isVisibleInCurrentMode(featureId)) return false
+
+      // 7. Category filter (RadViz legend)
+      return visibleCategories.has(getEffectiveCategory(featureId))
+    })
+  }, [sortMode, sortedFeatureItems, hideTagged, causeSelectionSources,
+      isVisibleInCurrentMode, isTopMode, visibleCategories, getEffectiveCategory,
+      showDisagreementOnly, disagreementFeatureIds,
+      causeCategoryDecisionMargins, causeMarginThreshold])
 
   // Main list scroll hook - scroll to item when clicked in subviews
-  const { scrollTargetIndex, scrollToItemInMainList } = useMainListScroll({
+  const { scrollTargetIndex } = useMainListScroll({
     sortedFilteredList: sortedFilteredFeatureList,
     sortMode,
     setSortMode,
@@ -538,6 +568,85 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
     return true
   }, [selectedFeatureIds, causeSelectionSources])
+
+  // Download results as JSON (replaces Stage 4 RegenerationView)
+  const handleDownload = useCallback(() => {
+    // Stage 1: Feature Splitting (pairs)
+    const stage1 = {
+      fragmented: { manual: [] as string[], auto: [] as string[] },
+      monosemantic: { manual: [] as string[], auto: [] as string[] }
+    }
+    pairSelectionStates.forEach((state, key) => {
+      const tag = state === 'selected' ? 'fragmented' : 'monosemantic'
+      const source = pairSelectionSources.get(key) === 'click' ? 'manual' : 'auto'
+      stage1[tag][source].push(key)
+    })
+
+    // Stage 2: Quality (features) + Stage 3 well-explained merged
+    const stage2 = {
+      wellExplained: { manual: [] as number[], auto: [] as number[] },
+      needRevision: { manual: [] as number[], auto: [] as number[] }
+    }
+    featureSelectionStates.forEach((state, id) => {
+      const tag = state === 'selected' ? 'wellExplained' : 'needRevision'
+      const source = featureSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
+      stage2[tag][source].push(id)
+    })
+    // Merge Stage 3 well-explained into Stage 2
+    causeSelectionStates.forEach((tag, id) => {
+      if (tag === 'well-explained') {
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
+        stage2.wellExplained[source].push(id)
+      }
+    })
+
+    // Stage 3: Cause categories (excluding well-explained, merged above)
+    const stage3 = {
+      patternMiss: { manual: [] as number[], auto: [] as number[] },
+      contextMiss: { manual: [] as number[], auto: [] as number[] },
+      noisyActivation: { manual: [] as number[], auto: [] as number[] }
+    }
+    causeSelectionStates.forEach((tag, id) => {
+      if (tag === 'missed-N-gram') {
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
+        stage3.patternMiss[source].push(id)
+      } else if (tag === 'missed-context') {
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
+        stage3.contextMiss[source].push(id)
+      } else if (tag === 'noisy-activation') {
+        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
+        stage3.noisyActivation[source].push(id)
+      }
+    })
+
+    const exportData = {
+      exportedAt: new Date().toISOString(),
+      stage1_featureSplitting: stage1,
+      stage2_quality: stage2,
+      stage3_cause: stage3,
+      summary: {
+        totalPairsTagged: pairSelectionStates.size,
+        totalFeaturesTagged: featureSelectionStates.size,
+        totalCausesTagged: causeSelectionStates.size
+      }
+    }
+
+    const fileName = `tagging-results-${new Date().toISOString().slice(0, 10)}.json`
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = fileName
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    return fileName
+  }, [
+    pairSelectionStates, pairSelectionSources,
+    featureSelectionStates, featureSelectionSources,
+    causeSelectionStates, causeSelectionSources
+  ])
 
   // Compute category bands for parallel coordinates (median + IQR per category)
   const categoryBands = useMemo(() => {
@@ -721,20 +830,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCurrentFeatureIndex(index)
   }, [sortedFilteredFeatureList])
 
-  // Handle click on a point in RadViz scatter or histogram
-  const handleUMAPFeatureSelect = useCallback((featureId: number) => {
-    logAction('stage3', 'radviz_click', { featureId })
-    // Set feature ID first (survives mode switches)
-    setSelectedFeatureIdState(featureId)
-    // Try to find in main list
-    const mainIndex = sortedFilteredFeatureList.indexOf(featureId)
-    if (mainIndex !== -1) {
-      setCurrentFeatureIndex(mainIndex)
-    }
-    // If not found, the auto-switch effect will trigger when
-    // we try to scroll, which will update sortedFilteredFeatureList
-    scrollToItemInMainList(featureId)
-  }, [sortedFilteredFeatureList, scrollToItemInMainList])
+
 
   // ============================================================================
   // COMMIT HISTORY HELPERS
@@ -1434,9 +1530,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   manualTagCountsByCategory,
                   flipTracking: causeFlipTracking,
                   selectedFeatureId: selectedFeatureId,
-                  visibleCategories,
-                  onVisibleCategoriesChange: (v: Set<FilterCategory>) => { logAction('stage3', 'visible_categories', { categories: Array.from(v) }); setVisibleCategories(v) },
-                  onFeatureSelect: handleUMAPFeatureSelect,
                   stableFeatureIds,
                   hideTagged,
                   categories: [
@@ -1473,18 +1566,31 @@ const CauseView: React.FC<CauseViewProps> = ({
           </div>
         </div>
 
-        {/* Right column: Next Stage */}
+        {/* Right column: Download Results */}
         <div className="next-stage-column">
           <button
             className="action-button action-button--next"
-            onClick={() => { logAction('stage3', 'move_to_next_stage', {}); moveToNextStep() }}
+            onClick={async () => {
+              logAction('stage3', 'download_results', {})
+              await activateStage4(PANEL_LEFT)
+              const name = handleDownload()
+              setExportFileName(name)
+              setShowExportPopup(true)
+            }}
             disabled={!allTagged}
-            title={allTagged ? 'Proceed to Stage 4' : `Label all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
+            title={allTagged ? 'Export tagging results as JSON' : `Label all features first (${causeSelectionStates.size}/${selectedFeatureIds?.size || 0})`}
           >
-            Move to Stage 4 Summary ↑
+            Download Results
           </button>
         </div>
       </div>
+
+      {showExportPopup && (
+        <ExportResultsPopup
+          onClose={() => setShowExportPopup(false)}
+          fileName={exportFileName}
+        />
+      )}
     </div>
   )
 }

@@ -7,8 +7,7 @@ import {
   TAG_CATEGORIES,
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
-  TAG_CATEGORY_CAUSE,
-  TAG_CATEGORY_REGENERATION
+  TAG_CATEGORY_CAUSE
 } from '../lib/constants'
 
 // ============================================================================
@@ -506,16 +505,6 @@ export const createCommonActions = (set: any, get: any) => ({
         }
         // Then activate Stage 3
         await get().activateStage3(PANEL_LEFT)
-      } else if (stageNumber === 4) {
-        // Need to activate earlier stages first if not already active
-        if (currentStage === 1) {
-          await get().activateStage2(PANEL_LEFT)
-        }
-        if (currentStage < 3) {
-          await get().activateStage3(PANEL_LEFT)
-        }
-        // Then activate Stage 4
-        await get().activateStage4(PANEL_LEFT)
       }
 
       console.log(`[Store.activateCategoryTable] ✅ Stage ${stageNumber} activated, now activating table`)
@@ -569,11 +558,6 @@ export const createCommonActions = (set: any, get: any) => ({
         // First time entering Stage 3
         set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: false })
       }
-    } else if (stageNumber === 4) {
-      selectedNodeId = null  // Stage 4: no node selection
-      segmentIndex = 0
-      // Clear all revisiting flags when moving to Stage 4
-      set({ isRevisitingStage1: false, isRevisitingStage2: false, isRevisitingStage3: false })
     } else {
       selectedNodeId = 'root'  // Fallback
       segmentIndex = 0
@@ -623,11 +607,6 @@ export const createCommonActions = (set: any, get: any) => ({
       // Next step is Cause
       console.log('[Store.moveToNextStep] Transitioning from Quality to Cause')
       state.activateCategoryTable(TAG_CATEGORY_CAUSE)
-    } else if (activeStageCategory === TAG_CATEGORY_CAUSE) {
-      // This is the cause table (multi-class feature selection)
-      // Next step is Summary
-      console.log('[Store.moveToNextStep] Transitioning from Cause to Summary')
-      state.activateCategoryTable(TAG_CATEGORY_REGENERATION)
     } else {
       console.log('[Store.moveToNextStep] No next step defined for category:', activeStageCategory)
     }

@@ -1,23 +1,23 @@
-import React, { useRef, useMemo, useEffect, useState, useCallback } from 'react'
+import React, { useRef, useMemo, useEffect, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { useResizeObserver } from '../lib/utils'
+import { hexbin as d3Hexbin } from 'd3-hexbin'
 import {
   computeRadVizPositions,
   computeRadVizScales,
   getRadVizCircleParams,
   getAnchorPixelPosition,
   RADVIZ_ANCHORS,
-  type RadVizPoint
+  computeHexbinData
 } from '../lib/radviz-utils'
-import { getCauseColor, computeCategoryContours, type CauseCategory, type CategoryContour } from '../lib/cause-visualization-utils'
+import { getCauseColor, type CauseCategory } from '../lib/cause-visualization-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, SELECTION_BLUE } from '../lib/constants'
 import {
   getEffectiveCategory as getEffectiveCategoryUtil,
-  isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
-import { isUserConfirmed, type SelectionSource } from '../lib/tagging-hooks'
-import type { SortMode } from '../lib/tagging-hooks/useSortableList'
+import { isUserConfirmed } from '../lib/tagging-hooks'
+import type { ActiveStage } from '../lib/tagging-hooks/useSortableList'
 import '../styles/CauseRadViz.css'
 
 // ============================================================================
@@ -44,11 +44,7 @@ interface CauseRadVizProps {
   height?: number
   className?: string
   selectedFeatureId?: number | null
-  visibleCategories?: Set<FilterCategory>
-  onVisibleCategoriesChange?: (categories: Set<FilterCategory>) => void
-  onFeatureSelect?: (featureId: number) => void
-  sortMode?: SortMode
-  sortDirection?: 'asc' | 'desc'
+  activeStage?: ActiveStage
   hideTagged?: boolean
 }
 
@@ -61,35 +57,10 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   height: propHeight,
   className = '',
   selectedFeatureId = null,
-  visibleCategories: propVisibleCategories,
-  onFeatureSelect,
-  sortMode = 'decisionMargin',
-  sortDirection = 'asc',
+  activeStage,
   hideTagged = false
 }) => {
-  const svgRef = useRef<SVGSVGElement>(null)
   const containerElRef = useRef<HTMLDivElement | null>(null)
-
-  // Contour style configuration (read from CSS variables)
-  const [contourStyle, setContourStyle] = useState({
-    fillOpacity: 0.1,
-    strokeOpacity: 0.5,
-    strokeWidth: 1,
-    bandwidth: 5,
-    levels: 6
-  })
-
-  // Read CSS variables for contour styling
-  useEffect(() => {
-    const computedStyle = getComputedStyle(document.documentElement)
-    const fillOpacity = parseFloat(computedStyle.getPropertyValue('--contour-fill-opacity')) || 0.12
-    const strokeOpacity = parseFloat(computedStyle.getPropertyValue('--contour-stroke-opacity')) || 0.5
-    const strokeWidth = parseFloat(computedStyle.getPropertyValue('--contour-stroke-width')) || 1
-    const bandwidth = parseFloat(computedStyle.getPropertyValue('--contour-bandwidth')) || 20
-    const levels = parseInt(computedStyle.getPropertyValue('--contour-levels'), 10) || 4
-
-    setContourStyle({ fillOpacity, strokeOpacity, strokeWidth, bandwidth, levels })
-  }, [])
 
   // Use standardized resize observer hook for consistent behavior
   const { ref: resizeRef, size: measuredSize } = useResizeObserver<HTMLDivElement>({
@@ -116,12 +87,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
   const causeLastClassificationSignature = useVisualizationStore(state => state.causeLastClassificationSignature)
-
-  // Filter state: use prop if provided, fallback to local state
-  const [localVisibleCategories] = useState<Set<FilterCategory>>(
-    new Set(['unsure'])
-  )
-  const visibleCategories = propVisibleCategories ?? localVisibleCategories
 
   // Check if all 3 categories have MIN_TAGS_PER_CATEGORY manual tags (for SVM classification)
   // Both 'click' and 'threshold' sources count for SVM training (with different weights)
@@ -215,9 +180,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return getRadVizCircleParams(scales)
   }, [scales])
 
-  // Determine if we're in "Top" mode (Most Confident First)
-  const isTopMode = sortMode === 'decisionMargin' && sortDirection === 'desc'
-
   // Get effective category for a feature
   const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
     return getEffectiveCategoryUtil(
@@ -229,17 +191,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     )
   }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
-  // Check if feature is visible based on mode and threshold
-  const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
-    return isFeatureVisibleInMode(
-      featureId,
-      causeSelectionSources,
-      causeCategoryDecisionMargins,
-      causeMarginThreshold,
-      isTopMode
-    )
-  }, [causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, isTopMode])
-
   // Compute RadViz positions from decision margins
   const radVizPositions = useMemo(() => {
     // No positions until SVM trained
@@ -248,165 +199,91 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return computeRadVizPositions(causeCategoryDecisionMargins, featureIds)
   }, [featureIds, causeCategoryDecisionMargins])
 
-  // Filter RadViz points by visibility and category
+  // Filter RadViz points by phase (activeStage)
   const filteredRadVizPoints = useMemo(() => {
     if (!radVizPositions) return null
+    const stage = activeStage ?? 'bootstrap'
 
     return radVizPositions.filter(point => {
-      // First check mode-based visibility (threshold)
-      if (!isVisibleInCurrentMode(point.feature_id)) return false
-
-      // Hide user-confirmed tagged features when hideTagged is checked
+      // hideTagged: hide user-confirmed tagged features
       if (hideTagged && isUserConfirmed(causeSelectionSources.get(point.feature_id))) return false
 
-      // In Top mode, show all visible features
-      if (isTopMode) {
-        return true
-      }
+      // Bootstrap: show ALL features
+      if (stage === 'bootstrap') return true
 
-      // In Low mode, apply category filter
-      const category = getEffectiveCategory(point.feature_id)
-      return visibleCategories.has(category)
+      // Learn/Apply: filter by margin threshold (no tagged-feature exemption)
+      const categoryScores = causeCategoryDecisionMargins.get(point.feature_id)
+      if (!categoryScores) return true
+      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+      return stage === 'apply'
+        ? margin >= causeMarginThreshold
+        : margin < causeMarginThreshold
     })
-  }, [radVizPositions, isVisibleInCurrentMode, getEffectiveCategory, visibleCategories, isTopMode, hideTagged, causeSelectionSources])
+  }, [radVizPositions, activeStage, hideTagged, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
 
-  // Get set of manually tagged feature IDs for rendering
-  const manuallyTaggedIds = useMemo(() => {
-    const ids = new Set<number>()
-    causeSelectionSources.forEach((source, featureId) => {
-      if (isUserConfirmed(source)) {
-        ids.add(featureId)
-      }
-    })
-    return ids
-  }, [causeSelectionSources])
 
   // ============================================================================
-  // CONTOUR COMPUTATION
+  // HEXBIN AGGREGATION
   // ============================================================================
-  // Convert RadViz points to UmapPoint format for contour computation
-  const contourPoints = useMemo(() => {
-    if (!filteredRadVizPoints || filteredRadVizPoints.length < 3) return []
-    return filteredRadVizPoints.map(point => ({
-      feature_id: point.feature_id,
-      x: point.x,
-      y: point.y,
-      cluster_id: 0  // Not used in RadViz but required by UmapPoint type
-    }))
-  }, [filteredRadVizPoints])
+  const HEX_RADIUS = 6
 
-  // Compute density contours
-  // Train stage (not isTopMode): Single gray contour for all unsure features
-  // Apply stage (isTopMode): Separate colored contours per predicted category
-  const categoryContours = useMemo((): CategoryContour[] => {
-    if (!scales || !contourPoints || contourPoints.length < 3) return []
-    if (chartWidth <= 0 || chartHeight <= 0) return []
-
-    if (isTopMode) {
-      // Apply stage: Separate contours per category (show predicted categories)
-      return computeCategoryContours(
-        contourPoints,
-        causeSelectionStates as Map<number, CauseCategory>,
-        causeSelectionSources as Map<number, SelectionSource>,
-        chartWidth,
-        chartHeight,
-        scales,
-        contourStyle.bandwidth,
-        contourStyle.levels,
-        true  // excludeManual: show predictions only in contours
-      )
-    } else {
-      // Train stage: Single contour for all unsure features
-      // Pass empty causeStates so all points are treated as "unsure"
-      return computeCategoryContours(
-        contourPoints,
-        new Map<number, CauseCategory>(),  // Empty = all points are unsure
-        new Map<number, SelectionSource>(),
-        chartWidth,
-        chartHeight,
-        scales,
-        contourStyle.bandwidth,
-        contourStyle.levels,
-        false  // Don't exclude anything - show all points
-      )
-    }
-  }, [contourPoints, causeSelectionStates, causeSelectionSources, chartWidth, chartHeight, scales, contourStyle.bandwidth, contourStyle.levels, isTopMode])
-
-  // Track if cursor is over a clickable point
-  const [isOverPoint, setIsOverPoint] = useState(false)
-
-  // Helper to find closest point within radius
-  const findClosestPoint = useCallback((x: number, y: number, maxDist = 10) => {
-    if (!filteredRadVizPoints || !scales) return null
-
-    let closestPoint: RadVizPoint | null = null
-    let closestDist = maxDist
-
-    for (const point of filteredRadVizPoints) {
-      const px = scales.xScale(point.x)
-      const py = scales.yScale(point.y)
-      const dist = Math.sqrt((x - px) ** 2 + (y - py) ** 2)
-      if (dist < closestDist) {
-        closestDist = dist
-        closestPoint = point
-      }
-    }
-    return closestPoint
-  }, [filteredRadVizPoints, scales])
-
-  // Click handler for point selection (works with SVG)
-  const handleSvgClick = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!onFeatureSelect) return
-
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
-    const closestPoint = findClosestPoint(x, y, 20)  // Larger radius for contour-based selection
-    if (closestPoint) {
-      onFeatureSelect(closestPoint.feature_id)
-    }
-  }, [findClosestPoint, onFeatureSelect])
-
-  // Mouse move handler to update cursor
-  const handleSvgMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-
-    const closestPoint = findClosestPoint(x, y, 20)
-    setIsOverPoint(closestPoint !== null)
-  }, [findClosestPoint])
-
-  // Reset cursor when leaving SVG
-  const handleSvgMouseLeave = useCallback(() => {
-    setIsOverPoint(false)
+  // Get color for a category (used in hexbin computation)
+  const getCategoryColor = useCallback((category: string): string => {
+    if (category === 'unsure') return DARK_UNSURE_GRAY
+    if (category === 'well-explained') return getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
+    // For cause categories, use cause color (need a dummy map lookup)
+    const dummyMap = new Map<number, CauseCategory>([[0, category as CauseCategory]])
+    return getCauseColor(0, dummyMap)
   }, [])
+
+  // Bootstrap/Learn: only user-confirmed tags (click/threshold) show color; predictions are gray
+  // Apply: all tags (including predicted) show color
+  const hexbinGetCategory = useCallback((featureId: number): FilterCategory => {
+    const tag = causeSelectionStates.get(featureId)
+    if (tag) {
+      const source = causeSelectionSources.get(featureId)
+      if ((activeStage ?? 'bootstrap') === 'apply' || isUserConfirmed(source)) {
+        return tag as FilterCategory
+      }
+    }
+    return (activeStage ?? 'bootstrap') === 'apply'
+      ? getEffectiveCategory(featureId)
+      : 'unsure'
+  }, [activeStage, causeSelectionStates, causeSelectionSources, getEffectiveCategory])
+
+  // Compute hexbin data from filtered points
+  const hexbinData = useMemo(() => {
+    if (!filteredRadVizPoints || !scales || filteredRadVizPoints.length === 0) return []
+    return computeHexbinData(
+      filteredRadVizPoints,
+      scales,
+      HEX_RADIUS,
+      hexbinGetCategory,
+      getCategoryColor
+    )
+  }, [filteredRadVizPoints, scales, hexbinGetCategory, getCategoryColor])
+
+  // Precompute hexagon path for reuse
+  const hexagonPath = useMemo(() => {
+    return d3Hexbin().radius(HEX_RADIUS).hexagon()
+  }, [])
+
+  // Max count for opacity normalization
+  const maxHexCount = useMemo(() => {
+    if (hexbinData.length === 0) return 1
+    return Math.max(1, ...hexbinData.map(h => h.count))
+  }, [hexbinData])
 
   // Compute selected point data for SVG rendering
   const selectedPointData = useMemo(() => {
     if (selectedFeatureId == null || !filteredRadVizPoints || !scales) return null
-
     const selectedPoint = filteredRadVizPoints.find(p => p.feature_id === selectedFeatureId)
     if (!selectedPoint) return null
-
-    const effectiveCategory = getEffectiveCategory(selectedFeatureId)
-    let categoryColor: string
-    if (effectiveCategory === 'unsure') {
-      categoryColor = DARK_UNSURE_GRAY
-    } else if (effectiveCategory === 'well-explained') {
-      categoryColor = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-    } else {
-      categoryColor = getCauseColor(selectedFeatureId, causeSelectionStates as Map<number, CauseCategory>)
-    }
-
     return {
       cx: scales.xScale(selectedPoint.x),
       cy: scales.yScale(selectedPoint.y),
-      color: categoryColor,
-      isManual: manuallyTaggedIds.has(selectedFeatureId)
     }
-  }, [selectedFeatureId, filteredRadVizPoints, scales, getEffectiveCategory, causeSelectionStates, manuallyTaggedIds])
+  }, [selectedFeatureId, filteredRadVizPoints, scales])
 
   // ============================================================================
   // RENDER
@@ -476,18 +353,14 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
             })}
           </svg>
 
-          {/* SVG for contours and interaction (replaces canvas) */}
+          {/* SVG for hexbins and interaction */}
           <svg
-            ref={svgRef}
             className="cause-radviz__svg cause-radviz__svg--contours"
             width={chartWidth}
             height={chartHeight}
-            style={{ cursor: isOverPoint ? 'pointer' : 'default' }}
-            onClick={handleSvgClick}
-            onMouseMove={handleSvgMouseMove}
-            onMouseLeave={handleSvgMouseLeave}
+            style={{ pointerEvents: 'none' }}
           >
-            {/* Clip path to constrain contours within circle */}
+            {/* Clip path to constrain hexbins within circle */}
             <defs>
               {circleParams && (
                 <clipPath id="radviz-circle-clip">
@@ -500,134 +373,37 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
               )}
             </defs>
 
-            {/* Contour fill layers (background) - clipped to circle */}
-            <g className="cause-radviz__contour-fills" clipPath="url(#radviz-circle-clip)">
-              {categoryContours.map((categoryContour) => (
-                <g key={`fill-${categoryContour.category}`} className={`cause-radviz__contour-category cause-radviz__contour-category--${categoryContour.category}`}>
-                  {categoryContour.paths.map((pathString, i) => {
-                    // Progressive opacity: outer contours lighter, inner contours more opaque
-                    const levelOpacity = (i + 1) / categoryContour.paths.length
-                    return (
-                      <path
-                        key={`fill-${i}`}
-                        d={pathString}
-                        fill={categoryContour.color}
-                        fillOpacity={contourStyle.fillOpacity * levelOpacity}
-                        stroke="none"
-                      />
-                    )
-                  })}
-                </g>
-              ))}
-            </g>
-
-            {/* Contour stroke layers - clipped to circle */}
-            <g className="cause-radviz__contour-strokes" clipPath="url(#radviz-circle-clip)">
-              {categoryContours.map((categoryContour) => (
-                <g key={`stroke-${categoryContour.category}`} className={`cause-radviz__contour-category cause-radviz__contour-category--${categoryContour.category}`}>
-                  {categoryContour.paths.map((pathString, i) => (
-                    <path
-                      key={`stroke-${i}`}
-                      d={pathString}
-                      fill="none"
-                      stroke={categoryContour.color}
-                      strokeWidth={contourStyle.strokeWidth}
-                      strokeOpacity={contourStyle.strokeOpacity}
-                    />
-                  ))}
-                </g>
-              ))}
-            </g>
-
-            {/* Points layer - show individual features */}
-            <g className="cause-radviz__points">
-              {filteredRadVizPoints && scales && filteredRadVizPoints.map(point => {
-                // Skip selected point - render it last on top
-                if (point.feature_id === selectedFeatureId) return null
-
-                const cx = scales.xScale(point.x)
-                const cy = scales.yScale(point.y)
-                const isManual = manuallyTaggedIds.has(point.feature_id)
-                const effectiveCategory = getEffectiveCategory(point.feature_id)
-
-                // Determine color
-                let color: string
-                if (effectiveCategory === 'unsure') {
-                  color = DARK_UNSURE_GRAY
-                } else if (effectiveCategory === 'well-explained') {
-                  color = getTagColor(TAG_CATEGORY_QUALITY, 'Well-Explained') || '#59a14f'
-                } else {
-                  color = getCauseColor(point.feature_id, causeSelectionStates as Map<number, CauseCategory>)
-                }
-
-                if (isManual) {
-                  // Manual: filled circle
-                  return (
-                    <circle
-                      key={point.feature_id}
-                      cx={cx}
-                      cy={cy}
-                      r={2.5}
-                      fill={color}
-                      className="cause-radviz__point cause-radviz__point--manual"
-                    />
-                  )
-                } else {
-                  // Auto/unsure: ring
-                  return (
-                    <circle
-                      key={point.feature_id}
-                      cx={cx}
-                      cy={cy}
-                      r={2}
-                      fill="none"
-                      stroke={color}
-                      strokeWidth={1}
-                      opacity={effectiveCategory === 'unsure' ? 0.4 : 0.6}
-                      className="cause-radviz__point cause-radviz__point--auto"
-                    />
-                  )
-                }
+            {/* Hexbin density layer - clipped to circle */}
+            <g className="cause-radviz__hexbins" clipPath="url(#radviz-circle-clip)">
+              {hexbinData.map((hex, i) => {
+                const opacity = 0.15 + 0.75 * (hex.count / maxHexCount)
+                return (
+                  <path
+                    key={i}
+                    className="cause-radviz__hexbin"
+                    d={hexagonPath}
+                    transform={`translate(${hex.cx},${hex.cy})`}
+                    fill={hex.color}
+                    fillOpacity={opacity}
+                    stroke={hex.color}
+                    strokeWidth={0.5}
+                    strokeOpacity={opacity * 0.5}
+                  />
+                )
               })}
             </g>
 
             {/* Selected point highlight (on top) */}
             {selectedPointData && (
               <g className="cause-radviz__selected-point">
-                {/* White background */}
                 <circle
                   cx={selectedPointData.cx}
                   cy={selectedPointData.cy}
-                  r={6}
-                  fill="#fff"
-                />
-                {/* Blue selection ring */}
-                <circle
-                  cx={selectedPointData.cx}
-                  cy={selectedPointData.cy}
-                  r={6.5}
+                  r={5}
                   fill="none"
                   stroke={SELECTION_BLUE.DEFAULT}
                   strokeWidth={2.5}
                 />
-                {/* Point itself */}
-                {selectedPointData.isManual ? (
-                  <circle
-                    cx={selectedPointData.cx}
-                    cy={selectedPointData.cy}
-                    r={4}
-                    fill={selectedPointData.color}
-                  />
-                ) : (
-                  <circle
-                    cx={selectedPointData.cx}
-                    cy={selectedPointData.cy}
-                    r={4}
-                    fill="none"
-                    stroke={selectedPointData.color}
-                    strokeWidth={3}
-                  />
-                )}
               </g>
             )}
           </svg>
@@ -686,21 +462,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
         </div>
       )}
 
-      {/* Legend */}
-      <div className="cause-radviz__legend">
-        <div className="cause-radviz__legend-item">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <circle cx="5" cy="5" r="3" fill="#686868" />
-          </svg>
-          <span>Manual</span>
-        </div>
-        <div className="cause-radviz__legend-item">
-          <svg width="10" height="10" viewBox="0 0 10 10">
-            <circle cx="5" cy="5" r="2.5" fill="none" stroke="#686868" strokeWidth="1" />
-          </svg>
-          <span>Auto</span>
-        </div>
-      </div>
     </div>
   )
 }

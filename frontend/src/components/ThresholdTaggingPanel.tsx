@@ -18,9 +18,6 @@ import '../styles/ThresholdTaggingPanel.css'
 // Layout: [Histogram] | [Flip Rate (top) + Batch Tagging (bottom)]
 // Used by: FeatureSplitView, QualityView, and CauseView
 
-// Filter category type (CauseCategory + 'unsure')
-type FilterCategory = CauseCategory | 'unsure'
-
 // Cause mode specific props
 export interface CauseModeProps {
   featureIds: Set<number>
@@ -37,9 +34,6 @@ export interface CauseModeProps {
   flipTracking?: FlipTrackingInfo | null
   // RadViz props
   selectedFeatureId: number | null
-  visibleCategories: Set<FilterCategory>
-  onVisibleCategoriesChange: (cats: Set<FilterCategory>) => void
-  onFeatureSelect: (featureId: number) => void
   stableFeatureIds: number[]  // For RadViz
   hideTagged?: boolean
   // Batch tagging category counts and colors
@@ -268,11 +262,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               <CauseRadViz
                 featureIds={causeProps.stableFeatureIds}
                 selectedFeatureId={causeProps.selectedFeatureId}
-                visibleCategories={causeProps.visibleCategories}
-                onVisibleCategoriesChange={causeProps.onVisibleCategoriesChange}
-                onFeatureSelect={causeProps.onFeatureSelect}
-                sortMode={causeProps.sortMode}
-                sortDirection={causeProps.sortDirection}
+                activeStage={activeStage}
                 hideTagged={causeProps.hideTagged}
               />
               <div className="threshold-tagging-panel__batch-column">

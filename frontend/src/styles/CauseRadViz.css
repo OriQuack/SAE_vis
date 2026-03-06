@@ -2,15 +2,6 @@
    CAUSE RADVIZ STYLES
    ============================================================================ */
 
-/* CSS variables for contour configuration */
-:root {
-  --contour-fill-opacity: 0.12;
-  --contour-stroke-opacity: 0.5;
-  --contour-stroke-width: 1;
-  --contour-bandwidth: 20;
-  --contour-levels: 4;
-}
-
 .cause-radviz {
   position: relative;
   width: 260px;         /* Fixed width matching boundary lists */
@@ -127,7 +118,7 @@
   left: 0;
 }
 
-/* SVG for contours (interactive layer) */
+/* SVG for hexbins and interaction (interactive layer) */
 .cause-radviz__svg--contours {
   position: absolute;
   top: 0;
@@ -135,18 +126,12 @@
   z-index: 2;
 }
 
-/* Contour fills and strokes */
-.cause-radviz__contour-fills path,
-.cause-radviz__contour-strokes path {
+/* Hexbin density layer */
+.cause-radviz__hexbins {
   pointer-events: none;
 }
 
-/* Points layer */
-.cause-radviz__points {
-  pointer-events: none;
-}
-
-.cause-radviz__point {
+.cause-radviz__hexbin {
   pointer-events: none;
 }
 
@@ -195,34 +180,4 @@
   z-index: 5;
 }
 
-/* ============================================================================
-   LEGEND - Compact legend for point styles
-   ============================================================================ */
-
-.cause-radviz__legend {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  font-size: 9px;
-  color: var(--text-secondary, #6b7280);
-  pointer-events: none;
-  z-index: 10;
-}
-
-.cause-radviz__legend-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.cause-radviz__legend-item svg {
-  flex-shrink: 0;
-}
 

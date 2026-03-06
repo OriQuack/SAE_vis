@@ -5,11 +5,10 @@ import SankeyDiagram from './components/SankeyDiagram'
 import FeatureSplitView from './components/FeatureSplitView'
 import QualityView from './components/QualityView'
 import CauseView from './components/CauseView'
-import RegenerationView from './components/RegenerationView'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
 import SelectionPanel from './components/SelectionPanel'
-import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_REGENERATION } from './lib/constants'
+import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './lib/constants'
 import type { SelectionCategory } from './types'
 import type { TableStage } from './lib/color-utils'
 import * as api from './api'
@@ -112,7 +111,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
   const currentStage: TableStage = activeStageCategory === TAG_CATEGORY_FEATURE_SPLITTING ? 'stage1'
     : activeStageCategory === TAG_CATEGORY_QUALITY ? 'stage2'
     : activeStageCategory === TAG_CATEGORY_CAUSE ? 'stage3'
-    : activeStageCategory === TAG_CATEGORY_REGENERATION ? 'stage4'
     : 'stage1'
 
   const commitHistory = currentStage === 'stage1' ? stage1CommitHistory
@@ -228,15 +226,8 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           />
         </div>
 
-        {/* Bottom Section - Conditional layout based on active stage */}
-        {activeStageCategory === TAG_CATEGORY_REGENERATION ? (
-          /* Stage 4: Full-width two-row layout */
-          <div className="sankey-view__main-content sankey-view__main-content--full-width">
-            <RegenerationView />
-          </div>
-        ) : (
-          /* Stages 1-3: Two-column layout (Sankey left + View right) */
-          <div className="sankey-view__main-content">
+        {/* Bottom Section - Two-column layout (Sankey left + View right) */}
+        <div className="sankey-view__main-content">
             {/* Left Column - Sankey + SelectionPanel (side by side) */}
             <div className="sankey-view__sankey-column">
               <div className="sankey-view__sankey-left">
@@ -282,7 +273,6 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
               categoryRefs={selectionCategoryRefs}
             />
           </div>
-        )}
       </div>
 
     </div>

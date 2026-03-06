@@ -6,6 +6,7 @@
 // Reference: https://www.mdpi.com/2227-9709/6/2/16
 
 import { scaleLinear, type ScaleLinear } from 'd3-scale'
+import { hexbin as d3Hexbin } from 'd3-hexbin'
 import type { CauseCategory } from './cause-visualization-utils'
 
 // ============================================================================
@@ -269,4 +270,93 @@ export function causeCategoryToAnchorKey(category: CauseCategory): string | null
     return category
   }
   return null
+}
+
+// ============================================================================
+// HEXBIN AGGREGATION
+// ============================================================================
+
+export interface HexbinData {
+  cx: number                          // Hex center x (pixels)
+  cy: number                          // Hex center y (pixels)
+  count: number                       // Features in bin
+  dominantCategory: string            // Majority-vote category
+  color: string                       // Color for dominant category
+  featureIds: number[]                // Feature IDs in bin
+  categoryCounts: Record<string, number>  // Breakdown per category
+}
+
+/**
+ * Aggregate RadViz points into hexbin cells.
+ * Each hex is colored by majority-vote category and opacity-scaled by count.
+ *
+ * @param points - RadViz points to bin
+ * @param scales - Pixel coordinate scales
+ * @param hexRadius - Hex cell radius in pixels
+ * @param getCategory - Function to get category for a feature ID
+ * @param getColor - Function to get color for a category
+ * @param excludeFeatureIds - Feature IDs to exclude (manually tagged, rendered individually)
+ * @returns Array of HexbinData for rendering
+ */
+export function computeHexbinData(
+  points: RadVizPoint[],
+  scales: RadVizScales,
+  hexRadius: number,
+  getCategory: (featureId: number) => string,
+  getColor: (category: string) => string,
+  excludeFeatureIds?: Set<number>
+): HexbinData[] {
+  // Convert to pixel coordinates, filtering out excluded IDs
+  const pixelPoints: [number, number, number][] = []  // [px, py, featureId]
+  for (const point of points) {
+    if (excludeFeatureIds?.has(point.feature_id)) continue
+    pixelPoints.push([
+      scales.xScale(point.x),
+      scales.yScale(point.y),
+      point.feature_id
+    ])
+  }
+
+  if (pixelPoints.length === 0) return []
+
+  // Create hexbin layout
+  const hexbin = d3Hexbin<[number, number, number]>()
+    .radius(hexRadius)
+    .x(d => d[0])
+    .y(d => d[1])
+
+  const bins = hexbin(pixelPoints)
+
+  return bins.map(bin => {
+    // Count categories in this bin
+    const categoryCounts: Record<string, number> = {}
+    const featureIds: number[] = []
+
+    for (const d of bin) {
+      const fid = d[2]
+      featureIds.push(fid)
+      const cat = getCategory(fid)
+      categoryCounts[cat] = (categoryCounts[cat] || 0) + 1
+    }
+
+    // Majority vote
+    let dominantCategory = 'unsure'
+    let maxCount = 0
+    for (const [cat, count] of Object.entries(categoryCounts)) {
+      if (count > maxCount) {
+        maxCount = count
+        dominantCategory = cat
+      }
+    }
+
+    return {
+      cx: bin.x,
+      cy: bin.y,
+      count: bin.length,
+      dominantCategory,
+      color: getColor(dominantCategory),
+      featureIds,
+      categoryCounts
+    }
+  })
 }
