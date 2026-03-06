@@ -74,16 +74,15 @@ store/
 └── utils.ts                          # Store helper functions
 ```
 
-## 4-Stage Tagging Workflow
+## 3-Stage Tagging Workflow
 
-The application implements a 4-stage workflow for tagging features:
+The application implements a 3-stage workflow for tagging features:
 
 | Stage | Component | Mode | Items | Tags |
 |-------|-----------|------|-------|------|
 | 1. Structural Soundness | `FeatureSplitView.tsx` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
 | 2. Explanation Adequacy | `QualityView.tsx` | `feature` | Individual features | Need Revision / Well-Explained |
 | 3. Failure Attribution | `CauseView.tsx` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
-| 4. Summary | `RegenerationView.tsx` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Failure Attribution (CauseView)
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
@@ -98,10 +97,11 @@ The application implements a 4-stage workflow for tagging features:
 - **Bootstrap → Learn → Apply**: StageAccordionList guides users through active learning workflow
 - **Representative Sampling**: Cold start with diversity-based feature sampling
 
-### Stage 4: Summary (RegenerationView)
-- **OverviewSummary**: Shows manual vs auto tagging breakdown per tag across all stages
+### Export Results (ExportResultsPopup)
+- **Popup overlay** triggered from CauseView after completing Stage 3
+- **OverviewSummary**: Shows manual vs auto labeling breakdown per tag across all stages
 - **SankeyDiagram**: Final flow visualization with all stages
-- **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category
+- **JSON Export**: Downloads tagging results as JSON file
 
 ### Shared Components Across Stages
 Both Stage 1 and Stage 2 share the same layout pattern:
@@ -129,10 +129,10 @@ frontend/src/
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
-│   ├── OverviewSummary.tsx       # Stage 4: Manual vs auto labeling breakdown
+│   ├── OverviewSummary.tsx       # Manual vs auto labeling breakdown (used in ExportResultsPopup)
 │   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization with category bands
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
-│   ├── RegenerationView.tsx      # Stage 4: Summary overview
+│   ├── ExportResultsPopup.tsx    # Export results popup with Sankey + OverviewSummary
 │   ├── SankeyDiagram.tsx         # Sankey visualization with inline histograms
 │   ├── SankeyOverlay.tsx         # Stage addition interface
 │   ├── SankeyToSelectionFlowOverlay.tsx # Flow visualization overlay
@@ -200,10 +200,10 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FlowPanel.css             # Flow panel styles
-│   ├── OverviewSummary.css       # Stage 4 summary styles
+│   ├── OverviewSummary.css       # Overview summary styles
 │   ├── ParallelCoordinates.css   # Parallel coordinates styles
 │   ├── QualityView.css           # Stage 2 styles
-│   ├── RegenerationView.css      # Stage 4 regeneration styles
+│   ├── ExportResultsPopup.css    # Export results popup styles
 │   ├── SankeyDiagram.css         # Sankey styles
 │   ├── SankeyToSelectionFlowOverlay.css # Flow overlay styles
 │   ├── ScrollableItemList.css    # Scrollable list styles
@@ -292,14 +292,14 @@ frontend/src/
 - Reference lines at 10%, 25%, 50% flip rate
 - Stage-aware coloring (Stage 1/2: selected/rejected, Stage 3: cause categories)
 
-**RegenerationView.tsx** - Stage 4: Summary
+**ExportResultsPopup.tsx** - Export Results Popup
+- Popup overlay triggered from CauseView after Stage 3 completion
 - Layout with SankeyDiagram (left) + OverviewSummary (right)
-- Shows final tagging results overview
-- Displays Sankey with all completed stages
-- Manual vs auto tagging statistics per category
+- Shows saved JSON filename in footer
+- Backdrop click to close
 
-**OverviewSummary.tsx** - Tagging Statistics
-- Manual vs auto tagging breakdown per tag
+**OverviewSummary.tsx** - Labeling Statistics
+- Manual vs auto labeling breakdown per tag
 - Aggregates counts across all 3 tagging stages
 - Shows fragmented/monosemantic, well-explained/need-revision, cause categories
 

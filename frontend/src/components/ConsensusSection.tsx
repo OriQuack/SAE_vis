@@ -50,7 +50,7 @@ function consensusScoreToColor(score: number): string {
 export const ConsensusLegend: React.FC = React.memo(() => (
   <div className="consensus-legend">
     <div className="consensus-legend__side">
-      <span className="consensus-legend__pill" style={{ background: TEAL_GRADIENT }} />
+      <span className="consensus-legend__pill consensus-legend__pill--fill" style={{ background: TEAL_GRADIENT }} />
       <span className="legend-label">: Explainer Consensus</span>
     </div>
     <div className="legend-separator" />
@@ -120,9 +120,12 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     setTooltipData(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)
   }, [])
 
-  // Return null if no data - parent handles empty state in subheader
   if (!consensus || consensus.items.length === 0) {
-    return null
+    return (
+      <div className="consensus-section">
+        <span className="consensus-section__empty">No Concepts</span>
+      </div>
+    )
   }
 
   const renderPill = (item: ConsensusItem, idx: number) => {
@@ -135,11 +138,11 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
       <div
         key={`${item.cluster_id}-${idx}`}
         className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
+        style={{ backgroundColor: consensusColor }}
         onMouseEnter={(e) => handleMouseEnter(e, item)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
-        <span className="consensus-item__tag consensus-item__tag--left" style={{ backgroundColor: consensusColor }} />
         <span className="consensus-item__phrase">{item.phrase}</span>
         {metricColor && (
           <span className="consensus-item__tag consensus-item__tag--right" style={{ backgroundColor: metricColor }} />
@@ -158,7 +161,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
         <div className="consensus-section__items">
           {clusters.length > 0
             ? clusters.map((item, idx) => renderPill(item, idx))
-            : <span className="consensus-section__empty">No clusters</span>
+            : <span className="consensus-section__empty">No Concepts</span>
           }
         </div>
       </div>

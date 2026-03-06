@@ -154,10 +154,10 @@ Diversity-based representative sampling for initializing tagging:
 ```python
 # services/cold_start_service.py
 async def get_representative_features(feature_ids, n_samples, method):
-    # Weighted diversity sampling using activation embeddings
-    # Supports multiple methods: weighted_diversity, random, kmeans
-    # Uses interfeature similarity for diversity calculation
-    # Returns representative feature IDs for cold start
+    # Kennard-Stone algorithm for diversity-based sampling
+    # Features: Uses SVM_FEATURE_METRICS (14D) from data_constants.py
+    # Pairs: Uses 11D vectors (4+4 intra from SVM_PAIR_INTRA_METRICS + 3 inter from svm_pair_metrics)
+    # Returns representative feature/pair IDs for cold start
 ```
 
 ### 8. Consensus Service

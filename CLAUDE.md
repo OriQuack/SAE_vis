@@ -36,7 +36,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                              USER INTERFACE                                │
 │  Sankey Diagram │ Feature Split View │ Quality View │ Tag Stage Panel     │
-│  Selection Panel │ Flow Overlay │ Cause View │ Summary View               │
+│  Selection Panel │ Flow Overlay │ Cause View │ Export Results              │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
 ┌────────────────────────────────────────────────────────────────────────────┐
@@ -46,7 +46,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Set Intersection Algorithm for instant threshold updates               │
 │  • Zustand State Management (modularized by feature)                      │
 │  • D3.js Visualizations (Sankey, Histograms, Flow Overlay)               │
-│  • 4-Stage Tag Workflow: Structural Soundness → Explanation Adequacy → Failure Attribution → Summary│
+│  • 3-Stage Tag Workflow: Structural Soundness → Explanation Adequacy → Failure Attribution│
 │  • SVM-Based Similarity Scoring                                          │
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
 │  • Decision Flip Rate Tracking for Convergence Monitoring                 │
@@ -213,19 +213,18 @@ npm run dev -- --port 3003
 - **RadViz Scatter**: Softmax-weighted positioning using SVM decision scores toward category anchors
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
-- **Tag Stage Panel**: 4-stage navigation (Structural Soundness → Explanation Adequacy → Failure Attribution → Summary)
+- **Tag Stage Panel**: 3-stage navigation (Structural Soundness → Explanation Adequacy → Failure Attribution)
 - **StageAccordionList**: Bootstrap → Learn → Apply workflow with sorting controls
 - **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
 - **Commit History**: Save and restore tagging state snapshots
 
-### 4-Stage Tagging Workflow
+### 3-Stage Tagging Workflow
 
 | Stage | View | Mode | Items | Tags |
 |-------|------|------|-------|------|
 | 1. Structural Soundness | `FeatureSplitView` | `pair` | Feature pairs | Monosemantic / Incoherent Splitting |
 | 2. Explanation Adequacy | `QualityView` | `feature` | Individual features | Need Revision / Well-Explained |
 | 3. Failure Attribution | `CauseView` | `cause` | Individual features | Well-Explained / Missed Syntax / Missed Context / Noisy Activation |
-| 4. Summary | `RegenerationView` | summary | Overview | Manual vs Auto breakdown |
 
 ### Stage 3: Failure Attribution
 - **RadViz Scatter**: Softmax-weighted 2D positioning using SVM decision scores toward 3 category anchors
@@ -240,10 +239,11 @@ npm run dev -- --port 3003
 - **Bootstrap → Learn → Apply Workflow**: StageAccordionList guides users through active learning stages
 - **Representative Sampling**: Diversity-based sampling for cold start initialization
 
-### Stage 4: Summary
-- **OverviewSummary**: Manual vs auto tagging breakdown per tag across all stages
+### Export Results (ExportResultsPopup)
+- **Popup overlay** triggered from CauseView after completing Stage 3
+- **OverviewSummary**: Manual vs auto labeling breakdown per tag across all stages
 - **SankeyDiagram**: Final flow visualization with all completed stages
-- **Tag Statistics**: Counts of manually tagged vs auto-tagged items per category
+- **JSON Export**: Downloads tagging results as JSON file
 
 ### SVM-Based Similarity Scoring
 Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:

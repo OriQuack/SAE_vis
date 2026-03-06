@@ -1048,6 +1048,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 3. Apply all updates in a single state change
     if (batchUpdates.size > 0) {
       setCauseCategoriesBatch(batchUpdates)
+      pendingNavRef.current = 'tag'
+      setDeferringNav(true)
     }
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates, setCauseCategoriesBatch, createCommit, selectedFeatureIds?.size])
 
@@ -1093,6 +1095,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     // 3. Apply all updates in a single state change
     if (batchUpdates.size > 0) {
       setCauseCategoriesBatch(batchUpdates)
+      pendingNavRef.current = 'tag'
+      setDeferringNav(true)
     }
     // Effect will sync changes to current commit
   }, [causeCategoryDecisionMargins, selectedFeatureIds, causeSelectionSources, setCauseCategoriesBatch, createCommit])
@@ -1405,13 +1409,13 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <ConsensusLegend />
                     </div>
                     <div className="cause-view__consensus-with-metrics">
+                      <ConsensusSection consensus={consensus} />
                       <div className="cause-view__metrics-container">
                         <CauseMetricParallelCoords
                           categoryBands={categoryBands}
                           currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
                         />
                       </div>
-                      <ConsensusSection consensus={consensus} />
                     </div>
 
                     {/* ---- Floating control panel ---- */}
@@ -1468,16 +1472,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                         Next →
                       </button>
 
-                      {/* Secondary actions: Unsure + Undo */}
+                      {/* Secondary actions: Undo + Unsure */}
                       <div className="floating-controls__secondary">
-                        <TagButton
-                          label="Unsure"
-                          variant="unsure"
-                          color={unsureColor}
-                          isSelected={currentCauseCategory === 'unsure'}
-                          isAuto={false}
-                          onClick={handleUnsureClick}
-                        />
                         <button
                           className="nav__button nav__button--undo"
                           onClick={() => {
@@ -1490,6 +1486,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                         >
                           ↩ Undo
                         </button>
+                        <TagButton
+                          label="Unsure"
+                          variant="unsure"
+                          color={unsureColor}
+                          isSelected={currentCauseCategory === 'unsure'}
+                          isAuto={false}
+                          onClick={handleUnsureClick}
+                        />
                       </div>
                     </div>
                   </>

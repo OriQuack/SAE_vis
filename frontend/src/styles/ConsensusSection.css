@@ -87,9 +87,8 @@
   overflow: hidden;
 }
 
-/* Cluster (medoid) style - white background, consensus encoded via left tag */
+/* Cluster (medoid) style - consensus encoded via fill background */
 .consensus-item__pill--medoid {
-  background-color: white;
   border: 1px solid #ccc;
 }
 
@@ -97,9 +96,8 @@
   outline: 1px solid var(--selection-blue);
 }
 
-/* Outlier style - white background, no consensus (left tag shows empty) */
+/* Outlier style - consensus encoded via fill background */
 .consensus-item__pill--outlier {
-  background-color: white;
   border: 1px solid #ccc;
 }
 
@@ -119,11 +117,6 @@
   width: 12px;
   align-self: stretch;
   flex-shrink: 0;
-}
-
-/* Left tag - consensus score (teal scale) */
-.consensus-item__tag--left {
-  border-right: 1px solid #ccc;
 }
 
 /* Right tag - metric score (NR→WE scale) */
@@ -190,9 +183,12 @@
 .consensus-legend__pill {
   width: 50px;
   height: 12px;
-  border-radius: 5px 2px 2px 5px;
   border: 1px solid #d1d5db;
   flex-shrink: 0;
+}
+
+.consensus-legend__pill--fill {
+  border-radius: 5px;
 }
 
 .consensus-legend__pill--right {

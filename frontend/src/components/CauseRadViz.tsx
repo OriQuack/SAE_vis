@@ -383,7 +383,15 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 <circle
                   cx={selectedPointData.cx}
                   cy={selectedPointData.cy}
-                  r={5}
+                  r={3.5}
+                  fill="none"
+                  stroke="#fff"
+                  strokeWidth={4.5}
+                />
+                <circle
+                  cx={selectedPointData.cx}
+                  cy={selectedPointData.cy}
+                  r={3.5}
                   fill="none"
                   stroke={SELECTION_BLUE.DEFAULT}
                   strokeWidth={2.5}

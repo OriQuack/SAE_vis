@@ -1190,15 +1190,8 @@ const QualityView: React.FC<QualityViewProps> = ({
                       Next →
                     </button>
 
-                    {/* Secondary actions: Unsure + Undo */}
+                    {/* Secondary actions: Undo + Unsure */}
                     <div className="floating-controls__secondary">
-                      <TagButton
-                        label="Unsure"
-                        variant="unsure"
-                        color={unsureColor}
-                        isSelected={currentSelectionState === null}
-                        onClick={handleUnsureClick}
-                      />
                       <button
                         className="nav__button nav__button--undo"
                         onClick={() => {
@@ -1211,6 +1204,13 @@ const QualityView: React.FC<QualityViewProps> = ({
                       >
                         ↩ Undo
                       </button>
+                      <TagButton
+                        label="Unsure"
+                        variant="unsure"
+                        color={unsureColor}
+                        isSelected={currentSelectionState === null}
+                        onClick={handleUnsureClick}
+                      />
                     </div>
                   </div>
                 </>

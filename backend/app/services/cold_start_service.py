@@ -19,6 +19,7 @@ from ..models.cold_start import (
     ColdStartSuggestionsResponse,
     ColdStartSuggestion
 )
+from .data_constants import SVM_FEATURE_METRICS, SVM_PAIR_INTRA_METRICS
 from .data_service import DataService
 from .hierarchical_cluster_candidate_service import HierarchicalClusterCandidateService
 
@@ -27,25 +28,6 @@ logger = logging.getLogger(__name__)
 
 class ColdStartService:
     """Service for generating cold-start suggestions using Kennard-Stone algorithm."""
-
-    # Same 6 metrics as SimilaritySortService for features
-    FEATURE_METRICS = [
-        'intra_feature_sim',
-        'score_embedding',
-        'score_fuzz',
-        'score_detection',
-        'explanation_semantic_sim',
-        'frac_nonzero',
-    ]
-
-    # Same 5 metrics as PairSimilarityService for pairs
-    PAIR_METRICS = [
-        'intra_ngram_jaccard',
-        'intra_semantic_sim',
-        'inter_ngram_jaccard',
-        'inter_semantic_sim',
-        'frac_nonzero',
-    ]
 
     def __init__(
         self,
@@ -84,8 +66,8 @@ class ColdStartService:
         """
         Get diverse suggestions using Kennard-Stone algorithm.
 
-        For features: Uses 6D metric space from barycentric parquet
-        For pairs: Uses 11D symmetric pair vectors
+        For features: Uses 14D metric space (SVM_FEATURE_METRICS)
+        For pairs: Uses 11D symmetric pair vectors (4+4 intra + 3 inter)
 
         Args:
             request: Request with mode, feature_ids, num_suggestions, and optional threshold
@@ -126,7 +108,7 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get feature suggestions using Kennard-Stone on 6D metric space."""
+        """Get feature suggestions using Kennard-Stone on 14D metric space."""
         feature_ids = request.feature_ids
         num_suggestions = min(request.num_suggestions, len(feature_ids))
 
@@ -139,7 +121,7 @@ class ColdStartService:
 
         # Build feature matrix
         feature_id_list = metrics_df["feature_id"].to_list()
-        metrics_matrix = metrics_df.select(self.FEATURE_METRICS).to_numpy()
+        metrics_matrix = metrics_df.select(SVM_FEATURE_METRICS).to_numpy()
 
         # Standardize for Kennard-Stone
         scaler = StandardScaler()
@@ -160,7 +142,7 @@ class ColdStartService:
                 diversity_reason=f"Kennard-Stone sample {idx + 1}",
                 metrics={
                     metric: float(metrics_matrix[sample_idx, i])
-                    for i, metric in enumerate(self.FEATURE_METRICS)
+                    for i, metric in enumerate(SVM_FEATURE_METRICS)
                 }
             ))
 
@@ -178,7 +160,10 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get pair suggestions using Kennard-Stone on 11D pair vectors."""
+        """Get pair suggestions using Kennard-Stone on 11D pair vectors.
+
+        11D = [A+B (4 intra)] + [|A-B| (4 intra)] + [inter_ngram (1)] + [inter_semantic (1)] + [decoder_sim (1)]
+        """
         if self.cluster_service is None:
             raise RuntimeError("Cluster service required for pair mode")
 
@@ -214,36 +199,49 @@ class ColdStartService:
             fid for pair in pairs for fid in (pair["main_id"], pair["similar_id"])
         ))
 
-        # Extract pair metrics
-        metrics_df = await self._extract_pair_feature_metrics(all_feature_ids)
+        # Extract intra-feature metrics (4D per feature from SVM_PAIR_INTRA_METRICS)
+        intra_df = await self._extract_pair_feature_metrics(all_feature_ids)
 
-        if metrics_df is None or len(metrics_df) == 0:
+        if intra_df is None or len(intra_df) == 0:
             return self._random_fallback_pairs(pairs, num_suggestions)
 
-        # Build 11D pair vectors (same as PairSimilarityService)
+        # Extract inter-feature metrics from svm_pair_metrics parquet
+        pair_ids = [(pair["main_id"], pair["similar_id"]) for pair in pairs]
+        inter_metrics = await self._extract_pair_inter_metrics(pair_ids)
+
+        # Build lookup for intra metrics
+        fid_to_idx = {fid: i for i, fid in enumerate(intra_df["feature_id"].to_list())}
+        intra_matrix = intra_df.select(SVM_PAIR_INTRA_METRICS).to_numpy()
+
+        # Build 11D pair vectors
         pair_vectors = []
         valid_pairs = []
-
-        feature_ids_arr = metrics_df["feature_id"].to_numpy()
-        metrics_matrix = metrics_df.select(self.PAIR_METRICS).to_numpy()
 
         for pair in pairs:
             main_id = pair["main_id"]
             similar_id = pair["similar_id"]
 
-            main_idx = np.where(feature_ids_arr == main_id)[0]
-            similar_idx = np.where(feature_ids_arr == similar_id)[0]
+            main_idx = fid_to_idx.get(main_id)
+            similar_idx = fid_to_idx.get(similar_id)
 
-            if len(main_idx) == 0 or len(similar_idx) == 0:
+            if main_idx is None or similar_idx is None:
                 continue
 
-            main_metrics = metrics_matrix[main_idx[0]]
-            similar_metrics = metrics_matrix[similar_idx[0]]
+            main_metrics = intra_matrix[main_idx]
+            similar_metrics = intra_matrix[similar_idx]
 
-            # Symmetric 11D vector: [A+B (5)] + [|A-B| (5)] + [decoder_sim (1)]
+            # Intra: [A+B (4)] + [|A-B| (4)]
             pair_sum = main_metrics + similar_metrics
             pair_diff = np.abs(main_metrics - similar_metrics)
-            pair_vector = np.concatenate([pair_sum, pair_diff, [0.0]])
+
+            # Inter: [inter_ngram, inter_semantic, decoder_sim]
+            pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
+            inter_data = inter_metrics.get(pair_key, (0.0, 0.0, 0.0))
+
+            pair_vector = np.concatenate([
+                pair_sum, pair_diff,
+                [inter_data[0], inter_data[1], inter_data[2]]
+            ])
 
             pair_vectors.append(pair_vector)
             valid_pairs.append(pair)
@@ -315,7 +313,7 @@ class ColdStartService:
         return selected
 
     async def _extract_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """Extract 6D metrics from svm_feature_metrics parquet (pre-aggregated)."""
+        """Extract 14D metrics from svm_feature_metrics parquet (pre-aggregated)."""
         if self.data_service._svm_feature_metrics_lazy is None:
             logger.warning("[ColdStart] SVM feature metrics lazy not available")
             return None
@@ -326,27 +324,21 @@ class ColdStartService:
             # Load pre-aggregated metrics (already 1 row per feature)
             df = self.data_service._svm_feature_metrics_lazy.filter(
                 pl.col("feature_id").is_in(feature_ids)
-            ).select([
-                "feature_id",
-                "intra_semantic_sim",  # Use as intra_feature_sim
-                "score_embedding",
-                "score_fuzz",
-                "score_detection",
-                "explanation_semantic_sim",
-                "frac_nonzero"
-            ]).collect()
+            ).collect()
 
-            # Rename intra_semantic_sim to intra_feature_sim for compatibility
-            df = df.rename({"intra_semantic_sim": "intra_feature_sim"})
+            # Compute log_frac_nonzero from frac_nonzero at runtime
+            df = df.with_columns([
+                (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
+            ])
 
-            # Fill null values
-            for metric in self.FEATURE_METRICS:
+            # Fill null values for all 14 metrics
+            for metric in SVM_FEATURE_METRICS:
                 if metric in df.columns:
                     df = df.with_columns(pl.col(metric).fill_null(0.0))
                 else:
                     df = df.with_columns(pl.lit(0.0).alias(metric))
 
-            logger.info(f"[ColdStart] Extracted metrics for {len(df)} features")
+            logger.info(f"[ColdStart] Extracted {len(SVM_FEATURE_METRICS)} metrics for {len(df)} features")
             return df
 
         except Exception as e:
@@ -354,21 +346,34 @@ class ColdStartService:
             return None
 
     async def _extract_pair_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """Extract pair metrics (same approach as PairSimilarityService)."""
+        """Extract 4D intra-feature metrics (SVM_PAIR_INTRA_METRICS) per feature."""
         try:
+            # Fast path: Use pre-computed svm_feature_metrics if available
+            if self.data_service._svm_feature_metrics_lazy is not None:
+                df = self.data_service._svm_feature_metrics_lazy.filter(
+                    pl.col("feature_id").is_in(feature_ids)
+                ).select(["feature_id"] + list(SVM_PAIR_INTRA_METRICS)).collect()
+
+                for metric in SVM_PAIR_INTRA_METRICS:
+                    if metric in df.columns:
+                        df = df.with_columns(pl.col(metric).fill_null(0.0))
+                    else:
+                        df = df.with_columns(pl.lit(0.0).alias(metric))
+
+                logger.info(f"[ColdStart] Extracted {len(SVM_PAIR_INTRA_METRICS)} intra metrics for {len(df)} features (fast path)")
+                return df
+
+            # Fallback: Extract from activation_display
+            logger.info("[ColdStart] Falling back to legacy intra-metric extraction")
             lf = self.data_service._df_lazy
             if lf is None:
                 return None
 
-            # Base metrics from features.parquet
-            base_df = lf.filter(pl.col("feature_id").is_in(feature_ids)).select([
-                "feature_id",
-                pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
-            ]).unique(subset=["feature_id"]).collect()
+            base_df = lf.filter(pl.col("feature_id").is_in(feature_ids)).select(
+                ["feature_id"]
+            ).unique(subset=["feature_id"]).collect()
             base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
 
-            # Extract activation metrics (intra-feature)
-            # Select only needed columns BEFORE collect() to avoid schema issues with new columns
             if self.data_service._activation_display_lazy is not None:
                 act_df = self.data_service._activation_display_lazy.filter(
                     pl.col("feature_id").is_in(feature_ids)
@@ -378,55 +383,9 @@ class ColdStartService:
                       .fill_null(0.0).alias("intra_ngram_jaccard"),
                     pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim")
                 ]).unique(subset=["feature_id"]).collect()
-
                 base_df = base_df.join(act_df, on="feature_id", how="left")
 
-            # Extract inter-feature metrics
-            # Select only needed columns BEFORE collect() to avoid schema issues
-            if self.data_service._interfeature_similarity_lazy is not None:
-                # Filter pairs where either feature is in our set
-                inter_df = self.data_service._interfeature_similarity_lazy.filter(
-                    pl.col("main_feature_id").is_in(feature_ids) | pl.col("similar_feature_id").is_in(feature_ids)
-                ).select([
-                    "main_feature_id",
-                    "similar_feature_id",
-                    "char_ngram_max_jaccard",
-                    "word_ngram_max_jaccard",
-                    "semantic_similarity"
-                ]).collect()
-
-                if len(inter_df) > 0:
-                    # For each feature, get max inter-feature metrics from pairs it participates in
-                    # Process main_feature_id side
-                    main_metrics = inter_df.filter(pl.col("main_feature_id").is_in(feature_ids)).group_by("main_feature_id").agg([
-                        pl.max("char_ngram_max_jaccard").fill_null(0.0).alias("max_char"),
-                        pl.max("word_ngram_max_jaccard").fill_null(0.0).alias("max_word"),
-                        pl.max("semantic_similarity").fill_null(0.0).alias("inter_semantic_sim")
-                    ]).rename({"main_feature_id": "feature_id"})
-
-                    # Process similar_feature_id side
-                    similar_metrics = inter_df.filter(pl.col("similar_feature_id").is_in(feature_ids)).group_by("similar_feature_id").agg([
-                        pl.max("char_ngram_max_jaccard").fill_null(0.0).alias("max_char"),
-                        pl.max("word_ngram_max_jaccard").fill_null(0.0).alias("max_word"),
-                        pl.max("semantic_similarity").fill_null(0.0).alias("inter_semantic_sim")
-                    ]).rename({"similar_feature_id": "feature_id"})
-
-                    # Combine both sides, taking max for each feature
-                    inter_df = pl.concat([main_metrics, similar_metrics]).group_by("feature_id").agg([
-                        pl.max("max_char").alias("max_char"),
-                        pl.max("max_word").alias("max_word"),
-                        pl.max("inter_semantic_sim").alias("inter_semantic_sim")
-                    ]).select([
-                        "feature_id",
-                        pl.max_horizontal("max_char", "max_word").alias("inter_ngram_jaccard"),
-                        "inter_semantic_sim"
-                    ])
-                    inter_df = inter_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
-
-                    base_df = base_df.join(inter_df, on="feature_id", how="left")
-
-            # Fill nulls for all metrics
-            for metric in self.PAIR_METRICS:
+            for metric in SVM_PAIR_INTRA_METRICS:
                 if metric not in base_df.columns:
                     base_df = base_df.with_columns(pl.lit(0.0).alias(metric))
                 else:
@@ -437,6 +396,45 @@ class ColdStartService:
         except Exception as e:
             logger.error(f"[ColdStart] Failed to extract pair feature metrics: {e}", exc_info=True)
             return None
+
+    async def _extract_pair_inter_metrics(
+        self,
+        pair_ids: List[tuple]
+    ) -> Dict[str, tuple]:
+        """Extract inter-feature metrics from svm_pair_metrics parquet.
+
+        Returns:
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim)
+        """
+        if self.data_service._svm_pair_metrics_lazy is None:
+            return {}
+
+        try:
+            all_feature_ids = list(set(fid for a, b in pair_ids for fid in (a, b)))
+
+            df = self.data_service._svm_pair_metrics_lazy.filter(
+                (pl.col("feature_a").is_in(all_feature_ids)) &
+                (pl.col("feature_b").is_in(all_feature_ids))
+            ).collect()
+
+            if len(df) == 0:
+                return {}
+
+            result: Dict[str, tuple] = {}
+            for row in df.iter_rows(named=True):
+                pair_key = f"{row['feature_a']}-{row['feature_b']}"
+                result[pair_key] = (
+                    float(row.get('inter_ngram_jaccard', 0.0) or 0.0),
+                    float(row.get('inter_semantic_sim', 0.0) or 0.0),
+                    float(row.get('decoder_sim', 0.0) or 0.0),
+                )
+
+            logger.info(f"[ColdStart] Extracted inter metrics for {len(result)}/{len(pair_ids)} pairs")
+            return result
+
+        except Exception as e:
+            logger.error(f"[ColdStart] Failed to extract pair inter metrics: {e}", exc_info=True)
+            return {}
 
     def _random_fallback(
         self,

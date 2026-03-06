@@ -289,25 +289,20 @@ export function getSemanticSimilarityColor(similarity: number): string {
 }
 
 // ============================================================================
-// METRIC SCORE COLOR SCALE (NR → WE)
+// METRIC SCORE COLOR SCALE (sequential single-hue: white → WE)
 // ============================================================================
 
-const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
 const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
-const UPPER_SCALE = chroma.scale([NR_COLOR, WE_COLOR]).mode('lab')
+const METRIC_SCALE = chroma.scale(['white', WE_COLOR]).mode('lab')
 
-/** Map a score in [0,1] to a continuous color: flat NR below 0.5, interpolate to WE above */
+/** Map a score in [0,1] to a sequential color: white (0) → WE green (1) */
 export function scoreToColor(score: number): string {
-  if (score < 0.5) return chroma(NR_COLOR).saturate(0.5).hex()
-  const t = Math.min(1, (score - 0.5) / 0.5)
-  return UPPER_SCALE(t).saturate(0.5).hex()
+  const t = Math.min(1, Math.max(0, score))
+  return METRIC_SCALE(t).hex()
 }
 
-// Gradient CSS for legends (flat NR up to midpoint, then interpolate to WE)
-const nrHex = chroma(NR_COLOR).saturate(0.5).hex()
-const midHex = chroma(NR_COLOR).saturate(0.5).hex()
-const weHex = UPPER_SCALE(1).saturate(0.5).hex()
-export const METRIC_GRADIENT = `linear-gradient(to right, ${nrHex} 0%, ${midHex} 50%, ${weHex} 100%)`
+// Gradient CSS for legends (linear white → WE)
+export const METRIC_GRADIENT = `linear-gradient(to right, ${METRIC_SCALE(0).hex()} 0%, ${METRIC_SCALE(1).hex()} 100%)`
 
 /** Return readable text color (black or white) for a given background */
 export function textColorForBackground(bgHex: string): string {

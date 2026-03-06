@@ -380,15 +380,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 Next →
               </button>
 
-              {/* Secondary actions: Unsure + Undo */}
+              {/* Secondary actions: Undo + Unsure */}
               <div className="floating-controls__secondary">
-                <TagButton
-                  label="Unsure"
-                  variant="unsure"
-                  color={unsureColor}
-                  isSelected={pairSelectionState === null}
-                  onClick={handleUnsureClick}
-                />
                 <button
                   className="nav__button nav__button--undo"
                   onClick={handleUndoClick}
@@ -397,6 +390,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 >
                   ↩ Undo
                 </button>
+                <TagButton
+                  label="Unsure"
+                  variant="unsure"
+                  color={unsureColor}
+                  isSelected={pairSelectionState === null}
+                  onClick={handleUnsureClick}
+                />
               </div>
             </div>
           </>
