@@ -16,7 +16,8 @@ import {
   TAG_CATEGORY_CAUSE,
   UNSURE_GRAY
 } from './constants'
-import { getBadgeColors } from './tag-system'
+import chroma from 'chroma-js'
+import { getBadgeColors, getTagColor } from './tag-system'
 
 // ============================================================================
 // METRIC COLOR UTILITIES (from constants.ts)
@@ -285,6 +286,32 @@ export function getSemanticSimilarityColor(similarity: number): string {
   } else {
     return '#f3f4f6'   // Default gray
   }
+}
+
+// ============================================================================
+// METRIC SCORE COLOR SCALE (NR → WE)
+// ============================================================================
+
+const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
+const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
+const UPPER_SCALE = chroma.scale([NR_COLOR, WE_COLOR]).mode('lab')
+
+/** Map a score in [0,1] to a continuous color: flat NR below 0.5, interpolate to WE above */
+export function scoreToColor(score: number): string {
+  if (score < 0.5) return chroma(NR_COLOR).saturate(0.5).hex()
+  const t = Math.min(1, (score - 0.5) / 0.5)
+  return UPPER_SCALE(t).saturate(0.5).hex()
+}
+
+// Gradient CSS for legends (flat NR up to midpoint, then interpolate to WE)
+const nrHex = chroma(NR_COLOR).saturate(0.5).hex()
+const midHex = chroma(NR_COLOR).saturate(0.5).hex()
+const weHex = UPPER_SCALE(1).saturate(0.5).hex()
+export const METRIC_GRADIENT = `linear-gradient(to right, ${nrHex} 0%, ${midHex} 50%, ${weHex} 100%)`
+
+/** Return readable text color (black or white) for a given background */
+export function textColorForBackground(bgHex: string): string {
+  return chroma(bgHex).luminance() > 0.4 ? '#000' : '#fff'
 }
 
 // ============================================================================

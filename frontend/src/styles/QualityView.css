@@ -310,7 +310,8 @@
 }
 
 .quality-view__explainer-name--highlighted {
-  background-color: var(--selection-blue);
+  outline: 2px solid var(--selection-blue);
+  outline-offset: -1px;
 }
 
 /* Phrase highlight for consensus pill hover */

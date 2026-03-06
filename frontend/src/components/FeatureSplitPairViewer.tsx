@@ -250,13 +250,10 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader">activating examples</h4>
-
-              {/* Feature IDs */}
-              <div className="pair-info__ids">
-                <span className="panel-header__id">#{currentPair.mainFeatureId}</span>
+              <h4 className="subheader">Activating Examples <span className="instruction-subheader">of</span>{' '}
+                <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
-              </div>
+              </h4>
 
               {/* Decoder Similarity */}
               <div className="pair-info__similarity">
@@ -273,7 +270,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 <span className="legend-label">Activation Strength</span>
               </div>
               <div className="legend-item">
-                <span className="legend-sample legend-sample--intra">n-gram</span>:
+                <span className="legend-sample legend-sample--intra">token</span>:
                 <span className="legend-label">Feature-Specific Pattern</span>
               </div>
               <div className="legend-item">

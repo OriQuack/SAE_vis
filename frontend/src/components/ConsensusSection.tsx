@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react'
 import chroma from 'chroma-js'
 import type { ConsensusResponse, ConsensusItem } from '../types'
 import { D3_SCHEME_TABLEAU10 } from '../lib/constants'
-import { BUCKET_COLORS, BUCKETS, toBucket } from './CrossMetricConsensus'
+import { scoreToColor, METRIC_GRADIENT } from '../lib/color-utils'
 import { Tooltip } from './Tooltip'
 import '../styles/ConsensusSection.css'
 
@@ -34,53 +34,30 @@ interface TooltipData {
 // Base teal color for consensus encoding
 const TEAL_CHROMA = chroma(D3_SCHEME_TABLEAU10.TEAL)
 
-// Consensus opacity: discrete 5-step mapping from score range [0, 3]
-const OPACITY_STEPS = [0.1, 0.325, 0.55, 0.775, 1.0] as const
+// Continuous teal scale: consensus score [0, 3] → light teal to full teal
+const TEAL_SCALE = chroma.scale(['white', TEAL_CHROMA]).mode('lab')
+const TEAL_GRADIENT = `linear-gradient(to right, ${TEAL_SCALE(0).hex()} 0%, ${TEAL_SCALE(1).hex()} 100%)`
 
-function getConsensusOpacity(consensusScore: number): number {
-  if (consensusScore < 0.6)      return 0.1
-  else if (consensusScore < 1.2) return 0.325
-  else if (consensusScore < 1.8) return 0.55
-  else if (consensusScore < 2.4) return 0.775
-  else                           return 1.0
+function consensusScoreToColor(score: number): string {
+  return TEAL_SCALE(Math.min(1, Math.max(0, score / 3))).hex()
 }
 
 // ============================================================================
 // CONSENSUS LEGEND - Compact inline legend for subheader row
 // ============================================================================
 
-/** Compact legend showing teal consensus opacity ramp + metric score buckets */
+/** Compact legend with gradient-filled pill + label */
 export const ConsensusLegend: React.FC = React.memo(() => (
-  <div className="legend-group">
-    <div className="legend-item">
-      <span className="legend-label">Explainer Consensus:</span>
-      <span className="legend-ramp">
-        {OPACITY_STEPS.map((op, i) => (
-          <span
-            key={i}
-            className="legend-swatch"
-            style={{ backgroundColor: TEAL_CHROMA.alpha(op).css() }}
-          />
-        ))}
-      </span>
-      <span className="legend-range">0–3</span>
+  <div className="consensus-legend">
+    <div className="consensus-legend__side">
+      <span className="consensus-legend__pill" style={{ background: TEAL_GRADIENT }} />
+      <span className="legend-label">: Explainer Consensus</span>
     </div>
     <div className="legend-separator" />
-    <div className="legend-item">
-      <span className="legend-label">Metric Score:</span>
+    <div className="consensus-legend__side">
+      <span className="consensus-legend__pill consensus-legend__pill--right" style={{ background: METRIC_GRADIENT }} />
+      <span className="legend-label">: Metric Score</span>
     </div>
-    {BUCKETS.map((b, i) => {
-      const match = b.label.match(/^([<>≥≤]?)(.+)$/)
-      const prefix = match?.[1] ?? ''
-      const rest = match?.[2] ?? b.label
-      return (
-        <div key={i} className="legend-item">
-          <span className="legend-swatch" style={{ backgroundColor: BUCKET_COLORS[i] }} />
-          {prefix && <span className="legend-label" style={{ marginLeft: 0 }}>{prefix}</span>}
-          <span className="legend-range">{rest}</span>
-        </div>
-      )
-    })}
   </div>
 ))
 
@@ -129,19 +106,6 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     onPhraseHover?.(null)
   }, [onPhraseHover])
 
-  // Get pill visual encoding for an item
-  const getPillStyle = useCallback((item: ConsensusItem): React.CSSProperties => {
-    if (item.is_outlier) {
-      return {} as React.CSSProperties
-    }
-
-    const consensusScore = item.cluster_score ?? 0
-    const alpha = getConsensusOpacity(consensusScore)
-    return {
-      '--pill-bg': TEAL_CHROMA.alpha(alpha).css(),
-    } as React.CSSProperties
-  }, [])
-
   // Split items into clusters and outliers
   const { clusters, outliers } = useMemo(() => {
     if (!consensus?.items) return { clusters: [] as ConsensusItem[], outliers: [] as ConsensusItem[] }
@@ -163,19 +127,22 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
 
   const renderPill = (item: ConsensusItem, idx: number) => {
     const qualityScore = item.is_outlier ? item.quality_score : item.avg_quality_score
-    const dotColor = qualityScore != null ? BUCKET_COLORS[toBucket(qualityScore)] : undefined
+    const metricColor = qualityScore != null ? scoreToColor(qualityScore) : undefined
+    const consensusColor = item.is_outlier
+      ? consensusScoreToColor(0)
+      : consensusScoreToColor(item.cluster_score ?? 0)
     return (
       <div
         key={`${item.cluster_id}-${idx}`}
         className={`consensus-item__pill ${item.is_outlier ? 'consensus-item__pill--outlier' : 'consensus-item__pill--medoid'}`}
-        style={getPillStyle(item)}
         onMouseEnter={(e) => handleMouseEnter(e, item)}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
       >
+        <span className="consensus-item__tag consensus-item__tag--left" style={{ backgroundColor: consensusColor }} />
         <span className="consensus-item__phrase">{item.phrase}</span>
-        {dotColor && (
-          <span className="consensus-item__tag" style={{ backgroundColor: dotColor }} />
+        {metricColor && (
+          <span className="consensus-item__tag consensus-item__tag--right" style={{ backgroundColor: metricColor }} />
         )}
       </div>
     )
@@ -184,7 +151,10 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   return (
     <div className="consensus-section">
       <div className="consensus-section__column">
-        <span className="instruction-subheader">Clusters</span>
+        <div className="consensus-section__header">
+          <span className="instruction-subheader">Consensus-Reached Concepts</span>
+          <span className="consensus-section__criteria">(consensus score &gt; 0)</span>
+        </div>
         <div className="consensus-section__items">
           {clusters.length > 0
             ? clusters.map((item, idx) => renderPill(item, idx))
@@ -193,7 +163,10 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
         </div>
       </div>
       <div className="consensus-section__column consensus-section__column--outlier">
-        <span className="instruction-subheader">Outliers</span>
+        <div className="consensus-section__header">
+          <span className="instruction-subheader">Explainer-Specific Concepts</span>
+          <span className="consensus-section__criteria">(consensus score = 0)</span>
+        </div>
         <div className="consensus-section__items">
           {outliers.length > 0
             ? outliers.map((item, idx) => renderPill(item, idx))

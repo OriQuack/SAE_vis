@@ -23,8 +23,23 @@
   padding: 0 2px;
 }
 
+.consensus-section__header {
+  display: flex;
+  align-items: baseline;
+  padding-left: 6px;
+  padding-top: 2px;
+}
+
 .consensus-section__column--outlier {
   border-left: 1px solid #e5e7eb;
+}
+
+.consensus-section__criteria {
+  font-size: 12px;
+  font-weight: 500;
+  color: #6b7280;
+  margin-left: auto;
+  padding-right: 4px;
 }
 
 
@@ -64,7 +79,7 @@
 .consensus-item__pill {
   display: inline-flex;
   align-items: center;
-  padding: 0px 0px 0px 4px;
+  padding: 0;
   border-radius: 8px;
   font-size: 13px;
   cursor: default;
@@ -72,9 +87,9 @@
   overflow: hidden;
 }
 
-/* Cluster (medoid) style - filled with teal at consensus opacity */
+/* Cluster (medoid) style - white background, consensus encoded via left tag */
 .consensus-item__pill--medoid {
-  background-color: var(--pill-bg, rgba(107, 114, 128, 0.2));
+  background-color: white;
   border: 1px solid #ccc;
 }
 
@@ -82,9 +97,9 @@
   outline: 1px solid var(--selection-blue);
 }
 
-/* Outlier style - border only with quality color at full opacity */
+/* Outlier style - white background, no consensus (left tag shows empty) */
 .consensus-item__pill--outlier {
-  background-color: transparent;
+  background-color: white;
   border: 1px solid #ccc;
 }
 
@@ -96,15 +111,24 @@
 .consensus-item__phrase {
   color: var(--text-primary, #1f2937);
   font-weight: 500;
+  padding: 0 4px;
 }
 
-/* Quality score tag (colored right-side tab) */
+/* Score tag - colored side indicator */
 .consensus-item__tag {
   width: 12px;
   align-self: stretch;
   flex-shrink: 0;
-  margin-left: 4px;
-  border-left: 1px solid white;
+}
+
+/* Left tag - consensus score (teal scale) */
+.consensus-item__tag--left {
+  border-right: 1px solid #ccc;
+}
+
+/* Right tag - metric score (NR→WE scale) */
+.consensus-item__tag--right {
+  border-left: 1px solid #ccc;
 }
 
 /* Empty placeholder */
@@ -147,4 +171,32 @@
   max-width: 400px;
 }
 
-/* Legend uses unified .legend-group, .legend-swatch, .legend-range, .legend-ramp from base.css */
+/* ============================================================================
+ * CONSENSUS LEGEND - Pill-shaped legend mirroring actual tag structure
+ * ============================================================================ */
+
+.consensus-legend {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.consensus-legend__side {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.consensus-legend__pill {
+  width: 50px;
+  height: 12px;
+  border-radius: 5px 2px 2px 5px;
+  border: 1px solid #d1d5db;
+  flex-shrink: 0;
+}
+
+.consensus-legend__pill--right {
+  border-radius: 2px 5px 5px 2px;
+}
+
+/* Legend uses unified .legend-group, .legend-range from base.css */

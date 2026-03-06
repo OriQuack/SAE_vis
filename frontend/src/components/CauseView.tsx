@@ -1247,8 +1247,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* ---- Activation Section (top half) ---- */}
                     {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
-                      <h4 className="subheader">Activating Examples</h4>
-                      <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
+                      <h4 className="subheader">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
                       <div className="legend-group">
@@ -1257,7 +1256,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                           <span className="legend-label">Activation Strength</span>
                         </div>
                         <div className="legend-item">
-                          <span className="legend-sample legend-sample--intra">n-gram</span>:
+                          <span className="legend-sample legend-sample--intra">token</span>:
                           <span className="legend-label">Feature-Specific Pattern</span>
                         </div>
                       </div>

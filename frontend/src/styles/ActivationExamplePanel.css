@@ -154,11 +154,11 @@
   border: 2px solid var(--selection-blue);
 }
 
-/* Inter-feature pattern highlighting (when hovering/clicking decoder similarity badges) */
-/* Uses green closed border to differentiate from intra-feature blue border */
+/* Inter-feature (shared) pattern highlighting (when hovering/clicking decoder similarity badges) */
+/* Uses dotted blue border to differentiate from solid intra-feature blue border */
 /* Can coexist with confidence-based n-gram classes for dual highlighting */
 .activation-token--interfeature {
-  border: 2px solid #10b981;
+  border: 2px dashed var(--selection-blue);
 }
 
 /* Newline token styling */

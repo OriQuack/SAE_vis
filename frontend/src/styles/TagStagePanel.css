@@ -68,13 +68,13 @@
 
 .stage-tab {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 5px 8px;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: space-between;
+  padding: 0px 4px 0px 20px;
   flex: 1 1 0;
   min-width: 0;
-  height: 70px;
+  height: 80px;
   background: #f1f5f9;
   border: 2px solid #cbd5e1;
   border-bottom: none;
@@ -85,7 +85,7 @@
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
   outline: none;
-  gap: 2px;
+  gap: 8px;
 }
 
 /* Stage 1 gets more width for its longer description */
@@ -176,14 +176,24 @@
   pointer-events: none;
 }
 
-/* Stage header - number + label + instruction in one row */
+/* Stage info - left side with title and description */
+.stage-tab__info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Stage header - number + label */
 .stage-tab__header {
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
   gap: 6px;
-  flex: 1;
   min-width: 0;
 }
 
@@ -225,7 +235,7 @@
   font-weight: 500;
   font-size: 20px;
   color: #7b7b7b;
-  text-align: center;
+  text-align: left;
   line-height: 1;
   white-space: nowrap;
 }
@@ -240,18 +250,19 @@
   font-weight: 500;
 }
 
-/* Stage instruction - inline secondary text */
+/* Stage instruction - description below title */
 .stage-tab__instruction {
   font-size: 14px;
   font-weight: 500;
   color: #94a3b8;
   line-height: 1.2;
   white-space: nowrap;
+  padding-left: 30px;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex-shrink: 1;
+  text-align: left;
   min-width: 0;
-  margin-left: 6px;
+  max-width: 100%;
 }
 
 .stage-tab--active .stage-tab__instruction {
@@ -270,13 +281,11 @@
 
 .stage-tab__tags {
   display: flex;
-  flex-direction: row;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-end;
   justify-content: center;
-  gap: 4px;
-  flex-wrap: wrap;
-  width: 100%;
-  margin-top: auto;
+  gap: 3px;
+  flex-shrink: 0;
 }
 
 /* ============================================================================
@@ -305,7 +314,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 6px;
-  padding: 3px;
+  padding: 1px 1px;
   flex-shrink: 1;
   min-width: 0;
   background: #f1f5f9; /* Fallback, will be overridden by inline style */

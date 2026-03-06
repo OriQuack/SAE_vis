@@ -226,9 +226,12 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               <h4 className="subheader subheader--with-value">
                 Stability Chart
                 {causeProps.flipTracking?.flipHistory?.length ? (
-                  <span className="subheader__value">
-                    {(causeProps.flipTracking.flipHistory[causeProps.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
-                  </span>
+                  <>
+                    <span className="subheader__label">Current Flip Rate:</span>
+                    <span className="subheader__value">
+                      {(causeProps.flipTracking.flipHistory[causeProps.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
+                    </span>
+                  </>
                 ) : null}
               </h4>
               <ConvergenceIndicator
@@ -241,9 +244,12 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
               <h4 className="subheader subheader--with-value">
                 Stability Chart
                 {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
-                  <span className="subheader__value">
-                    {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
-                  </span>
+                  <>
+                    <span className="subheader__label">Current Flip Rate:</span>
+                    <span className="subheader__value">
+                      {(tagAutomaticState.flipTracking.flipHistory[tagAutomaticState.flipTracking.flipHistory.length - 1].flipRate * 100).toFixed(1)}%
+                    </span>
+                  </>
                 ) : null}
               </h4>
               <ConvergenceIndicator

@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
-import chroma from 'chroma-js'
 import type { FeatureTableRow, ExplainerScoreData, ScorerScoreSet } from '../types'
-import { getTagColor } from '../lib/tag-system'
+import { scoreToColor, METRIC_GRADIENT } from '../lib/color-utils'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { Tooltip } from './Tooltip'
 import '../styles/CrossMetricConsensus.css'
@@ -11,233 +10,141 @@ interface CrossMetricConsensusProps {
   featureRow: FeatureTableRow | null
 }
 
-// Score range buckets — spaced to fit a square layout (exported for ConsensusSection)
-export const BUCKETS = [
-  { label: '<0.5', cx: 15 },
-  { label: '0.5–0.75', cx: 44 },
-  { label: '0.75–1.00', cx: 73 },
-] as const
+// Layout constants
+const METRICS = ['embedding', 'fuzz', 'detection'] as const
+type MetricKey = typeof METRICS[number]
+const METRIC_LABELS: Record<MetricKey, string> = {
+  embedding: 'Embedding',
+  fuzz: 'Fuzz',
+  detection: 'Detection',
+}
 
-const CIRCLE_R = 12
-const SVG_WIDTH = 88
-const ROW_HEIGHT = 28
-
-const STAMP_COLOR = '#374151'  // gray-700, uniform for all stamps
-
-// Bucket circle fill colors: NR → interpolated → WE (exported for ConsensusSection)
-const NR_COLOR = getTagColor('quality', 'Need Revision') ?? '#9c755f'
-const WE_COLOR = getTagColor('quality', 'Well-Explained') ?? '#59a14f'
-export const BUCKET_COLORS = [
-  chroma.mix(NR_COLOR, WE_COLOR, 0.0, 'lab').hex(),   // <0.5 = Need Revision
-  chroma.mix(NR_COLOR, WE_COLOR, 0.5, 'lab').hex(),   // 0.5–0.75 = middle
-  chroma.mix(NR_COLOR, WE_COLOR, 1.0, 'lab').hex(),   // ≥0.75 = Well-Explained
-] as const
+const BAR_MAX_W = 80
+const BAR_H = 7
+const BAR_GAP = 0
+const EXPLAINER_GAP = 6
+const LEFT_PAD = 1
+const SVG_W = LEFT_PAD + BAR_MAX_W + 1
 
 function avgScorerSet(s: ScorerScoreSet): number | null {
   const vals = [s.s1, s.s2, s.s3].filter((v): v is number => v !== null && v !== undefined)
   return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : null
 }
 
-export function toBucket(score: number): number {
-  if (score < 0.5) return 0
-  if (score < 0.75) return 1
-  return 2
-}
-
-interface MetricPlacement {
-  metric: 'embedding' | 'fuzz' | 'detection'
-  bucket: number
-}
-
-function getMetricPlacements(data: ExplainerScoreData | undefined): MetricPlacement[] {
-  if (!data) return []
-  const placements: MetricPlacement[] = []
-
-  if (data.embedding !== null && data.embedding !== undefined) {
-    placements.push({ metric: 'embedding', bucket: toBucket(data.embedding) })
-  }
-  const detAvg = avgScorerSet(data.detection)
-  if (detAvg !== null) {
-    placements.push({ metric: 'detection', bucket: toBucket(detAvg) })
-  }
-  const fuzzAvg = avgScorerSet(data.fuzz)
-  if (fuzzAvg !== null) {
-    placements.push({ metric: 'fuzz', bucket: toBucket(fuzzAvg) })
-  }
-
-  return placements
-}
-
-// Render stamp shapes. Fixed nesting order (outside→inside): square embedding → diamond detection → circle fuzz
-// All rendered concentrically in the same bucket circle.
-function renderStamps(placements: MetricPlacement[], bucketIdx: number, cy: number) {
-  const inBucket = placements.filter(p => p.bucket === bucketIdx)
-  if (inBucket.length === 0) return null
-
-  const cx = BUCKETS[bucketIdx].cx
-  const stamps: React.ReactElement[] = []
-
-  const hasEmbedding = inBucket.some(p => p.metric === 'embedding')
-  const hasFuzz = inBucket.some(p => p.metric === 'fuzz')
-  const hasDetection = inBucket.some(p => p.metric === 'detection')
-
-  // Fixed sizes — square > diamond > circle, always nest cleanly
-  const SQUARE_HALF = 8
-  const DIAMOND_D = 8
-  const CIRCLE_STAMP_R = 4
-
-  // Diamond (detection) — rotated square for perfect 90° angles, rendered first so it appears behind square
-  if (hasDetection) {
-    const side = DIAMOND_D * Math.SQRT2
-    stamps.push(
-      <rect key="det" x={cx - side / 2} y={cy - side / 2} width={side} height={side}
-        transform={`rotate(45 ${cx} ${cy})`}
-        fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
-    )
-  }
-  // Square (embedding) — outermost, rendered on top of diamond
-  if (hasEmbedding) {
-    stamps.push(
-      <rect key="emb" x={cx - SQUARE_HALF} y={cy - SQUARE_HALF} width={SQUARE_HALF * 2} height={SQUARE_HALF * 2}
-        fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
-    )
-  }
-  // Circle (fuzz) — innermost, smallest
-  if (hasFuzz) {
-    stamps.push(
-      <circle key="fuzz" cx={cx} cy={cy} r={CIRCLE_STAMP_R}
-        fill="none" stroke={STAMP_COLOR} strokeWidth={1.8} />
-    )
-  }
-
-  return stamps
-}
-
-// Compact inline legend matching activation panel legend-item / legend-label style
-export const CrossMetricLegend: React.FC = React.memo(() => (
-  <div className="legend-group">
-    <div className="legend-item">
-      <span className="legend-label">Metric:</span>
-    </div>
-    <div className="legend-item">
-      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
-        <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-      </svg>
-      <span className="legend-label">Embedding</span>
-    </div>
-    <div className="legend-item">
-      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
-        <rect x={2.5} y={2.5} width={7} height={7} transform="rotate(45 6 6)"
-          fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-      </svg>
-      <span className="legend-label">Detection</span>
-    </div>
-    <div className="legend-item">
-      <svg className="cross-metric-legend__swatch" width={12} height={12} viewBox="0 0 12 12">
-        <circle cx={6} cy={6} r={4} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-      </svg>
-      <span className="legend-label">Fuzz</span>
-    </div>
-  </div>
-))
-
-const METRIC_LABELS: Record<string, string> = {
-  embedding: 'Embedding',
-  fuzz: 'Fuzz',
-  detection: 'Detection',
-}
-
-function getMetricScore(data: ExplainerScoreData, metric: 'embedding' | 'fuzz' | 'detection'): number | null {
+function getMetricScore(data: ExplainerScoreData, metric: MetricKey): number | null {
   if (metric === 'embedding') return data.embedding ?? null
   if (metric === 'fuzz') return avgScorerSet(data.fuzz)
   return avgScorerSet(data.detection)
 }
 
+// Compact inline legend with true continuous gradient
+export const CrossMetricLegend: React.FC = React.memo(() => (
+  <div className="legend-group">
+    <div className="legend-item">
+      <span className="legend-label">Metric Score:</span>
+    </div>
+    <div className="legend-item">
+      <span className="legend-range">0</span>
+      <span
+        className="cross-metric-consensus__gradient-bar"
+        style={{ background: METRIC_GRADIENT }}
+      />
+      <span className="legend-range">1</span>
+    </div>
+  </div>
+))
+
+interface HoverData {
+  explainerId: string
+  data: ExplainerScoreData
+}
+
 const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerIds, featureRow }) => {
   const hasData = featureRow && explainerIds.length > 0
-  const topPad = CIRCLE_R + 1  // first circle center
-  const rowSpacing = ROW_HEIGHT
-  const totalHeight = topPad + (Math.max(explainerIds.length, 1) - 1) * rowSpacing + CIRCLE_R + 1
+  const numExplainers = Math.max(explainerIds.length, 1)
+  const groupH = METRICS.length * (BAR_H + BAR_GAP) - BAR_GAP
+  const totalHeight = numExplainers * groupH + (numExplainers - 1) * EXPLAINER_GAP
 
-  const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
+  const [hovered, setHovered] = useState<HoverData | null>(null)
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number } | null>(null)
 
   return (
     <div className="cross-metric-consensus">
-      <svg width={SVG_WIDTH} height={totalHeight} viewBox={`0 0 ${SVG_WIDTH} ${totalHeight}`}>
-        {explainerIds.map((explainerId, rowIdx) => {
-          const cy = topPad + rowIdx * rowSpacing
-          const data = hasData ? featureRow.explainers?.[explainerId] : undefined
-          const placements = getMetricPlacements(data)
-          const isEmpty = placements.length === 0
+      <svg width={SVG_W} height={totalHeight} viewBox={`0 0 ${SVG_W} ${totalHeight}`}>
+        {explainerIds.map((eid, ei) => {
+          const groupY = ei * (groupH + EXPLAINER_GAP)
+          const data = hasData ? featureRow.explainers?.[eid] : undefined
 
           return (
-            <g key={explainerId}
-              style={{ cursor: isEmpty ? 'default' : 'pointer' }}
+            <g key={eid} transform={`translate(0, ${groupY})`}
+              style={{ cursor: data ? 'pointer' : 'default' }}
               onMouseEnter={(e) => {
-                if (isEmpty) return
-                setHoveredIdx(rowIdx)
+                if (!data) return
+                setHovered({ explainerId: eid, data })
                 setTooltipPos({ x: e.clientX, y: e.clientY })
               }}
               onMouseMove={(e) => {
-                if (isEmpty) return
+                if (!data) return
                 setTooltipPos({ x: e.clientX, y: e.clientY })
               }}
               onMouseLeave={() => {
-                setHoveredIdx(null)
+                setHovered(null)
                 setTooltipPos(null)
               }}
             >
-              {/* Connecting line */}
-              <line
-                x1={BUCKETS[0].cx} y1={cy}
-                x2={BUCKETS[2].cx} y2={cy}
-                stroke={isEmpty ? '#d1d5db' : '#9ca3af'}
-                strokeWidth={3}
-              />
-              {/* Bucket circles — colored by score range */}
-              {BUCKETS.map((b, bi) => (
-                <circle key={bi} cx={b.cx} cy={cy} r={CIRCLE_R}
-                  fill={isEmpty ? 'white' : BUCKET_COLORS[bi]}
-                  fillOpacity={1}
-                  stroke={isEmpty ? '#d1d5db' : BUCKET_COLORS[bi]}
-                  strokeWidth={1}
+              {METRICS.map((metric, mi) => {
+                const score = data ? getMetricScore(data, metric) : null
+                const y = mi * (BAR_H + BAR_GAP)
+                const barW = score != null ? score * BAR_MAX_W : 0
+                const barX = LEFT_PAD
+
+                return (
+                  <g key={metric}>
+                    {/* Background track */}
+                    <rect
+                      x={barX} y={y}
+                      width={BAR_MAX_W} height={BAR_H}
+                      fill="#f3f4f6"
+                      stroke="#e5e7eb"
+                      strokeWidth={0.5}
+                    />
+                    {/* Score bar */}
+                    {score != null && barW > 0 && (
+                      <rect
+                        x={barX} y={y}
+                        width={barW} height={BAR_H}
+                        fill={scoreToColor(score)}
+                      />
+                    )}
+                  </g>
+                )
+              })}
+              {/* Separator line between explainer groups */}
+              {ei < explainerIds.length - 1 && (
+                <line
+                  x1={LEFT_PAD} y1={groupH + EXPLAINER_GAP / 2}
+                  x2={LEFT_PAD + BAR_MAX_W} y2={groupH + EXPLAINER_GAP / 2}
+                  stroke="#e5e7eb"
+                  strokeWidth={0.5}
                 />
-              ))}
-              {/* Metric stamps */}
-              {!isEmpty && BUCKETS.map((_, bi) => renderStamps(placements, bi, cy))}
+              )}
             </g>
           )
         })}
       </svg>
-      {hoveredIdx !== null && tooltipPos && (() => {
-        const eid = explainerIds[hoveredIdx]
-        const data = featureRow?.explainers?.[eid]
-        if (!data) return null
-        const placements = getMetricPlacements(data)
-        return (
-          <Tooltip position={tooltipPos}>
-            <Tooltip.Header>{getExplainerDisplayName(eid)}</Tooltip.Header>
-            {placements.map(p => (
-              <div key={p.metric} className="tooltip__row" style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
-                <svg width={12} height={12} viewBox="0 0 12 12" style={{ flexShrink: 0 }}>
-                  {p.metric === 'embedding' && (
-                    <rect x={1} y={1} width={10} height={10} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-                  )}
-                  {p.metric === 'detection' && (
-                    <rect x={2.5} y={2.5} width={7} height={7} transform="rotate(45 6 6)"
-                      fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-                  )}
-                  {p.metric === 'fuzz' && (
-                    <circle cx={6} cy={6} r={4} fill="none" stroke={STAMP_COLOR} strokeWidth={1.5} />
-                  )}
-                </svg>
-                <span>{METRIC_LABELS[p.metric]}: {getMetricScore(data, p.metric)?.toFixed(2) ?? '—'}</span>
+      {hovered && tooltipPos && (
+        <Tooltip position={tooltipPos}>
+          <Tooltip.Header>{getExplainerDisplayName(hovered.explainerId)}</Tooltip.Header>
+          {METRICS.map(metric => {
+            const score = getMetricScore(hovered.data, metric)
+            return (
+              <div key={metric} className="tooltip__row" style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>
+                <span>{METRIC_LABELS[metric]}: {score?.toFixed(2) ?? '—'}</span>
               </div>
-            ))}
-          </Tooltip>
-        )
-      })()}
+            )
+          })}
+        </Tooltip>
+      )}
     </div>
   )
 }

@@ -18,10 +18,11 @@
   display: block;
 }
 
-/* Legend uses unified .legend-group, .legend-separator, .legend-swatch, .legend-range from base.css */
-
-/* SVG stamp swatch — unique to this component (different from square color swatch) */
-.cross-metric-legend__swatch {
-  display: block;
-  flex-shrink: 0;
+/* Continuous gradient bar for legends */
+.cross-metric-consensus__gradient-bar {
+  display: inline-block;
+  width: 60px;
+  height: 10px;
+  border-radius: 2px;
+  border: 1px solid #d1d5db;
 }

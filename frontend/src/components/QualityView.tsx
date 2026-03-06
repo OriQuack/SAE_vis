@@ -11,6 +11,7 @@ import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit
 import ActivationExample from './ActivationExamplePanel'
 import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
+import { scoreToColor, textColorForBackground } from '../lib/color-utils'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import ConsensusSection, { ConsensusLegend, type PhraseHighlightData } from './ConsensusSection'
 import { ExplanationWithPopover } from './ExplanationPanel'
@@ -1041,8 +1042,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
-                    <h4 className="subheader">activating examples</h4>
-                    <span className="panel-header__id">#{selectedFeatureData.featureId}</span>
+                    <h4 className="subheader">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}
@@ -1052,7 +1052,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                         <span className="legend-label">Activation Strength</span>
                       </div>
                       <div className="legend-item">
-                        <span className="legend-sample legend-sample--intra">n-gram</span>:
+                        <span className="legend-sample legend-sample--intra">token</span>:
                         <span className="legend-label">Feature-Specific Pattern</span>
                       </div>
                     </div>
@@ -1105,6 +1105,12 @@ const QualityView: React.FC<QualityViewProps> = ({
                         {tableData?.explainer_ids && tableData.explainer_ids.length > 0 ? (
                           tableData.explainer_ids.map((explainerId: string) => {
                             const explanationText = selectedFeatureData?.row?.explainers?.[explainerId]?.explanation_text?.trim()
+                            const qualityScore = selectedFeatureData?.row?.explainers?.[explainerId]?.quality_score
+                            const isHighlighted = highlightPhrases?.some(p => p.explainer === explainerId)
+                            const badgeStyle: React.CSSProperties | undefined =
+                              qualityScore != null
+                                ? (() => { const bg = scoreToColor(qualityScore); return { backgroundColor: bg, color: textColorForBackground(bg) } })()
+                                : undefined
                             return (
                               <div
                                 key={explainerId}
@@ -1112,8 +1118,9 @@ const QualityView: React.FC<QualityViewProps> = ({
                               >
                                 <span
                                   className={`quality-view__explainer-name quality-view__explainer-name--${explainerId}${
-                                    highlightPhrases?.some(p => p.explainer === explainerId) ? ' quality-view__explainer-name--highlighted' : ''
+                                    isHighlighted ? ' quality-view__explainer-name--highlighted' : ''
                                   }`}
+                                  style={badgeStyle}
                                 >
                                   {getExplainerDisplayName(explainerId)}
                                 </span>

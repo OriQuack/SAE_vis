@@ -354,11 +354,13 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 disabled={isPreviewActive}
                 title={isPreviewActive ? "Close threshold preview to switch stages" : stage.description}
               >
-                <div className="stage-tab__header">
-                  <div className="stage-tab__number" data-stage-number={stage.stageOrder}>
-                    {isCompleted ? '✓' : stage.stageOrder}
+                <div className="stage-tab__info">
+                  <div className="stage-tab__header">
+                    <div className="stage-tab__number" data-stage-number={stage.stageOrder}>
+                      {isCompleted ? '✓' : stage.stageOrder}
+                    </div>
+                    <div className="stage-tab__label">{stage.label}</div>
                   </div>
-                  <div className="stage-tab__label">{stage.label}</div>
                   {stage.instruction && (
                     <span className="stage-tab__instruction">{stage.instruction}</span>
                   )}
