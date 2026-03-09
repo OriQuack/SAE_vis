@@ -188,7 +188,7 @@
 }
 
 .consensus-legend__pill--fill {
-  border-radius: 5px;
+  border-radius: 5px 0px 0px 5px;
 }
 
 .consensus-legend__pill--right {

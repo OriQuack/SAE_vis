@@ -38,7 +38,6 @@ interface ColumnHeader {
   onClick?: () => void
   isSortable?: boolean    // true = direction toggle (shows ⇅)
   isModeSwitch?: boolean  // true = mode switch (shows ⇄)
-  isPulsing?: boolean     // true = apply pulse animation (visual feedback)
 }
 
 interface HeaderStripe {
@@ -197,7 +196,7 @@ export function ScrollableItemList<T = any>({
       {/* Optional column header (sub-header with sort indicator) */}
       {columnHeader && (
         <div
-          className={`scrollable-list__column-header ${columnHeader.onClick ? 'scrollable-list__column-header--clickable' : ''} ${columnHeader.isPulsing ? 'scrollable-list__column-header--pulsing' : ''}`}
+          className={`scrollable-list__column-header ${columnHeader.onClick ? 'scrollable-list__column-header--clickable' : ''}`}
           onClick={columnHeader.onClick}
           title={columnHeader.onClick ? (columnHeader.isSortable ? 'Click to toggle sort direction' : 'Click to switch sort mode') : undefined}
         >

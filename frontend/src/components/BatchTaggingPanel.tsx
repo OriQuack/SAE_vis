@@ -68,6 +68,10 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
   // Calculate total input count for "Tag All Unsure" button
   const totalInputCount = categories.reduce((sum, cat) => sum + (cat.inputCount ?? cat.count), 0)
 
+  // Determine which button groups are present
+  const hasIterativeButtons = !!onConfirmAll || (!!onApplyThreshold && !!thresholdCounts && categories.length === 2)
+  const hasFallbackButtons = (!!onTagAllAsCategory && categories.length >= 1) || !!onTagAllUnsure
+
   return (
     <>
       {/* Swatch Legend */}
@@ -99,6 +103,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
 
       {/* Action Buttons */}
       <div className="batch-tagging__action-section">
+        {/* Iterative buttons */}
         <div className="batch-tagging__action-row">
           {/* Confirm All button (multi-class mode) */}
           {onConfirmAll && (
@@ -197,7 +202,17 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               </div>
             </button>
           )}
+        </div>
 
+        {/* Separator between iterative and fallback buttons */}
+        {hasIterativeButtons && hasFallbackButtons && (
+          <div className="batch-tagging__separator">
+            <span className="batch-tagging__separator-label">Fallback</span>
+          </div>
+        )}
+
+        {/* Fallback buttons */}
+        <div className="batch-tagging__action-row">
           {/* Tag All Unsure as Single Category button (binary mode) */}
           {onTagAllAsCategory && categories.length >= 1 && (
             <button

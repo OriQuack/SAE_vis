@@ -1,5 +1,6 @@
-import { useMemo, useCallback, type ReactNode } from 'react'
+import { useMemo, useCallback, useRef, useState, useEffect, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
+import GuidancePopover from './GuidancePopover'
 import '../styles/StageAccordionList.css'
 
 // ============================================================================
@@ -36,9 +37,8 @@ interface StageAccordionListProps<T> {
   learnDisabled?: boolean    // Disable Learn stage (before SVM trained)
   applyDisabled?: boolean    // Disable Apply stage (before SVM trained)
 
-  // Smart pulsing flags (optional - overrides default pulsing behavior)
-  shouldPulseLearn?: boolean   // Pulse Train tab when user has viewed most representatives
-  shouldPulseApply?: boolean   // Pulse Apply tab when flip rate is stable (<3% for 5 iterations)
+  // Popover flag: show popover at Uncertainty tab when all reps visited
+  showLearnPopover?: boolean
 
   // Labels for bootstrap options
   diversityLabel?: string    // e.g., "Most Critical 20" (defaults to "Representatives")
@@ -61,7 +61,6 @@ interface StageAccordionListProps<T> {
     sortDirection?: 'asc' | 'desc'
     onClick?: () => void
     isSortable?: boolean
-    isPulsing?: boolean
   }
   items: T[]
   renderItem: (item: T, index: number) => ReactNode
@@ -90,8 +89,7 @@ export function StageAccordionList<T>({
   hasDiversityIds = false,
   learnDisabled = false,
   applyDisabled = false,
-  shouldPulseLearn,
-  shouldPulseApply,
+  showLearnPopover,
   diversityLabel = 'Most Critical 20',
   byScoreLabel = 'Score',
   hideTagged,
@@ -117,6 +115,17 @@ export function StageAccordionList<T>({
   // Consume unused props for backward compatibility
   void _bootstrapDirection
   void _onBootstrapDirectionChange
+
+  // Ref for the Uncertainty tab (popover anchor)
+  const learnTabRef = useRef<HTMLButtonElement>(null)
+
+  // Popover dismissal state — reset when condition goes away so it can reappear
+  const [learnPopoverDismissed, setLearnPopoverDismissed] = useState(false)
+  useEffect(() => {
+    if (!showLearnPopover) setLearnPopoverDismissed(false)
+  }, [showLearnPopover])
+
+  const showPopover = showLearnPopover && activeStage === 'bootstrap' && !learnDisabled && !learnPopoverDismissed
 
   // Handle stage tab click
   const handleStageClick = useCallback((stage: ActiveStage) => {
@@ -183,7 +192,8 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Prototype</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseLearn && activeStage === 'bootstrap' && !learnDisabled ? 'stage-selector__tab--pulsing' : ''}`}
+          ref={learnTabRef}
+          className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
           title={learnDisabled ? 'Label 3+ items per category to enable' : undefined}
@@ -192,7 +202,7 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Uncertainty</span>
         </button>
         <button
-          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''} ${shouldPulseApply && activeStage === 'learn' ? 'stage-selector__tab--pulsing' : ''}`}
+          className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
           title={applyDisabled ? 'Label 3+ items per category to enable' : undefined}
@@ -201,6 +211,15 @@ export function StageAccordionList<T>({
           <span className="stage-selector__label">Disagreement</span>
         </button>
       </div>
+
+      {/* Guidance popover anchored to Uncertainty tab */}
+      {showPopover && (
+        <GuidancePopover
+          anchorRef={learnTabRef}
+          message="All representatives reviewed. Switch to Uncertainty to review predictions."
+          onDismiss={() => setLearnPopoverDismissed(true)}
+        />
+      )}
 
       {/* Row 2: Sort option toggle (phase-dependent) */}
       <div className="stage-selector__options">

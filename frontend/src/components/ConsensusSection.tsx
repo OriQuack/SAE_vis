@@ -53,11 +53,13 @@ export const ConsensusLegend: React.FC = React.memo(() => (
     <div className="consensus-legend__side">
       <span className="consensus-legend__pill consensus-legend__pill--fill" style={{ background: TEAL_GRADIENT }} />
       <span className="legend-label">: Explainer Consensus</span>
+      <span className="legend-hint">(higher = more agreement)</span>
     </div>
     <div className="legend-separator" />
     <div className="consensus-legend__side">
       <span className="consensus-legend__pill consensus-legend__pill--right" style={{ background: METRIC_GRADIENT }} />
       <span className="legend-label">: Metric Score</span>
+      <span className="legend-hint">(higher = better)</span>
     </div>
   </div>
 ))

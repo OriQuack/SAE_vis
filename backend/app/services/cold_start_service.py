@@ -175,7 +175,7 @@ class ColdStartService:
         num_suggestions = request.num_suggestions
 
         # Get all cluster pairs using existing service
-        cluster_result = await self.cluster_service.get_all_cluster_pairs(
+        cluster_result = await self.cluster_service.get_filtered_cluster_pairs(
             feature_ids=feature_ids,
             threshold=threshold
         )

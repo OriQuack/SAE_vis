@@ -136,7 +136,7 @@ body {
 /* View Description - Instruction text (inline, flows after title) */
 .view-description {
   font-size: 14px;
-  font-weight: 400;
+  font-weight: 500;
   color: #000000;
   margin: 0;
 }
@@ -586,7 +586,7 @@ Matches .nav__button style: white background, 11px font
 .legend-label {
   font-size: 12px;
   font-weight: 500;
-  color: #6b7280;
+  color: #000000;
   white-space: nowrap;
 }
 
@@ -651,6 +651,14 @@ Matches .nav__button style: white background, 11px font
   height: 10px;
   border-radius: 1px;
   border: 1px solid #ccc;
+}
+
+/* Hint text for scale directionality (e.g. "higher = better") */
+.legend-hint {
+  font-size: 10px;
+  font-style: italic;
+  color: #6b7280;
+  white-space: nowrap;
 }
 
 /* Monospace range label (1px smaller than legend-label for compact fit) */

@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react'
+import { useMemo, useCallback, useState } from 'react'
 
 // ============================================================================
 // SORTABLE LIST HOOK - Reusable sorting logic for scrollable lists
@@ -40,7 +40,6 @@ export interface SortableListResult<T> {
     label: string
     sortDirection?: 'asc' | 'desc'  // undefined for diversity mode (no direction indicator)
     onClick: () => void
-    isPulsing?: boolean
   }
   getDisplayScore: (item: T) => number | undefined
   isTemplateSort: boolean  // true if current sort matches the template
@@ -68,15 +67,8 @@ export function useSortableList<T, K>({
   // Initialize to initialDirection if provided, otherwise use templateDirection
   const [sortDirection, setSortDirectionInternal] = useState<'asc' | 'desc'>(initialDirection ?? templateDirection)
 
-  const [isPulsing, setIsPulsing] = useState(false)
-
-  // Wrapped setSortMode that triggers pulse animation when switching to decisionMargin
   const setSortMode = useCallback((mode: SortMode) => {
     setSortModeInternal(mode)
-    if (mode === 'decisionMargin') {
-      setIsPulsing(true)
-      setTimeout(() => setIsPulsing(false), 2400)
-    }
   }, [])
 
   // setSortDirection wrapper
@@ -135,8 +127,7 @@ export function useSortableList<T, K>({
     sortDirection: sortMode === 'diversity' ? undefined : sortDirection,  // No direction for diversity mode
     onClick: toggleSortDirection,
     isSortable: sortMode !== 'diversity',  // Diversity mode doesn't support direction toggle
-    isPulsing
-  }), [sortMode, defaultLabel, sortDirection, toggleSortDirection, isPulsing])
+  }), [sortMode, defaultLabel, sortDirection, toggleSortDirection])
 
   const getDisplayScore = useCallback((item: T): number | undefined => {
     if (sortMode === 'diversity') {

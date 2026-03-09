@@ -75,8 +75,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   const stage1DiversitySignature = useVisualizationStore(state => state.stage1DiversitySignature)
   const setStage1DiversityCache = useVisualizationStore(state => state.setStage1DiversityCache)
 
-  // Track visited representative pairs for smart pulsing
-  const [visitedRepIds, setVisitedRepIds] = useState<Set<string>>(new Set())
 
   // Store getter for counts calculation
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
@@ -168,7 +166,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           histogramData: currentTagState.histogramData,
           selectThreshold: currentTagState.selectThreshold,
           rejectThreshold: currentTagState.rejectThreshold,
-          flipTracking: currentTagState.flipTracking ?? null
+          flipTracking: currentTagState.flipTracking ?? null,
+          committeeVotes: currentTagState.committeeVotes
         }
       : (isRevisiting ? existingCommit?.histogramState : undefined)
 
@@ -187,7 +186,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       featureIds: data.featureIds,
       counts: data.counts,
       histogramState,
-      clusterPairsState
+      clusterPairsState,
+      workflowActiveStage: existingCommit?.workflowActiveStage
     })
   }, [setStage1FinalCommit, clusteringThreshold])
 
@@ -234,7 +234,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             histogramData: currentTagState.histogramData,
             selectThreshold: currentTagState.selectThreshold,
             rejectThreshold: currentTagState.rejectThreshold,
-            flipTracking: currentTagState.flipTracking ?? null
+            flipTracking: currentTagState.flipTracking ?? null,
+            committeeVotes: currentTagState.committeeVotes
           }
         : (isRevisiting ? existingCommit?.histogramState : undefined)
 
@@ -254,7 +255,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         featureIds: commit.featureIds || new Set(),
         counts: commit.counts || { fragmented: 0, monosemantic: 0, unsure: 0, total: 0 },
         histogramState,
-        clusterPairsState
+        clusterPairsState,
+        workflowActiveStage: existingCommit?.workflowActiveStage
       })
     },
     // Store sync - handles all store synchronization automatically
@@ -322,7 +324,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
 
       // Restore histogram state (including flipTracking for convergence indicator)
       if (stage1FinalCommit.histogramState) {
-        const { histogramData, selectThreshold, rejectThreshold, flipTracking } = stage1FinalCommit.histogramState
+        const { histogramData, selectThreshold, rejectThreshold, flipTracking, committeeVotes } = stage1FinalCommit.histogramState
         if (histogramData) {
           useVisualizationStore.setState({
             tagAutomaticState: {
@@ -336,7 +338,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               tagLabel: 'Incoherent Splitting',
               isLoading: false,
               flipTracking: flipTracking ?? null,
-              committeeVotes: null
+              committeeVotes: committeeVotes ?? null
             }
           })
         }
@@ -476,8 +478,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     initialDirection: 'asc'
   })
 
-  // Independent stage state (decoupled from sort mode)
-  const [activeStage, setActiveStage] = useState<ActiveStage>('bootstrap')
+  // Independent stage state (decoupled from sort mode) - restore from store when revisiting
+  const [activeStage, setActiveStage] = useState<ActiveStage>(() => {
+    const restored = stage1FinalCommit?.workflowActiveStage
+    return restored ?? 'bootstrap'
+  })
 
   // Derive bootstrapMode from sortMode (for StageAccordionList display)
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
@@ -724,23 +729,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [displayPairList, currentPairIndex, fetchActivationExamples])
 
-  // Track visited representative pairs for smart pulsing
-  useEffect(() => {
-    if (sortMode === 'diversity' && displayPairList.length > 0) {
-      const pair = displayPairList[currentPairIndex]
-      if (pair && diversityPairIds.has(pair.pairKey)) {
-        setVisitedRepIds(prev => {
-          if (prev.has(pair.pairKey)) return prev
-          return new Set([...prev, pair.pairKey])
-        })
-      }
-    }
-  }, [currentPairIndex, displayPairList, diversityPairIds, sortMode])
-
-  // Calculate if most reps visited (>80%)
-  const hasVisitedMostReps = useMemo(() => {
-    return diversityPairIds.size > 0 && visitedRepIds.size >= diversityPairIds.size
-  }, [diversityPairIds, visitedRepIds])
+  // Show learn popover when at last item in bootstrap list
+  const isAtLastItem = activeStage === 'bootstrap' && displayPairList.length > 0 && mainListHighlightIndex === displayPairList.length - 1
 
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
@@ -749,6 +739,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     const last5 = history.slice(-5)
     return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
+
+  // Stability popover dismissal state — reset when condition goes away
+  const [stabilityPopoverDismissed, setStabilityPopoverDismissed] = useState(false)
+  useEffect(() => {
+    if (!isFlipRateStable) setStabilityPopoverDismissed(false)
+  }, [isFlipRateStable])
 
 
   // ============================================================================
@@ -1000,8 +996,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              shouldPulseLearn={hasVisitedMostReps}
-              shouldPulseApply={isFlipRateStable}
+              showLearnPopover={isAtLastItem}
               diversityLabel={`Most Critical ${diversityPairIds.size}`}
               byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
@@ -1063,6 +1058,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
           activeStage={activeStage}
+          showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+          onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
         />
           </div>
         </div>

@@ -139,8 +139,6 @@ const CauseView: React.FC<CauseViewProps> = ({
   const stage3DiversitySignature = useVisualizationStore(state => state.stage3DiversitySignature)
   const setStage3DiversityCache = useVisualizationStore(state => state.setStage3DiversityCache)
 
-  // Track visited representative features for smart pulsing
-  const [visitedRepIds, setVisitedRepIds] = useState<Set<number>>(new Set())
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -359,8 +357,8 @@ const CauseView: React.FC<CauseViewProps> = ({
     templateDirection: 'asc'
   })
 
-  // Independent stage state (decoupled from sort mode)
-  const [activeStage, setActiveStage] = useState<ActiveStage>('bootstrap')
+  // Independent stage state (decoupled from sort mode) - restore from store when revisiting
+  const [activeStage, setActiveStage] = useState<ActiveStage>(stage3FinalCommit?.workflowActiveStage ?? 'bootstrap')
 
   // Derive bootstrapMode from sortMode (for StageAccordionList display)
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
@@ -526,23 +524,19 @@ const CauseView: React.FC<CauseViewProps> = ({
     setSortDirection: setSelectedSortDirection,
   })
 
-  // Track visited representative features for smart pulsing
-  useEffect(() => {
-    if (sortMode === 'diversity' && sortedFilteredFeatureList.length > 0) {
-      const featureId = sortedFilteredFeatureList[currentFeatureIndex]
-      if (featureId !== undefined && diversityFeatureIds.has(featureId)) {
-        setVisitedRepIds(prev => {
-          if (prev.has(featureId)) return prev
-          return new Set([...prev, featureId])
-        })
-      }
-    }
-  }, [currentFeatureIndex, sortedFilteredFeatureList, diversityFeatureIds, sortMode])
+  // Check if flip rate stable (last 5 iterations all < 3%)
+  const isFlipRateStable = useMemo(() => {
+    const history = causeFlipTracking?.flipHistory
+    if (!history || history.length < 5) return false
+    const last5 = history.slice(-5)
+    return last5.every(h => h.flipRate < 0.03)
+  }, [causeFlipTracking?.flipHistory])
 
-  // Calculate if most reps visited (>80%)
-  const hasVisitedMostReps = useMemo(() => {
-    return diversityFeatureIds.size > 0 && visitedRepIds.size >= diversityFeatureIds.size * 0.8
-  }, [diversityFeatureIds, visitedRepIds])
+  // Stability popover dismissal state — reset when condition goes away
+  const [stabilityPopoverDismissed, setStabilityPopoverDismissed] = useState(false)
+  useEffect(() => {
+    if (!isFlipRateStable) setStabilityPopoverDismissed(false)
+  }, [isFlipRateStable])
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -1319,7 +1313,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
-                  shouldPulseLearn={hasVisitedMostReps}
+                  showLearnPopover={isAtLastItem}
                   diversityLabel={`Representative ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
@@ -1510,9 +1504,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                   </>
                 ) : (
                   <div className="cause-view__placeholder">
-                    <span className="cause-view__placeholder-text">
-                      Select a feature from the list to view details
-                    </span>
+                    <span className="cause-view__placeholder-text">No features to display</span>
+                    <span className="cause-view__placeholder-hint">All listed features have been labeled</span>
                   </div>
                 )}
               </div>
@@ -1577,6 +1570,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
                 }}
+                showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+                onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
             />
           </div>
         </div>

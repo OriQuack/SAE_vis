@@ -166,8 +166,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   const stage2DiversitySignature = useVisualizationStore(state => state.stage2DiversitySignature)
   const setStage2DiversityCache = useVisualizationStore(state => state.setStage2DiversityCache)
 
-  // Track visited representative features for smart pulsing
-  const [visitedRepIds, setVisitedRepIds] = useState<Set<number>>(new Set())
 
   // Active list source is always 'all' (boundary lists removed)
   const activeListSource = 'all' as const
@@ -315,8 +313,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     initialDirection: 'asc'
   })
 
-  // Independent stage state (decoupled from sort mode)
-  const [activeStage, setActiveStage] = useState<ActiveStage>('bootstrap')
+  // Independent stage state (decoupled from sort mode) - restore from store when revisiting
+  const [activeStage, setActiveStage] = useState<ActiveStage>(stage2FinalCommit?.workflowActiveStage ?? 'bootstrap')
 
   // Derive bootstrapMode from sortMode (for StageAccordionList display)
   const bootstrapMode: BootstrapMode = sortMode === 'diversity' ? 'diversity' : 'byScore'
@@ -483,11 +481,27 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [])
 
   const setFinalCommitFromHook = useCallback((data: { states: Map<number, 'selected' | 'rejected'>; sources: Map<number, 'click' | 'threshold' | 'predicted'>; featureIds: Set<number>; counts: QualityCommitCounts }) => {
+    const state = useVisualizationStore.getState()
+    const currentTagState = state.tagAutomaticState
+    const existingCommit = state.stage2FinalCommit
+
+    const histogramState = (currentTagState && currentTagState.mode === 'feature' && currentTagState.histogramData)
+      ? {
+          histogramData: currentTagState.histogramData,
+          selectThreshold: currentTagState.selectThreshold,
+          rejectThreshold: currentTagState.rejectThreshold,
+          flipTracking: currentTagState.flipTracking ?? null,
+          committeeVotes: currentTagState.committeeVotes
+        }
+      : existingCommit?.histogramState
+
     setStage2FinalCommit({
       featureSelectionStates: new Map(data.states),
       featureSelectionSources: new Map(data.sources),
       featureIds: data.featureIds,
-      counts: data.counts
+      counts: data.counts,
+      histogramState,
+      workflowActiveStage: existingCommit?.workflowActiveStage
     })
   }, [setStage2FinalCommit])
 
@@ -522,12 +536,29 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
     },
     onCommitCreated: (commit) => {
+      // Get current state to preserve histogram
+      const state = useVisualizationStore.getState()
+      const currentTagState = state.tagAutomaticState
+      const existingCommit = state.stage2FinalCommit
+
+      const histogramState = (currentTagState && currentTagState.mode === 'feature' && currentTagState.histogramData)
+        ? {
+            histogramData: currentTagState.histogramData,
+            selectThreshold: currentTagState.selectThreshold,
+            rejectThreshold: currentTagState.rejectThreshold,
+            flipTracking: currentTagState.flipTracking ?? null,
+            committeeVotes: currentTagState.committeeVotes
+          }
+        : existingCommit?.histogramState
+
       // Save to global store for Stage 2 revisit
       setStage2FinalCommit({
         featureSelectionStates: new Map(commit.states),
         featureSelectionSources: new Map(commit.sources),
         featureIds: commit.featureIds || new Set(),
-        counts: commit.counts || { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 }
+        counts: commit.counts || { wellExplained: 0, needRevision: 0, unsure: 0, total: 0 },
+        histogramState,
+        workflowActiveStage: existingCommit?.workflowActiveStage
       })
     },
     // Store sync - handles all store synchronization automatically
@@ -577,24 +608,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [featureList, featureSelectionStates, featureSelectionSources, lastSortedSelectionSignature, sortBySimilarity])
 
 
-  // Track visited representative features for smart pulsing
-  useEffect(() => {
-    if (sortMode === 'diversity' && displayFeatures.length > 0) {
-      const feature = displayFeatures[currentFeatureIndex]
-      if (feature && diversityFeatureIds.has(feature.featureId)) {
-        setVisitedRepIds(prev => {
-          if (prev.has(feature.featureId)) return prev
-          return new Set([...prev, feature.featureId])
-        })
-      }
-    }
-  }, [currentFeatureIndex, displayFeatures, diversityFeatureIds, sortMode])
-
-  // Calculate if most reps visited (>80%)
-  const hasVisitedMostReps = useMemo(() => {
-    return diversityFeatureIds.size > 0 && visitedRepIds.size >= diversityFeatureIds.size * 0.8
-  }, [diversityFeatureIds, visitedRepIds])
-
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
     const history = tagAutomaticState?.flipTracking?.flipHistory
@@ -602,6 +615,12 @@ const QualityView: React.FC<QualityViewProps> = ({
     const last5 = history.slice(-5)
     return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
+
+  // Stability popover dismissal state — reset when condition goes away
+  const [stabilityPopoverDismissed, setStabilityPopoverDismissed] = useState(false)
+  useEffect(() => {
+    if (!isFlipRateStable) setStabilityPopoverDismissed(false)
+  }, [isFlipRateStable])
 
 
   // ============================================================================
@@ -689,6 +708,9 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSortDirection('asc')
     }
   }, [selectedFeatureId, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
+
+  // Show learn popover when at last item in bootstrap list
+  const isAtLastItem = activeStage === 'bootstrap' && displayFeatures.length > 0 && mainListHighlightIndex === displayFeatures.length - 1
 
   // Get the currently selected feature's data
   const selectedFeatureData = useMemo(() => {
@@ -1040,8 +1062,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               hasDiversityIds={diversityFeatureIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              shouldPulseLearn={hasVisitedMostReps}
-              shouldPulseApply={isFlipRateStable}
+              showLearnPopover={isAtLastItem}
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
               byScoreLabel="Avg. Metric Score"
               hideTagged={hideTagged}
@@ -1246,7 +1267,10 @@ const QualityView: React.FC<QualityViewProps> = ({
                   </div>
                 </>
               ) : (
-                <span className="quality-view__placeholder-text">Select a feature to view details</span>
+                <div className="quality-view__placeholder-text">
+                  <span>No features to display</span>
+                  <span className="quality-view__placeholder-hint">All listed features have been labeled</span>
+                </div>
               )}
             </div>
           </div>
@@ -1264,6 +1288,8 @@ const QualityView: React.FC<QualityViewProps> = ({
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}
             activeStage={activeStage}
+            showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+            onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
           />
           </div>
         </div>

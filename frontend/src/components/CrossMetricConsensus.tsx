@@ -50,6 +50,7 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
         style={{ background: METRIC_GRADIENT }}
       />
       <span className="legend-range">1</span>
+      <span className="legend-hint">(higher = better)</span>
     </div>
   </div>
 ))

@@ -403,7 +403,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         ) : (
           <div className="pair-viewer__empty-state">
             <span>No pairs to display</span>
-            <span className="pair-viewer__empty-hint">All pairs in the current list have been labeled</span>
+            <span className="pair-viewer__empty-hint">All listed pairs have been labeled</span>
           </div>
         )}
       </div>

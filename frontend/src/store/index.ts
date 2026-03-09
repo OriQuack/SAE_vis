@@ -44,12 +44,14 @@ export interface Stage1FinalCommit {
   pairSelectionSources: Map<string, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 1 feature IDs for pair fetching
   counts?: CommitCounts    // Optional: Counts at commit time for hover preview
+  workflowActiveStage?: 'bootstrap' | 'learn' | 'apply'
   // Histogram state preservation for stage revisiting
   histogramState?: {
     histogramData: SimilarityScoreHistogramResponse | null
     selectThreshold: number
     rejectThreshold: number
     flipTracking: FlipTrackingInfo | null
+    committeeVotes: Map<string, CommitteeVoteInfo> | null
   }
   // Cluster pairs state for stage revisiting
   clusterPairsState?: {
@@ -73,12 +75,14 @@ export interface Stage2FinalCommit {
   featureSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 2 feature IDs
   counts?: QualityCommitCounts
+  workflowActiveStage?: 'bootstrap' | 'learn' | 'apply'
   // Histogram state preservation for stage revisiting
   histogramState?: {
     histogramData: SimilarityScoreHistogramResponse | null
     selectThreshold: number
     rejectThreshold: number
     flipTracking: FlipTrackingInfo | null
+    committeeVotes: Map<string, CommitteeVoteInfo> | null
   }
 }
 
@@ -101,6 +105,7 @@ export interface Stage3FinalCommit {
   causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   featureIds: Set<number>  // Original Stage 3 feature IDs
   counts?: CauseCommitCounts
+  workflowActiveStage?: 'bootstrap' | 'learn' | 'apply'
 }
 
 interface AppState {

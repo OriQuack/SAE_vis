@@ -45,6 +45,7 @@ interface SelectionStateBarProps {
   className?: string
   onCategoryRefsReady?: (refs: Map<SelectionCategory, HTMLDivElement>) => void  // Callback for exposing refs
   pairCount?: number  // Optional: number of pairs (for stage1, shown as secondary info)
+  pairCategoryCounts?: CategoryCounts  // Optional: per-category pair counts (for stage1, shown inline in segment labels)
 }
 
 /**
@@ -73,7 +74,8 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   categoryColors,
   className = '',
   onCategoryRefsReady,
-  pairCount: _pairCount
+  pairCount: _pairCount,
+  pairCategoryCounts
 }) => {
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
@@ -321,7 +323,18 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             {isVertical && showLabels && (
               <div className="selection-state-bar__left-label">
                 <span className="selection-state-bar__label-name">{config.label}</span>
-                <span className="selection-state-bar__label-count">({displayCount.toLocaleString()})</span>
+                {pairCategoryCounts ? (
+                  <>
+                    <span className="selection-state-bar__label-count">
+                      {displayCount.toLocaleString()} features
+                    </span>
+                    <span className="selection-state-bar__label-count">
+                      {getCategoryValue(category, pairCategoryCounts).toLocaleString()} pairs
+                    </span>
+                  </>
+                ) : (
+                  <span className="selection-state-bar__label-count">({displayCount.toLocaleString()})</span>
+                )}
               </div>
             )}
             {/* Inline label for horizontal orientation */}
@@ -603,6 +616,9 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             </Tooltip.Row>
             <Tooltip.Summary showSeparator={false}>
               {formatCount(count)} features ({percentage.toFixed(1)}%)
+              {pairCategoryCounts && (
+                <> · {formatCount(getCategoryValue(hoveredCategory, pairCategoryCounts))} pairs</>
+              )}
               {previewChange !== 0 && (
                 <span className="selection-state-bar__tooltip-preview">
                   {' '}→ {formatCount(count + previewChange)}

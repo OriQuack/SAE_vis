@@ -114,19 +114,6 @@
   color: var(--selection-blue);
 }
 
-/* Pulse animation for auto-switch feedback */
-.scrollable-list__column-header--pulsing {
-  animation: column-header-pulse 0.8s ease-in-out 3;
-}
-
-@keyframes column-header-pulse {
-  0%, 100% {
-    background-color: transparent;
-  }
-  50% {
-    background-color: var(--selection-blue-light); /* Same as .scrollable-list-item--highlighted */
-  }
-}
 
 /* ============================================================================
  * SCROLLABLE CONTAINER

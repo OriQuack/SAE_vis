@@ -418,37 +418,50 @@ export const createCommonActions = (set: any, get: any) => ({
     const prevCategory = currentState.activeStageCategory
 
     // Save tagAutomaticState to the stage we're leaving
-    if (prevCategory === TAG_CATEGORY_FEATURE_SPLITTING && currentState.tagAutomaticState) {
-      const currentFinalCommit = currentState.stage1FinalCommit || {} as any
-      set({
-        stage1FinalCommit: {
-          ...currentFinalCommit,
-          histogramState: {
-            histogramData: currentState.tagAutomaticState.histogramData,
-            selectThreshold: currentState.tagAutomaticState.selectThreshold,
-            rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
-            flipTracking: currentState.tagAutomaticState.flipTracking
+    // Skip save when prevCategory === categoryId (we're re-activating the same stage, not leaving it)
+    if (prevCategory && prevCategory !== categoryId) {
+      if (prevCategory === TAG_CATEGORY_FEATURE_SPLITTING && currentState.tagAutomaticState) {
+        const currentFinalCommit = currentState.stage1FinalCommit || {} as any
+        set({
+          stage1FinalCommit: {
+            ...currentFinalCommit,
+            workflowActiveStage: currentState.workflowActiveStage,
+            histogramState: {
+              histogramData: currentState.tagAutomaticState.histogramData,
+              selectThreshold: currentState.tagAutomaticState.selectThreshold,
+              rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
+              flipTracking: currentState.tagAutomaticState.flipTracking,
+              committeeVotes: currentState.tagAutomaticState.committeeVotes
+            }
           }
-        }
-      })
-    } else if (prevCategory === TAG_CATEGORY_QUALITY && currentState.tagAutomaticState) {
-      const currentFinalCommit = currentState.stage2FinalCommit || {} as any
-      set({
-        stage2FinalCommit: {
-          ...currentFinalCommit,
-          histogramState: {
-            histogramData: currentState.tagAutomaticState.histogramData,
-            selectThreshold: currentState.tagAutomaticState.selectThreshold,
-            rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
-            flipTracking: currentState.tagAutomaticState.flipTracking
+        })
+      } else if (prevCategory === TAG_CATEGORY_QUALITY && currentState.tagAutomaticState) {
+        const currentFinalCommit = currentState.stage2FinalCommit || {} as any
+        set({
+          stage2FinalCommit: {
+            ...currentFinalCommit,
+            workflowActiveStage: currentState.workflowActiveStage,
+            histogramState: {
+              histogramData: currentState.tagAutomaticState.histogramData,
+              selectThreshold: currentState.tagAutomaticState.selectThreshold,
+              rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
+              flipTracking: currentState.tagAutomaticState.flipTracking,
+              committeeVotes: currentState.tagAutomaticState.committeeVotes
+            }
           }
-        }
-      })
+        })
+      } else if (prevCategory === TAG_CATEGORY_CAUSE && currentState.stage3FinalCommit) {
+        set({
+          stage3FinalCommit: {
+            ...currentState.stage3FinalCommit,
+            workflowActiveStage: currentState.workflowActiveStage
+          }
+        })
+      }
     }
 
     // Re-read state after save to get updated final commits
     const updatedState = get()
-
     // Restore tagAutomaticState if revisiting a stage that has saved state
     let restoredTagAutomaticState = null
     if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING && updatedState.stage1FinalCommit?.histogramState) {
@@ -463,7 +476,8 @@ export const createCommonActions = (set: any, get: any) => ({
         rejectThreshold: hs.rejectThreshold,
         tagLabel: 'Incoherent Splitting',
         isLoading: false,
-        flipTracking: hs.flipTracking
+        flipTracking: hs.flipTracking,
+        committeeVotes: hs.committeeVotes
       }
     } else if (categoryId === TAG_CATEGORY_QUALITY && updatedState.stage2FinalCommit?.histogramState) {
       const hs = updatedState.stage2FinalCommit.histogramState
@@ -477,7 +491,8 @@ export const createCommonActions = (set: any, get: any) => ({
         rejectThreshold: hs.rejectThreshold,
         tagLabel: 'Well-Explained',
         isLoading: false,
-        flipTracking: hs.flipTracking
+        flipTracking: hs.flipTracking,
+        committeeVotes: hs.committeeVotes
       }
     }
 

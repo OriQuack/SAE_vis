@@ -106,11 +106,19 @@
 }
 
 .quality-view__placeholder-text {
-  color: #9ca3af;
-  font-size: 11px;
-  font-style: italic;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: #4b5563;
+  font-size: 15px;
   text-align: center;
   margin: auto;
+}
+
+.quality-view__placeholder-hint {
+  font-size: 15px;
+  color: #4b5563;
 }
 
 /* ============================================================================

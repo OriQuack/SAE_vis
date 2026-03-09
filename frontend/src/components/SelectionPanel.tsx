@@ -528,6 +528,23 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     return count
   }, [stage, filteredFeatureIds, allClusterPairs, tagAutomaticState?.histogramData?.scores])
 
+  // Calculate per-category pair counts for Stage 1 (shown inline in SelectionBar segment labels)
+  const pairCategoryCounts = useMemo((): CategoryCounts | undefined => {
+    if (stage !== 'stage1' || !filteredFeatureIds) return undefined
+    let confirmed = 0, autoSelected = 0, rejected = 0, autoRejected = 0, unsure = 0
+    const pairs = allClusterPairs ?? []
+    for (const pair of pairs) {
+      if (!filteredFeatureIds.has(pair.main_id) || !filteredFeatureIds.has(pair.similar_id)) continue
+      const state = pairSelectionStates.get(pair.pair_key)
+      const source = pairSelectionSources.get(pair.pair_key)
+      if (state === 'selected') { source === 'predicted' ? autoSelected++ : confirmed++ }
+      else if (state === 'rejected') { source === 'predicted' ? autoRejected++ : rejected++ }
+      else { unsure++ }
+    }
+    const total = confirmed + autoSelected + rejected + autoRejected + unsure
+    return { confirmed, autoSelected, rejected, autoRejected, unsure, total }
+  }, [stage, filteredFeatureIds, allClusterPairs, pairSelectionStates, pairSelectionSources])
+
   // Don't render if no table data loaded yet
   if (!tableData) {
     return null
@@ -565,6 +582,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
             stage={stage}
             onCategoryRefsReady={onCategoryRefsReady}
             pairCount={pairCount}
+            pairCategoryCounts={pairCategoryCounts}
           />
 
           {/* Commit History Circles - Skip Commit 0 (hidden baseline), start from Commit 1 */}

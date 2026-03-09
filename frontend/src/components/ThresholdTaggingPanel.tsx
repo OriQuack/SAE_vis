@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FlipTrackingInfo } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
@@ -6,6 +6,7 @@ import CauseMarginHistogram from './CauseMarginHistogram'
 import CauseRadViz from './CauseRadViz'
 import ConvergenceIndicator from './ConvergenceIndicator'
 import BatchTaggingPanel from './BatchTaggingPanel'
+import GuidancePopover from './GuidancePopover'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
@@ -77,6 +78,10 @@ export interface ThresholdTaggingPanelProps {
 
   // Cause mode specific props (only when mode='cause')
   causeProps?: CauseModeProps
+
+  // Stability popover (shown when flip rate is stable)
+  showStabilityPopover?: boolean
+  onDismissStabilityPopover?: () => void
 }
 
 const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
@@ -90,7 +95,11 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   activeStage,
   // Cause mode props
   causeProps,
+  // Stability popover
+  showStabilityPopover,
+  onDismissStabilityPopover,
 }) => {
+  const stabilityHeaderRef = useRef<HTMLHeadingElement>(null)
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
@@ -107,10 +116,10 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     ? (histogramProps.availablePairs?.length || 0)
     : (histogramProps.filteredFeatureIds?.size || 0)
 
-  // Count already tagged items for remaining count calculation
+  // Count already tagged items WITHIN the current selection (not global store size)
   const taggedCount = mode === 'pair'
-    ? pairSelectionStates.size
-    : featureSelectionStates.size
+    ? (histogramProps.availablePairs?.filter(p => pairSelectionStates.has(p.pairKey)).length ?? 0)
+    : (() => { let c = 0; histogramProps.filteredFeatureIds?.forEach(id => { if (featureSelectionStates.has(id)) c++ }); return c })()
   const remainingCount = Math.max(0, totalItems - taggedCount)
 
   // Count how many remaining items will be tagged left vs right by 0.0 decision boundary
@@ -220,7 +229,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         <div className="threshold-tagging-panel__indicator-section">
           {mode === 'cause' && causeProps ? (
             <>
-              <h4 className="subheader subheader--with-value">
+              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value">
                 Stability Chart
                 {causeProps.flipTracking?.flipHistory?.length ? (
                   <>
@@ -238,7 +247,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             </>
           ) : (
             <>
-              <h4 className="subheader subheader--with-value">
+              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value">
                 Stability Chart
                 {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
                   <>
@@ -256,6 +265,15 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             </>
           )}
         </div>
+
+        {/* Stability popover anchored to Stability Chart header */}
+        {showStabilityPopover && onDismissStabilityPopover && (
+          <GuidancePopover
+            anchorRef={stabilityHeaderRef}
+            message="Predictions have stabilized. Consider applying labels to remaining items."
+            onDismiss={onDismissStabilityPopover}
+          />
+        )}
 
         {/* Batch tagging area */}
         <div className="threshold-tagging-panel__batch-section">

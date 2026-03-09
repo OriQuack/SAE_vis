@@ -79,6 +79,39 @@
   grid-column: 1 / -1;
 }
 
+/* Hide empty action rows (no visible buttons) */
+.batch-tagging__action-row:empty {
+  display: none;
+}
+
+/* ============================================================================
+ * SEPARATOR - Divider between iterative and fallback button groups
+ * ============================================================================ */
+
+.batch-tagging__separator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+  flex-shrink: 0;
+}
+
+.batch-tagging__separator::before,
+.batch-tagging__separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background-color: #d1d5db;
+}
+
+.batch-tagging__separator-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 /* ============================================================================
  * BUTTON - Unified button with content and legend inside
  * ============================================================================ */
@@ -87,8 +120,8 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  min-height: 60px;
-  padding: 6px 10px;
+  min-height: 50px;
+  padding: 2px 6px;
   background: #ffffff;
   outline: 1px solid #d1d5db;
   outline-offset: 1px;
