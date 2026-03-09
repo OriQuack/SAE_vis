@@ -121,9 +121,9 @@ function calculateBadgePosition(
 
     return {
       x: badgeX - padding * 3,
-      y: badgeY - padding * 4,
+      y: badgeY - padding * 4 + 3,
       textX: badgeX + badgeWidth / 2 - padding * 3,
-      textY: badgeY + badgeHeight / 2 - padding * 4
+      textY: badgeY + badgeHeight / 2 - padding * 4 + 3
     }
   } else {
     // For upright nodes, badge at top-right corner
@@ -201,35 +201,35 @@ export function calculateFlowLayout(
   // Badges are calculated and attached after initial node definition
   const nodeDefinitions: Array<Omit<FlowNode, 'badge'>> = [
     // Feature (starting point) - reduced from 70x30 to 60x24
-    { id: 'feature', label: 'Feature', x: 10, y: 20, width: 60, height: 24, nodeType: 'text' },
+    { id: 'feature', label: 'Feature', x: 2, y: 25, width: 60, height: 24, nodeType: 'text' },
 
     // Explanation label (rotated, between explainer and outputs)
-    { id: 'explanation-label', label: 'Explanation', x: 135, y: 110, width: 67, height: 14, nodeType: 'text' },
+    { id: 'explanation-label', label: 'Explanation', x: 135, y: 115, width: 74, height: 14, nodeType: 'text' },
 
     // Top path: Decoder (text node now) - reduced from 80x30 to 68x24
     { id: 'decoder', label: 'Decoder', x: 150, y: 10, width: 68, height: 24, nodeType: 'text' },
     { id: 'decoder-similarity', label: 'Decoder Similarity', x: 385, y: 10, width: 114, height: 18, nodeType: 'text' },
 
     // Embedder branch (text node now) - reduced from 90x30 to 76x24
-    { id: 'embedder', label: 'Embedder', x: 240, y: 45, width: 76, height: 24, nodeType: 'text' },
+    { id: 'embedder', label: 'Embedder', x: 240, y: 50, width: 76, height: 24, nodeType: 'text' },
 
     // Embedding label (rotated, between embedder and embedding outputs)
-    { id: 'embedding-label', label: 'Embedding', x: 310, y: 60, width: 63, height: 14, nodeType: 'text' },
+    { id: 'embedding-label', label: 'Embedding', x: 310, y: 65, width: 70, height: 14, nodeType: 'text' },
 
-    { id: 'semantic-similarity', label: 'Semantic Similarity', x: 385, y: 45, width: 114, height: 18, nodeType: 'text' },
-    { id: 'embedding-score', label: 'Embedding Score', x: 385, y: 80, width: 114, height: 18, nodeType: 'text' },
+    { id: 'consensus-score', label: 'Consensus Score', x: 385, y: 50, width: 114, height: 18, nodeType: 'text' },
+    { id: 'embedding-score', label: 'Embedding Score', x: 385, y: 85, width: 114, height: 18, nodeType: 'text' },
 
     // Score label (rotated, between scorer and score outputs)
-    { id: 'score-label', label: 'Score', x: 300, y: 135, width: 45, height: 14, nodeType: 'text' },
+    { id: 'score-label', label: 'Score', x: 300, y: 140, width: 45, height: 14, nodeType: 'text' },
 
-    { id: 'fuzz-score', label: 'Fuzz Score', x: 385, y: 105, width: 114, height: 18, nodeType: 'text' },
-    { id: 'detection-score', label: 'Detection Score', x: 385, y: 130, width: 114, height: 18, nodeType: 'text' },
+    { id: 'fuzz-score', label: 'Fuzz Score', x: 385, y: 110, width: 114, height: 18, nodeType: 'text' },
+    { id: 'detection-score', label: 'Detection Score', x: 385, y: 135, width: 114, height: 18, nodeType: 'text' },
 
     // Average operation node (intermediate step showing mean calculation)
-    { id: 'average-op', label: 'μ', x: 515, y: 102, width: 28, height: 24, nodeType: 'text' },
+    { id: 'average-op', label: 'μ', x: 516, y: 101, width: 48, height: 36, nodeType: 'text' },
 
     // Quality Score (final output from average)
-    { id: 'quality-score', label: 'Avg. Metric Score', x: 385, y: 155, width: 126, height: 18, nodeType: 'text' }
+    { id: 'quality-score', label: 'Avg. Metric Score', x: 385, y: 160, width: 126, height: 18, nodeType: 'text' }
   ]
 
   // Calculate badges for nodes and create final node list
@@ -253,7 +253,7 @@ export function calculateFlowLayout(
 
   // LLM Explainer container positioning
   const explainerContainerX = 60
-  const explainerStartY = 70
+  const explainerStartY = 75
   const explainerItemsHeight = explainerOptions.length * (itemHeight + itemSpacing) - itemSpacing
   const explainerContainerHeight = headerHeight + explainerItemsHeight + containerPadding * 2
 
@@ -288,7 +288,7 @@ export function calculateFlowLayout(
 
   // LLM Scorer container positioning
   const scorerContainerX = 210
-  const scorerStartY = 120
+  const scorerStartY = 125
   const scorerItemsHeight = scorerOptions.length * (itemHeight + itemSpacing) - itemSpacing
   const scorerContainerHeight = headerHeight + scorerItemsHeight + containerPadding * 2
 
@@ -329,7 +329,7 @@ export function calculateFlowLayout(
 
     // Embedder connections
     { id: 'embedder-to-embedding', source: 'embedder', target: 'embedding-score' },
-    { id: 'embedder-to-semantic', source: 'embedder', target: 'semantic-similarity' }
+    { id: 'embedder-to-consensus', source: 'embedder', target: 'consensus-score' }
   ]
 
   // Add edges from Feature to each explainer list item

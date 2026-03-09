@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { NEUTRAL_ICON_COLORS, SELECTION_BLUE } from '../lib/constants'
+import { SELECTION_BLUE } from '../lib/constants'
 import { calculateFlowLayout, splitLabel } from '../lib/flow-utils'
 import { useVisualizationStore } from '../store/index'
 import '../styles/FlowPanel.css'
@@ -32,7 +32,7 @@ const getTextNodeFontSize = (nodeId: string) => {
     return '14'
   }
   // Medium font for final output nodes - reduced from 13 to 11
-  if (nodeId === 'decoder-similarity' || nodeId === 'semantic-similarity' || nodeId === 'embedding-score' ||
+  if (nodeId === 'decoder-similarity' || nodeId === 'consensus-score' || nodeId === 'embedding-score' ||
       nodeId === 'fuzz-score' || nodeId === 'detection-score' || nodeId === 'quality-score') {
     return '11'
   }
@@ -58,13 +58,7 @@ const getTextNodeLetterSpacing = (nodeId: string) => {
 }
 
 const getTextNodeColor = (_nodeId: string) => {
-  // Dark text for all nodes
-  return '#334155'
-}
-
-const getArrowMarker = (isSelected: boolean) => {
-  // Use blue arrow marker for edges connecting selected nodes, gray otherwise
-  return isSelected ? 'url(#arrow-blue)' : 'url(#arrow-gray)'
+  return '#000000'
 }
 
 
@@ -190,19 +184,7 @@ const FlowPanel: React.FC = () => {
               markerHeight="6"
               orient="auto"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={NEUTRAL_ICON_COLORS.ICON_FILL} opacity="1.0" />
-            </marker>
-            {/* Arrow marker - blue for edges connecting selected nodes */}
-            <marker
-              id="arrow-blue"
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerWidth="6"
-              markerHeight="6"
-              orient="auto"
-            >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill={SELECTION_BLUE.DEFAULT} opacity="1.0" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#9ca3af" />
             </marker>
           </defs>
 
@@ -227,7 +209,7 @@ const FlowPanel: React.FC = () => {
                 y={node.y + 15}
                 textAnchor="middle"
                 fontSize="12"
-                fill="#475569"
+                fill="#000000"
                 fontWeight="600"
               >
                 {node.label}
@@ -237,59 +219,17 @@ const FlowPanel: React.FC = () => {
 
           {/* Render edges (connections) */}
           {flowLayout.edges.map((edge) => {
-            // Check if source or target nodes are selected list items
-            const sourceNode = flowLayout.nodes.find(n => n.id === edge.source)
-            const targetNode = flowLayout.nodes.find(n => n.id === edge.target)
-
-            const isSourceSelected = !!(sourceNode?.nodeType === 'list-item' && sourceNode.llmId && (
-              sourceNode.llmType === 'explainer'
-                ? selectedExplainers.has(sourceNode.llmId)
-                : selectedScorers.has(sourceNode.llmId)
-            ))
-
-            const isTargetSelected = !!(targetNode?.nodeType === 'list-item' && targetNode.llmId && (
-              targetNode.llmType === 'explainer'
-                ? selectedExplainers.has(targetNode.llmId)
-                : selectedScorers.has(targetNode.llmId)
-            ))
-
-            // Always blue: Feature→Decoder→Decoder-Similarity path (always active)
-            const isAlwaysBluePath = (edge.source === 'feature' && edge.target === 'decoder') ||
-                                     (edge.source === 'decoder' && edge.target === 'decoder-similarity')
-
-            // Special case: Embedder outgoing edges are blue if any explainer is selected
-            const isEmbedderOutgoing = edge.source === 'embedder' && selectedExplainers.size > 0
-
-            // Special case: Explainer→Scorer edges only blue if explainer (source) is selected, not scorer (target)
-            const isExplainerToScorer = sourceNode?.llmType === 'explainer' && targetNode?.llmType === 'scorer'
-
-            // Special case: Scorer→Metric edges only blue if scorer is selected AND at least one explainer is selected
-            const isScorerToMetric = sourceNode?.llmType === 'scorer' &&
-              (edge.target === 'fuzz-score' || edge.target === 'detection-score')
-
-            // Edge selection logic:
-            // - Always blue path: feature→decoder→decoder-similarity
-            // - For explainer→scorer edges: only check source (explainer) selection
-            // - For scorer→metric edges: require both scorer selection AND at least one explainer selected
-            // - For other edges: check if either source OR target is selected, OR embedder outgoing
-            const isEdgeSelected = isAlwaysBluePath ||
-              (isExplainerToScorer
-                ? isSourceSelected
-                : isScorerToMetric
-                  ? (isSourceSelected && selectedExplainers.size > 0)
-                  : (isSourceSelected || isTargetSelected || isEmbedderOutgoing))
-
             return (
               <g key={edge.id}>
                 <path
                   d={edge.path}
                   fill="none"
-                  stroke={isEdgeSelected ? SELECTION_BLUE.DEFAULT : NEUTRAL_ICON_COLORS.ICON_LIGHT}
+                  stroke="#9ca3af"
                   strokeWidth="2.5"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  opacity="0.7"
-                  markerEnd={edge.noArrowhead ? undefined : getArrowMarker(isEdgeSelected)}
+                  opacity="1"
+                  markerEnd={edge.noArrowhead ? undefined : 'url(#arrow-gray)'}
                 />
                 {edge.label && edge.labelX && edge.labelY && (
                   <text
@@ -297,7 +237,7 @@ const FlowPanel: React.FC = () => {
                     y={edge.labelY}
                     textAnchor="middle"
                     fontSize="12"
-                    fill={NEUTRAL_ICON_COLORS.TEXT_SECONDARY}
+                    fill="#000000"
                     fontWeight="500"
                     fontStyle="italic"
                   >
@@ -439,7 +379,31 @@ const FlowPanel: React.FC = () => {
                         stroke="#cbd5e1"
                         strokeWidth="1.5"
                       />
-                      {splitLabel(node.label).map((line, i) => (
+                      {node.id === 'average-op' ? (
+                        <>
+                          <text
+                            x={node.x + node.width / 2}
+                            y={node.y + node.height / 2 - 2}
+                            textAnchor="middle"
+                            fontSize="14"
+                            fill={getTextNodeColor(node.id)}
+                            fontWeight="700"
+                          >
+                            μ
+                          </text>
+                          <text
+                            x={node.x + node.width / 2}
+                            y={node.y + node.height / 2 + 12}
+                            textAnchor="middle"
+                            fontSize="8"
+                            fill="#64748b"
+                            fontWeight="500"
+                          >
+                            per feature
+                          </text>
+                        </>
+                      ) : (
+                      splitLabel(node.label).map((line, i) => (
                         <text
                           key={i}
                           x={node.x + node.width / 2}
@@ -452,7 +416,7 @@ const FlowPanel: React.FC = () => {
                         >
                           {line}
                         </text>
-                      ))}
+                      )))}
                       {/* Badge for node */}
                       {node.badge && (
                         <>
