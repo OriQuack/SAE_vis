@@ -9,7 +9,7 @@ import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
-import { useTaggingNavigation, type SortMode } from '../lib/tagging-hooks'
+import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
 import { logAction } from '../lib/action-logger'
 import '../styles/FeatureSplitPairViewer.css'
 
@@ -42,6 +42,9 @@ interface FeatureSplitPairViewerProps {
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort
   onResetToFirstPair?: () => void  // Callback to reset to page 1, first pair
   hideTagged?: boolean  // Whether tagged items are hidden - disables auto-advance
+  activeStage?: ActiveStage  // Current workflow stage
+  allItemsLabeled?: boolean  // All items (unfiltered) have been labeled
+  showDisagreementOnly?: boolean  // Whether disagreement filter is active
   onClearStoredSelection?: () => void  // Clear stored selection state when hideTagged removes item
   onUndoNavigate?: (pairKey: string) => void  // Navigate to undone pair after undo
   previewSelectKeys?: Set<string>  // Pairs in select threshold region (before Apply)
@@ -61,6 +64,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   isTemplateSort: _isTemplateSort = true,
   onResetToFirstPair,
   hideTagged = false,
+  activeStage = 'bootstrap',
+  allItemsLabeled = false,
+  showDisagreementOnly = false,
   onClearStoredSelection,
   onUndoNavigate,
   previewSelectKeys,
@@ -403,7 +409,16 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
         ) : (
           <div className="pair-viewer__empty-state">
             <span>No pairs to display</span>
-            <span className="pair-viewer__empty-hint">All listed pairs have been labeled</span>
+            {(() => {
+              const hints: string[] = []
+              if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
+              if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
+              if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled pairs')
+              if (hints.length === 0) return null
+              const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
+                + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
+              return <span className="empty-state-subtext">{text}</span>
+            })()}
           </div>
         )}
       </div>

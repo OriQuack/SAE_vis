@@ -158,13 +158,20 @@
 
 .scrollable-list__empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   width: 100%;
   height: 100%;
-  color: #9ca3af;
+  gap: 4px;
+  color: #4b5563;
+  font-size: 15px;
+}
+
+.scrollable-list__empty-subtext {
   font-size: 12px;
-  font-style: italic;
+  color: #6b7280;
+  text-align: center;
 }
 
 /* ============================================================================
@@ -307,12 +314,8 @@
   min-height: 0;
 }
 
-/* Larger, more readable empty state for causeBrushed */
+/* causeBrushed empty state: add padding for wider panel */
 .scrollable-list--variant-causeBrushed .scrollable-list__empty {
-  font-size: 14px;
   padding: 16px;
   text-align: center;
-  line-height: 1.4;
-  color: #000000;
-  font-style: normal;
 }

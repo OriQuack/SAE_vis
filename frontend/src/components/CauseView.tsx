@@ -516,6 +516,10 @@ const CauseView: React.FC<CauseViewProps> = ({
       showDisagreementOnly, disagreementFeatureIds,
       causeCategoryDecisionMargins, causeMarginThreshold])
 
+  const allFeaturesLabeled = useMemo(() => {
+    return causeFeatureItems.length > 0 && causeSelectionStates.size >= causeFeatureItems.length
+  }, [causeFeatureItems.length, causeSelectionStates.size])
+
   // Main list scroll hook - scroll to item when clicked in subviews
   const { scrollTargetIndex } = useMainListScroll({
     sortedFilteredList: sortedFilteredFeatureList,
@@ -811,6 +815,9 @@ const CauseView: React.FC<CauseViewProps> = ({
       setSelectedSortDirection('asc')
     }
   }, [selectedFeatureId, sortMode, sortedFilteredFeatureList, setSortMode, setSelectedSortDirection])
+
+  // Show learn popover when all bootstrap items are labeled
+  const allRepsLabeled = activeStage === 'bootstrap' && sortedFilteredFeatureList.length > 0 && sortedFilteredFeatureList.every(f => causeSelectionStates.has(f.featureId))
 
   // Get selected feature data for right panel
   const selectedFeatureData = useMemo(() => {
@@ -1313,11 +1320,12 @@ const CauseView: React.FC<CauseViewProps> = ({
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
-                  showLearnPopover={isAtLastItem}
+                  showLearnPopover={allRepsLabeled}
                   diversityLabel={`Representative ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
                   onHideTaggedChange={(v: boolean) => { logAction('stage3', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
+                  allItemsLabeled={allFeaturesLabeled}
                   showDisagreementOnly={showDisagreementOnly}
                   onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage3', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
                   hasDisagreementData={causeCommitteeVotes !== null && causeCommitteeVotes.size > 0}
@@ -1337,7 +1345,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   sortConfig={{ getDisplayScore }}
                   currentIndex={mainListHighlightIndex}
                   isActive={activeListSource === 'all'}
-                  emptyMessage="Select a cell with features"
+                  emptyMessage={!selectedFeatureIds || selectedFeatureIds.size === 0 ? "Select a cell with features" : undefined}
                   disableAutoScroll={true}
                   scrollTargetIndex={scrollTargetIndex}
                 />
@@ -1505,7 +1513,16 @@ const CauseView: React.FC<CauseViewProps> = ({
                 ) : (
                   <div className="cause-view__placeholder">
                     <span className="cause-view__placeholder-text">No features to display</span>
-                    <span className="cause-view__placeholder-hint">All listed features have been labeled</span>
+                    {(() => {
+                      const hints: string[] = []
+                      if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
+                      if (activeStage === 'apply' && !allFeaturesLabeled) hints.push('adjust the threshold range')
+                      if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled features')
+                      if (hints.length === 0) return null
+                      const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
+                        + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
+                      return <span className="empty-state-subtext">{text}</span>
+                    })()}
                   </div>
                 )}
               </div>

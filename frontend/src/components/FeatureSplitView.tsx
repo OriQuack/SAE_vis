@@ -569,6 +569,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [pairList, hideTagged, pairSelectionStates, showDisagreementOnly, disagreementKeys,
       activeStage, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, tagAutomaticState?.selectThreshold, pairSimilarityScores])
 
+  const allPairsLabeled = useMemo(() => {
+    return pairList.length > 0 && pairSelectionStates.size >= pairList.length
+  }, [pairList, pairSelectionStates.size])
+
   // Extract pair keys from displayPairList for scroll hook
   const sortedFilteredPairKeys = useMemo(() => {
     return displayPairList.map(p => p.pairKey)
@@ -729,8 +733,8 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [displayPairList, currentPairIndex, fetchActivationExamples])
 
-  // Show learn popover when at last item in bootstrap list
-  const isAtLastItem = activeStage === 'bootstrap' && displayPairList.length > 0 && mainListHighlightIndex === displayPairList.length - 1
+  // Show learn popover when all bootstrap items are labeled
+  const allRepsLabeled = activeStage === 'bootstrap' && displayPairList.length > 0 && displayPairList.every(p => pairSelectionStates.has(p.pairKey))
 
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
@@ -996,11 +1000,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              showLearnPopover={isAtLastItem}
+              showLearnPopover={allRepsLabeled}
               diversityLabel={`Most Critical ${diversityPairIds.size}`}
               byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
               onHideTaggedChange={(v: boolean) => { logAction('stage1', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
+              allItemsLabeled={allPairsLabeled}
               showDisagreementOnly={showDisagreementOnly}
               onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage1', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
@@ -1036,6 +1041,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               setCurrentPairIndex(0)
             }}
             hideTagged={hideTagged}
+            activeStage={activeStage}
+            allItemsLabeled={allPairsLabeled}
+            showDisagreementOnly={showDisagreementOnly}
             onClearStoredSelection={() => setSelectedPairKeyState(null)}
             onUndoNavigate={(pairKey) => setSelectedPairKeyState(pairKey)}
             previewSelectKeys={previewSelectKeys}

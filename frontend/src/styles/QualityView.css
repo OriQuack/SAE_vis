@@ -116,10 +116,6 @@
   margin: auto;
 }
 
-.quality-view__placeholder-hint {
-  font-size: 15px;
-  color: #4b5563;
-}
 
 /* ============================================================================
  * HEADER - Feature ID and Legend (matches .pair-viewer__header)

@@ -90,7 +90,7 @@ export interface ScrollableItemListProps<T = any> {
   variant?: ListVariant
 
   // Custom message when list is empty (default: "None")
-  emptyMessage?: string
+  emptyMessage?: React.ReactNode
 
   // Disable auto-scrolling to center the current item when currentIndex changes
   disableAutoScroll?: boolean

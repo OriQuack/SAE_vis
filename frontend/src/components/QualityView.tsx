@@ -400,6 +400,10 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [sortedFeatures, hideTagged, featureSelectionStates, showDisagreementOnly, disagreementIds,
       activeStage, tagAutomaticState?.histogramData, tagAutomaticState?.rejectThreshold, tagAutomaticState?.selectThreshold, similarityScores])
 
+  const allFeaturesLabeled = useMemo(() => {
+    return featureList.length > 0 && featureSelectionStates.size >= featureList.length
+  }, [featureList.length, featureSelectionStates.size])
+
   // Extract feature IDs from displayFeatures for scroll hook
   const sortedFilteredFeatureIds = useMemo(() => {
     return displayFeatures.map(f => f.featureId)
@@ -709,8 +713,8 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [selectedFeatureId, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
 
-  // Show learn popover when at last item in bootstrap list
-  const isAtLastItem = activeStage === 'bootstrap' && displayFeatures.length > 0 && mainListHighlightIndex === displayFeatures.length - 1
+  // Show learn popover when all bootstrap items are labeled
+  const allRepsLabeled = activeStage === 'bootstrap' && displayFeatures.length > 0 && displayFeatures.every(f => featureSelectionStates.has(f.featureId))
 
   // Get the currently selected feature's data
   const selectedFeatureData = useMemo(() => {
@@ -1062,11 +1066,12 @@ const QualityView: React.FC<QualityViewProps> = ({
               hasDiversityIds={diversityFeatureIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              showLearnPopover={isAtLastItem}
+              showLearnPopover={allRepsLabeled}
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
               byScoreLabel="Avg. Metric Score"
               hideTagged={hideTagged}
               onHideTaggedChange={(v: boolean) => { logAction('stage2', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
+              allItemsLabeled={allFeaturesLabeled}
               showDisagreementOnly={showDisagreementOnly}
               onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage2', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
@@ -1269,7 +1274,16 @@ const QualityView: React.FC<QualityViewProps> = ({
               ) : (
                 <div className="quality-view__placeholder-text">
                   <span>No features to display</span>
-                  <span className="quality-view__placeholder-hint">All listed features have been labeled</span>
+                  {(() => {
+                    const hints: string[] = []
+                    if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
+                    if (activeStage === 'apply' && !allFeaturesLabeled) hints.push('adjust the threshold range')
+                    if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled features')
+                    if (hints.length === 0) return null
+                    const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
+                      + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
+                    return <span className="empty-state-subtext">{text}</span>
+                  })()}
                 </div>
               )}
             </div>

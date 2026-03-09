@@ -47,6 +47,7 @@ interface StageAccordionListProps<T> {
   // Hide tagged items checkbox
   hideTagged?: boolean
   onHideTaggedChange?: (value: boolean) => void
+  allItemsLabeled?: boolean  // All items (unfiltered) have been labeled
 
   // QBC disagreement filter
   showDisagreementOnly?: boolean
@@ -68,7 +69,7 @@ interface StageAccordionListProps<T> {
   highlightPredicate?: (item: T, currentItem: T | null) => boolean
   isActive?: boolean
   sortConfig?: { getDisplayScore: (item: T) => number | undefined }
-  emptyMessage?: string
+  emptyMessage?: ReactNode
   disableAutoScroll?: boolean
 
   // External scroll target index - triggers scroll from subview clicks
@@ -94,6 +95,7 @@ export function StageAccordionList<T>({
   byScoreLabel = 'Score',
   hideTagged,
   onHideTaggedChange,
+  allItemsLabeled = false,
   showDisagreementOnly,
   onShowDisagreementOnlyChange,
   hasDisagreementData = false,
@@ -107,7 +109,7 @@ export function StageAccordionList<T>({
   highlightPredicate,
   isActive = false,
   sortConfig,
-  emptyMessage = 'None',
+  emptyMessage,
   disableAutoScroll = false,
   scrollTargetIndex,
   className = ''
@@ -116,8 +118,9 @@ export function StageAccordionList<T>({
   void _bootstrapDirection
   void _onBootstrapDirectionChange
 
-  // Ref for the Uncertainty tab (popover anchor)
+  // Refs for popover anchors
   const learnTabRef = useRef<HTMLButtonElement>(null)
+  const byScoreRef = useRef<HTMLButtonElement>(null)
 
   // Popover dismissal state — reset when condition goes away so it can reappear
   const [learnPopoverDismissed, setLearnPopoverDismissed] = useState(false)
@@ -125,7 +128,8 @@ export function StageAccordionList<T>({
     if (!showLearnPopover) setLearnPopoverDismissed(false)
   }, [showLearnPopover])
 
-  const showPopover = showLearnPopover && activeStage === 'bootstrap' && !learnDisabled && !learnPopoverDismissed
+  const showLearnTabPopover = showLearnPopover && activeStage === 'bootstrap' && !learnDisabled && !learnPopoverDismissed
+  const showMetricPopover = showLearnPopover && activeStage === 'bootstrap' && learnDisabled && !learnPopoverDismissed
 
   // Handle stage tab click
   const handleStageClick = useCallback((stage: ActiveStage) => {
@@ -148,6 +152,31 @@ export function StageAccordionList<T>({
   const isTemplateSort = useMemo(() => {
     return activeStage === 'learn'
   }, [activeStage])
+
+  // Compute stage-aware empty message
+  const computedEmptyMessage = useMemo(() => {
+    if (emptyMessage) return emptyMessage
+
+    const itemLabel = variant === 'allPairs' ? 'pairs' : 'features'
+    const line1 = `No ${itemLabel} to display`
+
+    const hints: string[] = []
+    if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
+    if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
+    if (hideTagged) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
+
+    if (hints.length === 0) return line1
+
+    const joined = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
+      + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
+
+    return (
+      <>
+        <span>{line1}</span>
+        <span className="scrollable-list__empty-subtext">{joined}</span>
+      </>
+    )
+  }, [emptyMessage, variant, activeStage, hideTagged, allItemsLabeled, showDisagreementOnly])
 
   // Build list props to pass through
   // Column header is clickable ONLY in Bootstrap + byScore mode (for toggling sort direction)
@@ -174,11 +203,11 @@ export function StageAccordionList<T>({
       isActive,
       isTemplateSort,
       sortConfig,
-      emptyMessage,
+      emptyMessage: computedEmptyMessage,
       disableAutoScroll,
       scrollTargetIndex
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, emptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, computedEmptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode])
 
   return (
     <div className={`stage-selector ${className}`}>
@@ -213,10 +242,19 @@ export function StageAccordionList<T>({
       </div>
 
       {/* Guidance popover anchored to Uncertainty tab */}
-      {showPopover && (
+      {showLearnTabPopover && (
         <GuidancePopover
           anchorRef={learnTabRef}
-          message="All representatives reviewed. Switch to Uncertainty to review predictions."
+          message="All representatives reviewed. Switch to Uncertainty phase to review predictions."
+          onDismiss={() => setLearnPopoverDismissed(true)}
+        />
+      )}
+
+      {/* Guidance popover anchored to metric toggle when Learn is disabled */}
+      {showMetricPopover && (
+        <GuidancePopover
+          anchorRef={byScoreRef}
+          message="Sort by metric to find more."
           onDismiss={() => setLearnPopoverDismissed(true)}
         />
       )}
@@ -227,6 +265,7 @@ export function StageAccordionList<T>({
           {activeStage === 'bootstrap' && bootstrapOptions.map(opt => (
             <button
               key={opt.mode}
+              ref={opt.mode === 'byScore' ? byScoreRef : undefined}
               className={`stage-selector__option-btn ${opt.mode === bootstrapMode ? 'stage-selector__option-btn--active' : ''}`}
               onClick={() => {
                 if (onBootstrapOptionChange) {

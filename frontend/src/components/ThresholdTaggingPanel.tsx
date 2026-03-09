@@ -270,8 +270,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         {showStabilityPopover && onDismissStabilityPopover && (
           <GuidancePopover
             anchorRef={stabilityHeaderRef}
-            message="Predictions have stabilized. Consider applying labels to remaining items."
+            message="Predictions have stabilized. Consider moving on to Disagreement phase to finalize labels."
             onDismiss={onDismissStabilityPopover}
+            position="above"
           />
         )}
 

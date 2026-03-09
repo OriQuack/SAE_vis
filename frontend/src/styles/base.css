@@ -526,6 +526,12 @@ Matches .nav__button style: white background, 11px font
    EMPTY/UNAVAILABLE STATES - Common placeholder text styles
    ============================================================================ */
 
+.empty-state-subtext {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+}
+
 /* Explanation popover - shows full text on hover, covers the header */
 .explanation-popover {
   background: #f9fafb;

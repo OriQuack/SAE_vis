@@ -46,8 +46,8 @@ export function GuidancePopover({ anchorRef, message, onDismiss, position = 'bel
     >
       <div className="guidance-popover__arrow" />
       <div className="guidance-popover__content">
-        <span className="guidance-popover__message">{message}</span>
-        <button className="guidance-popover__dismiss" onClick={onDismiss}>×</button>
+        <button className="guidance-popover__dismiss" onClick={onDismiss} aria-label="Dismiss">✕</button>
+        <span className="guidance-popover__message"><span className="guidance-popover__icon">💡</span>{message}</span>
       </div>
     </div>
   )

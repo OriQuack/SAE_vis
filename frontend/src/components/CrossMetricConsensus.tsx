@@ -45,12 +45,23 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
     </div>
     <div className="legend-item">
       <span className="legend-range">0</span>
-      <span
-        className="cross-metric-consensus__gradient-bar"
-        style={{ background: METRIC_GRADIENT }}
-      />
+      <span className="cross-metric-consensus__gradient-bar-wrapper">
+        <span
+          className="cross-metric-consensus__gradient-bar"
+          style={{ background: METRIC_GRADIENT }}
+        />
+        <svg className="cross-metric-consensus__gradient-bar-baseline">
+          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#B22222" strokeWidth="1.5" strokeDasharray="3 2" />
+        </svg>
+      </span>
       <span className="legend-range">1</span>
       <span className="legend-hint">(higher = better)</span>
+    </div>
+    <div className="legend-item" style={{ marginLeft: 4 }}>
+      <svg width="6" height="12" style={{ verticalAlign: 'middle' }}>
+        <line x1="3" y1="0" x2="3" y2="12" stroke="#B22222" strokeWidth="1.5" strokeDasharray="3 2" />
+      </svg>
+      <span className="legend-range">Random</span>
     </div>
   </div>
 ))
@@ -132,6 +143,16 @@ const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerId
             </g>
           )
         })}
+        {/* Random baseline dotted line at 0.5 (rendered last = on top) */}
+        <line
+          x1={LEFT_PAD + 0.5 * BAR_MAX_W}
+          y1={0}
+          x2={LEFT_PAD + 0.5 * BAR_MAX_W}
+          y2={totalHeight}
+          stroke="#B22222"
+          strokeWidth={1}
+          strokeDasharray="3 2"
+        />
       </svg>
       {hovered && tooltipPos && (
         <Tooltip position={tooltipPos}>
