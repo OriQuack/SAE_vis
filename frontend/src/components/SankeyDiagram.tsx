@@ -614,7 +614,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           <span className="view-title">Overview</span>
         ) : isStage3 ? (
           <>
-            <span className="view-title">Filter</span>
+            <span className="view-title">Overview</span>
             <span className="view-description">
               All{' '}
               <span
@@ -628,7 +628,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
           </>
         ) : (
           <>
-            <span className="view-title">Filter</span>
+            <span className="view-title">Overview</span>
             <span className="view-description">
               Drag the{' '}
               <svg

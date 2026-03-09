@@ -19,6 +19,7 @@ export interface PhraseHighlightData {
   explainer: string
   start_char: number
   end_char: number
+  offsets?: { start: number; end: number }[]  // Multi-range offsets (new pipeline)
 }
 
 interface ConsensusSectionProps {
@@ -82,6 +83,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           explainer: item.explainer,
           start_char: item.start_char ?? 0,
           end_char: item.end_char ?? 0,
+          offsets: item.char_offsets,
         }])
       } else {
         const data = (item.cluster_phrases ?? []).map(p => ({
@@ -89,12 +91,14 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           explainer: p.explainer,
           start_char: p.start_char ?? 0,
           end_char: p.end_char ?? 0,
+          offsets: p.char_offsets,
         }))
         onPhraseHover(data.length > 0 ? data : [{
           text: item.phrase,
           explainer: item.explainer,
           start_char: item.start_char ?? 0,
           end_char: item.end_char ?? 0,
+          offsets: item.char_offsets,
         }])
       }
     }

@@ -128,6 +128,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Consensus data for selected feature
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
+  const consensusCacheRef = useRef<Map<number, ConsensusResponse>>(new Map())
 
   // Active list source is always 'all' (boundary lists removed)
   const activeListSource = 'all' as const
@@ -776,15 +777,25 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [selectedFeatureIdState, sortedFilteredFeatureList, currentFeatureIndex])
 
-  // Fetch consensus data when selected feature changes
+  // Fetch consensus data when selected feature changes (with client-side cache)
   useEffect(() => {
     if (selectedFeatureId === null) {
       setConsensus(null)
       return
     }
 
+    const cached = consensusCacheRef.current.get(selectedFeatureId)
+    if (cached) {
+      setConsensus(cached)
+      return
+    }
+
+    setConsensus(null)
     getFeatureConsensus(selectedFeatureId)
-      .then(setConsensus)
+      .then(data => {
+        consensusCacheRef.current.set(selectedFeatureId, data)
+        setConsensus(data)
+      })
       .catch(() => setConsensus(null))
   }, [selectedFeatureId])
 
@@ -1275,7 +1286,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
       {/* Header - Full width */}
       <div className="view-header">
-        <span className="view-title">Cause Analysis</span>
+        <span className="view-title">Failure Attribution</span>
         <span className="view-description">
           Identify root cause for features that{' '}
           <span

@@ -342,13 +342,13 @@ class ExplanationConsensusProcessor(BaseProcessor):
         # Calculate phrase weights: each explanation contributes 1.0 total
         # Each phrase gets 1/n weight where n = number of phrases from that explanation
         phrases_per_explainer: Dict[int, int] = {}
-        for text, exp_idx, phrase_idx, start_char, end_char in phrases:
+        for _, exp_idx, _, _ in phrases:
             if exp_idx not in phrases_per_explainer:
                 phrases_per_explainer[exp_idx] = 0
             phrases_per_explainer[exp_idx] += 1
 
         phrase_weights = []
-        for text, exp_idx, phrase_idx, start_char, end_char in phrases:
+        for _, exp_idx, _, _ in phrases:
             weight = 1.0 / phrases_per_explainer[exp_idx]
             phrase_weights.append(weight)
 
@@ -430,7 +430,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             else:
                 medoid_global_idx = cluster_indices[0] if len(cluster_indices) > 0 else 0
 
-            medoid_phrase_text, medoid_exp_idx, medoid_phrase_idx, medoid_start_char, medoid_end_char = phrases[medoid_global_idx]
+            medoid_phrase_text, medoid_exp_idx, _, _ = phrases[medoid_global_idx]
             medoid_explainer = explainer_names[medoid_exp_idx]
             medoid_embedding = phrase_embeddings_normalized[medoid_global_idx]
 
@@ -466,7 +466,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             # Build phrase details
             phrase_details = []
             for local_idx, global_idx in enumerate(cluster_indices):
-                phrase_text, exp_idx, phrase_idx, start_char, end_char = phrases[global_idx]
+                phrase_text, exp_idx, phrase_idx, char_offsets = phrases[global_idx]
                 phrase_embedding = phrase_embeddings_normalized[global_idx]
 
                 # Distance to medoid
@@ -493,8 +493,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
                     "distance_to_medoid": distance_to_medoid,
                     "activation_similarity": activation_sim,
                     "is_outlier": is_outlier,
-                    "start_char": start_char,
-                    "end_char": end_char,
+                    "char_offsets": [{"start": s, "end": e} for s, e in char_offsets],
                 })
 
             # Calculate cluster-level average quality score (simple average of all phrases)
@@ -562,7 +561,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             return self._create_empty_result(feature_id)
 
         # Single phrase is treated as outlier
-        phrase_text, exp_idx, phrase_idx, start_char, end_char = phrases[0]
+        phrase_text, exp_idx, _, char_offsets = phrases[0]
         phrase_weight = phrase_weights[0] if phrase_weights else 1.0
 
         activation_centroid = self._get_activation_centroid(feature_id)
@@ -605,8 +604,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
                     "distance_to_medoid": 0.0,
                     "activation_similarity": activation_sim,
                     "is_outlier": True,
-                    "start_char": start_char,
-                    "end_char": end_char,
+                    "char_offsets": [{"start": s, "end": e} for s, e in char_offsets],
                 }],
             }],
         }
@@ -669,6 +667,10 @@ class ExplanationConsensusProcessor(BaseProcessor):
     def _create_empty_dataframe(self) -> pl.DataFrame:
         """Create empty DataFrame with correct schema."""
         # Define nested schema for phrases
+        offset_struct = pl.Struct([
+            pl.Field("start", pl.UInt32),
+            pl.Field("end", pl.UInt32),
+        ])
         phrase_struct = pl.Struct([
             pl.Field("text", pl.Utf8),
             pl.Field("explainer", pl.Utf8),
@@ -677,8 +679,7 @@ class ExplanationConsensusProcessor(BaseProcessor):
             pl.Field("distance_to_medoid", pl.Float32),
             pl.Field("activation_similarity", pl.Float32),
             pl.Field("is_outlier", pl.Boolean),
-            pl.Field("start_char", pl.UInt32),
-            pl.Field("end_char", pl.UInt32),
+            pl.Field("char_offsets", pl.List(offset_struct)),
         ])
 
         cluster_struct = pl.Struct([

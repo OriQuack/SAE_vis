@@ -59,16 +59,16 @@ class ClassificationService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 12 metrics for the specified features.
+        Extract all 14 metrics for the specified features.
 
-        Uses pre-aggregated cause_metrics parquet for fast extraction.
-        Falls back to legacy extraction if cause_metrics data not available.
+        Uses pre-aggregated svm_feature_metrics parquet for fast extraction.
+        Falls back to legacy extraction if svm_feature_metrics data not available.
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 12 metrics
+            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
         """
         # Try fast path: svm_feature_metrics parquet (pre-aggregated)
         if self.data_service._svm_feature_metrics_lazy is not None:
@@ -92,7 +92,7 @@ class ClassificationService:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 12 metrics
+            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
         """
         try:
             logger.info(f"[_extract_metrics_from_svm_metrics] Extracting metrics for {len(feature_ids)} features")
@@ -127,13 +127,14 @@ class ClassificationService:
         """
         Legacy metric extraction from main dataframe + activation_display.
 
-        This is slower than barycentric extraction but serves as fallback.
+        This is slower than svm_feature_metrics extraction but serves as fallback.
+        Computes mean and std aggregations across explainers/scorers at runtime.
 
         Args:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 12 metrics
+            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
         """
         try:
             logger.info(f"[_extract_metrics_legacy] Starting extraction for {len(feature_ids)} features")
@@ -155,23 +156,37 @@ class ClassificationService:
             logger.info("[_extract_metrics_legacy] Extracting main dataframe metrics")
 
             try:
-                # Extract scores and semsim_mean
-                base_df = lf.select([
-                    "feature_id",
-                    # Score metrics
-                    pl.col("score_embedding").fill_null(0.0).alias("score_embedding"),
-                    pl.col("score_fuzz").fill_null(0.0).alias("score_fuzz"),
-                    pl.col("score_detection").fill_null(0.0).alias("score_detection"),
-                    # Explanation semantic similarity (semsim_mean)
-                    pl.col("semsim_mean").fill_null(0.0).alias("explanation_semantic_sim"),
-                    # Neuronpedia: fraction of non-zero activations (will be log-transformed later)
-                    pl.col("frac_nonzero").fill_null(0.0).alias("frac_nonzero"),
-                ]).unique(subset=["feature_id"]).collect()
+                # Aggregate scores across explainers/scorers: mean + std per feature
+                base_df = lf.group_by("feature_id").agg([
+                    # Mean metrics (across explainers × scorers)
+                    pl.col("score_embedding").fill_null(0.0).mean().alias("score_embedding"),
+                    pl.col("score_fuzz").fill_null(0.0).mean().alias("score_fuzz"),
+                    pl.col("score_detection").fill_null(0.0).mean().alias("score_detection"),
+                    pl.col("semsim_mean").fill_null(0.0).mean().alias("explanation_semantic_sim"),
+                    pl.col("frac_nonzero").fill_null(0.0).mean().alias("frac_nonzero"),
+                    # Std metrics (cross-explainer disagreement)
+                    pl.col("score_embedding").fill_null(0.0).std().alias("score_embedding_std"),
+                    pl.col("score_fuzz").fill_null(0.0).std().alias("score_fuzz_std"),
+                    pl.col("score_detection").fill_null(0.0).std().alias("score_detection_std"),
+                    pl.col("semsim_mean").fill_null(0.0).std().alias("explanation_semantic_sim_std"),
+                ]).collect()
 
                 # Compute log_frac_nonzero
                 base_df = base_df.with_columns([
                     (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
                 ])
+
+                # Load consensus_score from explanation_consensus.parquet
+                try:
+                    consensus_file = self.data_service._resolve_data_path("explanation_consensus.parquet")
+                    if consensus_file.exists():
+                        consensus_df = pl.read_parquet(
+                            consensus_file, columns=["feature_id", "consensus_score"]
+                        ).with_columns(pl.col("feature_id").cast(pl.Int64))
+                        base_df = base_df.join(consensus_df, on="feature_id", how="left")
+                        logger.info(f"[_extract_metrics_legacy] Joined consensus_score for {len(base_df)} features")
+                except Exception as consensus_err:
+                    logger.warning(f"[_extract_metrics_legacy] Could not load consensus_score: {consensus_err}")
 
                 logger.info(f"[_extract_metrics_legacy] Main dataframe metrics extracted: {len(base_df)} features")
             except Exception as agg_error:
@@ -214,7 +229,7 @@ class ClassificationService:
 
     async def _extract_activation_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract intra-feature activation metrics for new 12-metric configuration.
+        Extract intra-feature activation metrics for 14-metric configuration.
 
         Extracts:
         - intra_ngram_jaccard: max(char_ngram, word_ngram) - lexical consistency

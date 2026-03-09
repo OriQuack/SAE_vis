@@ -193,14 +193,14 @@ def _index_sets_to_phrases(index_sets: List[set], doc) -> List[str]:
     return phrases
 
 
-def _index_sets_to_phrases_with_offsets(index_sets: List[set], doc) -> List[Tuple[str, int, int]]:
-    """Convert sets of token indices into phrases with character offsets.
+def _index_sets_to_phrases_with_offsets(index_sets: List[set], doc) -> List[Tuple[str, List[Tuple[int, int]]]]:
+    """Convert sets of token indices into phrases with per-run character offsets.
 
-    For non-contiguous token spans, returns the full span (first token start
-    to last token end) so the offset is always a valid substring of the source.
+    For non-contiguous token spans, returns a list of (start, end) pairs for
+    each contiguous run, enabling precise highlighting of disjoint text.
 
     Returns:
-        List of (phrase_text, start_char, end_char) tuples
+        List of (phrase_text, [(start_char, end_char), ...]) tuples
     """
     phrases = []
     for indices in index_sets:
@@ -220,18 +220,17 @@ def _index_sets_to_phrases_with_offsets(index_sets: List[set], doc) -> List[Tupl
                 prev = idx
         runs.append((run_start, prev))
 
-        # Extract text for each run
+        # Extract text and per-run offsets
         run_texts = []
+        run_offsets = []
         for start, end in runs:
             s = doc[start].idx
             e = doc[end].idx + len(doc[end].text)
             run_texts.append(doc.text[s:e])
+            run_offsets.append((s, e))
 
         phrase_text = " ".join(run_texts)
-        # Full span offset: first token start → last token end
-        span_start = doc[sorted_idx[0]].idx
-        span_end = doc[sorted_idx[-1]].idx + len(doc[sorted_idx[-1]].text)
-        phrases.append((phrase_text, span_start, span_end))
+        phrases.append((phrase_text, run_offsets))
     return phrases
 
 
@@ -453,15 +452,15 @@ def aspect_phrases(text: str) -> List[str]:
     return result if result else [text.strip()]
 
 
-def aspect_phrases_with_offsets(text: str) -> List[Tuple[str, int, int]]:
-    """Extract aspect-oriented phrases with character offsets.
+def aspect_phrases_with_offsets(text: str) -> List[Tuple[str, List[Tuple[int, int]]]]:
+    """Extract aspect-oriented phrases with per-run character offsets.
 
-    Same logic as aspect_phrases() but returns (phrase_text, start_char, end_char).
-    For gap-recovered phrases, offsets come from token positions.
-    For merged spans, offsets span from first to last token in the set.
+    Same logic as aspect_phrases() but returns (phrase_text, [(start, end), ...]).
+    Non-contiguous token spans produce multiple offset ranges.
+    Gap-recovered phrases always have a single offset range.
 
     Returns:
-        List of (phrase_text, start_char, end_char) tuples, or [(text, 0, len(text))] as fallback
+        List of (phrase_text, [(start_char, end_char), ...]) tuples
     """
     if not text or not text.strip():
         return []
@@ -483,7 +482,7 @@ def aspect_phrases_with_offsets(text: str) -> List[Tuple[str, int, int]]:
         chunk_roots.append(chunk.root)
 
     if not chunk_spans:
-        return [(text.strip(), 0, len(text))]
+        return [(text.strip(), [(0, len(text))])]
 
     # Merge simple coordinated chunks (conj-chain merge)
     _merge_conj_chains(chunk_spans, chunk_simple, chunk_roots, doc)
@@ -506,25 +505,26 @@ def aspect_phrases_with_offsets(text: str) -> List[Tuple[str, int, int]]:
     gap_phrases_with_offsets = _recover_gaps_with_offsets(covered, doc)
     phrases_with_offsets.extend(gap_phrases_with_offsets)
 
-    # Sort by start_char position
-    phrases_with_offsets.sort(key=lambda x: x[1])
+    # Sort by first offset start position
+    phrases_with_offsets.sort(key=lambda x: x[1][0][0] if x[1] else 0)
 
     # Deduplicate by phrase text, strip, filter empties
     seen = set()
     result = []
-    for phrase_text, sc, ec in phrases_with_offsets:
+    for phrase_text, offsets in phrases_with_offsets:
         phrase_text = phrase_text.strip()
         if phrase_text and phrase_text not in seen:
             seen.add(phrase_text)
-            result.append((phrase_text, sc, ec))
+            result.append((phrase_text, offsets))
 
-    return result if result else [(text.strip(), 0, len(text))]
+    return result if result else [(text.strip(), [(0, len(text))])]
 
 
-def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
+def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, List[Tuple[int, int]]]]:
     """Recover uncovered content tokens as phrases with character offsets.
 
-    Same logic as _recover_gaps() but returns (phrase_text, start_char, end_char).
+    Same logic as _recover_gaps() but returns (phrase_text, [(start_char, end_char)]).
+    Gap recoveries are always contiguous, so offset list has a single element.
     Uses _CONTENT_POS (NOUN/PROPN/VERB/ADJ) for content word detection.
     """
 
@@ -576,7 +576,7 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, int, int]]:
         end_char = doc[indices[-1]].idx + len(doc[indices[-1]].text)
         phrase = doc.text[start_char:end_char].strip()
         if phrase:
-            recovered.append((phrase, start_char, end_char))
+            recovered.append((phrase, [(start_char, end_char)]))
 
     return recovered
 
@@ -634,25 +634,26 @@ def extract_all_phrases(
 def extract_all_phrases_with_offsets(
     explanations: List[str],
     method: str = "smart"
-) -> List[Tuple[str, int, int, int, int]]:
-    """Extract all phrases with character offsets relative to source explanation.
+) -> List[Tuple[str, int, int, List[Tuple[int, int]]]]:
+    """Extract all phrases with per-run character offsets relative to source explanation.
 
     Args:
         explanations: List of explanation texts
         method: Chunking method ("smart", "aspect", "phrase", or "sentence")
 
     Returns:
-        List of (phrase_text, exp_idx, phrase_idx, start_char, end_char) tuples
+        List of (phrase_text, exp_idx, phrase_idx, offsets_list) tuples
+        where offsets_list is [(start_char, end_char), ...] for each contiguous run
     """
     result = []
     for exp_idx, text in enumerate(explanations):
         if not text or not text.strip():
             continue
         if method == "aspect":
-            # aspect_phrases_with_offsets returns offsets directly
+            # aspect_phrases_with_offsets returns per-run offsets directly
             phrases_with_offsets = aspect_phrases_with_offsets(text)
-            for phrase_idx, (phrase_text, sc, ec) in enumerate(phrases_with_offsets):
-                result.append((phrase_text, exp_idx, phrase_idx, sc, ec))
+            for phrase_idx, (phrase_text, offsets) in enumerate(phrases_with_offsets):
+                result.append((phrase_text, exp_idx, phrase_idx, offsets))
         else:
             # For other methods, phrases are substrings — find offsets via text.index()
             phrases = chunk_text(text, method)
@@ -667,5 +668,5 @@ def extract_all_phrases_with_offsets(
                     # Fallback: couldn't find phrase as substring
                     sc = 0
                     ec = 0
-                result.append((phrase, exp_idx, phrase_idx, sc, ec))
+                result.append((phrase, exp_idx, phrase_idx, [(sc, ec)]))
     return result

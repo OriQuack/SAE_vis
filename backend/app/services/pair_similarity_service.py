@@ -810,7 +810,7 @@ class PairSimilarityService:
         for item in rejected_items:
             key_to_weight[item.key] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
 
-        # Convert to numpy for SVM - use PAIR_METRICS (3 intra-feature metrics) for pairs
+        # Convert to numpy for SVM - use PAIR_METRICS (4 intra-feature metrics) for pairs
         feature_ids = metrics_df["feature_id"].to_numpy()
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in SVM_PAIR_INTRA_METRICS
@@ -858,16 +858,16 @@ class PairSimilarityService:
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs")
 
-        # Vectorized metric extraction for all pairs (3 intra-feature metrics)
-        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 3)
-        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 3)
+        # Vectorized metric extraction for all pairs (4 intra-feature metrics)
+        main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
+        similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
 
         # Vectorized pair vector construction for intra-feature metrics
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 3)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 3)
+        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
+        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
 
-        # Concatenate: (n_pairs, 9)
-        # [A+B (3)] + [|A-B| (3)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        # Concatenate: (n_pairs, 11)
+        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
         all_pair_vectors = np.hstack([
             pair_sum,
             pair_diff,

@@ -183,7 +183,9 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   return (
     <div className="threshold-tagging-panel">
       {/* Histogram Section */}
-      <div className="threshold-tagging-panel__histogram-section">
+      <div className="threshold-tagging-panel__histogram-column">
+        <h4 className="subheader">Confidence Histogram</h4>
+        <div className="threshold-tagging-panel__histogram-section">
         {mode === 'cause' && causeProps ? (
           <CauseMarginHistogram
             featureIds={causeProps.featureIds}
@@ -209,6 +211,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             focusedItemId={histogramProps.focusedItemId}
           />
         )}
+        </div>
       </div>
 
       {/* Right section: Flip Rate (top) + Batch Tagging (bottom) */}

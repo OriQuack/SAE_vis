@@ -968,7 +968,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     <div className={`feature-split-view ${className}`}>
       {/* Header - Full width */}
       <div className="view-header">
-        <span className="view-title">Feature Splitting Detection</span>
+        <span className="view-title">Structural Soundness</span>
         <span className="view-description">
           Compare activating examples of two features and identify{' '}
           <span

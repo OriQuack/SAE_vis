@@ -18,13 +18,21 @@
  * HISTOGRAM SECTION - DecisionMarginHistogram only
  * ============================================================================ */
 
+.threshold-tagging-panel__histogram-column {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  gap: 4px;
+}
+
 .threshold-tagging-panel__histogram-section {
   display: flex;
   flex-direction: row;
   align-items: stretch;
   gap: 0;
-  flex: 1;  /* Take remaining space */
-  min-width: 0;
+  flex: 1;
+  min-height: 0;
 }
 
 /* ============================================================================

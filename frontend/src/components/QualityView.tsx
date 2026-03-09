@@ -38,12 +38,32 @@ function segmentTextByOffsets(
   const intervals: Array<[number, number]> = []
   for (const p of phraseData) {
     if (p.explainer !== explainerId) continue
+
+    // Prefer char_offsets list (multi-range, from updated pipeline)
+    if (p.offsets && p.offsets.length > 0) {
+      for (const o of p.offsets) {
+        const start = Math.max(0, o.start)
+        const end = Math.min(text.length, o.end)
+        if (start < end) intervals.push([start, end])
+      }
+      continue
+    }
+
+    // Legacy: single start_char/end_char
     if (p.start_char === 0 && p.end_char === 0) continue  // no offset data
-    // Clamp to text length
     const start = Math.max(0, p.start_char)
     const end = Math.min(text.length, p.end_char)
-    if (start < end) {
+    if (start >= end) continue
+
+    // Validate: if offset span is much wider than phrase text, it's over-spanning
+    if (end - start <= p.text.length + 5) {
       intervals.push([start, end])
+    } else {
+      // Over-spanning non-contiguous phrase: fall back to substring search
+      const idx = text.indexOf(p.text)
+      if (idx >= 0) {
+        intervals.push([idx, idx + p.text.length])
+      }
     }
   }
 
@@ -135,6 +155,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Consensus data for selected feature
   const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
+  const consensusCacheRef = useRef<Map<number, ConsensusResponse>>(new Map())
 
   // Phrases to highlight in explanation text (from consensus pill hover)
   const [highlightPhrases, setHighlightPhrases] = useState<PhraseHighlightData[] | null>(null)
@@ -632,15 +653,25 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
   }, [selectedFeatureIdState, displayFeatures, currentFeatureIndex])
 
-  // Fetch consensus data when selected feature changes
+  // Fetch consensus data when selected feature changes (with client-side cache)
   useEffect(() => {
     if (selectedFeatureId === null) {
       setConsensus(null)
       return
     }
 
+    const cached = consensusCacheRef.current.get(selectedFeatureId)
+    if (cached) {
+      setConsensus(cached)
+      return
+    }
+
+    setConsensus(null)
     getFeatureConsensus(selectedFeatureId)
-      .then(setConsensus)
+      .then(data => {
+        consensusCacheRef.current.set(selectedFeatureId, data)
+        setConsensus(data)
+      })
       .catch(() => setConsensus(null))
   }, [selectedFeatureId])
 
@@ -978,7 +1009,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     <div className={`quality-view ${className}`}>
       {/* Header - Full width */}
       <div className="view-header">
-        <span className="view-title">Quality Assessment</span>
+        <span className="view-title">Explanation Adequacy</span>
         <span className="view-description">
           Validate features for{' '}
           <span

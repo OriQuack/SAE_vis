@@ -106,6 +106,15 @@ class ConsensusService:
         # Build flattened items list
         items = []
 
+        def _extract_char_offsets(phrase: dict) -> list:
+            """Extract char_offsets list, with backward compat for old start_char/end_char."""
+            offsets = phrase.get("char_offsets")
+            if offsets is not None:
+                return [{"start": int(o["start"]), "end": int(o["end"])} for o in offsets]
+            sc = int(phrase.get("start_char", 0))
+            ec = int(phrase.get("end_char", 0))
+            return [{"start": sc, "end": ec}] if sc or ec else []
+
         for cluster in clusters_data:
             cluster_id = cluster.get("cluster_id", -1)
             is_outlier = cluster_id == -1
@@ -114,6 +123,7 @@ class ConsensusService:
                 # Outlier: add each phrase as separate item
                 phrases = cluster.get("phrases", [])
                 for phrase in phrases:
+                    offsets = _extract_char_offsets(phrase)
                     items.append({
                         "cluster_id": -1,
                         "phrase": phrase.get("text", ""),
@@ -122,8 +132,9 @@ class ConsensusService:
                         "quality_score": float(phrase.get("quality_score", 0.0)),
                         "is_outlier": True,
                         "phrase_weight": float(phrase.get("phrase_weight", 0.0)),
-                        "start_char": int(phrase.get("start_char", 0)),
-                        "end_char": int(phrase.get("end_char", 0)),
+                        "start_char": offsets[0]["start"] if offsets else 0,
+                        "end_char": offsets[0]["end"] if offsets else 0,
+                        "char_offsets": offsets,
                     })
             else:
                 # Cluster: add medoid with cluster info
@@ -137,6 +148,7 @@ class ConsensusService:
                 cluster_phrases = []
                 phrases = cluster.get("phrases", [])
                 for phrase in phrases:
+                    offsets = _extract_char_offsets(phrase)
                     cluster_phrases.append({
                         "text": phrase.get("text", ""),
                         "explainer": MODEL_NAME_MAP.get(phrase.get("explainer", ""), phrase.get("explainer", "")),
@@ -144,19 +156,19 @@ class ConsensusService:
                         "quality_score": float(phrase.get("quality_score", 0.0)),
                         "distance_to_medoid": float(phrase.get("distance_to_medoid", 0.0)),
                         "activation_similarity": float(phrase.get("activation_similarity", 0.0)),
-                        "start_char": int(phrase.get("start_char", 0)),
-                        "end_char": int(phrase.get("end_char", 0)),
+                        "start_char": offsets[0]["start"] if offsets else 0,
+                        "end_char": offsets[0]["end"] if offsets else 0,
+                        "char_offsets": offsets,
                     })
 
                 # Get cluster-level average quality score
                 cluster_avg_quality = float(cluster.get("cluster_avg_quality_score", 0.0))
 
                 # Get medoid offsets from its phrase data
-                medoid_sc, medoid_ec = 0, 0
+                medoid_offsets: list = []
                 for cp in cluster_phrases:
                     if cp["distance_to_medoid"] == 0.0 and cp["explainer"] == medoid_explainer:
-                        medoid_sc = cp["start_char"]
-                        medoid_ec = cp["end_char"]
+                        medoid_offsets = cp["char_offsets"]
                         break
 
                 items.append({
@@ -166,8 +178,9 @@ class ConsensusService:
                     "activation_similarity": medoid_activation_sim,
                     "avg_quality_score": cluster_avg_quality,
                     "is_outlier": False,
-                    "start_char": medoid_sc,
-                    "end_char": medoid_ec,
+                    "start_char": medoid_offsets[0]["start"] if medoid_offsets else 0,
+                    "end_char": medoid_offsets[0]["end"] if medoid_offsets else 0,
+                    "char_offsets": medoid_offsets,
                     "cluster_size": len(cluster_phrases),
                     "cluster_score": cluster_score,
                     "cluster_coherence": cluster_coherence,
