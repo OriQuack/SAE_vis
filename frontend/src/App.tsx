@@ -8,6 +8,7 @@ import CauseView from './components/CauseView'
 import TagCategoryPanel from './components/TagStagePanel'
 import SankeyToSelectionFlowOverlay from './components/SankeyToSelectionFlowOverlay'
 import SelectionPanel from './components/SelectionPanel'
+import { DataTooltipLayer } from './components/Tooltip'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from './lib/constants'
 import type { SelectionCategory } from './types'
 import type { TableStage } from './lib/color-utils'
@@ -275,6 +276,7 @@ function App({ className = '', layout = 'vertical', autoLoad = true }: AppProps)
           </div>
       </div>
 
+      <DataTooltipLayer />
     </div>
   )
 }

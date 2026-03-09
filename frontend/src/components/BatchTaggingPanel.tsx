@@ -114,7 +114,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onConfirmAll}
               disabled={disabled || totalTaggableCount === 0}
-              title="Confirm the previewed labels within the threshold regions."
+              data-tooltip="Confirm the previewed labels within the threshold regions."
             >
               <div className="batch-tagging__button-content">
                 <ThresholdHandleIcon
@@ -161,7 +161,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onApplyThreshold}
               disabled={disabled || (thresholdCounts.left === 0 && thresholdCounts.right === 0)}
-              title="Confirm the previewed labels within the threshold regions."
+              data-tooltip="Confirm the previewed labels within the threshold regions."
             >
               <div className="batch-tagging__button-content">
                 <ThresholdHandleIcon
@@ -222,7 +222,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={() => onTagAllAsCategory(categories[0].id)}
               disabled={disabled || unsureCount === 0}
-              title={`Label all remaining ${itemLabel} as ${categories[0].label} as a safe default.`}
+              data-tooltip={`Label all remaining ${itemLabel} as ${categories[0].label} as a safe default.`}
             >
               <div className="batch-tagging__button-content">
                 <svg className="batch-tagging__button-icon" viewBox="0 0 24 20">
@@ -269,7 +269,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onTagAllUnsure}
               disabled={disabled || (unsureCount === 0 && totalInputCount === 0)}
-              title={`Label all remaining ${itemLabel} by the current decision boundary.`}
+              data-tooltip={`Label all remaining ${itemLabel} by the current decision boundary.`}
             >
               <div className="batch-tagging__button-content">
                 {categories.length === 2 ? (

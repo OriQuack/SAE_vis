@@ -117,4 +117,65 @@ export const Tooltip: TooltipType = Object.assign(TooltipBase, {
   Row
 })
 
+// ============================================================================
+// DATA-TOOLTIP LAYER — Global event-delegated tooltip for [data-tooltip] elements
+// ============================================================================
+// Mount once in App.tsx. Uses mouseover/mousemove/mouseout on document to
+// detect hover on any [data-tooltip] element and renders a positioned Tooltip.
+// ============================================================================
+
+export const DataTooltipLayer: React.FC = () => {
+  const [state, setState] = React.useState<{ text: string; x: number; y: number } | null>(null)
+  const activeRef = React.useRef(false)
+
+  React.useEffect(() => {
+    const findTooltipTarget = (e: Event): HTMLElement | null =>
+      (e.target as HTMLElement)?.closest?.('[data-tooltip]') as HTMLElement | null
+
+    const onOver = (e: MouseEvent) => {
+      const target = findTooltipTarget(e)
+      if (target) {
+        activeRef.current = true
+        setState({ text: target.getAttribute('data-tooltip')!, x: e.clientX, y: e.clientY })
+      }
+    }
+
+    const onMove = (e: MouseEvent) => {
+      if (activeRef.current) {
+        setState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
+      }
+    }
+
+    const onOut = (e: MouseEvent) => {
+      const target = findTooltipTarget(e)
+      if (target) {
+        const related = e.relatedTarget as HTMLElement | null
+        if (!target.contains(related)) {
+          activeRef.current = false
+          setState(null)
+        }
+      }
+    }
+
+    document.addEventListener('mouseover', onOver)
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseout', onOut)
+    return () => {
+      document.removeEventListener('mouseover', onOver)
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseout', onOut)
+    }
+  }, [])
+
+  if (!state) return null
+
+  return (
+    <div className="data-tooltip-layer">
+      <Tooltip position={{ x: state.x, y: state.y }} offsetX={12} offsetY={-28}>
+        <Tooltip.Summary showSeparator={false}>{state.text}</Tooltip.Summary>
+      </Tooltip>
+    </div>
+  )
+}
+
 export default Tooltip

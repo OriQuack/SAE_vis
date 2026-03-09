@@ -80,3 +80,21 @@
 }
 
 /* Transition row - for showing category transitions with arrow */
+
+/* ============================================================================
+ * DATA-TOOLTIP — Hover tooltips for static UI elements (rendered by DataTooltipLayer)
+ * ============================================================================
+ * Usage: <button data-tooltip="Description text">Label</button>
+ * ============================================================================ */
+
+[data-tooltip] {
+  cursor: help;
+}
+
+.data-tooltip-layer .tooltip {
+  max-width: 260px;
+  min-width: unset;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}

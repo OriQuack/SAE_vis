@@ -193,7 +193,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     <div className="threshold-tagging-panel">
       {/* Histogram Section */}
       <div className="threshold-tagging-panel__histogram-column">
-        <h4 className="subheader" title={mode === 'cause' ? 'Distance to the nearest decision boundary. Higher values indicate more confident classification.' : 'Confidence of the classifier for each item. Extremes are confident; near zero is ambiguous.'}>Confidence Histogram {activeStage === 'apply' && (
+        <h4 className="subheader" data-tooltip={mode === 'cause' ? 'Distance to the nearest decision boundary. Higher values indicate more confident classification.' : 'Confidence of the classifier for each item. Extremes are confident; near zero is ambiguous.'}>Confidence Histogram {activeStage === 'apply' && (
           <span className="instruction-subheader" style={{ marginLeft: 8 }}>
             {mode === 'pair' ? 'Pairs' : 'Features'} beyond the threshold are shown in the list{mode === 'cause' ? ' and category scatter' : ''}
           </span>
@@ -237,7 +237,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         <div className="threshold-tagging-panel__indicator-section">
           {mode === 'cause' && causeProps ? (
             <>
-              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value" title="Fraction of predictions that changed between labeling iterations. A declining rate indicates convergence.">
+              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value" data-tooltip="Fraction of predictions that changed between labeling iterations. A declining rate indicates convergence.">
                 Stability Chart
                 {causeProps.flipTracking?.flipHistory?.length ? (
                   <>
@@ -255,7 +255,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             </>
           ) : (
             <>
-              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value" title="Fraction of predictions that changed between labeling iterations. A declining rate indicates convergence.">
+              <h4 ref={stabilityHeaderRef} className="subheader subheader--with-value" data-tooltip="Fraction of predictions that changed between labeling iterations. A declining rate indicates convergence.">
                 Stability Chart
                 {tagAutomaticState?.flipTracking?.flipHistory?.length ? (
                   <>
@@ -290,7 +290,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             /* Cause mode: RadViz + BatchTagging side by side */
             <div className="threshold-tagging-panel__cause-batch-row">
               <div className="threshold-tagging-panel__radviz-column">
-                <h4 className="subheader" title="Each feature positioned by relative classifier confidence toward each category.">Category Scatter</h4>
+                <h4 className="subheader" data-tooltip="Each feature positioned by relative classifier confidence toward each category.">Category Scatter</h4>
                 <CauseRadViz
                   featureIds={causeProps.stableFeatureIds}
                   selectedFeatureId={causeProps.selectedFeatureId}
@@ -299,7 +299,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 />
               </div>
               <div className="threshold-tagging-panel__batch-column">
-                <h4 className="subheader" title="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
+                <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
@@ -313,7 +313,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           ) : (
             /* Pair/Feature mode: BatchTagging only */
             <div className="threshold-tagging-panel__batch-column">
-              <h4 className="subheader" title="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
+              <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
               <BatchTaggingPanel
                 categories={[
                   {
