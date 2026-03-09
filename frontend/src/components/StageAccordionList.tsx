@@ -128,8 +128,15 @@ export function StageAccordionList<T>({
     if (!showLearnPopover) setLearnPopoverDismissed(false)
   }, [showLearnPopover])
 
+  // Separate dismiss state for SVM-ready popover (byScore mode)
+  const [svmReadyPopoverDismissed, setSvmReadyPopoverDismissed] = useState(false)
+  useEffect(() => {
+    if (learnDisabled) setSvmReadyPopoverDismissed(false)
+  }, [learnDisabled])
+
   const showLearnTabPopover = showLearnPopover && activeStage === 'bootstrap' && !learnDisabled && !learnPopoverDismissed
   const showMetricPopover = showLearnPopover && activeStage === 'bootstrap' && learnDisabled && !learnPopoverDismissed
+  const showSvmReadyPopover = activeStage === 'bootstrap' && bootstrapMode === 'byScore' && !learnDisabled && !svmReadyPopoverDismissed && !showLearnTabPopover
 
   // Handle stage tab click
   const handleStageClick = useCallback((stage: ActiveStage) => {
@@ -163,7 +170,7 @@ export function StageAccordionList<T>({
     const hints: string[] = []
     if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
     if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
-    if (hideTagged) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
+    if (hideTagged && (activeStage !== 'apply' || allItemsLabeled)) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
 
     if (hints.length === 0) return line1
 
@@ -245,7 +252,7 @@ export function StageAccordionList<T>({
       {showLearnTabPopover && (
         <GuidancePopover
           anchorRef={learnTabRef}
-          message="All representatives reviewed. Switch to Uncertainty phase to review predictions."
+          message="Predictions ready. Switch to Uncertainty phase to review them."
           onDismiss={() => setLearnPopoverDismissed(true)}
         />
       )}
@@ -256,6 +263,15 @@ export function StageAccordionList<T>({
           anchorRef={byScoreRef}
           message="Sort by metric to find more."
           onDismiss={() => setLearnPopoverDismissed(true)}
+        />
+      )}
+
+      {/* Guidance popover when SVM trained while in byScore mode */}
+      {showSvmReadyPopover && (
+        <GuidancePopover
+          anchorRef={learnTabRef}
+          message="Predictions ready. Switch to Uncertainty phase to review them."
+          onDismiss={() => setSvmReadyPopoverDismissed(true)}
         />
       )}
 

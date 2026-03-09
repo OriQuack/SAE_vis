@@ -150,6 +150,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Show only QBC disagreement items toggle
   const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
 
+  // Track reviewed items (any tag action including unsure) for popover trigger
+  const [reviewedFeatureIds, setReviewedFeatureIds] = useState<Set<number>>(() => new Set())
+
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
@@ -714,7 +717,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   }, [selectedFeatureId, sortMode, mainListHighlightIndex, setSortMode, setSortDirection])
 
   // Show learn popover when all bootstrap items are labeled
-  const allRepsLabeled = activeStage === 'bootstrap' && displayFeatures.length > 0 && displayFeatures.every(f => featureSelectionStates.has(f.featureId))
+  const lastRepReviewed = activeStage === 'bootstrap' && displayFeatures.length > 0 && reviewedFeatureIds.has(displayFeatures[displayFeatures.length - 1].featureId)
 
   // Get the currently selected feature's data
   const selectedFeatureData = useMemo(() => {
@@ -787,10 +790,16 @@ const QualityView: React.FC<QualityViewProps> = ({
     return null
   }, [selectedFeatureData, currentSelectionState, previewSelectIds, previewRejectIds])
 
+  // Mark item as reviewed (for popover trigger)
+  const markReviewed = useCallback((featureId: number) => {
+    setReviewedFeatureIds(prev => prev.has(featureId) ? prev : new Set(prev).add(featureId))
+  }, [])
+
   // Handle Well-Explained click (selected)
   const handleWellExplainedClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    markReviewed(featureId)
     const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
     logAction('stage2', 'manual_tag', { tag: 'Well-Explained', previousTag, featureId })
 
@@ -810,12 +819,13 @@ const QualityView: React.FC<QualityViewProps> = ({
       // Use centralized navigation logic
       handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction, markReviewed])
 
   // Handle Need Revision click (rejected)
   const handleNeedRevisionClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    markReviewed(featureId)
     const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
     logAction('stage2', 'manual_tag', { tag: 'Need Revision', previousTag, featureId })
 
@@ -836,12 +846,13 @@ const QualityView: React.FC<QualityViewProps> = ({
       // Use centralized navigation logic
       handlePostTagNavigation()
     }
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostTagNavigation, setLastClickTagAction, markReviewed])
 
   // Handle Unsure click (clear selection)
   const handleUnsureClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    markReviewed(featureId)
     const previousTag = currentSelectionState === 'selected' ? 'Well-Explained' : currentSelectionState === 'rejected' ? 'Need Revision' : 'Unsure'
     logAction('stage2', 'manual_tag', { tag: 'Unsure', previousTag, featureId })
 
@@ -855,7 +866,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     }
     // Use centralized navigation logic (always advances for unsure)
     handlePostUnsureNavigation()
-  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostUnsureNavigation])
+  }, [selectedFeatureData, currentSelectionState, toggleFeatureSelection, handlePostUnsureNavigation, markReviewed])
 
   // ============================================================================
   // CLICK HANDLERS
@@ -1066,7 +1077,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               hasDiversityIds={diversityFeatureIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              showLearnPopover={allRepsLabeled}
+              showLearnPopover={lastRepReviewed}
               diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
               byScoreLabel="Avg. Metric Score"
               hideTagged={hideTagged}
@@ -1076,13 +1087,19 @@ const QualityView: React.FC<QualityViewProps> = ({
               onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage2', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
-                label: showDisagreementOnly
-                  ? 'Disagreement Features'
-                  : sortMode === 'diversity'
-                    ? 'Most Critical Features'
-                    : hideTagged
-                      ? 'Unlabeled Features'
-                      : 'All Features',
+                label: activeStage === 'apply'
+                  ? (showDisagreementOnly
+                      ? 'Thresholded Disagreement Features'
+                      : hideTagged
+                        ? 'Thresholded Unlabeled Features'
+                        : 'Thresholded Features')
+                  : showDisagreementOnly
+                    ? 'Disagreement Features'
+                    : sortMode === 'diversity'
+                      ? 'Most Critical Features'
+                      : hideTagged
+                        ? 'Unlabeled Features'
+                        : 'All Features',
                 count: displayFeatures.length
               }]}
               columnHeader={columnHeaderProps}
@@ -1278,7 +1295,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     const hints: string[] = []
                     if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
                     if (activeStage === 'apply' && !allFeaturesLabeled) hints.push('adjust the threshold range')
-                    if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled features')
+                    if (hideTagged && (activeStage !== 'apply' || allFeaturesLabeled)) hints.push('uncheck "Hide Labeled" to review labeled features')
                     if (hints.length === 0) return null
                     const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
                       + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')

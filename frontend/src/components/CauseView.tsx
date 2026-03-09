@@ -118,6 +118,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [hideTagged, setHideTagged] = useState(false)
   // Show only QBC disagreement features toggle
   const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
+
+  // Track reviewed items (any tag action including unsure) for popover trigger
+  const [reviewedFeatureIds, setReviewedFeatureIds] = useState<Set<number>>(() => new Set())
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
@@ -817,7 +820,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [selectedFeatureId, sortMode, sortedFilteredFeatureList, setSortMode, setSelectedSortDirection])
 
   // Show learn popover when all bootstrap items are labeled
-  const allRepsLabeled = activeStage === 'bootstrap' && sortedFilteredFeatureList.length > 0 && sortedFilteredFeatureList.every(f => causeSelectionStates.has(f.featureId))
+  const lastRepReviewed = activeStage === 'bootstrap' && sortedFilteredFeatureList.length > 0 && reviewedFeatureIds.has(sortedFilteredFeatureList[sortedFilteredFeatureList.length - 1])
 
   // Get selected feature data for right panel
   const selectedFeatureData = useMemo(() => {
@@ -987,12 +990,18 @@ const CauseView: React.FC<CauseViewProps> = ({
     return 'Unsure'
   }
 
+  // Mark item as reviewed (for popover trigger)
+  const markReviewed = useCallback((featureId: number) => {
+    setReviewedFeatureIds(prev => prev.has(featureId) ? prev : new Set(prev).add(featureId))
+  }, [])
+
   // Handle tag button click - toggle category on/off
   // Clicking same category: if user-confirmed, clear to unsure; if predicted, confirm
   // Clicking different category: set new category as click source
   const handleTagClick = useCallback((category: CauseCategory) => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    markReviewed(featureId)
 
     logAction('stage3', 'manual_tag', { tag: causeTagLabel(category), previousTag: causeTagLabel(currentCauseCategory), featureId })
 
@@ -1015,12 +1024,13 @@ const CauseView: React.FC<CauseViewProps> = ({
     setLastClickTagAction({ stage: 'cause', featureId })
     pendingNavRef.current = 'tag'
     setDeferringNav(true)
-  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, setLastClickTagAction])
+  }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory, setLastClickTagAction, markReviewed])
 
   // Handle Unsure click - clear cause category
   const handleUnsureClick = useCallback(() => {
     if (!selectedFeatureData) return
     const featureId = selectedFeatureData.featureId
+    markReviewed(featureId)
 
     logAction('stage3', 'manual_tag', { tag: 'Unsure', previousTag: causeTagLabel(currentCauseCategory), featureId })
 
@@ -1030,7 +1040,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, null)
     pendingNavRef.current = 'unsure'
     setDeferringNav(true)
-  }, [selectedFeatureData, currentCauseCategory, setCauseCategory])
+  }, [selectedFeatureData, currentCauseCategory, setCauseCategory, markReviewed])
 
   // ============================================================================
   // SELECTED TAGGING HANDLERS
@@ -1320,7 +1330,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
-                  showLearnPopover={allRepsLabeled}
+                  showLearnPopover={lastRepReviewed}
                   diversityLabel={`Representative ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
@@ -1330,13 +1340,19 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage3', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
                   hasDisagreementData={causeCommitteeVotes !== null && causeCommitteeVotes.size > 0}
                   badges={[{
-                    label: showDisagreementOnly
-                      ? 'Disagreement Features'
-                      : sortMode === 'diversity'
-                        ? 'Representative Features'
-                        : hideTagged
-                          ? 'Unlabeled Features'
-                          : 'All Features',
+                    label: (activeStage === 'apply' || activeStage === 'learn')
+                      ? (showDisagreementOnly
+                          ? 'Thresholded Disagreement Features'
+                          : hideTagged
+                            ? 'Thresholded Unlabeled Features'
+                            : 'Thresholded Features')
+                      : showDisagreementOnly
+                        ? 'Disagreement Features'
+                        : sortMode === 'diversity'
+                          ? 'Representative Features'
+                          : hideTagged
+                            ? 'Unlabeled Features'
+                            : 'All Features',
                     count: sortedFilteredFeatureList.length
                   }]}
                   columnHeader={columnHeaderProps}
@@ -1517,7 +1533,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       const hints: string[] = []
                       if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
                       if (activeStage === 'apply' && !allFeaturesLabeled) hints.push('adjust the threshold range')
-                      if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled features')
+                      if (hideTagged && (activeStage !== 'apply' || allFeaturesLabeled)) hints.push('uncheck "Hide Labeled" to review labeled features')
                       if (hints.length === 0) return null
                       const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
                         + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')

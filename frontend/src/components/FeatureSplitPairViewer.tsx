@@ -49,6 +49,7 @@ interface FeatureSplitPairViewerProps {
   onUndoNavigate?: (pairKey: string) => void  // Navigate to undone pair after undo
   previewSelectKeys?: Set<string>  // Pairs in select threshold region (before Apply)
   previewRejectKeys?: Set<string>  // Pairs in reject threshold region (before Apply)
+  onItemReviewed?: (pairKey: string) => void  // Called when user takes any tag action (including unsure)
 }
 
 const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
@@ -70,7 +71,8 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   onClearStoredSelection,
   onUndoNavigate,
   previewSelectKeys,
-  previewRejectKeys
+  previewRejectKeys,
+  onItemReviewed
 }) => {
   // Store state
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
@@ -132,6 +134,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   // Selection handlers
   const handleFragmentedClick = () => {
     if (!currentPair) return
+    onItemReviewed?.(currentPair.pairKey)
     const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
     logAction('stage1', 'manual_tag', { tag: 'Incoherent Splitting', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
@@ -154,6 +157,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
   const handleMonosemanticClick = () => {
     if (!currentPair) return
+    onItemReviewed?.(currentPair.pairKey)
     const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
     logAction('stage1', 'manual_tag', { tag: 'Monosemantic', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
@@ -177,6 +181,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
   const handleUnsureClick = () => {
     if (!currentPair) return
+    onItemReviewed?.(currentPair.pairKey)
     const previousTag = pairSelectionState === 'selected' ? 'Incoherent Splitting' : pairSelectionState === 'rejected' ? 'Monosemantic' : 'Unsure'
     logAction('stage1', 'manual_tag', { tag: 'Unsure', previousTag, pairKey: currentPair.pairKey, mainFeatureId: currentPair.mainFeatureId, similarFeatureId: currentPair.similarFeatureId })
 
@@ -413,7 +418,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
               const hints: string[] = []
               if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
               if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
-              if (hideTagged) hints.push('uncheck "Hide Labeled" to review labeled pairs')
+              if (hideTagged && (activeStage !== 'apply' || allItemsLabeled)) hints.push('uncheck "Hide Labeled" to review labeled pairs')
               if (hints.length === 0) return null
               const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
                 + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')

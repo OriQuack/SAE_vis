@@ -205,6 +205,11 @@ export const createCommonActions = (set: any, get: any) => ({
           return segment.featureIds
         }
       }
+
+      // Fallback: non-segment nodes (e.g., 'root') have featureIds directly
+      if (segmentNode && segmentNode.featureIds) {
+        return segmentNode.featureIds
+      }
     }
 
     // No matching node found in v2 structure
@@ -420,34 +425,51 @@ export const createCommonActions = (set: any, get: any) => ({
     // Save tagAutomaticState to the stage we're leaving
     // Skip save when prevCategory === categoryId (we're re-activating the same stage, not leaving it)
     if (prevCategory && prevCategory !== categoryId) {
-      if (prevCategory === TAG_CATEGORY_FEATURE_SPLITTING && currentState.tagAutomaticState) {
+      if (prevCategory === TAG_CATEGORY_FEATURE_SPLITTING) {
         const currentFinalCommit = currentState.stage1FinalCommit || {} as any
+        // Build histogramState from tagAutomaticState if available, else preserve existing
+        const histogramState = currentState.tagAutomaticState
+          ? {
+              histogramData: currentState.tagAutomaticState.histogramData,
+              selectThreshold: currentState.tagAutomaticState.selectThreshold,
+              rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
+              flipTracking: currentState.tagAutomaticState.flipTracking,
+              committeeVotes: currentState.tagAutomaticState.committeeVotes
+            }
+          : currentFinalCommit.histogramState
+        // Build clusterPairsState from store if available, else preserve existing
+        const clusterPairsState = (currentState.allClusterPairs && currentState.clusterGroups)
+          ? {
+              allClusterPairs: currentState.allClusterPairs,
+              clusterGroups: currentState.clusterGroups,
+              clusteringThreshold: currentFinalCommit.clusterPairsState?.clusteringThreshold ?? 0.5
+            }
+          : currentFinalCommit.clusterPairsState
         set({
           stage1FinalCommit: {
             ...currentFinalCommit,
             workflowActiveStage: currentState.workflowActiveStage,
-            histogramState: {
+            histogramState,
+            clusterPairsState
+          }
+        })
+      } else if (prevCategory === TAG_CATEGORY_QUALITY) {
+        const currentFinalCommit = currentState.stage2FinalCommit || {} as any
+        // Build histogramState from tagAutomaticState if available, else preserve existing
+        const histogramState = currentState.tagAutomaticState
+          ? {
               histogramData: currentState.tagAutomaticState.histogramData,
               selectThreshold: currentState.tagAutomaticState.selectThreshold,
               rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
               flipTracking: currentState.tagAutomaticState.flipTracking,
               committeeVotes: currentState.tagAutomaticState.committeeVotes
             }
-          }
-        })
-      } else if (prevCategory === TAG_CATEGORY_QUALITY && currentState.tagAutomaticState) {
-        const currentFinalCommit = currentState.stage2FinalCommit || {} as any
+          : currentFinalCommit.histogramState
         set({
           stage2FinalCommit: {
             ...currentFinalCommit,
             workflowActiveStage: currentState.workflowActiveStage,
-            histogramState: {
-              histogramData: currentState.tagAutomaticState.histogramData,
-              selectThreshold: currentState.tagAutomaticState.selectThreshold,
-              rejectThreshold: currentState.tagAutomaticState.rejectThreshold,
-              flipTracking: currentState.tagAutomaticState.flipTracking,
-              committeeVotes: currentState.tagAutomaticState.committeeVotes
-            }
+            histogramState
           }
         })
       } else if (prevCategory === TAG_CATEGORY_CAUSE && currentState.stage3FinalCommit) {
@@ -509,6 +531,10 @@ export const createCommonActions = (set: any, get: any) => ({
     // Check if we need to activate this stage
     if (stageNumber > currentStage) {
       console.log(`[Store.activateCategoryTable] 📊 Stage ${stageNumber} not active yet (current: ${currentStage}), activating ${category.label} stage...`)
+
+      // Clear stale selection before tree rebuild to prevent
+      // "No features found for selection" warnings during re-renders
+      get().selectSingleNode(null)
 
       // Activate stages sequentially up to the target
       if (stageNumber === 2 && currentStage === 1) {

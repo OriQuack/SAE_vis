@@ -58,6 +58,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   focusedItemId
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
+  const tagAutomaticStateRef = useRef(tagAutomaticState)
+  tagAutomaticStateRef.current = tagAutomaticState
   const updateBothSimilarityThresholds = useVisualizationStore(state => state.updateBothSimilarityThresholds)
   const setTagAutomaticHistogramData = useVisualizationStore(state => state.setTagAutomaticHistogramData)
   const fetchSimilarityHistogram = useVisualizationStore(state => state.fetchSimilarityHistogram)
@@ -262,8 +264,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
             )
             const defaultSelect = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
             const defaultReject = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
-            const selectThreshold = tagAutomaticState?.selectThreshold ?? defaultSelect
-            const rejectThreshold = tagAutomaticState?.rejectThreshold ?? defaultReject
+            const selectThreshold = tagAutomaticStateRef.current?.selectThreshold ?? defaultSelect
+            const rejectThreshold = tagAutomaticStateRef.current?.rejectThreshold ?? defaultReject
 
             setThresholds({ select: selectThreshold, reject: rejectThreshold })
             // Update store's tagAutomaticState so SelectionPanel can show preview

@@ -193,7 +193,15 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     <div className="threshold-tagging-panel">
       {/* Histogram Section */}
       <div className="threshold-tagging-panel__histogram-column">
-        <h4 className="subheader">Confidence Histogram</h4>
+        <h4 className="subheader">Confidence Histogram {activeStage === 'apply' && (
+          <span className="instruction-subheader" style={{ marginLeft: 8 }}>
+            {mode === 'pair' ? 'Pairs' : 'Features'} beyond the threshold are shown in the list
+          </span>
+        )}{activeStage === 'learn' && mode === 'cause' && (
+          <span className="instruction-subheader" style={{ marginLeft: 8 }}>
+            Features below the threshold are shown in the list
+          </span>
+        )}</h4>
         <div className="threshold-tagging-panel__histogram-section">
         {mode === 'cause' && causeProps ? (
           <CauseMarginHistogram

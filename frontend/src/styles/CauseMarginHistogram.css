@@ -23,6 +23,7 @@
   font-style: italic;
 }
 
+
 /* Placeholder state - shown when not enough manual tags for SVM training */
 .cause-margin-histogram--placeholder {
   overflow: hidden;

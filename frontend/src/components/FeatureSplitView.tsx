@@ -66,6 +66,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Show only QBC disagreement items toggle
   const [showDisagreementOnly, setShowDisagreementOnly] = useState(false)
 
+  // Track reviewed items (any tag action including unsure) for popover trigger
+  const [reviewedPairIds, setReviewedPairIds] = useState<Set<string>>(() => new Set())
+
   // Store selected pair key directly to preserve highlight across mode switches
   const [selectedPairKeyState, setSelectedPairKeyState] = useState<string | null>(null)
 
@@ -119,6 +122,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Extract clustering threshold from Sankey structure
   // MOVED UP: Needed by setFinalCommitFromHook and onCommitCreated
   const clusterThreshold = useMemo(() => {
+    // When revisiting Stage 1, the stage1_segment may no longer exist in Sankey
+    // Read threshold from saved clusterPairsState instead (convert distance→similarity)
+    if (isRevisitingStage1 && stage1FinalCommit?.clusterPairsState?.clusteringThreshold != null) {
+      return 1 - stage1FinalCommit.clusterPairsState.clusteringThreshold
+    }
+
     if (!sankeyStructure) return 0.5
 
     const stage1Segment = sankeyStructure.nodes.find(n => n.id === 'stage1_segment')
@@ -127,7 +136,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       return stage1Segment.threshold
     }
     return 0.5
-  }, [sankeyStructure])
+  }, [sankeyStructure, isRevisitingStage1, stage1FinalCommit])
 
   // Convert Sankey threshold to clustering distance threshold
   // Sankey threshold is similarity-based (lower = less similar)
@@ -310,39 +319,15 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     }
   }, [isRevisitingStage1, stage1FinalCommit, selectedFeatureIds, setStage1FinalCommit])
 
-  // Restore cluster pairs and histogram state when revisiting Stage 1
+  // Restore cluster pairs when revisiting Stage 1
+  // Note: tagAutomaticState (histogram/flipTracking) is already restored by activateCategoryTable
   useEffect(() => {
-    if (isRevisitingStage1 && stage1FinalCommit) {
-      // Restore cluster pairs FIRST (before histogram, so counts are correct)
-      if (stage1FinalCommit.clusterPairsState) {
-        const { allClusterPairs, clusterGroups } = stage1FinalCommit.clusterPairsState
-        useVisualizationStore.setState({
-          allClusterPairs,
-          clusterGroups
-        })
-      }
-
-      // Restore histogram state (including flipTracking for convergence indicator)
-      if (stage1FinalCommit.histogramState) {
-        const { histogramData, selectThreshold, rejectThreshold, flipTracking, committeeVotes } = stage1FinalCommit.histogramState
-        if (histogramData) {
-          useVisualizationStore.setState({
-            tagAutomaticState: {
-              visible: false,
-              minimized: false,
-              mode: 'pair',
-              position: { x: 0, y: 0 },
-              histogramData,
-              selectThreshold,
-              rejectThreshold,
-              tagLabel: 'Incoherent Splitting',
-              isLoading: false,
-              flipTracking: flipTracking ?? null,
-              committeeVotes: committeeVotes ?? null
-            }
-          })
-        }
-      }
+    if (isRevisitingStage1 && stage1FinalCommit?.clusterPairsState) {
+      const { allClusterPairs, clusterGroups } = stage1FinalCommit.clusterPairsState
+      useVisualizationStore.setState({
+        allClusterPairs,
+        clusterGroups
+      })
     }
   }, [isRevisitingStage1, stage1FinalCommit])
 
@@ -734,7 +719,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   }, [displayPairList, currentPairIndex, fetchActivationExamples])
 
   // Show learn popover when all bootstrap items are labeled
-  const allRepsLabeled = activeStage === 'bootstrap' && displayPairList.length > 0 && displayPairList.every(p => pairSelectionStates.has(p.pairKey))
+  const lastRepReviewed = activeStage === 'bootstrap' && displayPairList.length > 0 && reviewedPairIds.has(displayPairList[displayPairList.length - 1].pairKey)
 
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
@@ -1000,7 +985,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               hasDiversityIds={diversityPairIds.size > 0}
               learnDisabled={!tagAutomaticState?.histogramData}
               applyDisabled={!tagAutomaticState?.histogramData}
-              showLearnPopover={allRepsLabeled}
+              showLearnPopover={lastRepReviewed}
               diversityLabel={`Most Critical ${diversityPairIds.size}`}
               byScoreLabel="Decoder Similarity"
               hideTagged={hideTagged}
@@ -1010,13 +995,19 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               onShowDisagreementOnlyChange={(v: boolean) => { logAction('stage1', 'show_disagreement', { enabled: v }); setShowDisagreementOnly(v) }}
               hasDisagreementData={tagAutomaticState?.committeeVotes != null && tagAutomaticState.committeeVotes.size > 0}
               badges={[{
-                label: showDisagreementOnly
-                  ? 'Disagreement Pairs'
-                  : sortMode === 'diversity'
-                    ? 'Most Critical Pairs'
-                    : hideTagged
-                      ? 'Unlabeled Pairs'
-                      : 'All Pairs',
+                label: activeStage === 'apply'
+                  ? (showDisagreementOnly
+                      ? 'Thresholded Disagreement Pairs'
+                      : hideTagged
+                        ? 'Thresholded Unlabeled Pairs'
+                        : 'Thresholded Pairs')
+                  : showDisagreementOnly
+                    ? 'Disagreement Pairs'
+                    : sortMode === 'diversity'
+                      ? 'Most Critical Pairs'
+                      : hideTagged
+                        ? 'Unlabeled Pairs'
+                        : 'All Pairs',
                 count: displayPairList.length
               }]}
               columnHeader={columnHeaderProps}
@@ -1048,6 +1039,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             onUndoNavigate={(pairKey) => setSelectedPairKeyState(pairKey)}
             previewSelectKeys={previewSelectKeys}
             previewRejectKeys={previewRejectKeys}
+            onItemReviewed={(pairKey) => setReviewedPairIds(prev => prev.has(pairKey) ? prev : new Set(prev).add(pairKey))}
           />
         </div>
 
