@@ -287,28 +287,28 @@
  * ============================================================================ */
 
 .scrollable-list--variant-allPairs {
-  width: 240px;
+  width: 250px;
   flex-shrink: 0;
   height: 100%;
   min-height: 0;
 }
 
 .scrollable-list--variant-features {
-  width: 240px;
+  width: 250px;
   flex-shrink: 0;
   height: 100%;
   min-height: 0;
 }
 
 .scrollable-list--variant-cause {
-  width: 240px;
+  width: 250px;
   flex-shrink: 0;
   height: 100%;
   min-height: 0;
 }
 
 .scrollable-list--variant-causeBrushed {
-  width: 240px;
+  width: 250px;
   flex-shrink: 0;
   height: 100%;
   min-height: 0;

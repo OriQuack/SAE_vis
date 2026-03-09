@@ -261,7 +261,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader">Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" title="Background opacity shows activation strength. Blue borders mark recurring patterns; blue dotted borders mark shared patterns between features.">Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>

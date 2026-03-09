@@ -1342,12 +1342,12 @@ const CauseView: React.FC<CauseViewProps> = ({
                   badges={[{
                     label: (activeStage === 'apply' || activeStage === 'learn')
                       ? (showDisagreementOnly
-                          ? 'Thresholded Disagreement Features'
+                          ? 'Thresholded Disagr. Features'
                           : hideTagged
                             ? 'Thresholded Unlabeled Features'
                             : 'Thresholded Features')
                       : showDisagreementOnly
-                        ? 'Disagreement Features'
+                        ? 'Disagr. Features'
                         : sortMode === 'diversity'
                           ? 'Representative Features'
                           : hideTagged
@@ -1376,7 +1376,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* ---- Activation Section (top half) ---- */}
                     {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
-                      <h4 className="subheader">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                      <h4 className="subheader" title="Background opacity shows activation strength. Blue-bordered tokens mark recurring patterns.">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
                       <div className="legend-group">

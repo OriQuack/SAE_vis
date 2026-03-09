@@ -997,12 +997,12 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
               badges={[{
                 label: activeStage === 'apply'
                   ? (showDisagreementOnly
-                      ? 'Thresholded Disagreement Pairs'
+                      ? 'Thresholded Disagr. Pairs'
                       : hideTagged
                         ? 'Thresholded Unlabeled Pairs'
                         : 'Thresholded Pairs')
                   : showDisagreementOnly
-                    ? 'Disagreement Pairs'
+                    ? 'Disagr. Pairs'
                     : sortMode === 'diversity'
                       ? 'Most Critical Pairs'
                       : hideTagged

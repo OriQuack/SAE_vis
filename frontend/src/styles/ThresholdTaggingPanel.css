@@ -97,6 +97,17 @@
   min-height: 0;
 }
 
+/* RadViz column: subheader + CauseRadViz stacked vertically */
+.threshold-tagging-panel__radviz-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.threshold-tagging-panel__radviz-column .cause-radviz {
+  flex: 1;
+}
+
 /* Batch column: subheader + BatchTaggingPanel */
 .threshold-tagging-panel__batch-column {
   display: flex;

@@ -9,7 +9,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0; /* Allow shrinking in flex container */
-  width: 280px;
+  width: 290px;
 }
 
 /* ============================================================================
@@ -176,7 +176,7 @@
 .stage-selector__option-btn {
   flex: 1;
   padding: 5px 8px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 500;
   color: #64748b;
   background: transparent;
@@ -290,7 +290,7 @@
   min-height: 0; /* Allow shrinking */
   display: flex;
   flex-direction: column;
-  width: 280px;
+  width: 290px;
 }
 
 /* Override ScrollableItemList border to connect with options row */
@@ -299,5 +299,9 @@
   border-top: none;
   border-radius: 0 0 4px 4px;
   flex: 1;
-  width: 280px;
+  width: 290px;
+}
+
+.stage-selector__list .scrollable-list__badge-label {
+  font-size: 14px;
 }

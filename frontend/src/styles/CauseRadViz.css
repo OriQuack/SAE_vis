@@ -4,10 +4,11 @@
 
 .cause-radviz {
   position: relative;
-  width: 260px;         /* Fixed width matching boundary lists */
+  width: 210px;         /* Fixed width for category scatter */
   flex-shrink: 0;       /* Don't shrink */
   height: 100%;
   min-height: 0;
+  padding-bottom: 4px;
   display: flex;
   align-items: flex-end;
   justify-content: center;

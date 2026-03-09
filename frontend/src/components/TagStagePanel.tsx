@@ -22,6 +22,17 @@ interface TagNode {
   stageOrder: number;
 }
 
+/** Flow annotations for all stages: prefix (A: Yes/No), terminal/suffix for flow indicators */
+const FLOW_ANNOTATIONS: Record<string, { prefix?: string; terminal?: boolean; suffix?: string }> = {
+  'Monosemantic':          { prefix: 'A: Yes', suffix: 'To next stage →' },
+  'Incoherent Splitting':  { prefix: 'A: No', terminal: true },
+  'Well-Explained':        { prefix: 'A: Yes', terminal: true },
+  'Need Revision':         { prefix: 'A: No', suffix: 'To next stage →' },
+  'Missed Syntax':         { prefix: 'A:', terminal: true },
+  'Missed Context':        { prefix: 'A:', terminal: true },
+  'Noisy Activation':      { prefix: 'A:', terminal: true },
+};
+
 const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   selectedCategory,
   onCategoryClick
@@ -195,36 +206,23 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   // useLayoutEffect(() => {
   //   function measurePositions() {
   //     if (!containerRef.current) return;
-  //
   //     const positions: Record<string, { left: number; right: number; y: number }> = {};
   //     const container = containerRef.current;
   //     const containerRect = container.getBoundingClientRect();
-  //
   //     container.querySelectorAll('[data-node-id]').forEach((el) => {
   //       const nodeId = el.getAttribute('data-node-id');
   //       if (!nodeId) return;
   //       const rect = el.getBoundingClientRect();
-  //       positions[nodeId] = {
-  //         left: rect.left - containerRect.left,
-  //         right: rect.right - containerRect.left,
-  //         y: rect.top - containerRect.top + rect.height / 2,
-  //       };
+  //       positions[nodeId] = { left: rect.left - containerRect.left, right: rect.right - containerRect.left, y: rect.top - containerRect.top + rect.height / 2 };
   //     });
-  //
   //     container.querySelectorAll('[data-stage-number]').forEach((el) => {
   //       const stageNum = el.getAttribute('data-stage-number');
   //       if (!stageNum) return;
   //       const rect = el.getBoundingClientRect();
-  //       positions[`stage-number-${stageNum}`] = {
-  //         left: rect.left - containerRect.left,
-  //         right: rect.right - containerRect.left,
-  //         y: rect.top - containerRect.top + rect.height / 2,
-  //       };
+  //       positions[`stage-number-${stageNum}`] = { left: rect.left - containerRect.left, right: rect.right - containerRect.left, y: rect.top - containerRect.top + rect.height / 2 };
   //     });
-  //
   //     setBadgePositions(positions);
   //   }
-  //
   //   measurePositions();
   //   window.addEventListener('resize', measurePositions);
   //   return () => window.removeEventListener('resize', measurePositions);
@@ -235,41 +233,24 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   //   const paths: Array<{ d: string; key: string; color: string }> = [];
   //   const stage1 = nodesByStage[1] || [];
   //   const stage2 = nodesByStage[2] || [];
-  //
-  //   // Monosemantic badge → Stage 2 number
   //   const monoNode = stage1.find(n => n.tag === 'Monosemantic');
   //   const stage2Num = badgePositions['stage-number-2'];
   //   if (monoNode) {
   //     const source = badgePositions[monoNode.id];
   //     if (source && stage2Num) {
-  //       const x1 = source.right;
-  //       const x2 = stage2Num.left;
-  //       const midX = (x1 + x2) / 2;
-  //       paths.push({
-  //         key: 'mono-to-s2',
-  //         d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage2Num.y}, ${x2} ${stage2Num.y}`,
-  //         color: monoNode.color,
-  //       });
+  //       const x1 = source.right; const x2 = stage2Num.left - 4; const midX = (x1 + x2) / 2;
+  //       paths.push({ key: 'mono-to-s2', d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage2Num.y}, ${x2} ${stage2Num.y}`, color: monoNode.color });
   //     }
   //   }
-  //
-  //   // Need Revision badge → Stage 3 number
   //   const nrNode = stage2.find(n => n.tag === 'Need Revision');
   //   const stage3Num = badgePositions['stage-number-3'];
   //   if (nrNode) {
   //     const source = badgePositions[nrNode.id];
   //     if (source && stage3Num) {
-  //       const x1 = source.right;
-  //       const x2 = stage3Num.left;
-  //       const midX = (x1 + x2) / 2;
-  //       paths.push({
-  //         key: 'nr-to-s3',
-  //         d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage3Num.y}, ${x2} ${stage3Num.y}`,
-  //         color: nrNode.color,
-  //       });
+  //       const x1 = source.right; const x2 = stage3Num.left - 4; const midX = (x1 + x2) / 2;
+  //       paths.push({ key: 'nr-to-s3', d: `M ${x1} ${source.y} C ${midX} ${source.y}, ${midX} ${stage3Num.y}, ${x2} ${stage3Num.y}`, color: nrNode.color });
   //     }
   //   }
-  //
   //   return paths;
   // }, [badgePositions, nodesByStage]);
 
@@ -338,6 +319,15 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const isFuture = isStageFuture(stage.stageOrder);
           const stageTags = (nodesByStage[stage.stageOrder] || []).slice();
 
+          // Sort tags at display time: "Yes" prefix first (stages 1-2 only)
+          if (stage.stageOrder <= 2) {
+            stageTags.sort((a, b) => {
+              const aIsYes = FLOW_ANNOTATIONS[a.tag]?.prefix?.includes('Yes') ? 0 : 1;
+              const bIsYes = FLOW_ANNOTATIONS[b.tag]?.prefix?.includes('Yes') ? 0 : 1;
+              return aIsYes - bIsYes;
+            });
+          }
+
           return (
               <button
                 key={stage.id}
@@ -367,18 +357,31 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                 </div>
                 {stageTags.length > 0 && (
                   <div className="stage-tab__tags">
-                    {stageTags.map((node) => (
-                      <div
-                        key={node.id}
-                        data-node-id={node.id}
-                        className="stage-tag-badge"
-                        style={{ backgroundColor: node.color, borderColor: node.color }}
-                        title={`${node.tag}: ${node.count.toLocaleString()} features`}
-                      >
-                        <span className="stage-tag-badge__label">{node.tag}</span>
-                        <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
-                      </div>
-                    ))}
+                    {stageTags.map((node) => {
+                      const annotation = FLOW_ANNOTATIONS[node.tag];
+                      return (
+                        <div key={node.id} className="stage-tag-row">
+                          {annotation?.prefix && (
+                            <span className="stage-tag-row__prefix">{annotation.prefix}</span>
+                          )}
+                          <div
+                            data-node-id={node.id}
+                            className="stage-tag-badge"
+                            style={{ backgroundColor: node.color, borderColor: node.color }}
+                            title={`${node.tag}: ${node.count.toLocaleString()} features`}
+                          >
+                            <span className="stage-tag-badge__label">{node.tag}</span>
+                            <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
+                          </div>
+                          {annotation?.terminal && (
+                            <span className="stage-tag-row__terminal">Terminal</span>
+                          )}
+                          {annotation?.suffix && (
+                            <span className="stage-tag-row__suffix">{annotation.suffix}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </button>

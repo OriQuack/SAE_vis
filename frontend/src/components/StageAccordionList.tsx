@@ -223,6 +223,7 @@ export function StageAccordionList<T>({
         <button
           className={`stage-selector__tab ${activeStage === 'bootstrap' ? 'stage-selector__tab--active' : ''}`}
           onClick={() => handleStageClick('bootstrap')}
+          title={`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier.`}
         >
           <span className="stage-selector__number">1</span>
           <span className="stage-selector__label">Prototype</span>
@@ -232,7 +233,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
-          title={learnDisabled ? 'Label 3+ items per category to enable' : undefined}
+          title={learnDisabled ? 'Label 3+ items per category to enable' : `Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident.`}
         >
           <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Uncertainty</span>
@@ -241,7 +242,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
-          title={applyDisabled ? 'Label 3+ items per category to enable' : undefined}
+          title={applyDisabled ? 'Label 3+ items per category to enable' : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where classifiers disagree before automatic labeling.`}
         >
           <span className="stage-selector__number">3</span>
           <span className="stage-selector__label">Disagreement</span>

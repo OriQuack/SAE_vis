@@ -82,7 +82,7 @@
 
 /* StageAccordionList - fixed width */
 .quality-view__row-top > .stage-accordion {
-  width: 240px;
+  width: 250px;
   flex-shrink: 0;
 }
 
