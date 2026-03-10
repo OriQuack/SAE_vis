@@ -60,8 +60,8 @@ const LAYOUT = {
 interface CauseMarginHistogramProps {
   /** All feature IDs to include in histogram */
   featureIds: Set<number>
-  /** Decision margins per feature (from SVM classification) */
-  causeCategoryDecisionMargins: Map<number, Record<string, number>>
+  /** Pre-computed decision margins per feature (top-two gap from backend) */
+  causeDecisionMargins: Map<number, number>
   /** Current category assignments */
   causeSelectionStates: Map<number, CauseCategory>
   /** Tag source: click (direct), threshold (batch), or predicted (SVM) */
@@ -156,19 +156,6 @@ const CATEGORY_TO_TAG_NAME: Record<CauseCategory, string> = {
 // ============================================================================
 
 /**
- * Compute margin for a feature from decision margins map
- * Margin = minimum absolute distance to any category boundary
- */
-function computeFeatureMargin(
-  featureId: number,
-  decisionMargins: Map<number, Record<string, number>>
-): number {
-  const scores = decisionMargins.get(featureId)
-  if (!scores) return 0
-  return Math.min(...Object.values(scores).map(s => Math.abs(s)))
-}
-
-/**
  * Get category color from tag system
  */
 function getCategoryColor(category: CauseCategory | 'unsure'): string {
@@ -183,7 +170,7 @@ function getCategoryColor(category: CauseCategory | 'unsure'): string {
 
 export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   featureIds,
-  causeCategoryDecisionMargins,
+  causeDecisionMargins,
   causeSelectionStates,
   causeSelectionSources,
   threshold,
@@ -229,7 +216,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   const marginData = useMemo((): MarginDataPoint[] => {
     const data: MarginDataPoint[] = []
     for (const featureId of featureIds) {
-      const margin = computeFeatureMargin(featureId, causeCategoryDecisionMargins)
+      const margin = causeDecisionMargins.get(featureId) ?? 0
       const category = causeSelectionStates.get(featureId)
       const source = causeSelectionSources.get(featureId)
       const isManual = isUserConfirmed(source)
@@ -260,7 +247,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     }
 
     return data
-  }, [featureIds, causeCategoryDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold, activeStage])
+  }, [featureIds, causeDecisionMargins, causeSelectionStates, causeSelectionSources, effectiveThreshold, activeStage])
 
   // Compute histogram bins (no clipping - show full range)
   const { bins, maxMargin, maxCount } = useMemo(() => {
@@ -403,11 +390,11 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   // Compute focused bin index from focusedFeatureId
   const focusedBinIndex = useMemo(() => {
     if (focusedFeatureId == null || bins.length === 0 || maxMargin <= 0) return null
-    const margin = computeFeatureMargin(focusedFeatureId, causeCategoryDecisionMargins)
+    const margin = causeDecisionMargins.get(focusedFeatureId) ?? 0
     const binWidth = maxMargin / NUM_BINS
     const idx = Math.min(Math.floor(margin / binWidth), NUM_BINS - 1)
     return idx >= 0 && idx < bins.length ? idx : null
-  }, [focusedFeatureId, bins, maxMargin, causeCategoryDecisionMargins])
+  }, [focusedFeatureId, bins, maxMargin, causeDecisionMargins])
 
   // Threshold position in pixels
   const thresholdX = xScale(effectiveThreshold)
@@ -511,7 +498,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
     )
   }
 
-  if (featureIds.size === 0 || causeCategoryDecisionMargins.size === 0) {
+  if (featureIds.size === 0 || causeDecisionMargins.size === 0) {
     return (
       <div className="cause-margin-histogram cause-margin-histogram--empty" ref={containerRef}>
         <span className="cause-margin-histogram__empty-text">

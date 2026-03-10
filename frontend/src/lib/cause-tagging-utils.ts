@@ -296,7 +296,7 @@ export function calculateMetricScoresOnly(
  * @param featureId - Feature to check
  * @param causeSelectionStates - Map of feature ID to cause category
  * @param causeSelectionSources - Map of feature ID to source ('click' | 'threshold' | 'predicted')
- * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
+ * @param causeDecisionMargins - Map of feature ID to pre-computed decision margin (top-two gap)
  * @param causeMarginThreshold - Threshold for classifying as 'unsure'
  * @returns Effective category ('unsure' if below threshold or untagged)
  */
@@ -304,7 +304,7 @@ export function getEffectiveCategory(
   featureId: number,
   causeSelectionStates: Map<number, CauseCategory>,
   causeSelectionSources: Map<number, SelectionSource>,
-  causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
+  causeDecisionMargins: Map<number, number> | null,
   causeMarginThreshold: number
 ): CauseCategory | 'unsure' {
   const category = causeSelectionStates.get(featureId)
@@ -314,12 +314,9 @@ export function getEffectiveCategory(
   if (isUserConfirmed(source) && category) return category
 
   // Priority 2: Auto-tagged with margin check (semantic: below threshold = unsure)
-  if (category && causeCategoryDecisionMargins) {
-    const categoryScores = causeCategoryDecisionMargins.get(featureId)
-    if (categoryScores) {
-      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-      if (margin < causeMarginThreshold) return 'unsure'
-    }
+  if (category && causeDecisionMargins) {
+    const margin = causeDecisionMargins.get(featureId) ?? 0
+    if (margin < causeMarginThreshold) return 'unsure'
   }
 
   return category || 'unsure'
@@ -333,7 +330,7 @@ export function getEffectiveCategory(
  *
  * @param featureId - Feature to check
  * @param causeSelectionSources - Map of feature ID to source ('click' | 'threshold' | 'predicted')
- * @param causeCategoryDecisionMargins - Map of feature ID to category margins (SVM scores)
+ * @param causeDecisionMargins - Map of feature ID to pre-computed decision margin (top-two gap)
  * @param causeMarginThreshold - Threshold for visibility boundary
  * @param isTopMode - True for "Top" mode (most confident), false for "Low" mode (least confident)
  * @returns True if feature should be visible in current mode
@@ -341,7 +338,7 @@ export function getEffectiveCategory(
 export function isFeatureVisibleInMode(
   featureId: number,
   causeSelectionSources: Map<number, SelectionSource>,
-  causeCategoryDecisionMargins: Map<number, Record<string, number>> | null,
+  causeDecisionMargins: Map<number, number> | null,
   causeMarginThreshold: number,
   isTopMode: boolean
 ): boolean {
@@ -350,10 +347,8 @@ export function isFeatureVisibleInMode(
   if (isUserConfirmed(source)) return true
 
   // Get margin for this feature
-  const categoryScores = causeCategoryDecisionMargins?.get(featureId)
-  if (!categoryScores) return true  // No scores = show it
-
-  const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+  const margin = causeDecisionMargins?.get(featureId)
+  if (margin === undefined) return true  // No scores = show it
 
   // Visibility depends on mode
   return isTopMode ? margin >= causeMarginThreshold : margin < causeMarginThreshold

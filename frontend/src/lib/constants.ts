@@ -595,7 +595,8 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
     example: 'e.g. domain, language, tone, sentiment, entity types'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
-    verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency'
+    verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency',
+    example: 'e.g. polysemantic overlap, unrelated activation contexts, no shared lexical or semantic pattern'
   },
 
   // Shared

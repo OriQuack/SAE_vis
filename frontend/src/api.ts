@@ -736,39 +736,35 @@ export async function getColdStartSuggestions(
 // ============================================================================
 
 /**
- * Get consensus data for a specific feature.
+ * Get consensus data for ALL features in a single request.
  *
- * Returns clustered explanation phrases ranked by activation similarity,
- * with medoids representing clusters and outliers shown individually.
+ * Returns a map of feature_id → consensus data, preloaded at startup
+ * to eliminate per-feature round-trips.
  *
- * @param featureId - Feature ID to fetch consensus data for
- * @returns Consensus data with items sorted by activation_similarity (descending)
+ * @returns Record mapping feature_id to ConsensusResponse
  */
-export async function getFeatureConsensus(featureId: number): Promise<ConsensusResponse> {
-  console.log('[API] getFeatureConsensus called for feature:', featureId)
+export async function getAllConsensus(): Promise<Record<number, ConsensusResponse>> {
+  console.log('[API] getAllConsensus: fetching all consensus data...')
+  const startTime = performance.now()
 
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.FEATURE_CONSENSUS}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({ feature_id: featureId })
+    body: JSON.stringify({})
   })
 
   if (!response.ok) {
     const errorText = await response.text()
-    console.error('[API] Feature consensus error:', response.status, errorText)
-    throw new Error(`Failed to fetch feature consensus: ${response.status} - ${errorText}`)
+    console.error('[API] All consensus error:', response.status, errorText)
+    throw new Error(`Failed to fetch all consensus: ${response.status} - ${errorText}`)
   }
 
   const data = await response.json()
-  console.log('[API] getFeatureConsensus response:', {
-    featureId: data.feature_id,
-    consensusScore: data.consensus_score,
-    numClusters: data.num_clusters,
-    numOutliers: data.num_outliers,
-    itemCount: data.items?.length || 0
-  })
+  const featureCount = Object.keys(data).length
+  const duration = performance.now() - startTime
+  console.log(`[API] getAllConsensus: loaded ${featureCount} features in ${duration.toFixed(0)}ms`)
 
   return data
 }

@@ -1023,7 +1023,6 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
             pairList={displayPairList}
             onNavigatePrevious={handleNavigatePrevious}
             onNavigateNext={handleNavigateNext}
-            activeListSource="all"
             sortMode={sortMode}
             isLoading={isPairSimilaritySortLoading}
             isTemplateSort={isTemplateSort}

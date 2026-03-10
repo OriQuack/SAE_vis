@@ -1,8 +1,7 @@
 import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, ConsensusResponse, FlipTrackingInfo } from '../types'
+import type { FeatureTableRow, FlipTrackingInfo } from '../types'
 import * as api from '../api'
-import { getFeatureConsensus } from '../api'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
@@ -156,9 +155,8 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
 
-  // Consensus data for selected feature
-  const [consensus, setConsensus] = useState<ConsensusResponse | null>(null)
-  const consensusCacheRef = useRef<Map<number, ConsensusResponse>>(new Map())
+  // Consensus data from preloaded store (lookup happens after selectedFeatureId is defined below)
+  const consensusData = useVisualizationStore(state => state.consensusData)
 
   // Phrases to highlight in explanation text (from consensus pill hover)
   const [highlightPhrases, setHighlightPhrases] = useState<PhraseHighlightData[] | null>(null)
@@ -169,9 +167,6 @@ const QualityView: React.FC<QualityViewProps> = ({
   const stage2DiversitySignature = useVisualizationStore(state => state.stage2DiversitySignature)
   const setStage2DiversityCache = useVisualizationStore(state => state.setStage2DiversityCache)
 
-
-  // Active list source is always 'all' (boundary lists removed)
-  const activeListSource = 'all' as const
 
   // Right panel container width (for ActivationExample)
   const { ref: rightPanelRef, size: rightPanelSize } = useResizeObserver<HTMLDivElement>({
@@ -670,6 +665,9 @@ const QualityView: React.FC<QualityViewProps> = ({
     return item.featureId
   }, [selectedFeatureIdState, displayFeatures, currentFeatureIndex])
 
+  // Consensus lookup (must be after selectedFeatureId is defined)
+  const consensus = selectedFeatureId !== null ? consensusData[selectedFeatureId] ?? null : null
+
   // Sync currentFeatureIndex when lists change (after mode switch)
   useEffect(() => {
     if (selectedFeatureIdState === null) return
@@ -678,28 +676,6 @@ const QualityView: React.FC<QualityViewProps> = ({
       setCurrentFeatureIndex(newIndex)
     }
   }, [selectedFeatureIdState, displayFeatures, currentFeatureIndex])
-
-  // Fetch consensus data when selected feature changes (with client-side cache)
-  useEffect(() => {
-    if (selectedFeatureId === null) {
-      setConsensus(null)
-      return
-    }
-
-    const cached = consensusCacheRef.current.get(selectedFeatureId)
-    if (cached) {
-      setConsensus(cached)
-      return
-    }
-
-    setConsensus(null)
-    getFeatureConsensus(selectedFeatureId)
-      .then(data => {
-        consensusCacheRef.current.set(selectedFeatureId, data)
-        setConsensus(data)
-      })
-      .catch(() => setConsensus(null))
-  }, [selectedFeatureId])
 
   // Compute highlight index for main list
   const mainListHighlightIndex = useMemo(() => {
@@ -761,7 +737,6 @@ const QualityView: React.FC<QualityViewProps> = ({
 
   // Post-tagging navigation hook - centralized logic matching FeatureSplitView
   const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
-    activeListSource,
     sortMode,
     currentIndex: currentFeatureIndex,
     listLength: displayFeatures.length,
@@ -1107,7 +1082,7 @@ const QualityView: React.FC<QualityViewProps> = ({
               renderItem={renderFeatureItem}
               sortConfig={{ getDisplayScore }}
               currentIndex={mainListHighlightIndex}
-              isActive={activeListSource === 'all'}
+              isActive
               scrollTargetIndex={scrollTargetIndex}
             />
             {/* Right panel - activating examples and explanations */}

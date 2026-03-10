@@ -154,7 +154,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
-  const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+  const causeDecisionMargins = useVisualizationStore(state => state.causeDecisionMargins)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
   const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
@@ -196,12 +196,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
     if (workflowActiveStage === 'bootstrap') return 'unsure'
 
     // Priority 2: Auto-tagged with margin check
-    if (category && causeCategoryDecisionMargins) {
-      const categoryScores = causeCategoryDecisionMargins.get(featureId)
-      if (categoryScores) {
-        const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
-        if (margin < causeMarginThreshold) return 'unsure'
-      }
+    if (category && causeDecisionMargins) {
+      const margin = causeDecisionMargins.get(featureId)
+      if (margin !== undefined && margin < causeMarginThreshold) return 'unsure'
     }
 
     return category || 'unsure'
@@ -327,7 +324,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       total: featureSet.size
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold, workflowActiveStage])
+  }, [stage, filteredFeatureIds, tableData, causeSelectionStates, causeSelectionSources, causeDecisionMargins, causeMarginThreshold, workflowActiveStage])
 
   // Calculate preview counts when thresholds are active (real-time preview during threshold drag)
   // This simulates what feature counts would look like after applying the thresholds

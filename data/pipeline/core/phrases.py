@@ -95,6 +95,12 @@ def smart_coordination(text: str) -> List[str]:
 _MAX_MODIFIER_SUBTREE = 10
 _CONTENT_POS = {"NOUN", "PROPN", "VERB", "ADJ"}
 _STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
+_QUOTE_CHARS = {'"', "'", '\u201c', '\u201d', '\u2018', '\u2019'}
+
+
+def _is_quote_token(tok) -> bool:
+    """Check if a token is a quotation mark (straight or curly)."""
+    return tok.text in _QUOTE_CHARS
 
 
 def _extend_with_modifiers(root, indices: set) -> None:
@@ -119,12 +125,17 @@ def _extend_with_modifiers(root, indices: set) -> None:
                 max_idx = max(subtree_indices)
                 while max_idx in subtree_indices:
                     tok = root.doc[max_idx]
-                    if tok.dep_ in STRIP_DEPS:
+                    if tok.dep_ in STRIP_DEPS and not _is_quote_token(tok):
                         subtree_indices.discard(max_idx)
                         max_idx -= 1
                     else:
                         break
             indices.update(subtree_indices)
+
+    # Absorb direct quote-token children of root (e.g. closing " attached to head noun)
+    for child in root.children:
+        if _is_quote_token(child):
+            indices.add(child.i)
 
 
 def _merge_overlapping_sets(spans: List[set]) -> List[set]:
@@ -353,11 +364,11 @@ def _recover_gaps(covered: set, doc) -> List[str]:
         if not has_content:
             continue
 
-        # Strip leading/trailing function-word tokens
+        # Strip leading/trailing function-word tokens (preserve quotes)
         indices = list(range(start, end + 1))
-        while indices and doc[indices[0]].pos_ in _STRIP_POS:
+        while indices and doc[indices[0]].pos_ in _STRIP_POS and not _is_quote_token(doc[indices[0]]):
             indices.pop(0)
-        while indices and doc[indices[-1]].pos_ in _STRIP_POS:
+        while indices and doc[indices[-1]].pos_ in _STRIP_POS and not _is_quote_token(doc[indices[-1]]):
             indices.pop()
 
         if not indices:
@@ -562,11 +573,11 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, List[Tuple[
         if not has_content:
             continue
 
-        # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE
+        # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE (preserve quotes)
         indices = list(range(start, end + 1))
-        while indices and doc[indices[0]].pos_ in _STRIP_POS:
+        while indices and doc[indices[0]].pos_ in _STRIP_POS and not _is_quote_token(doc[indices[0]]):
             indices.pop(0)
-        while indices and doc[indices[-1]].pos_ in _STRIP_POS:
+        while indices and doc[indices[-1]].pos_ in _STRIP_POS and not _is_quote_token(doc[indices[-1]]):
             indices.pop()
 
         if not indices:

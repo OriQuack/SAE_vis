@@ -28,8 +28,6 @@ import {
 let tableDataCache: any | null = null
 let tableDataFetchInProgress = false
 
-// Debug: Log when module is loaded (helps detect HMR reloads)
-console.log('[common-actions] Module loaded/reloaded - cache initialized to null')
 
 // ============================================================================
 // COMMON ACTIONS (shared by all stages)
@@ -160,21 +158,14 @@ export const createCommonActions = (set: any, get: any) => ({
             isRevisitingStage2, stage2FinalCommit,
             isRevisitingStage3, stage3FinalCommit } = state
 
-    // When revisiting Stage 1, use stored feature IDs
+    // When revisiting stages, use stored feature IDs
     if (isRevisitingStage1 && stage1FinalCommit?.featureIds) {
-      console.log('[Store.getSelectedNodeFeatures] Using Stage 1 revisit feature IDs:', stage1FinalCommit.featureIds.size)
       return stage1FinalCommit.featureIds
     }
-
-    // When revisiting Stage 2, use stored feature IDs
     if (isRevisitingStage2 && stage2FinalCommit?.featureIds) {
-      console.log('[Store.getSelectedNodeFeatures] Using Stage 2 revisit feature IDs:', stage2FinalCommit.featureIds.size)
       return stage2FinalCommit.featureIds
     }
-
-    // When revisiting Stage 3, use stored feature IDs
     if (isRevisitingStage3 && stage3FinalCommit?.featureIds) {
-      console.log('[Store.getSelectedNodeFeatures] Using Stage 3 revisit feature IDs:', stage3FinalCommit.featureIds.size)
       return stage3FinalCommit.featureIds
     }
 
@@ -193,9 +184,6 @@ export const createCommonActions = (set: any, get: any) => ({
         if (selectedSegment.nodeId === 'stage3_segment') {
           const needRevisionNode = leftPanel.sankeyStructure.nodes.find((n: any) => n.id === 'need_revision')
           if (needRevisionNode && needRevisionNode.featureIds) {
-            console.log('[Store.getSelectedNodeFeatures] V2: Stage 3 - returning all need_revision features:', {
-              featureCount: needRevisionNode.featureIds.size
-            })
             return needRevisionNode.featureIds
           }
         }

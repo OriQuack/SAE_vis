@@ -22,8 +22,8 @@ from ..models.classification import (
     HistogramStatistics, Stage3QualityScoresRequest,
     WeightedFeatureId, CommitteeVoteInfo,
     # Cause classification (Stage 3)
-    CauseClassificationRequest, CauseClassificationResponse,
-    CauseClassificationResult, CauseSelectionItem, CauseCommitteeVoteInfo,
+    CauseClassificationRequest,
+    CauseSelectionItem, CauseCommitteeVoteInfo,
 )
 from .committee_service import CommitteeService
 from .data_constants import (
@@ -485,18 +485,20 @@ class ClassificationService:
     async def get_cause_classification(
         self,
         request: CauseClassificationRequest
-    ) -> CauseClassificationResponse:
+    ) -> dict:
         """Classify features into cause categories using OvO-based multi-class SVM.
 
         Trains a single multi-class SVC (internally OvO via libsvm) using only
         user's manual tags. decision_function_shape='ovr' produces per-category
         scores with the same (N, 3) shape as the previous manual OvR approach.
 
+        Returns a plain dict (bypasses Pydantic serialization for speed).
+
         Args:
             request: Request containing feature_ids and cause_selections
 
         Returns:
-            Response with predicted category and decision scores for each feature
+            Dict with results, total_features, category_counts, committee_votes
         """
         if not self.data_service.is_ready():
             raise RuntimeError("DataService not ready")
@@ -518,11 +520,11 @@ class ClassificationService:
 
         if metrics_df is None or len(metrics_df) == 0:
             logger.warning("No metrics extracted, returning empty result")
-            return CauseClassificationResponse(
-                results=[],
-                total_features=0,
-                category_counts={}
-            )
+            return {
+                "results": [],
+                "total_features": 0,
+                "category_counts": {}
+            }
 
         # Build feature matrix
         feature_ids_ordered = metrics_df[COL_FEATURE_ID].to_numpy()
@@ -533,12 +535,18 @@ class ClassificationService:
         # Map feature_ids to indices for cause_selections lookup
         feature_id_to_idx = {int(fid): idx for idx, fid in enumerate(feature_ids_ordered)}
 
+        # Build training data once (shared by SVM + committee)
+        train_indices, train_labels, sample_weights = self._build_cause_training_data(
+            cause_selections, feature_id_to_idx
+        )
+
         # Train OvO-based multi-class SVM and compute decision function vectors
         decision_vectors, scaler = self._compute_decision_function_vectors(
             metrics_matrix,
             feature_ids_ordered,
-            cause_selections,
-            feature_id_to_idx
+            train_indices,
+            train_labels,
+            sample_weights
         )
 
         # Scale metrics for committee training (reuse scaler from SVM)
@@ -548,60 +556,94 @@ class ClassificationService:
         committee_votes = self._train_committee_and_predict(
             metrics_scaled,
             feature_ids_ordered,
-            cause_selections,
-            feature_id_to_idx
+            train_indices,
+            train_labels,
+            sample_weights
         )
 
-        # Build classification results
-        results = []
-        predicted_counts = {cat: 0 for cat in CAUSE_CATEGORIES}
+        # Vectorized argmax + margin computation (replaces per-row loop)
+        n_categories = len(CAUSE_CATEGORIES)
+        predicted_indices = np.argmax(decision_vectors, axis=1)
+        sorted_dv = np.sort(decision_vectors, axis=1)[:, ::-1]
+        margins = sorted_dv[:, 0] - sorted_dv[:, 1]
 
-        for i, fid in enumerate(feature_ids_ordered):
-            # Decision scores per category
-            scores = {
-                cat: float(decision_vectors[i, j])
-                for j, cat in enumerate(CAUSE_CATEGORIES)
-            }
-
-            # Predicted category = argmax of decision scores
-            predicted = max(scores, key=lambda k: scores[k])
-            predicted_counts[predicted] += 1
-
-            # Decision margin = min absolute distance to any boundary
-            margin = float(np.min(np.abs(decision_vectors[i])))
-
-            results.append(CauseClassificationResult(
-                feature_id=int(fid),
-                predicted_category=predicted,
-                decision_margin=margin,
-                decision_scores=scores
-            ))
+        # Count predictions
+        counts = np.bincount(predicted_indices, minlength=n_categories)
+        predicted_counts = {CAUSE_CATEGORIES[i]: int(counts[i]) for i in range(n_categories)}
 
         logger.info(f"Classification complete. Predicted counts: {predicted_counts}")
 
-        # Update committee_votes with actual SVM predictions (from decision vectors)
+        # Update committee_votes svm_category using vectorized predictions
         if committee_votes is not None:
-            for result in results:
-                if result.feature_id in committee_votes:
-                    committee_votes[result.feature_id] = CauseCommitteeVoteInfo(
-                        svm_category=result.predicted_category,
-                        rf_category=committee_votes[result.feature_id].rf_category,
-                        mlp_category=committee_votes[result.feature_id].mlp_category
+            for i, fid in enumerate(feature_ids_ordered):
+                fid_int = int(fid)
+                if fid_int in committee_votes:
+                    committee_votes[fid_int] = CauseCommitteeVoteInfo(
+                        svm_category=CAUSE_CATEGORIES[int(predicted_indices[i])],
+                        rf_category=committee_votes[fid_int].rf_category,
+                        mlp_category=committee_votes[fid_int].mlp_category
                     )
 
-        return CauseClassificationResponse(
-            results=results,
-            total_features=len(results),
-            category_counts=predicted_counts,
-            committee_votes=committee_votes
-        )
+        # Build plain-dict results (bypass Pydantic serialization for speed)
+        results = []
+        for i in range(len(feature_ids_ordered)):
+            results.append({
+                "feature_id": int(feature_ids_ordered[i]),
+                "predicted_category": CAUSE_CATEGORIES[int(predicted_indices[i])],
+                "decision_margin": float(margins[i]),
+                "decision_scores": {
+                    CAUSE_CATEGORIES[j]: float(decision_vectors[i, j])
+                    for j in range(n_categories)
+                }
+            })
+
+        # Convert committee_votes Pydantic → plain dicts
+        committee_votes_dict = None
+        if committee_votes is not None:
+            committee_votes_dict = {
+                fid: {"svm_category": v.svm_category, "rf_category": v.rf_category, "mlp_category": v.mlp_category}
+                for fid, v in committee_votes.items()
+            }
+
+        return {
+            "results": results,
+            "total_features": len(results),
+            "category_counts": predicted_counts,
+            "committee_votes": committee_votes_dict
+        }
+
+    def _build_cause_training_data(
+        self,
+        cause_selections: Dict[int, CauseSelectionItem],
+        feature_id_to_idx: Dict[int, int]
+    ) -> Tuple[List[int], List[int], List[float]]:
+        """Build training arrays from cause selections (shared by SVM + committee).
+
+        Args:
+            cause_selections: Dict mapping feature_id to CauseSelectionItem
+            feature_id_to_idx: Dict mapping feature_id to matrix index
+
+        Returns:
+            Tuple of (train_indices, train_labels, sample_weights)
+        """
+        category_to_idx = {cat: i for i, cat in enumerate(CAUSE_CATEGORIES)}
+        train_indices = []
+        train_labels = []
+        sample_weights = []
+        for fid, item in cause_selections.items():
+            if fid in feature_id_to_idx and item.category in category_to_idx:
+                train_indices.append(feature_id_to_idx[fid])
+                train_labels.append(category_to_idx[item.category])
+                sample_weights.append(CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT)
+        return train_indices, train_labels, sample_weights
 
     def _compute_decision_function_vectors(
         self,
         metrics_matrix: np.ndarray,
         feature_ids: np.ndarray,
-        cause_selections: Dict[int, CauseSelectionItem],
-        feature_id_to_idx: Dict[int, int]
+        train_indices: List[int],
+        train_labels: List[int],
+        sample_weights: List[float]
     ) -> Tuple[np.ndarray, StandardScaler]:
         """Train OvO-based multi-class SVM and compute decision function vectors.
 
@@ -612,29 +654,19 @@ class ClassificationService:
         Args:
             metrics_matrix: (N, D) feature metric matrix (raw values)
             feature_ids: Array of feature IDs
-            cause_selections: Dict mapping feature_id to CauseSelectionItem (category + source)
-            feature_id_to_idx: Dict mapping feature_id to matrix index
+            train_indices: Indices into metrics_matrix for training samples
+            train_labels: Integer class labels for training samples
+            sample_weights: Per-sample weights for training
 
         Returns:
             Tuple of (N, K) decision function matrix and fitted StandardScaler
         """
         n_features = len(feature_ids)
         n_categories = len(CAUSE_CATEGORIES)
-        category_to_idx = {cat: i for i, cat in enumerate(CAUSE_CATEGORIES)}
 
         # Scale feature metrics
         scaler = StandardScaler()
         metrics_scaled = scaler.fit_transform(metrics_matrix)
-
-        # Collect training data in a single pass
-        train_indices = []
-        train_labels = []
-        sample_weights = []
-        for fid, item in cause_selections.items():
-            if fid in feature_id_to_idx and item.category in category_to_idx:
-                train_indices.append(feature_id_to_idx[fid])
-                train_labels.append(category_to_idx[item.category])
-                sample_weights.append(CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT)
 
         # Validate: need >= 2 unique categories to train
         unique_labels = set(train_labels)
@@ -694,8 +726,9 @@ class ClassificationService:
         self,
         metrics_scaled: np.ndarray,
         feature_ids: np.ndarray,
-        cause_selections: Dict[int, CauseSelectionItem],
-        feature_id_to_idx: Dict[int, int]
+        train_indices: List[int],
+        train_labels: List[int],
+        sample_weights: List[float]
     ) -> Optional[Dict[int, CauseCommitteeVoteInfo]]:
         """Train RF and MLP committee for multi-class cause prediction.
 
@@ -704,29 +737,16 @@ class ClassificationService:
         for disagreement highlighting.
 
         Args:
-            metrics_scaled: (N, D) scaled feature matrix
+            metrics_scaled: (N, D) scaled feature matrix (already SVM-scaled)
             feature_ids: Array of feature IDs
-            cause_selections: Dict mapping feature_id to CauseSelectionItem
-            feature_id_to_idx: Dict mapping feature_id to matrix index
+            train_indices: Indices into metrics_scaled for training samples
+            train_labels: Integer class labels for training samples
+            sample_weights: Per-sample weights for training
 
         Returns:
             Dict mapping feature_id to CauseCommitteeVoteInfo, or None if insufficient data
         """
-        # Build training data from manual tags
-        train_indices = []
-        train_labels = []
-        sample_weights = []
-
-        category_to_label = {cat: i for i, cat in enumerate(CAUSE_CATEGORIES)}
-        label_to_category = {i: cat for cat, i in category_to_label.items()}
-
-        for fid, item in cause_selections.items():
-            if fid in feature_id_to_idx and item.category in category_to_label:
-                idx = feature_id_to_idx[fid]
-                train_indices.append(idx)
-                train_labels.append(category_to_label[item.category])
-                weight = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
-                sample_weights.append(weight)
+        label_to_category = {i: cat for i, cat in enumerate(CAUSE_CATEGORIES)}
 
         # Need at least 2 samples per category for meaningful committee
         if len(train_indices) < 6:  # At least 2 per 3 categories
@@ -738,8 +758,9 @@ class ClassificationService:
         weights = np.array(sample_weights)
 
         # Train committee using CommitteeService
-        rf_model, mlp_model, scaler = self.committee_service.train_multiclass_committee(
-            X_train, y_train, weights
+        # Data is already SVM-scaled, skip committee's own scaling
+        rf_model, mlp_model, _committee_scaler = self.committee_service.train_multiclass_committee(
+            X_train, y_train, weights, skip_scaling=True
         )
 
         # If both failed, return None
@@ -747,20 +768,19 @@ class ClassificationService:
             return None
 
         # Create placeholder SVM category indices (will be updated by caller with actual SVM predictions)
-        # Use RF predictions as initial placeholder
-        if rf_model is not None and scaler is not None:
-            X_scaled = scaler.transform(metrics_scaled)
-            svm_category_indices = rf_model.predict(X_scaled).astype(int)
+        # Use RF predictions as initial placeholder (data already scaled, no transform needed)
+        if rf_model is not None:
+            svm_category_indices = rf_model.predict(metrics_scaled).astype(int)
         else:
             svm_category_indices = np.zeros(len(feature_ids), dtype=int)
 
-        # Get committee predictions
+        # Get committee predictions (scaler=None since data is already SVM-scaled)
         committee_preds = self.committee_service.predict_multiclass_with_committee(
             metrics_scaled,
             svm_category_indices,
             rf_model,
             mlp_model,
-            scaler,
+            None,
             label_to_category
         )
 
@@ -927,8 +947,10 @@ class ClassificationService:
 
         if train_committee and X_train is not None and y_train is not None:
             logger.info("[ClassificationService] Training committee (RF + MLP) for QBC...")
-            rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
-                X_train, y_train, sample_weights
+            # Pre-scale training data with SVM scaler so committee trains on same scale
+            X_train_scaled = scaler.transform(X_train)
+            rf_model, mlp_model, _committee_scaler = self.committee_service.train_committee(
+                X_train_scaled, y_train, sample_weights, skip_scaling=True
             )
 
             if rf_model is not None or mlp_model is not None:
@@ -939,9 +961,9 @@ class ClassificationService:
                 # Scale all features using the SVM scaler (consistent with SVM scoring)
                 X_scaled = scaler.transform(metrics_matrix)  # type: ignore[assignment]
 
-                # Get committee predictions
+                # Get committee predictions (scaler=None since data already SVM-scaled)
                 committee_preds = self.committee_service.predict_with_committee(
-                    X_scaled, scores, rf_model, mlp_model, committee_scaler  # type: ignore[arg-type]
+                    X_scaled, scores, rf_model, mlp_model, None  # type: ignore[arg-type]
                 )
 
                 # Convert to API response format

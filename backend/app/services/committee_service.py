@@ -56,7 +56,8 @@ class CommitteeService:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        sample_weights: Optional[np.ndarray] = None
+        sample_weights: Optional[np.ndarray] = None,
+        skip_scaling: bool = False
     ) -> Tuple[Optional[RandomForestClassifier], Optional[WeightedMLPClassifier], Optional[StandardScaler]]:
         """
         Train Random Forest and MLP models for committee.
@@ -65,6 +66,7 @@ class CommitteeService:
             X_train: Training feature matrix (N_samples, N_features)
             y_train: Training labels (N_samples,) with values 0 or 1
             sample_weights: Optional sample weights (N_samples,)
+            skip_scaling: If True, skip StandardScaler (data already scaled)
 
         Returns:
             Tuple of (RF model, MLP model, Scaler) - any may be None if training fails
@@ -87,9 +89,13 @@ class CommitteeService:
             f"({n_positive} positive, {n_negative} negative)"
         )
 
-        # Scale features (important for MLP)
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_train)
+        # Scale features (important for MLP) — skip if already scaled
+        if skip_scaling:
+            scaler = None
+            X_scaled = X_train
+        else:
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X_train)
 
         # Train Random Forest
         rf_model = self._train_random_forest(X_scaled, y_train, sample_weights, n_samples)
@@ -295,7 +301,8 @@ class CommitteeService:
         self,
         X_train: np.ndarray,
         y_train: np.ndarray,
-        sample_weights: Optional[np.ndarray] = None
+        sample_weights: Optional[np.ndarray] = None,
+        skip_scaling: bool = False
     ) -> Tuple[Optional[RandomForestClassifier], Optional[WeightedMLPClassifier], Optional[StandardScaler]]:
         """
         Train RF and MLP for multi-class classification.
@@ -307,6 +314,7 @@ class CommitteeService:
             X_train: Training feature matrix (N_samples, N_features)
             y_train: Training labels (N_samples,) with integer class labels
             sample_weights: Optional sample weights (N_samples,)
+            skip_scaling: If True, skip StandardScaler (data already scaled)
 
         Returns:
             Tuple of (RF model, MLP model, Scaler) - any may be None if training fails
@@ -332,9 +340,13 @@ class CommitteeService:
             f"across {n_classes} classes: {class_counts}"
         )
 
-        # Scale features (important for MLP)
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X_train)
+        # Scale features (important for MLP) — skip if already scaled
+        if skip_scaling:
+            scaler = None
+            X_scaled = X_train
+        else:
+            scaler = StandardScaler()
+            X_scaled = scaler.fit_transform(X_train)
 
         # Train Random Forest (reuse existing method - works for multi-class)
         rf_model = self._train_random_forest(X_scaled, y_train, sample_weights, n_samples)

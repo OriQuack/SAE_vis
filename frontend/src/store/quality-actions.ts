@@ -119,8 +119,14 @@ export const createQualityActions = (set: any, get: any) => ({
       ? Array.from(selectedNodeFeatures)
       : tableData.features.map((f: any) => f.feature_id)
 
+    // Compute signature early to set optimistically before API call
+    const selectedSig = selectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
+    const rejectedSig = rejectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
+    const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
+
     try {
-      set({ isSimilaritySortLoading: true })
+      // Set BOTH loading AND signature before API call to prevent duplicate calls
+      set({ isSimilaritySortLoading: true, lastSortedSelectionSignature: selectionSignature })
 
       console.log('[Store.sortBySimilarity] Calling API:', {
         selectedItems: selectedItems.length,
@@ -147,32 +153,26 @@ export const createQualityActions = (set: any, get: any) => ({
         scoresMap.set(fs.feature_id, fs.score)
       })
 
-      // Generate selection signature to track this sort state
-      // Format: "selected:[ids]|rejected:[ids]"
-      const selectedSig = selectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
-      const rejectedSig = rejectedItems.map(i => i.id).sort((a, b) => a - b).join(',')
-      const selectionSignature = `selected:${selectedSig}|rejected:${rejectedSig}`
-
       // Freeze the current selection states for grouping
       const frozenSelectionStates = new Map(featureSelectionStates)
 
-      // Store scores and set sort mode
+      // Store scores and set sort mode (signature already set)
       set({
         similarityScores: scoresMap,
         isSimilaritySortLoading: false,
-        lastSortedSelectionSignature: selectionSignature,
         sortedBySelectionStates: frozenSelectionStates
       })
 
-      console.log('[Store.sortBySimilarity] ✅ Similarity sort complete:', {
+      console.log('[Store.sortBySimilarity] Similarity sort complete:', {
         scoresMapSize: scoresMap.size,
         sortBy: 'similarity',
         selectionSignature
       })
 
     } catch (error) {
-      console.error('[Store.sortBySimilarity] ❌ Failed to calculate similarity sort:', error)
-      set({ isSimilaritySortLoading: false })
+      console.error('[Store.sortBySimilarity] Failed to calculate similarity sort:', error)
+      // On failure, clear signature so effect can retry
+      set({ isSimilaritySortLoading: false, lastSortedSelectionSignature: '' })
     }
   },
 

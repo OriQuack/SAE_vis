@@ -35,7 +35,6 @@ interface FeatureSplitPairViewerProps {
   currentPair?: PairData | null  // Optional: pass directly to avoid recomputation during drag
   onNavigatePrevious?: () => void
   onNavigateNext?: () => void
-  activeListSource?: string  // Current active list source for auto-advance logic
   sortMode?: SortMode  // Current sort mode
   isLoading?: boolean  // Whether similarity scores are being calculated
   isTemplateSort?: boolean  // Whether current sort matches template (default) sort
@@ -58,7 +57,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   currentPair: currentPairProp,
   onNavigatePrevious,
   onNavigateNext,
-  activeListSource = 'all',
   sortMode = 'default',
   isLoading = false,
   isTemplateSort: _isTemplateSort = true,
@@ -119,7 +117,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
   // Post-tagging navigation hook
   const { handlePostTagNavigation, handlePostUnsureNavigation } = useTaggingNavigation({
-    activeListSource,
     sortMode,
     currentIndex: currentPairIndex,
     listLength: pairList.length,

@@ -23,7 +23,7 @@ import '../styles/ThresholdTaggingPanel.css'
 // Cause mode specific props
 export interface CauseModeProps {
   featureIds: Set<number>
-  causeCategoryDecisionMargins: Map<number, Record<string, number>>
+  causeDecisionMargins: Map<number, number>
   causeSelectionStates: Map<number, CauseCategory>
   causeSelectionSources: Map<number, 'click' | 'threshold' | 'predicted'>
   threshold: number
@@ -229,7 +229,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         {mode === 'cause' && causeProps ? (
           <CauseMarginHistogram
             featureIds={causeProps.featureIds}
-            causeCategoryDecisionMargins={causeProps.causeCategoryDecisionMargins}
+            causeDecisionMargins={causeProps.causeDecisionMargins}
             causeSelectionStates={causeProps.causeSelectionStates}
             causeSelectionSources={causeProps.causeSelectionSources}
             threshold={causeProps.threshold}
@@ -328,7 +328,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
-                  disabled={activeStage !== 'apply' || !causeProps.canTrainSVM || causeProps.causeCategoryDecisionMargins.size === 0}
+                  disabled={activeStage !== 'apply' || !causeProps.canTrainSVM || causeProps.causeDecisionMargins.size === 0}
                   onConfirmAll={causeProps.onConfirmAll}
                   onTagAllUnsure={causeProps.onTagAllUnsure}
                   itemLabel="features"

@@ -2,9 +2,11 @@
 Consensus API endpoint for feature explanation consensus data.
 
 Returns clustered phrases with activation similarity ranking.
+Supports both single-feature and bulk (all features) modes.
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
 from typing import Optional
 import logging
 
@@ -30,29 +32,33 @@ def get_consensus_service() -> ConsensusService:
     return _consensus_service
 
 
-@router.post("/feature-consensus", response_model=FeatureConsensusResponse)
+@router.post("/feature-consensus")
 async def get_feature_consensus(
     request: FeatureConsensusRequest,
     service: ConsensusService = Depends(get_consensus_service)
 ):
-    """Get consensus data for a specific feature.
+    """Get consensus data for a specific feature or all features.
 
-    Returns clustered explanation phrases ranked by activation similarity,
-    with medoids representing clusters and outliers shown individually.
+    - If feature_id is provided: returns single FeatureConsensusResponse
+    - If feature_id is omitted: returns dict of {feature_id: consensus_data} for all features
     """
     try:
         if not service.is_ready:
             raise HTTPException(status_code=503, detail="Consensus service not available")
 
-        result = service.get_feature_consensus(request.feature_id)
-
-        if result is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Feature {request.feature_id} not found in consensus data"
-            )
-
-        return FeatureConsensusResponse(**result)
+        if request.feature_id is not None:
+            # Single feature mode
+            result = service.get_feature_consensus(request.feature_id)
+            if result is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Feature {request.feature_id} not found in consensus data"
+                )
+            return FeatureConsensusResponse(**result)
+        else:
+            # Bulk mode: return all features
+            all_data = service.get_all_consensus()
+            return JSONResponse(content=all_data)
 
     except HTTPException:
         raise

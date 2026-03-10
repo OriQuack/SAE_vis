@@ -4,7 +4,13 @@ from typing import List, Optional
 
 class FeatureConsensusRequest(BaseModel):
     """Request for feature consensus data."""
-    feature_id: int
+    feature_id: Optional[int] = None
+
+
+class CharOffset(BaseModel):
+    """Character offset range for phrase highlighting."""
+    start: int
+    end: int
 
 
 class ClusterPhrase(BaseModel):
@@ -17,6 +23,7 @@ class ClusterPhrase(BaseModel):
     activation_similarity: float
     start_char: Optional[int] = None
     end_char: Optional[int] = None
+    char_offsets: Optional[List[CharOffset]] = None
 
 
 class ConsensusItem(BaseModel):
@@ -31,6 +38,7 @@ class ConsensusItem(BaseModel):
     phrase_weight: Optional[float] = None
     start_char: Optional[int] = None
     end_char: Optional[int] = None
+    char_offsets: Optional[List[CharOffset]] = None
     cluster_size: Optional[int] = None
     cluster_score: Optional[float] = None
     cluster_coherence: Optional[float] = None

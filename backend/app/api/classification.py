@@ -11,6 +11,7 @@ Endpoints:
 """
 
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import JSONResponse
 from typing import Optional
 import logging
 
@@ -20,7 +21,7 @@ from ..models.classification import (
     SimilarityHistogramRequest, SimilarityHistogramResponse,
     PairSimilarityHistogramRequest,
     Stage3QualityScoresRequest,
-    CauseClassificationRequest, CauseClassificationResponse,
+    CauseClassificationRequest,
 )
 from ..services.classification_service import ClassificationService
 from ..services.pair_similarity_service import PairSimilarityService
@@ -398,11 +399,11 @@ async def stage3_quality_scores(
         )
 
 
-@router.post("/cause-classification", response_model=CauseClassificationResponse)
+@router.post("/cause-classification")
 async def cause_classification(
     request: CauseClassificationRequest,
     service: ClassificationService = Depends(get_classification_service)
-) -> CauseClassificationResponse:
+):
     """
     Classify features into cause categories using OvR SVMs.
 
@@ -425,14 +426,14 @@ async def cause_classification(
             f"{len(request.cause_selections)} manual tags"
         )
 
-        # Call service to classify features
-        response = await service.get_cause_classification(request)
+        # Call service — returns plain dict (bypasses Pydantic for speed)
+        result_dict = await service.get_cause_classification(request)
 
         logger.info(
-            f"Cause classification completed: {response.total_features} features, "
-            f"counts: {response.category_counts}"
+            f"Cause classification completed: {result_dict['total_features']} features, "
+            f"counts: {result_dict['category_counts']}"
         )
-        return response
+        return JSONResponse(content=result_dict)
 
     except HTTPException:
         raise

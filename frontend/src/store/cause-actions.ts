@@ -363,15 +363,17 @@ export const createCauseActions = (set: any, get: any) => ({
         statesToUpdate.forEach(([id, category]) => newStates.set(id, category))
         sourcesToUpdate.forEach(([id, source]) => newSources.set(id, source))
 
-        // Build decision margins map (feature_id -> { category -> score })
-        // Only create this when there are changes to avoid unnecessary Map creation
+        // Build decision margins maps from response
         const categoryDecisionMargins = new Map<number, Record<string, number>>()
+        const decisionMargins = new Map<number, number>()
         response.results.forEach((result) => {
           categoryDecisionMargins.set(result.feature_id, result.decision_scores)
+          decisionMargins.set(result.feature_id, result.decision_margin)
         })
 
         set({
           causeCategoryDecisionMargins: categoryDecisionMargins,
+          causeDecisionMargins: decisionMargins,
           causeSelectionStates: newStates,
           causeSelectionSources: newSources,
           causeClassificationLoading: false,

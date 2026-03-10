@@ -73,6 +73,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
   const causeCategoryDecisionMargins = useVisualizationStore(state => state.causeCategoryDecisionMargins)
+  const causeDecisionMargins = useVisualizationStore(state => state.causeDecisionMargins)
   const causeClassificationLoading = useVisualizationStore(state => state.causeClassificationLoading)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const fetchCauseClassification = useVisualizationStore(state => state.fetchCauseClassification)
@@ -170,10 +171,10 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       featureId,
       causeSelectionStates as Map<number, CauseCategory>,
       causeSelectionSources,
-      causeCategoryDecisionMargins,
+      causeDecisionMargins,
       causeMarginThreshold
     )
-  }, [causeSelectionStates, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [causeSelectionStates, causeSelectionSources, causeDecisionMargins, causeMarginThreshold])
 
   // Compute RadViz positions from decision margins
   const radVizPositions = useMemo(() => {
@@ -196,14 +197,13 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
       if (stage === 'bootstrap') return true
 
       // Learn/Apply: filter by margin threshold (no tagged-feature exemption)
-      const categoryScores = causeCategoryDecisionMargins.get(point.feature_id)
-      if (!categoryScores) return true
-      const margin = Math.min(...Object.values(categoryScores).map(s => Math.abs(s)))
+      const margin = causeDecisionMargins.get(point.feature_id)
+      if (margin === undefined) return true
       return stage === 'apply'
         ? margin >= causeMarginThreshold
         : margin < causeMarginThreshold
     })
-  }, [radVizPositions, activeStage, hideTagged, causeSelectionSources, causeCategoryDecisionMargins, causeMarginThreshold])
+  }, [radVizPositions, activeStage, hideTagged, causeSelectionSources, causeDecisionMargins, causeMarginThreshold])
 
 
   // ============================================================================

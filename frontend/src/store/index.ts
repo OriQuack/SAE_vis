@@ -10,7 +10,8 @@ import type {
   FlowPathData,
   SimilarityScoreHistogramResponse,
   FlipTrackingInfo,
-  CommitteeVoteInfo
+  CommitteeVoteInfo,
+  ConsensusResponse
 } from '../types'
 import { processFeatureGroupResponse } from '../lib/threshold-utils'
 import {
@@ -107,6 +108,10 @@ export interface Stage3FinalCommit {
   counts?: CauseCommitCounts
   workflowActiveStage?: 'bootstrap' | 'learn' | 'apply'
 }
+
+// Module-level consensus cache (survives store recreations, like activation cache pattern)
+let consensusCache: Record<number, ConsensusResponse> | null = null
+let consensusFetchPromise: Promise<Record<number, ConsensusResponse>> | null = null
 
 interface AppState {
   // Data state - now split for left and right panels
@@ -253,7 +258,8 @@ interface AppState {
   isLoadingDistributedPairs: boolean
 
   // Cause similarity sort state (for cause table - multi-class OvR)
-  causeCategoryDecisionMargins: Map<number, Record<string, number>>  // Per-category decision margins
+  causeCategoryDecisionMargins: Map<number, Record<string, number>>  // Per-category decision scores (for RadViz positioning + batch argmax)
+  causeDecisionMargins: Map<number, number>  // Pre-computed top-two gap per feature (from backend)
   causeSortCategory: string | null  // Which category to sort by ('noisy-activation', 'missed-N-gram', 'missed-context', or null for max)
   // Cause margin threshold for effective category calculation (shared across components)
   causeMarginThreshold: number
@@ -398,6 +404,10 @@ interface AppState {
   prefetchAllActivationData: () => Promise<void>
   clearActivationCache: () => void
 
+  // Consensus data (preloaded at startup)
+  consensusData: Record<number, ConsensusResponse>
+  fetchAllConsensus: () => Promise<void>
+
   // Auto-initialization with default filters
   initializeWithDefaultFilters: () => Promise<void>
 }
@@ -464,6 +474,7 @@ const initialState = {
 
   // Cause similarity sort state (for cause table - multi-class OvR)
   causeCategoryDecisionMargins: new Map<number, Record<string, number>>(),
+  causeDecisionMargins: new Map<number, number>(),
   causeSortCategory: null,  // Sort by max decision margin by default
   // Cause margin threshold for effective category calculation
   causeMarginThreshold: 0.15,
@@ -553,7 +564,10 @@ const initialState = {
   // activating examples cache
   activationExamples: {},
   activationLoading: new Set<number>(),
-  activationLoadingState: false
+  activationLoadingState: false,
+
+  // Consensus data (preloaded at startup)
+  consensusData: {}
 }
 
 export const useStore = create<AppState>((set, get) => {
@@ -660,6 +674,38 @@ export const useStore = create<AppState>((set, get) => {
 
   // Compose activation actions
   ...createActivationActions(set, get),
+
+  // Consensus data (preloaded at startup)
+  fetchAllConsensus: async () => {
+    // Module-level cache check
+    if (consensusCache && Object.keys(consensusCache).length > 0) {
+      console.log('[Store.fetchAllConsensus] Using module-level cache:', Object.keys(consensusCache).length)
+      set({ consensusData: consensusCache })
+      return
+    }
+
+    // Deduplicate concurrent fetches
+    if (consensusFetchPromise) {
+      console.log('[Store.fetchAllConsensus] Waiting for in-progress fetch...')
+      const data = await consensusFetchPromise
+      set({ consensusData: data })
+      return
+    }
+
+    console.log('[Store.fetchAllConsensus] Starting fetch...')
+    consensusFetchPromise = api.getAllConsensus()
+
+    try {
+      const data = await consensusFetchPromise
+      consensusCache = data
+      set({ consensusData: data })
+    } catch (error) {
+      console.error('[Store.fetchAllConsensus] Failed:', error)
+      throw error
+    } finally {
+      consensusFetchPromise = null
+    }
+  },
 
   // Threshold drag state action
   setWorkflowActiveStage: (stage: 'bootstrap' | 'learn' | 'apply') => set({ workflowActiveStage: stage }),
@@ -1296,14 +1342,15 @@ export const useStore = create<AppState>((set, get) => {
     console.log(`🔑 Feature IDs fetched: ${allFeatureIds.length} features in ${(performance.now() - startTime).toFixed(0)}ms`)
 
     // Step 2: Run ALL data loading in parallel (using shared feature IDs)
-    console.log('🚀 Step 2: Starting parallel initialization: Table + Sankey + Activations')
+    console.log('🚀 Step 2: Starting parallel initialization: Table + Sankey + Activations + Consensus')
     await Promise.all([
       get().fetchTableData(),
       get().buildSankeyFromFeatureIds(allFeatureIds, PANEL_LEFT),
-      get().fetchAllActivationsCached()  // Optimized: single request with msgpack+gzip
+      get().fetchAllActivationsCached(),  // Optimized: single request with msgpack+gzip
+      get().fetchAllConsensus()           // Preload all consensus data
     ])
     const totalDuration = performance.now() - startTime
-    console.log(`✅ Full parallel initialization complete in ${totalDuration.toFixed(0)}ms - Table + Sankey + Activations ready`)
+    console.log(`✅ Full parallel initialization complete in ${totalDuration.toFixed(0)}ms - Table + Sankey + Activations + Consensus ready`)
 
     // Activate Feature Splitting view by default
     await get().activateCategoryTable(TAG_CATEGORY_FEATURE_SPLITTING)

@@ -169,8 +169,8 @@ export function StageAccordionList<T>({
 
     const hints: string[] = []
     if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
-    if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
-    if (hideTagged && (activeStage !== 'apply' || allItemsLabeled)) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
+    if (activeStage === 'apply' || activeStage === 'learn') hints.push('adjust the threshold range')
+    if (hideTagged) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
 
     if (hints.length === 0) return line1
 
@@ -301,12 +301,12 @@ export function StageAccordionList<T>({
             </button>
           ))}
           {activeStage === 'learn' && (
-            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled data-tooltip-title="Most Uncertain First">
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
               Most Uncertain First
             </button>
           )}
           {activeStage === 'apply' && (
-            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled data-tooltip-title="Most Confident First">
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
               Most Confident First
             </button>
           )}

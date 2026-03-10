@@ -311,10 +311,10 @@ export function calculateHistogramYAxisTicks(
   let domainMin = data.statistics.min
   let domainMax = data.statistics.max
 
-  // For decision_margin (Stage 3), use fixed range -1 to 1, expanding if data exceeds
+  // For decision_margin (Stage 3), top-two gap is always >= 0
   if (metric === 'decision_margin') {
-    domainMin = Math.min(-1, domainMin)
-    domainMax = Math.max(1, domainMax)
+    domainMin = 0
+    domainMax = Math.max(domainMax, 0.01) // avoid zero-width domain
   }
 
   // Create scale matching the histogram bars
