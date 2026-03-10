@@ -84,6 +84,8 @@ interface CauseMarginHistogramProps {
   activeStage?: ActiveStage
   /** Feature ID to highlight in histogram */
   focusedFeatureId?: number | null
+  /** Ref forwarded to the first threshold handle for popover anchoring */
+  handleRef?: React.RefObject<SVGGElement | null>
 }
 
 interface MarginDataPoint {
@@ -192,7 +194,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   canTrainSVM = true,
   manualTagCountsByCategory,
   activeStage,
-  focusedFeatureId
+  focusedFeatureId,
+  handleRef
 }) => {
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(200)
@@ -731,6 +734,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
                 onUpdate={handleThresholdUpdate}
                 onDragUpdate={handleDragUpdate}
                 onDragEnd={handleDragEnd}
+                firstHandleRef={handleRef}
               />
 
               {/* Threshold label with arrow - clips to stay within bounds */}

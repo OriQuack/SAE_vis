@@ -185,8 +185,12 @@ body {
   font-family: 'Consolas', 'Monaco', monospace;
   text-transform: none;
   letter-spacing: normal;
-  text-decoration: underline;
+  text-decoration: none;
   margin-left: 2px;
+}
+
+.view-threshold-icon {
+  vertical-align: middle;
 }
 
 .instruction-subheader {

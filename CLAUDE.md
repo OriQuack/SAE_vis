@@ -51,6 +51,9 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Query by Committee (QBC) for Active Learning (RF + MLP + SVM)          │
 │  • Decision Flip Rate Tracking for Convergence Monitoring                 │
 │  • RadViz Visualization for Multi-class Cause Analysis                    │
+│  • Contextual Guidance Popovers for Workflow Progression                  │
+│  • Global Tooltip System (DataTooltipLayer with [data-tooltip] attrs)     │
+│  • Stage Persistence (workflowActiveStage saved in commit snapshots)      │
 │  • Commit History for tagging state snapshots                             │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
@@ -161,10 +164,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (30 files)
-│   │   ├── lib/          # D3 utilities, helpers (21 files + 7 tagging hooks)
+│   │   ├── components/    # UI components (31 files)
+│   │   ├── lib/          # D3 utilities, helpers (22 files + 7 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (29 files)
+│   │   ├── styles/       # CSS files (30 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -214,9 +217,11 @@ npm run dev -- --port 3003
 - **Flow Overlay**: Visualizes flows from Sankey segments to SelectionBar
 - **Selection Panel**: 4-category tagging (confirmed, expanded, rejected, unsure)
 - **Tag Stage Panel**: 3-stage navigation (Structural Soundness → Explanation Adequacy → Failure Attribution)
-- **StageAccordionList**: Bootstrap → Learn → Apply workflow with sorting controls
+- **StageAccordionList**: Bootstrap → Learn → Apply workflow with contextual guidance popovers and smart empty messages
+- **GuidancePopover**: Contextual guidance anchored to UI elements (replaces pulsing indicators)
 - **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
-- **Commit History**: Save and restore tagging state snapshots
+- **DataTooltipLayer**: Global event-delegated tooltip system via `[data-tooltip]` attributes
+- **Commit History**: Save and restore tagging state snapshots (includes workflowActiveStage)
 
 ### 3-Stage Tagging Workflow
 
@@ -234,10 +239,12 @@ npm run dev -- --port 3003
 - **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
 - **Query by Committee (QBC)**: RF + MLP models trained alongside SVM to detect disagreement cases
 - **Decision Flip Rate**: Tracks prediction stability across tagging iterations (convergence indicator)
+- **Flip Rate Stability Detection**: Shows guidance popover when flip rate < 3% for 5 consecutive iterations
 - **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution with filtering support
 - **Contour Visualization**: Shows category distributions on RadViz after classification
-- **Bootstrap → Learn → Apply Workflow**: StageAccordionList guides users through active learning stages
+- **Bootstrap → Learn → Apply Workflow**: StageAccordionList with contextual guidance popovers and smart empty messages
 - **Representative Sampling**: Diversity-based sampling for cold start initialization
+- **Stage Persistence**: Saves/restores `workflowActiveStage` so users resume at saved position
 
 ### Export Results (ExportResultsPopup)
 - **Popup overlay** triggered from CauseView after completing Stage 3
@@ -266,6 +273,7 @@ Items can be tagged via three mechanisms (tracked in TagSource type):
 - **Feature Group Caching**: Instant threshold updates
 - **Set Intersection**: Efficient tree building O(min(|A|,|B|))
 - **Activation Cache**: Pre-computed msgpack+gzip (~15-25s vs ~100s)
+- **Consensus Caching**: Client-side cache in CauseView avoids redundant API calls
 - **Lazy Evaluation**: Polars query optimization
 - **Memoization**: React.memo, useMemo, useCallback
 
@@ -318,7 +326,7 @@ All backend-required files are in `/data/output/`:
 - **Activation Display**: `activation_display.parquet` (frontend-optimized)
 - **Interfeature Similarity**: `interfeature_similarity.parquet` (cross-feature analysis)
 - **Explanation Alignment**: `explanation_alignment.parquet` (phrase matching)
-- **Explanation Consensus**: `explanation_consensus.parquet` (HDBSCAN phrase clustering)
+- **Explanation Consensus**: `explanation_consensus.parquet` (HDBSCAN phrase clustering, multi-range char offsets)
 - **SVM Feature Metrics**: `svm_feature_metrics.parquet` (pre-aggregated for Stage 2/3)
 - **SVM Pair Metrics**: `svm_pair_metrics.parquet` (pre-computed for Stage 1)
 - **Clustering**: `clustering_linkage.npy` (hierarchical clustering)

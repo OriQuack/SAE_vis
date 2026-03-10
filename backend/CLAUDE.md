@@ -169,7 +169,8 @@ def get_feature_consensus(feature_id):
     # Load pre-computed phrase clusters from explanation_consensus.parquet
     # Return medoid phrases + outliers sorted by activation similarity
     # Includes cluster coherence, phrase weights, and consensus scores
-    # Includes start_char/end_char offsets for phrase highlighting in explanations
+    # Multi-range char offsets: char_offsets: [{start, end}, ...] for disjoint phrase highlighting
+    # Backward compatible: also provides legacy start_char/end_char (from first offset)
     # Recomputes consensus_score normalized by num_explainers
     # Maps raw explainer names to display names via MODEL_NAME_MAP
 ```
@@ -454,6 +455,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
       "is_outlier": false,
       "start_char": 0,
       "end_char": 15,
+      "char_offsets": [{"start": 0, "end": 15}],
       "cluster_size": 3,
       "cluster_score": 1.2,
       "cluster_coherence": 0.92,
@@ -508,7 +510,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Location**: `/data/output/explanation_consensus.parquet`
 - **Purpose**: HDBSCAN phrase clustering with activation similarity scoring
 - **Size**: ~4.1MB
-- **Key Columns**: feature_id, consensus_score, num_clusters, num_outliers, clusters (nested with start_char/end_char offsets)
+- **Key Columns**: feature_id, consensus_score, num_clusters, num_outliers, clusters (nested with char_offsets: list of {start, end} for multi-range highlighting)
 - **Used by**: consensus_service.py for phrase clustering visualization, table_data_service.py for consensus_score lookup
 
 #### interfeature_similarity.parquet

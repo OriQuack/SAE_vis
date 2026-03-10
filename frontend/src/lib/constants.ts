@@ -117,7 +117,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Q: Given the explanation, can you reproduce the activation pattern?",
+    instruction: "Q: Given the explanations, can you reproduce the activation pattern?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
@@ -147,7 +147,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Diagnose the root cause of misinterpretation for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Q: Why does the explanation fail to reproduce activations?",
+    instruction: "Q: Why does the explanations fail to reproduce activations?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },

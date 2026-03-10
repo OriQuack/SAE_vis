@@ -206,10 +206,13 @@ const CauseView: React.FC<CauseViewProps> = ({
       }
 
       try {
+        const demoMode = useVisualizationStore.getState().demoMode
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          20  // Get 20 diverse features via Kennard-Stone
+          20,  // Get 20 diverse features via Kennard-Stone
+          undefined,
+          demoMode ? undefined : Date.now()
         )
         const newIds = new Set(response.suggestions.map(s => parseInt(s.id, 10)))
         setStage3DiversityCache(newIds, signature)
@@ -1603,7 +1606,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
                 }}
-                showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+                showStabilityPopover={activeStage === 'learn' && isFlipRateStable && !stabilityPopoverDismissed}
                 onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
             />
           </div>

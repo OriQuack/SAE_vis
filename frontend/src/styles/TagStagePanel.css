@@ -80,7 +80,7 @@
   border-bottom: none;
   border-radius: 8px 8px 0 0;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  transition: none;
   font-family: inherit;
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
@@ -102,8 +102,8 @@
   min-width: auto;
 }
 
-.stage-tab:hover {
-  background: #cbd5e1;
+.stage-tab:not(.stage-tab--active):hover {
+  border-color: #cbd5e1;
 }
 
 .stage-tab:focus,
@@ -133,10 +133,6 @@
   z-index: 2;  /* Above panel border */
 }
 
-.stage-tab--active:hover {
-  background: white;
-}
-
 /* Completed State - Neutral gray colors */
 .stage-tab--completed {
   border-color: #94a3b8;
@@ -158,18 +154,15 @@
   pointer-events: none;
 }
 
-.stage-tab--completed:hover::after {
-  background: #cbd5e1;
-}
-
 /* Future State - Not yet clicked stages */
 .stage-tab--future {
   /* Remove translateY to always show full content */
   transition: transform 0.3s ease;
 }
 
-.stage-tab--future:hover {
-  background: #cbd5e1;
+/* No-demo State - Suppress pointer cursor without visual change */
+.tag-category-panel--no-demo .stage-tab {
+  cursor: default;
 }
 
 /* Disabled State - When threshold preview is active */
@@ -300,7 +293,7 @@
   display: flex;
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .stage-tag-row__prefix {
@@ -314,7 +307,7 @@
 }
 
 .stage-tag-row__terminal {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #94a3b8;
   white-space: nowrap;
@@ -322,10 +315,11 @@
 }
 
 .stage-tag-row__suffix {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #94a3b8;
   width: 52px;
+  line-height: 1;
   text-align: left;
 }
 
@@ -336,7 +330,7 @@
 .stage-tab--completed .stage-tag-row__prefix,
 .stage-tab--completed .stage-tag-row__terminal,
 .stage-tab--completed .stage-tag-row__suffix {
-  color: #64748b;
+  color: #1e293b;
 }
 
 /* ============================================================================

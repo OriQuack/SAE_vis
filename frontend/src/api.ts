@@ -197,13 +197,28 @@ export async function getActivationExamples(
  *
  * @returns Record mapping feature_id to ActivationExamples
  */
-export async function getAllActivationExamplesCached(): Promise<Record<number, ActivationExamples>> {
+async function fetchActivationsCachedOnce(): Promise<Record<number, ActivationExamples>> {
   const startTime = performance.now()
-  console.log('[API] getAllActivationExamplesCached: Starting cached fetch...')
 
-  const response = await fetch(`${API_BASE}${API_ENDPOINTS.ACTIVATION_EXAMPLES_CACHED}`)
+  // Timeout after 2 minutes for the large (~136MB) transfer
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), 120_000)
+
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE}${API_ENDPOINTS.ACTIVATION_EXAMPLES_CACHED}`, {
+      signal: controller.signal
+    })
+  } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Activation data fetch timed out after 120 seconds')
+    }
+    throw error
+  }
 
   if (!response.ok) {
+    clearTimeout(timeoutId)
     const errorText = await response.text()
     console.error('[API] Cached activating examples error:', response.status, errorText)
     throw new Error(`Failed to fetch cached activating examples: ${response.status} - ${errorText}`)
@@ -214,6 +229,17 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
 
   // Get the compressed binary data
   const compressedData = await response.arrayBuffer()
+  clearTimeout(timeoutId)
+
+  // Validate response is not empty or truncated
+  if (compressedData.byteLength === 0) {
+    throw new Error('Activation data response was empty')
+  }
+  const expectedLength = response.headers.get('Content-Length')
+  if (expectedLength && compressedData.byteLength !== parseInt(expectedLength, 10)) {
+    throw new Error(`Activation data truncated: received ${compressedData.byteLength} bytes, expected ${expectedLength}`)
+  }
+
   const compressedSize = compressedData.byteLength
 
   // Decompress gzip
@@ -230,9 +256,31 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
   const totalTime = performance.now() - startTime
   const featureCount = Object.keys(data.examples || {}).length
 
+  if (featureCount === 0) {
+    throw new Error('Activation data decoded but contained 0 features')
+  }
+
   console.log(`[API] getAllActivationExamplesCached: Decoded ${featureCount} features in ${decodeTime.toFixed(0)}ms (total: ${totalTime.toFixed(0)}ms)`)
 
-  return data.examples || {}
+  return data.examples
+}
+
+const ACTIVATION_FETCH_MAX_RETRIES = 3
+
+export async function getAllActivationExamplesCached(): Promise<Record<number, ActivationExamples>> {
+  console.log('[API] getAllActivationExamplesCached: Starting cached fetch...')
+
+  for (let attempt = 1; attempt <= ACTIVATION_FETCH_MAX_RETRIES; attempt++) {
+    try {
+      return await fetchActivationsCachedOnce()
+    } catch (error) {
+      if (attempt === ACTIVATION_FETCH_MAX_RETRIES) throw error
+      const delay = 1000 * Math.pow(2, attempt - 1)
+      console.warn(`[API] getAllActivationExamplesCached: Attempt ${attempt}/${ACTIVATION_FETCH_MAX_RETRIES} failed, retrying in ${delay}ms...`, error)
+      await new Promise(resolve => setTimeout(resolve, delay))
+    }
+  }
+  throw new Error('Unreachable')
 }
 
 export async function getSimilaritySort(
@@ -641,7 +689,8 @@ export async function getColdStartSuggestions(
   mode: 'feature' | 'pair',
   featureIds: number[],
   numSuggestions: number = 20,
-  threshold?: number
+  threshold?: number,
+  randomSeed?: number
 ): Promise<ColdStartSuggestionsResponse> {
   console.log('[API] getColdStartSuggestions called with:', {
     mode,
@@ -654,7 +703,8 @@ export async function getColdStartSuggestions(
     mode,
     feature_ids: featureIds,
     num_suggestions: numSuggestions,
-    ...(threshold !== undefined && { threshold })
+    ...(threshold !== undefined && { threshold }),
+    ...(randomSeed !== undefined && { random_seed: randomSeed })
   }
 
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.COLD_START_SUGGESTIONS}`, {

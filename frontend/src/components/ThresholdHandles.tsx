@@ -107,6 +107,7 @@ interface ThresholdHandlesProps {
   onDragEnd?: () => void                     // Called when drag ends
   handleDimensions?: { width: number; height: number }
   percentileToMetric?: (percentile: number) => number  // Optional: Convert percentile to metric value for tooltip
+  firstHandleRef?: React.RefObject<SVGGElement | null>  // Ref attached to the first handle's <g> for external anchoring
 }
 
 // ============================================================================
@@ -206,7 +207,8 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
   onDragStart,
   onDragEnd,
   handleDimensions = { width: 20, height: 16 },
-  percentileToMetric
+  percentileToMetric,
+  firstHandleRef
 }) => {
   // Use lineBounds if provided, otherwise default to bounds
   const effectiveLineBounds = lineBounds || bounds
@@ -473,6 +475,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
 
             {/* Professional grip-style handle - rounded rectangle with 3 grip lines */}
             <g
+              ref={index === 0 ? firstHandleRef : undefined}
               onMouseDown={handleMouseDown(index)}
               onMouseEnter={() => setHoveredHandle(index)}
               onMouseLeave={() => setHoveredHandle(null)}
@@ -571,7 +574,7 @@ export const ThresholdHandles: React.FC<ThresholdHandlesProps> = ({
                       {/* Threshold value text */}
                       <text
                         x={pos}
-                        y={handleDimensions.height + 19}
+                        y={handleDimensions.height + 15}
                         dy="0.35em"
                         fontSize="14"
                         fontFamily="monospace"

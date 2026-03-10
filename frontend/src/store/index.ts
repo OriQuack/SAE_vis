@@ -278,6 +278,10 @@ interface AppState {
   workflowActiveStage: 'bootstrap' | 'learn' | 'apply'
   setWorkflowActiveStage: (stage: 'bootstrap' | 'learn' | 'apply') => void
 
+  // Demo mode toggle (defaults ON; when OFF: disables stage navigation + randomizes cold start)
+  demoMode: boolean
+  setDemoMode: (enabled: boolean) => void
+
   // Whether threshold handle is currently being dragged (to prevent rapid updates)
   isDraggingThreshold: boolean
   setDraggingThreshold: (isDragging: boolean) => void
@@ -470,6 +474,9 @@ const initialState = {
   // Active workflow stage synced from views
   workflowActiveStage: 'bootstrap' as const,
 
+  // Demo mode (defaults OFF)
+  demoMode: false,
+
   // Whether threshold handle is currently being dragged
   isDraggingThreshold: false,
 
@@ -656,6 +663,7 @@ export const useStore = create<AppState>((set, get) => {
 
   // Threshold drag state action
   setWorkflowActiveStage: (stage: 'bootstrap' | 'learn' | 'apply') => set({ workflowActiveStage: stage }),
+  setDemoMode: (enabled: boolean) => set({ demoMode: enabled }),
   setDraggingThreshold: (isDragging: boolean) => set({ isDraggingThreshold: isDragging }),
 
   // Cause margin threshold action

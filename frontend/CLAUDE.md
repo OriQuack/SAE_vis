@@ -7,7 +7,7 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning + action logging
+**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning + contextual guidance popovers + global tooltip system + action logging
 
 ## Important Development Principles
 
@@ -90,12 +90,16 @@ The application implements a 3-stage workflow for tagging features:
 - **Initial State**: All features start as "unsure" (no pre-assignment)
 - **Manual Tagging**: Click features to assign cause categories (Missed Syntax / Missed Context / Noisy Activation)
 - **SVM Classification**: After tagging 2+ features per category, SVM predicts remaining
-- **Query by Committee (QBC)**: RF + MLP trained alongside SVM; vote entropy identifies disagreement cases
+- **Query by Committee (QBC)**: RF + MLP trained alongside SVM; majority voting identifies disagreement cases
 - **Decision Flip Rate**: Tracks prediction stability across tagging iterations (ConvergenceIndicator)
+- **Flip Rate Stability Detection**: Monitors last 5 iterations; shows guidance popover when flip rate < 3% for 5 consecutive iterations
 - **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence with filtering support and batch tagging
 - **Contour Visualization**: Density contours show predicted category distributions on RadViz
-- **Bootstrap → Learn → Apply**: StageAccordionList guides users through active learning workflow
+- **Bootstrap → Learn → Apply**: StageAccordionList guides users through active learning workflow with contextual guidance popovers
 - **Representative Sampling**: Cold start with diversity-based feature sampling
+- **Reviewed Items Tracking**: Tracks any tag action (including unsure) to trigger workflow progression
+- **Consensus Caching**: Client-side cache avoids redundant API calls when re-selecting features
+- **Stage Persistence**: Saves/restores `workflowActiveStage` so users resume workflow at saved position
 
 ### Export Results (ExportResultsPopup)
 - **Popup overlay** triggered from CauseView after completing Stage 3
@@ -113,7 +117,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (30 files)
+├── components/                    # React Components (31 files)
 │   ├── ActivationExamplePanel.tsx # Activation display panel with n-gram highlighting
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
@@ -128,6 +132,7 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.tsx # Pair viewer for Stage 1
 │   ├── FeatureSplitView.tsx      # Stage 1: Feature splitting
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
+│   ├── GuidancePopover.tsx      # Contextual guidance popover anchored to UI elements
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
 │   ├── OverviewSummary.tsx       # Manual vs auto labeling breakdown (used in ExportResultsPopup)
 │   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization with category bands
@@ -144,7 +149,7 @@ frontend/src/
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
 │   └── Tooltip.tsx               # Reusable tooltip with composition pattern
-├── lib/                          # Utilities (21 files + 7 tagging hooks)
+├── lib/                          # Utilities (22 files + 7 tagging hooks)
 │   ├── action-logger.ts          # Frontend action logging (buffers + flushes to /api/action-log)
 │   ├── constants.ts              # App constants, tag categories, metrics, SELECTION_BLUE palette
 │   ├── sankey-utils.ts           # Sankey layout calculations
@@ -184,7 +189,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (29 files)
+├── styles/                       # CSS Files (30 files)
 │   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── App.css                   # Main app layout
 │   ├── AppHeader.css             # Header styles
@@ -200,6 +205,7 @@ frontend/src/
 │   ├── FeatureSplitPairViewer.css # Pair viewer styles
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FlowPanel.css             # Flow panel styles
+│   ├── GuidancePopover.css      # Guidance popover styles
 │   ├── OverviewSummary.css       # Overview summary styles
 │   ├── ParallelCoordinates.css   # Parallel coordinates styles
 │   ├── QualityView.css           # Stage 2 styles
@@ -243,6 +249,9 @@ frontend/src/
 - DecisionMarginHistogram for histogram-based tagging
 - Commit history for state snapshots
 - Tags: Incoherent Splitting (selected) / Monosemantic (rejected)
+- Reviewed items tracking (`reviewedPairIds`) for workflow progression
+- Cluster threshold restoration from saved state on revisit
+- Stage persistence: saves/restores `workflowActiveStage` and `committeeVotes`
 
 **QualityView.tsx** - Stage 2: Quality Assessment
 - Mode: `feature`
@@ -251,6 +260,7 @@ frontend/src/
 - SVM-based similarity scoring for features
 - Commit history for state snapshots
 - Tags: Well-Explained (selected) / Need Revision (rejected)
+- Reviewed items tracking, stage persistence, smart empty messages (mirrors FeatureSplitView)
 
 **CauseView.tsx** - Stage 3: Root Cause Analysis
 - Mode: `cause`
@@ -260,9 +270,11 @@ frontend/src/
 - SVM-based classification after manual tagging
 - Query by Committee (QBC) for detecting disagreement cases
 - Decision Flip Rate tracking with ConvergenceIndicator
+- Flip rate stability detection (< 3% for 5 iterations → guidance popover)
 - Tags: Well-Explained / Missed Syntax / Missed Context / Noisy Activation
-- StageAccordionList for Bootstrap → Learn → Apply workflow
+- StageAccordionList for Bootstrap → Learn → Apply workflow with contextual guidance popovers
 - Cold start with representative sampling
+- Reviewed items tracking, consensus caching, stage persistence, smart empty messages
 
 **CauseRadViz.tsx** - RadViz Visualization (Stage 3)
 - Canvas-based scatter plot for performance with SVG overlay
@@ -284,13 +296,25 @@ frontend/src/
 - Bootstrap options: Representatives (diversity sampling) or By Score (ascending/descending)
 - Learn stage: Review SVM predictions, accept/reject
 - Apply stage: Batch apply threshold-based tagging
-- Smart pulsing indicators when ready to advance
+- **Contextual guidance popovers** (replaced pulsing indicators):
+  - Learn tab popover when predictions ready
+  - Metric toggle popover when can't train SVM (insufficient labels)
+  - SVM-ready popover when trained while in byScore mode
+- **Smart empty message generation**: Context-specific hints based on active stage, filters, data state
+- **Tab tooltips** via `[data-tooltip]` for stage descriptions
+- **Persistent stage state**: `activeStage` restored from commit data when revisiting
 
 **ConvergenceIndicator.tsx** - Decision Flip Rate
 - Sparkline visualization of flip rate history (sliding window of 10 iterations)
 - Stacked bar showing category distribution per iteration
 - Reference lines at 10%, 25%, 50% flip rate
 - Stage-aware coloring (Stage 1/2: selected/rejected, Stage 3: cause categories)
+
+**GuidancePopover.tsx** - Contextual Guidance
+- Anchors to DOM elements via ref with smart positioning (above/below)
+- Click-outside dismissal with automatic layout adjustment
+- Used by StageAccordionList and views to guide users through workflow phases
+- Replaces previous pulsing indicator approach
 
 **ExportResultsPopup.tsx** - Export Results Popup
 - Popup overlay triggered from CauseView after Stage 3 completion
@@ -308,6 +332,7 @@ frontend/src/
 **SelectionPanel.tsx** - Unified Selection Interface
 - Handles 3 modes: feature, pair, cause
 - Selection state bar with 4 categories
+- Inline pair category counts (memoized) for Stage 1
 - Commit history circles
 - Auto-tagging preview integration
 
@@ -363,7 +388,7 @@ frontend/src/
 - Displays HDBSCAN-clustered phrases sorted by activation similarity
 - Shows cluster medoids with expansion to view all phrases
 - Visual indicators for outliers vs clustered phrases
-- Character offset highlighting (start_char/end_char) for phrase-in-explanation alignment
+- Multi-range character offset highlighting (`char_offsets: {start, end}[]`) for disjoint phrase-in-explanation alignment
 - Loads data via POST /api/feature-consensus endpoint
 
 **CrossMetricConsensus.tsx** - Cross-Metric Consensus Heatmap
@@ -383,10 +408,14 @@ frontend/src/
 - Category bands showing median/IQR per tagged group
 - Uses parallel-coords-utils.ts for summary statistics
 
-**Tooltip.tsx** - Reusable Tooltip
+**Tooltip.tsx** - Reusable Tooltip + Global Tooltip System
 - Composition pattern for flexible content: Tooltip.Header, Tooltip.Summary, Tooltip.Row
 - Positioned tooltips with automatic viewport boundary detection
 - Consistent styling across all visualizations (histogram, RadViz, etc.)
+- **DataTooltipLayer**: Global event-delegated tooltip system
+  - Mounts once in App.tsx using document-level mouseover/mousemove/mouseout
+  - Detects `[data-tooltip]` attributes on any element — no component-level wrapper needed
+  - Replaces scattered `title` attributes for richer, consistent tooltip delivery
 
 ## Action Logging
 

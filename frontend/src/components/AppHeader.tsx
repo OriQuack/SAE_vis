@@ -12,6 +12,8 @@ const Header: React.FC = () => {
   const tableData = useVisualizationStore(state => state.tableData);
   const currentFilters = useVisualizationStore(state => state.leftPanel.filters);
   const filterOptions = useVisualizationStore(state => state.filterOptions);
+  const demoMode = useVisualizationStore(state => state.demoMode);
+  const setDemoMode = useVisualizationStore(state => state.setDemoMode);
 
   // Parse SAE metadata - use selected SAE from filters, or first available from filterOptions
   const saeMetadata = useMemo(() => {
@@ -51,6 +53,19 @@ const Header: React.FC = () => {
 
       {/* Badge Container - Horizontal Layout */}
       <div className="header__badges">
+        {/* Demo Mode Toggle */}
+        <div className="header__demo-toggle">
+          <label className="demo-toggle">
+            <input
+              type="checkbox"
+              className="demo-toggle__input"
+              checked={demoMode}
+              onChange={(e) => setDemoMode(e.target.checked)}
+            />
+            <span className="demo-toggle__slider" />
+            <span className="demo-toggle__label">Demo</span>
+          </label>
+        </div>
         {/* SAE Model Info Badge */}
         {saeMetadata && (
           <div className="header__sae-info">

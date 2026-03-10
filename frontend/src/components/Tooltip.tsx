@@ -125,18 +125,20 @@ export const Tooltip: TooltipType = Object.assign(TooltipBase, {
 // ============================================================================
 
 export const DataTooltipLayer: React.FC = () => {
-  const [state, setState] = React.useState<{ text: string; x: number; y: number } | null>(null)
+  const [state, setState] = React.useState<{ text: string; html?: boolean; x: number; y: number } | null>(null)
   const activeRef = React.useRef(false)
 
   React.useEffect(() => {
     const findTooltipTarget = (e: Event): HTMLElement | null =>
-      (e.target as HTMLElement)?.closest?.('[data-tooltip]') as HTMLElement | null
+      (e.target as HTMLElement)?.closest?.('[data-tooltip],[data-tooltip-html]') as HTMLElement | null
 
     const onOver = (e: MouseEvent) => {
       const target = findTooltipTarget(e)
       if (target) {
         activeRef.current = true
-        setState({ text: target.getAttribute('data-tooltip')!, x: e.clientX, y: e.clientY })
+        const htmlContent = target.getAttribute('data-tooltip-html')
+        const textContent = target.getAttribute('data-tooltip')
+        setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: e.clientX, y: e.clientY })
       }
     }
 
@@ -171,8 +173,12 @@ export const DataTooltipLayer: React.FC = () => {
 
   return (
     <div className="data-tooltip-layer">
-      <Tooltip position={{ x: state.x, y: state.y }} offsetX={12} offsetY={-28}>
-        <Tooltip.Summary showSeparator={false}>{state.text}</Tooltip.Summary>
+      <Tooltip position={{ x: state.x, y: state.y }} offsetX={12} offsetY={-12}>
+        <Tooltip.Summary showSeparator={false}>
+          {state.html
+            ? <span dangerouslySetInnerHTML={{ __html: state.text }} />
+            : state.text}
+        </Tooltip.Summary>
       </Tooltip>
     </div>
   )

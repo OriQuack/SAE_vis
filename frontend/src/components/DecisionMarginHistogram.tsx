@@ -47,6 +47,7 @@ interface DecisionMarginHistogramProps {
   threshold?: number  // Clustering threshold from Sankey (required for simplified flow)
   activeStage?: ActiveStage  // Controls threshold handle visibility (shown only in 'apply' phase)
   focusedItemId?: string | null  // Pair key or feature ID (as string) to highlight in histogram
+  handleRef?: React.RefObject<SVGGElement | null>  // Ref forwarded to the first threshold handle for popover anchoring
 }
 
 const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
@@ -55,7 +56,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   filteredFeatureIds,
   threshold,
   activeStage,
-  focusedItemId
+  focusedItemId,
+  handleRef
 }) => {
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const tagAutomaticStateRef = useRef(tagAutomaticState)
@@ -868,6 +870,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                         onDragUpdate={handleThresholdDragUpdate}
                         onDragStart={handleDragStart}
                         onDragEnd={handleDragEnd}
+                        firstHandleRef={handleRef}
                       />
 
                       {/* Threshold labels with arrows - positions shift to stay within bounds */}

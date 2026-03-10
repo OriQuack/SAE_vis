@@ -210,7 +210,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
         {/* Separator between iterative and fallback buttons */}
         {hasIterativeButtons && hasFallbackButtons && (
           <div className="batch-tagging__separator">
-            <span className="batch-tagging__separator-label">Fallback</span>
+            <span className="batch-tagging__separator-label">Label All Remaining</span>
           </div>
         )}
 

@@ -420,11 +420,13 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       }
 
       try {
+        const demoMode = useVisualizationStore.getState().demoMode
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
           20,  // Get 20 diverse pairs via Kennard-Stone
-          clusteringThreshold
+          clusteringThreshold,
+          demoMode ? undefined : Date.now()
         )
         const newIds = new Set(response.suggestions.map(s => s.id))
         setStage1DiversityCache(newIds, signature)
@@ -1058,7 +1060,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           onApplyTags={handleApplyTags}
           onTagAll={handleTagAll}
           activeStage={activeStage}
-          showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+          showStabilityPopover={activeStage === 'learn' && isFlipRateStable && !stabilityPopoverDismissed}
           onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
         />
           </div>

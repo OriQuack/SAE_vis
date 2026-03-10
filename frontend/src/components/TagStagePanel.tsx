@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   getTagCategoriesInOrder,
   getTagColor,
 } from '../lib/tag-system';
 import { type TagCategoryConfig, TAG_CATEGORY_REGENERATION } from '../lib/constants';
 import { useVisualizationStore } from '../store/index';
-import FlowPanel from './FlowPanel';
 import '../styles/TagStagePanel.css';
 
 interface TagCategoryPanelProps {
@@ -37,8 +36,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   selectedCategory,
   onCategoryClick
 }) => {
-  // Help popup state
-  const [showHelp, setShowHelp] = useState(false);
 
   // // Refs for SVG flow paths
   // const containerRef = useRef<HTMLDivElement>(null);
@@ -256,11 +253,12 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
 
   // Get activateCategoryTable action from store
   const activateCategoryTable = useVisualizationStore(state => state.activateCategoryTable);
+  const demoMode = useVisualizationStore(state => state.demoMode);
 
   // Handle stage click
   const handleStageClick = (categoryId: string) => {
-    // Disable clicking when threshold preview is active
-    if (isPreviewActive) return;
+    // Disable clicking when threshold preview is active or demo mode is off
+    if (isPreviewActive || !demoMode) return;
 
     // Activate the category table (this will also set the selected node)
     activateCategoryTable(categoryId);
@@ -272,32 +270,8 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
   };
 
   return (
-    <div className="tag-category-panel">
-      {/* Help button */}
-      <button
-        className="tag-category-panel__help-button"
-        onClick={() => setShowHelp(true)}
-        title="Show data flow diagram"
-      >
-        ?
-      </button>
-
-      {/* Help popup */}
-      {showHelp && (
-        <div className="tag-category-panel__help-overlay" onClick={() => setShowHelp(false)}>
-          <div className="tag-category-panel__help-popup" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="tag-category-panel__help-close"
-              onClick={() => setShowHelp(false)}
-            >
-              ×
-            </button>
-            <FlowPanel />
-          </div>
-        </div>
-      )}
-
-      {/* Flow lines: Monosemantic → Stage 2, Need Revision → Stage 3 */}
+    <div className={`tag-category-panel${!demoMode ? ' tag-category-panel--no-demo' : ''}`}>
+{/* Flow lines: Monosemantic → Stage 2, Need Revision → Stage 3 */}
       {/* {flowPaths.length > 0 && (
         <svg className="tag-category-panel__flow-svg">
           {flowPaths.map(({ key, d, color }) => (

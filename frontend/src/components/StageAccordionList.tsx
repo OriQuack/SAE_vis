@@ -233,7 +233,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'learn' ? 'stage-selector__tab--active' : ''} ${learnDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
-          title={learnDisabled ? 'Label 3+ items per category to enable' : undefined}
+          title={learnDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip={learnDisabled ? undefined : `Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident.`}
         >
           <span className="stage-selector__number">2</span>
@@ -243,7 +243,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'apply' ? 'stage-selector__tab--active' : ''} ${applyDisabled ? 'stage-selector__tab--disabled' : ''}`}
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
-          title={applyDisabled ? 'Label 3+ items per category to enable' : undefined}
+          title={applyDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip={applyDisabled ? undefined : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where classifiers disagree before automatic labeling.`}
         >
           <span className="stage-selector__number">3</span>

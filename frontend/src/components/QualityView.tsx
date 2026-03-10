@@ -275,10 +275,13 @@ const QualityView: React.FC<QualityViewProps> = ({
       }
 
       try {
+        const demoMode = useVisualizationStore.getState().demoMode
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          20  // Get 20 diverse features via Kennard-Stone
+          20,  // Get 20 diverse features via Kennard-Stone
+          undefined,
+          demoMode ? undefined : Date.now()
         )
         const newIds = new Set(response.suggestions.map(s => parseInt(s.id, 10)))
         setStage2DiversityCache(newIds, signature)
@@ -1319,7 +1322,7 @@ const QualityView: React.FC<QualityViewProps> = ({
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}
             activeStage={activeStage}
-            showStabilityPopover={isFlipRateStable && !stabilityPopoverDismissed}
+            showStabilityPopover={activeStage === 'learn' && isFlipRateStable && !stabilityPopoverDismissed}
             onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
           />
           </div>

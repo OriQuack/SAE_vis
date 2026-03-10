@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react'
+import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { useVisualizationStore } from '../store/index'
 import type { FlipTrackingInfo } from '../types'
 import DecisionMarginHistogram from './DecisionMarginHistogram'
@@ -11,6 +11,7 @@ import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import type { ActiveStage } from './StageAccordionList'
+import { ThresholdHandleIcon } from './ThresholdHandles'
 import '../styles/ThresholdTaggingPanel.css'
 
 // ============================================================================
@@ -100,6 +101,20 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
   onDismissStabilityPopover,
 }) => {
   const stabilityHeaderRef = useRef<HTMLHeadingElement>(null)
+  const thresholdHandleRef = useRef<SVGGElement>(null)
+
+  // Show GuidancePopover on threshold handles when first entering Apply phase
+  const [showHandlePopover, setShowHandlePopover] = useState(false)
+  const prevActiveStageRef = useRef(activeStage)
+  useEffect(() => {
+    const prev = prevActiveStageRef.current
+    prevActiveStageRef.current = activeStage
+    const showOnApply = activeStage === 'apply' && prev !== 'apply'
+    const showOnLearnCause = mode === 'cause' && activeStage === 'learn' && prev !== 'learn'
+    if (showOnApply || showOnLearnCause) {
+      setShowHandlePopover(true)
+    }
+  }, [activeStage, mode])
   // Store state for scores and selections
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSimilarityScores = useVisualizationStore(state => state.pairSimilarityScores)
@@ -193,15 +208,23 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
     <div className="threshold-tagging-panel">
       {/* Histogram Section */}
       <div className="threshold-tagging-panel__histogram-column">
-        <h4 className="subheader" data-tooltip={mode === 'cause' ? 'Distance to the nearest decision boundary. Higher values indicate more confident classification.' : 'Confidence of the classifier for each item. Extremes are confident; near zero is ambiguous.'}>Confidence Histogram {activeStage === 'apply' && (
+        <h4 className="subheader" data-tooltip={mode === 'cause' ? 'Distance to the nearest decision boundary. Higher values indicate more confident classification.' : `Confidence of the classifier for each ${mode === 'pair' ? 'pair' : 'feature'}. Extremes are confident; near zero is ambiguous.`}>Confidence Histogram {(activeStage === 'apply' || (activeStage === 'learn' && mode === 'cause')) && (
           <span className="instruction-subheader" style={{ marginLeft: 8 }}>
-            {mode === 'pair' ? 'Pairs' : 'Features'} beyond the threshold are shown in the list{mode === 'cause' ? ' and category scatter' : ''}
-          </span>
-        )}{activeStage === 'learn' && mode === 'cause' && (
-          <span className="instruction-subheader" style={{ marginLeft: 8 }}>
-            Features below the threshold are shown in the list and category scatter
+            Drag the <ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
+              ? ' to set Unsure threshold for Uncertainty list above and category scatter'
+              : <> to set a threshold to filter the Disagreement list above{mode === 'cause' ? ' and category scatter' : ''}</>}
           </span>
         )}</h4>
+        {showHandlePopover && (
+          <GuidancePopover
+            anchorRef={thresholdHandleRef}
+            message={<>Drag the <ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
+              ? ' to set Unsure threshold for Uncertainty list above and category scatter'
+              : <> to set a threshold to filter the Disagreement list above{mode === 'cause' ? ' and category scatter' : ''}</>}</>}
+            onDismiss={() => setShowHandlePopover(false)}
+            position="above"
+          />
+        )}
         <div className="threshold-tagging-panel__histogram-section">
         {mode === 'cause' && causeProps ? (
           <CauseMarginHistogram
@@ -217,6 +240,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             manualTagCountsByCategory={causeProps.manualTagCountsByCategory}
             activeStage={activeStage}
             focusedFeatureId={causeProps.selectedFeatureId}
+            handleRef={thresholdHandleRef}
           />
         ) : (
           <DecisionMarginHistogram
@@ -226,6 +250,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
             threshold={histogramProps.threshold}
             activeStage={activeStage}
             focusedItemId={histogramProps.focusedItemId}
+            handleRef={thresholdHandleRef}
           />
         )}
         </div>
@@ -299,7 +324,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 />
               </div>
               <div className="threshold-tagging-panel__batch-column">
-                <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
+                <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled features.">Automatic Labeling</h4>
                 <BatchTaggingPanel
                   categories={causeProps.categories}
                   unsureCount={causeProps.unsureCount}
@@ -313,7 +338,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
           ) : (
             /* Pair/Feature mode: BatchTagging only */
             <div className="threshold-tagging-panel__batch-column">
-              <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled items.">Automatic Labeling</h4>
+              <h4 className="subheader" data-tooltip="Apply classifier predictions to remaining unlabeled features.">Automatic Labeling</h4>
               <BatchTaggingPanel
                 categories={[
                   {

@@ -33,6 +33,10 @@ class ColdStartSuggestionRequest(BaseModel):
         ge=0.0,
         le=1.0
     )
+    random_seed: Optional[int] = Field(
+        default=None,
+        description="If provided, use random sampling with this seed instead of Kennard-Stone"
+    )
 
 
 class ColdStartSuggestion(BaseModel):

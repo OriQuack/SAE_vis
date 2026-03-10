@@ -100,6 +100,70 @@
 }
 
 /* ============================================================================
+   DEMO TOGGLE
+   ============================================================================ */
+
+.header__demo-toggle {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.header:hover .header__demo-toggle {
+  opacity: 1;
+}
+
+.demo-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.demo-toggle__input {
+  display: none;
+}
+
+.demo-toggle__slider {
+  width: 32px;
+  height: 18px;
+  background: #cbd5e1;
+  border-radius: 9px;
+  position: relative;
+  transition: background 0.2s;
+}
+
+.demo-toggle__slider::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 14px;
+  height: 14px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.demo-toggle__input:checked + .demo-toggle__slider {
+  background: #3b82f6;
+}
+
+.demo-toggle__input:checked + .demo-toggle__slider::after {
+  transform: translateX(14px);
+}
+
+.demo-toggle__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.3px;
+}
+
+/* ============================================================================
    RESPONSIVE ADJUSTMENTS
    ============================================================================ */
 

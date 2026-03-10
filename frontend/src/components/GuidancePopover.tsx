@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState, useCallback, type RefObject } from 'react'
+import { useEffect, useRef, useState, useCallback, type RefObject, type ReactNode } from 'react'
 import '../styles/GuidancePopover.css'
 
 interface GuidancePopoverProps {
-  anchorRef: RefObject<HTMLElement | null>
-  message: string
+  anchorRef: RefObject<Element | null>
+  message: ReactNode
   onDismiss: () => void
   position?: 'below' | 'above'
 }

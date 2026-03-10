@@ -17,7 +17,7 @@ import type { ActivationExamples } from '../types'
  * This is critical because activation data never changes during a session.
  */
 let activationExamplesCache: Record<number, ActivationExamples> | null = null
-let activationFetchInProgress = false
+let activationFetchPromise: Promise<Record<number, ActivationExamples>> | null = null
 
 // ============================================================================
 // ACTIVATION DATA ACTIONS
@@ -280,9 +280,15 @@ export const createActivationActions = (set: any, get: any) => ({
       return
     }
 
-    // Check module-level loading flag (prevents race condition across store recreations)
-    if (activationFetchInProgress) {
-      console.log('[Store.fetchAllActivationsCached] Fetch already in progress (module-level), skipping')
+    // If a fetch is already in progress, await the same promise (fixes StrictMode race condition)
+    if (activationFetchPromise) {
+      console.log('[Store.fetchAllActivationsCached] Waiting for in-progress fetch...')
+      const examples = await activationFetchPromise
+      set({
+        activationExamples: examples,
+        activationLoading: new Set<number>(),
+        activationLoadingState: false
+      })
       return
     }
 
@@ -299,15 +305,14 @@ export const createActivationActions = (set: any, get: any) => ({
 
     console.log('[Store.fetchAllActivationsCached] Starting cached activation fetch...')
 
-    // Set both module-level and store-level loading flags
-    activationFetchInProgress = true
+    // Create shared promise so concurrent callers await the same fetch
+    activationFetchPromise = api.getAllActivationExamplesCached()
     set({ activationLoadingState: true })
 
     const startTime = performance.now()
 
     try {
-      // Fetch all activating examples from cached endpoint
-      const examples = await api.getAllActivationExamplesCached()
+      const examples = await activationFetchPromise
 
       const featureCount = Object.keys(examples).length
       const duration = performance.now() - startTime
@@ -316,7 +321,6 @@ export const createActivationActions = (set: any, get: any) => ({
 
       // Store in both module-level and store-level cache
       activationExamplesCache = examples
-      activationFetchInProgress = false
 
       set({
         activationExamples: examples,
@@ -326,9 +330,10 @@ export const createActivationActions = (set: any, get: any) => ({
 
     } catch (error) {
       console.error('[Store.fetchAllActivationsCached] Failed:', error)
-      activationFetchInProgress = false
       set({ activationLoadingState: false })
       throw error
+    } finally {
+      activationFetchPromise = null
     }
   },
 
@@ -340,7 +345,7 @@ export const createActivationActions = (set: any, get: any) => ({
     console.log('[Store.clearActivationCache] Clearing activating examples cache (both module and store level)')
     // Clear module-level cache
     activationExamplesCache = null
-    activationFetchInProgress = false
+    activationFetchPromise = null
     // Clear store-level cache
     set({
       activationExamples: {},

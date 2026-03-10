@@ -101,6 +101,7 @@ async def get_all_activation_examples_cached():
         content=blob,
         media_type="application/octet-stream",
         headers={
+            "Content-Length": str(len(blob)),
             "X-Feature-Count": str(stats['feature_count']),
             "X-Cache-Size-MB": f"{stats['cache_size_mb']:.2f}",
             "X-Content-Encoding": "gzip+msgpack"

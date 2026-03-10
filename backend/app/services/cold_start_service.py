@@ -54,7 +54,8 @@ class ColdStartService:
             request.mode,
             str(sorted(request.feature_ids)),
             str(request.num_suggestions),
-            str(request.threshold) if request.threshold else "none"
+            str(request.threshold) if request.threshold else "none",
+            str(request.random_seed) if request.random_seed is not None else "ks"
         ]
         key_str = "_".join(key_parts)
         return hashlib.md5(key_str.encode()).hexdigest()
@@ -91,7 +92,25 @@ class ColdStartService:
                 cache_hit=True
             )
 
-        if request.mode == 'feature':
+        # If random_seed provided, use random sampling instead of Kennard-Stone
+        if request.random_seed is not None:
+            if request.mode == 'feature':
+                response = self._random_fallback(
+                    request.feature_ids, request.num_suggestions, 'feature',
+                    seed=request.random_seed
+                )
+            else:
+                if self.cluster_service is None:
+                    raise RuntimeError("Cluster service required for pair mode")
+                cluster_result = await self.cluster_service.get_filtered_cluster_pairs(
+                    feature_ids=request.feature_ids,
+                    threshold=request.threshold
+                )
+                response = self._random_fallback_pairs(
+                    cluster_result["pairs"], request.num_suggestions,
+                    seed=request.random_seed
+                )
+        elif request.mode == 'feature':
             response = await self._get_feature_suggestions(request)
         else:
             response = await self._get_pair_suggestions(request)
@@ -440,10 +459,11 @@ class ColdStartService:
         self,
         feature_ids: List[int],
         num_suggestions: int,
-        mode: str
+        mode: str,
+        seed: int = 42
     ) -> ColdStartSuggestionsResponse:
         """Fallback to random selection when clustering fails."""
-        random.seed(42)
+        random.seed(seed)
         selected = random.sample(feature_ids, min(num_suggestions, len(feature_ids)))
 
         suggestions = [
@@ -469,10 +489,11 @@ class ColdStartService:
     def _random_fallback_pairs(
         self,
         pairs: List[dict],
-        num_suggestions: int
+        num_suggestions: int,
+        seed: int = 42
     ) -> ColdStartSuggestionsResponse:
         """Fallback to random pair selection."""
-        random.seed(42)
+        random.seed(seed)
         selected = random.sample(pairs, min(num_suggestions, len(pairs)))
 
         suggestions = [
