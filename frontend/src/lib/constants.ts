@@ -92,7 +92,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Q: Can you separate shuffled activation examples into the original features they belong to?",
+    instruction: "Q: Can you separate shuffled activation examples into the\noriginal features they belong to?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: null  // Stage 1 has no parent
   },
@@ -117,7 +117,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Q: Given the explanations, can you reproduce the activation pattern?",
+    instruction: "Q: Given the explanations, can you reproduce the\nactivation pattern?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
@@ -588,11 +588,11 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Syntax`]: {
     verdict: 'negative', description: 'Explainer omitted a shared surface-level syntactic pattern',
-    example: 'e.g. morphological patterns, positional patterns, before and after X'
+    example: 'e.g. morphological patterns, positional patterns, before and after X, capitalization'
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
     verdict: 'negative', description: 'Explainer omitted a shared semantic or contextual pattern',
-    example: 'e.g. domain, language, thematic content'
+    example: 'e.g. domain, language, tone, sentiment, entity types'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency'

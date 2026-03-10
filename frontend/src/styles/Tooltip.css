@@ -88,7 +88,8 @@
  * ============================================================================ */
 
 [data-tooltip],
-[data-tooltip-html] {
+[data-tooltip-html],
+[data-tooltip-title] {
   cursor: help;
 }
 
@@ -104,6 +105,15 @@
   font-weight: 400;
   line-height: 1.4;
   color: var(--text-primary, #1f2937);
+  border-radius: 8px;
+}
+
+.data-tooltip-layer .tooltip__header {
+  font-weight: 600;
+  font-size: 13px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border-color, #e5e7eb);
+  margin-bottom: 4px;
 }
 
 /* ============================================================================

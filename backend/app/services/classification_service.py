@@ -671,7 +671,12 @@ class ClassificationService:
             neg_idx = int(svm.classes_[0])
             decision_vectors[:, pos_idx] = raw_decisions
             decision_vectors[:, neg_idx] = -raw_decisions
-            # Missing category column stays at 0
+            # Missing category: set to -|decision_function| so softmax treats as "least likely"
+            known_indices = {pos_idx, neg_idx}
+            for miss_idx in [i for i in range(n_categories) if i not in known_indices]:
+                decision_vectors[:, miss_idx] = -np.abs(raw_decisions)
+            logger.warning(f"Binary SVM: only {len(svm.classes_)} classes detected, "
+                           f"missing categories set to -|decision_function|")
         else:
             # Multi-class (3+): decision_function returns (N, K) with OvR shape
             # Columns correspond to svm.classes_ ordering

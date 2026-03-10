@@ -295,8 +295,15 @@ export const createCauseActions = (set: any, get: any) => ({
       }
       // === END FLIP TRACKING LOGIC ===
 
-      // Set of manually tagged feature IDs (from the request)
+      // Set of manually tagged feature IDs: includes cause-category tags (from the request)
+      // AND any other user-confirmed tags (e.g., well-explained) that should not be overwritten
       const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
+      currentState.causeSelectionStates.forEach((_category: string, featureId: number) => {
+        const source = currentState.causeSelectionSources.get(featureId)
+        if (isUserConfirmed(source)) {
+          manualFeatureIds.add(featureId)
+        }
+      })
 
       // Build change lists first without creating Maps
       // Only create new Map objects if there are actual changes to prevent infinite loops

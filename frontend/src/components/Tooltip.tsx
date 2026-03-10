@@ -132,12 +132,13 @@ export const Tooltip: TooltipType = Object.assign(TooltipBase, {
 // ============================================================================
 
 export const DataTooltipLayer: React.FC = () => {
-  const [state, setState] = React.useState<{ text: string; html?: boolean; x: number; y: number; below?: boolean } | null>(null)
+  const [state, setState] = React.useState<{ text: string; title?: string; html?: boolean; x: number; y: number; below?: boolean } | null>(null)
   const activeRef = React.useRef(false)
+  const layerRef = React.useRef<HTMLDivElement>(null)
 
   React.useEffect(() => {
     const findTooltipTarget = (e: Event): HTMLElement | null =>
-      (e.target as HTMLElement)?.closest?.('[data-tooltip],[data-tooltip-html]') as HTMLElement | null
+      (e.target as HTMLElement)?.closest?.('[data-tooltip],[data-tooltip-html],[data-tooltip-title]') as HTMLElement | null
 
     const onOver = (e: MouseEvent) => {
       const target = findTooltipTarget(e)
@@ -145,12 +146,15 @@ export const DataTooltipLayer: React.FC = () => {
         activeRef.current = true
         const htmlContent = target.getAttribute('data-tooltip-html')
         const textContent = target.getAttribute('data-tooltip')
+        const titleContent = target.getAttribute('data-tooltip-title') || undefined
         const below = target.hasAttribute('data-tooltip-below')
+        const text = htmlContent || textContent
+        if (!text && !titleContent) return
         if (below) {
           const rect = target.getBoundingClientRect()
-          setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: rect.left + rect.width / 2, y: rect.bottom, below: true })
+          setState({ text: text || '', title: titleContent, html: !!htmlContent, x: rect.left + rect.width / 2, y: rect.bottom, below: true })
         } else {
-          setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: e.clientX, y: e.clientY })
+          setState({ text: text || '', title: titleContent, html: !!htmlContent, x: e.clientX, y: e.clientY })
         }
       }
     }
@@ -182,16 +186,32 @@ export const DataTooltipLayer: React.FC = () => {
     }
   }, [])
 
+  // Auto-flip tooltip when it overflows the viewport
+  React.useLayoutEffect(() => {
+    const el = layerRef.current?.querySelector('.tooltip') as HTMLElement | null
+    if (!el || !state || state.below) return
+    const rect = el.getBoundingClientRect()
+    if (rect.bottom > window.innerHeight) {
+      el.style.top = `${state.y - rect.height - 8}px`
+    }
+    if (rect.right > window.innerWidth) {
+      el.style.left = `${state.x - rect.width - 8}px`
+    }
+  })
+
   if (!state) return null
 
   return (
-    <div className="data-tooltip-layer">
+    <div className="data-tooltip-layer" ref={layerRef}>
       <Tooltip position={{ x: state.x, y: state.y }} offsetX={state.below ? 0 : 12} offsetY={state.below ? 6 : -12} centered={state.below} hideArrow={state.below}>
-        <Tooltip.Summary showSeparator={false}>
-          {state.html
-            ? <span dangerouslySetInnerHTML={{ __html: state.text }} />
-            : state.text}
-        </Tooltip.Summary>
+        {state.title && <Tooltip.Header>{state.title}</Tooltip.Header>}
+        {state.text && (
+          <Tooltip.Summary showSeparator={false}>
+            {state.html
+              ? <span dangerouslySetInnerHTML={{ __html: state.text }} />
+              : state.text}
+          </Tooltip.Summary>
+        )}
       </Tooltip>
     </div>
   )

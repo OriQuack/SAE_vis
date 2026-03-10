@@ -114,6 +114,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onConfirmAll}
               disabled={disabled || totalTaggableCount === 0}
+              data-tooltip-title="Label Confident by Threshold"
               data-tooltip="Confirm the previewed labels within the threshold regions."
             >
               <div className="batch-tagging__button-content">
@@ -161,6 +162,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onApplyThreshold}
               disabled={disabled || (thresholdCounts.left === 0 && thresholdCounts.right === 0)}
+              data-tooltip-title="Label by Threshold"
               data-tooltip="Confirm the previewed labels within the threshold regions."
             >
               <div className="batch-tagging__button-content">
@@ -222,6 +224,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={() => onTagAllAsCategory(categories[0].id)}
               disabled={disabled || unsureCount === 0}
+              data-tooltip-title={`Label All Unsure as ${categories[0].label}`}
               data-tooltip={`Label all remaining ${itemLabel} as ${categories[0].label} as a safe default.`}
             >
               <div className="batch-tagging__button-content">
@@ -269,6 +272,7 @@ const BatchTaggingPanel: React.FC<BatchTaggingPanelProps> = ({
               className="batch-tagging__button"
               onClick={onTagAllUnsure}
               disabled={disabled || (unsureCount === 0 && totalInputCount === 0)}
+              data-tooltip-title="Label All Unsure by Decision Boundary"
               data-tooltip={`Label all remaining ${itemLabel} by the current decision boundary.`}
             >
               <div className="batch-tagging__button-content">

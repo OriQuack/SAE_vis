@@ -1116,7 +1116,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
-                    <h4 className="subheader" data-tooltip="Background opacity shows activation strength. Blue-bordered tokens mark recurring patterns.">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                    <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip="Background opacity shows activation strength. Blue-bordered tokens mark recurring patterns.">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}

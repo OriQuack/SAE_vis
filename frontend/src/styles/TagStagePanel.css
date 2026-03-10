@@ -85,7 +85,7 @@
   position: relative;
   box-shadow: 0 -2px 8px rgba(0, 0, 0, 0);
   outline: none;
-  gap: 12px;
+  gap: 20px;
 }
 
 /* Stage 1 gets more width for its longer description */
@@ -252,7 +252,7 @@
   font-weight: 500;
   color: #94a3b8;
   line-height: 1.2;
-  white-space: normal;
+  white-space: pre-line;
   padding-left: 30px;
   display: -webkit-box;
   -webkit-box-orient: vertical;

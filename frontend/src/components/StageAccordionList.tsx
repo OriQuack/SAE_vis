@@ -223,6 +223,7 @@ export function StageAccordionList<T>({
         <button
           className={`stage-selector__tab ${activeStage === 'bootstrap' ? 'stage-selector__tab--active' : ''}`}
           onClick={() => handleStageClick('bootstrap')}
+          data-tooltip-title="Prototype-first Phase"
           data-tooltip={`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier.`}
         >
           <span className="stage-selector__number">1</span>
@@ -234,6 +235,7 @@ export function StageAccordionList<T>({
           onClick={() => handleStageClick('learn')}
           disabled={learnDisabled}
           title={learnDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
+          data-tooltip-title={learnDisabled ? undefined : "Uncertainty-first Phase"}
           data-tooltip={learnDisabled ? undefined : `Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident.`}
         >
           <span className="stage-selector__number">2</span>
@@ -244,6 +246,7 @@ export function StageAccordionList<T>({
           onClick={() => handleStageClick('apply')}
           disabled={applyDisabled}
           title={applyDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
+          data-tooltip-title={applyDisabled ? undefined : "Disagreement-first Phase"}
           data-tooltip={applyDisabled ? undefined : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where classifiers disagree before automatic labeling.`}
         >
           <span className="stage-selector__number">3</span>
@@ -298,12 +301,12 @@ export function StageAccordionList<T>({
             </button>
           ))}
           {activeStage === 'learn' && (
-            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled data-tooltip-title="Most Uncertain First">
               Most Uncertain First
             </button>
           )}
           {activeStage === 'apply' && (
-            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
+            <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled data-tooltip-title="Most Confident First">
               Most Confident First
             </button>
           )}
