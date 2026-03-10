@@ -3,7 +3,7 @@ Classification service for SVM-based feature scoring.
 
 Unified service handling:
 - Binary SVM classification (Stage 2: similarity sorting, histograms, quality scores)
-- Multi-class SVM classification (Stage 3: cause classification with OvR)
+- Multi-class SVM classification (Stage 3: cause classification with OvO-based SVC)
 """
 
 import polars as pl
@@ -31,7 +31,10 @@ from .data_constants import (
     SVM_FEATURE_METRICS, CAUSE_CATEGORIES,
 )
 from .data_service import DataService
-from .svm_utils import train_svm_model, score_with_svm, build_similarity_histogram_response
+from .svm_utils import (
+    train_svm_model, score_with_svm, build_similarity_histogram_response,
+    compute_balanced_sample_weights,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -483,10 +486,11 @@ class ClassificationService:
         self,
         request: CauseClassificationRequest
     ) -> CauseClassificationResponse:
-        """Classify features into cause categories using OvR SVMs.
+        """Classify features into cause categories using OvO-based multi-class SVM.
 
-        Trains One-vs-Rest SVMs for each category using only user's manual tags.
-        Requires manual tags to be provided before classification can run.
+        Trains a single multi-class SVC (internally OvO via libsvm) using only
+        user's manual tags. decision_function_shape='ovr' produces per-category
+        scores with the same (N, 3) shape as the previous manual OvR approach.
 
         Args:
             request: Request containing feature_ids and cause_selections
@@ -529,17 +533,16 @@ class ClassificationService:
         # Map feature_ids to indices for cause_selections lookup
         feature_id_to_idx = {int(fid): idx for idx, fid in enumerate(feature_ids_ordered)}
 
-        # Scale metrics for training
-        scaler = StandardScaler()
-        metrics_scaled = scaler.fit_transform(metrics_matrix)
-
-        # Train One-vs-Rest SVMs and compute decision function vectors
-        decision_vectors = self._compute_decision_function_vectors(
+        # Train OvO-based multi-class SVM and compute decision function vectors
+        decision_vectors, scaler = self._compute_decision_function_vectors(
             metrics_matrix,
             feature_ids_ordered,
             cause_selections,
             feature_id_to_idx
         )
+
+        # Scale metrics for committee training (reuse scaler from SVM)
+        metrics_scaled = scaler.transform(metrics_matrix)
 
         # Train RF and MLP committee for multi-class prediction
         committee_votes = self._train_committee_and_predict(
@@ -599,83 +602,88 @@ class ClassificationService:
         feature_ids: np.ndarray,
         cause_selections: Dict[int, CauseSelectionItem],
         feature_id_to_idx: Dict[int, int]
-    ) -> np.ndarray:
-        """Train One-vs-Rest SVMs with sample weights and compute decision function vectors.
+    ) -> Tuple[np.ndarray, StandardScaler]:
+        """Train OvO-based multi-class SVM and compute decision function vectors.
 
-        Uses only user's manual tags for training (no anchor points).
-        Applies sample weights based on source: 'click' = 1.0, 'threshold' = 0.2.
+        Uses sklearn's native SVC which internally trains OvO (pairwise) classifiers
+        via libsvm. With decision_function_shape='ovr', the output is transformed to
+        per-category scores — same (N, 3) shape as the previous manual OvR approach.
 
         Args:
-            metrics_matrix: (N, 9) feature metric matrix (raw values)
+            metrics_matrix: (N, D) feature metric matrix (raw values)
             feature_ids: Array of feature IDs
             cause_selections: Dict mapping feature_id to CauseSelectionItem (category + source)
             feature_id_to_idx: Dict mapping feature_id to matrix index
 
         Returns:
-            (N, 3) matrix of decision function values
+            Tuple of (N, K) decision function matrix and fitted StandardScaler
         """
         n_features = len(feature_ids)
         n_categories = len(CAUSE_CATEGORIES)
-        decision_vectors = np.zeros((n_features, n_categories))
-
-        # Build ID to weight mapping
-        id_to_weight = {}
-        for fid, item in cause_selections.items():
-            id_to_weight[fid] = CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT
+        category_to_idx = {cat: i for i, cat in enumerate(CAUSE_CATEGORIES)}
 
         # Scale feature metrics
         scaler = StandardScaler()
         metrics_scaled = scaler.fit_transform(metrics_matrix)
 
-        # Train OvR SVM for each category
-        for cat_idx, category in enumerate(CAUSE_CATEGORIES):
-            # Collect manual tags from user with weights
-            manual_positive = []
-            manual_negative = []
-            positive_weights = []
-            negative_weights = []
-            for fid, item in cause_selections.items():
-                if fid in feature_id_to_idx:
-                    if item.category not in CAUSE_CATEGORIES:
-                        continue  # skip well-explained or unknown categories
-                    idx = feature_id_to_idx[fid]
-                    weight = id_to_weight.get(fid, CLICK_WEIGHT)
-                    if item.category == category:
-                        manual_positive.append(idx)
-                        positive_weights.append(weight)
-                    else:
-                        manual_negative.append(idx)
-                        negative_weights.append(weight)
+        # Collect training data in a single pass
+        train_indices = []
+        train_labels = []
+        sample_weights = []
+        for fid, item in cause_selections.items():
+            if fid in feature_id_to_idx and item.category in category_to_idx:
+                train_indices.append(feature_id_to_idx[fid])
+                train_labels.append(category_to_idx[item.category])
+                sample_weights.append(CLICK_WEIGHT if item.source == 'click' else THRESHOLD_WEIGHT)
 
-            # Check we have both classes from manual tags
-            if len(manual_positive) == 0 or len(manual_negative) == 0:
-                logger.warning(f"Skipping SVM for {category}: missing positive or negative manual samples")
-                continue
+        # Validate: need >= 2 unique categories to train
+        unique_labels = set(train_labels)
+        if len(unique_labels) < 2:
+            logger.warning(f"Insufficient categories for SVM: {len(unique_labels)} (need >= 2)")
+            return np.zeros((n_features, n_categories)), scaler
 
-            # Build training data and weights from manual tags only
-            X_train = np.vstack([
-                metrics_scaled[manual_positive],
-                metrics_scaled[manual_negative]
-            ])
-            y_train = np.array([1] * len(manual_positive) + [0] * len(manual_negative))
-            sample_weights = np.array(positive_weights + negative_weights)
+        X_train = metrics_scaled[train_indices]
+        y_train = np.array(train_labels)
+        weights = np.array(sample_weights)
 
-            # Train SVM with sample weights
-            svm = SVC(
-                kernel='rbf',
-                C=1.0,
-                gamma='scale',
-                class_weight='balanced'
-            )
-            svm.fit(X_train, y_train, sample_weight=sample_weights)
+        # Balance by weighted class mass (not raw counts like sklearn's class_weight='balanced')
+        weights = compute_balanced_sample_weights(y_train, weights)
 
-            # Compute decision function for ALL features
-            decision_values = svm.decision_function(metrics_scaled)
-            decision_vectors[:, cat_idx] = decision_values
+        # Train single multi-class SVC (OvO internally, OvR-shaped output)
+        svm = SVC(
+            kernel='rbf',
+            C=1.0,
+            gamma='scale',
+            decision_function_shape='ovr'
+        )
+        svm.fit(X_train, y_train, sample_weight=weights)
 
-            logger.info(f"Trained SVM for {category}: {len(manual_positive)} manual positive, {len(manual_negative)} manual negative")
+        # Compute decision function for all features
+        raw_decisions = svm.decision_function(metrics_scaled)
 
-        return decision_vectors
+        # Map decision function output to (N, n_categories) matrix
+        decision_vectors = np.zeros((n_features, n_categories))
+
+        if len(svm.classes_) == 2:
+            # Binary case: decision_function returns (N,) 1D array
+            # Positive direction = classes_[1], negative = classes_[0]
+            pos_idx = int(svm.classes_[1])
+            neg_idx = int(svm.classes_[0])
+            decision_vectors[:, pos_idx] = raw_decisions
+            decision_vectors[:, neg_idx] = -raw_decisions
+            # Missing category column stays at 0
+        else:
+            # Multi-class (3+): decision_function returns (N, K) with OvR shape
+            # Columns correspond to svm.classes_ ordering
+            for col_idx, class_label in enumerate(svm.classes_):
+                cat_idx = int(class_label)
+                decision_vectors[:, cat_idx] = raw_decisions[:, col_idx]
+
+        n_train = len(train_indices)
+        n_cats = len(unique_labels)
+        logger.info(f"Trained OvO SVM: {n_train} samples across {n_cats} categories")
+
+        return decision_vectors, scaler
 
     def _train_committee_and_predict(
         self,

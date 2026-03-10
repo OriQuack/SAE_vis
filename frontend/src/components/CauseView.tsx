@@ -1386,7 +1386,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         </div>
                         <div className="legend-item">
                           <span className="legend-sample legend-sample--intra">token</span>:
-                          <span className="legend-label">Feature-Specific Pattern</span>
+                          <span className="legend-label">Shared pattern in examples</span>
                         </div>
                       </div>
                     </div>
@@ -1411,6 +1411,8 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <div className="cause-view__consensus-row-header">
                       <span className="subheader">Explainer Consensus</span>
                       <div style={{ flex: 1 }} />
+                      <ConsensusLegend />
+                      <div className="legend-separator" />
                       <div className="legend-group">
                         <div className="legend-item">
                           <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#6b7280" strokeWidth="1.5" /></svg>
@@ -1434,8 +1436,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                           <span className="legend-label">Random</span>
                         </div>
                       </div>
-                      <div className="legend-separator" />
-                      <ConsensusLegend />
                     </div>
                     <div className="cause-view__consensus-with-metrics">
                       <ConsensusSection consensus={consensus} />

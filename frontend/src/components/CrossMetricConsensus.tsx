@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import type { FeatureTableRow, ExplainerScoreData, ScorerScoreSet } from '../types'
-import { scoreToColor, METRIC_GRADIENT } from '../lib/color-utils'
+import { metricToTealColor, TEAL_METRIC_GRADIENT } from '../lib/color-utils'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import { Tooltip } from './Tooltip'
 import '../styles/CrossMetricConsensus.css'
@@ -48,7 +48,7 @@ export const CrossMetricLegend: React.FC = React.memo(() => (
       <span className="cross-metric-consensus__gradient-bar-wrapper">
         <span
           className="cross-metric-consensus__gradient-bar"
-          style={{ background: METRIC_GRADIENT }}
+          style={{ background: TEAL_METRIC_GRADIENT }}
         />
         <svg className="cross-metric-consensus__gradient-bar-baseline">
           <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#B22222" strokeWidth="1.5" strokeDasharray="3 2" />
@@ -125,7 +125,7 @@ const CrossMetricConsensus: React.FC<CrossMetricConsensusProps> = ({ explainerId
                       <rect
                         x={barX} y={y}
                         width={barW} height={BAR_H}
-                        fill={scoreToColor(score)}
+                        fill={metricToTealColor(score)}
                       />
                     )}
                   </g>

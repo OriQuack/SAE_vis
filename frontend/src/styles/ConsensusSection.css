@@ -105,6 +105,28 @@
   outline: 1px solid var(--selection-blue);
 }
 
+/* Expanded pill - full-width with inline sub-phrases */
+.consensus-item__pill--expanded {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.consensus-item__expanded-header {
+  display: flex;
+  align-items: center;
+}
+
+.consensus-item__expanded-phrases {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  padding: 4px;
+}
+
 /* Phrase text */
 .consensus-item__phrase {
   color: var(--text-primary, #1f2937);
@@ -181,7 +203,7 @@
 }
 
 .consensus-legend__pill {
-  width: 50px;
+  width: 32px;
   height: 12px;
   border: 1px solid #d1d5db;
   flex-shrink: 0;

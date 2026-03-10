@@ -21,15 +21,10 @@ interface TagNode {
   stageOrder: number;
 }
 
-/** Flow annotations for all stages: prefix (A: Yes/No), terminal/suffix for flow indicators */
-const FLOW_ANNOTATIONS: Record<string, { prefix?: string; terminal?: boolean; suffix?: string }> = {
-  'Monosemantic':          { prefix: 'A: Yes', suffix: 'To next stage →' },
-  'Incoherent Splitting':  { prefix: 'A: No', terminal: true },
-  'Well-Explained':        { prefix: 'A: Yes', terminal: true },
-  'Need Revision':         { prefix: 'A: No', suffix: 'To next stage →' },
-  'Missed Syntax':         { prefix: 'A:', terminal: true },
-  'Missed Context':        { prefix: 'A:', terminal: true },
-  'Noisy Activation':      { prefix: 'A:', terminal: true },
+/** Flow annotations for all stages: suffix for flow indicators */
+const FLOW_ANNOTATIONS: Record<string, { suffix?: string }> = {
+  'Monosemantic':          { suffix: 'To next stage →' },
+  'Need Revision':         { suffix: 'To next stage →' },
 };
 
 const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
@@ -291,16 +286,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
           const isActive = selectedCategory === stage.id;
           const isCompleted = isStageCompleted(stage.stageOrder);
           const isFuture = isStageFuture(stage.stageOrder);
-          const stageTags = (nodesByStage[stage.stageOrder] || []).slice();
-
-          // Sort tags at display time: "Yes" prefix first (stages 1-2 only)
-          if (stage.stageOrder <= 2) {
-            stageTags.sort((a, b) => {
-              const aIsYes = FLOW_ANNOTATIONS[a.tag]?.prefix?.includes('Yes') ? 0 : 1;
-              const bIsYes = FLOW_ANNOTATIONS[b.tag]?.prefix?.includes('Yes') ? 0 : 1;
-              return aIsYes - bIsYes;
-            });
-          }
+          const stageTags = nodesByStage[stage.stageOrder] || [];
 
           return (
               <button
@@ -335,9 +321,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                       const annotation = FLOW_ANNOTATIONS[node.tag];
                       return (
                         <div key={node.id} className="stage-tag-row">
-                          {annotation?.prefix && (
-                            <span className="stage-tag-row__prefix">{annotation.prefix}</span>
-                          )}
                           <div
                             data-node-id={node.id}
                             className="stage-tag-badge"
@@ -347,9 +330,6 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                             <span className="stage-tag-badge__label">{node.tag}</span>
                             <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
                           </div>
-                          {annotation?.terminal && (
-                            <span className="stage-tag-row__terminal">Terminal</span>
-                          )}
                           {annotation?.suffix && (
                             <span className="stage-tag-row__suffix">{annotation.suffix}</span>
                           )}

@@ -14,6 +14,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.preprocessing import StandardScaler
 
 from .pytorch_mlp import WeightedMLPClassifier
+from .svm_utils import compute_balanced_sample_weights
 
 logger = logging.getLogger(__name__)
 
@@ -121,15 +122,19 @@ class CommitteeService:
             # Shallow trees to avoid overfitting
             max_depth = min(5, max(2, int(np.log2(n_samples + 1))))
 
+            # Balance by weighted class mass (not raw counts like sklearn's class_weight='balanced')
+            balanced_weights = sample_weights
+            if sample_weights is not None:
+                balanced_weights = compute_balanced_sample_weights(y_train, sample_weights)
+
             rf = RandomForestClassifier(
                 n_estimators=n_estimators,
                 max_depth=max_depth,
-                class_weight='balanced',
                 random_state=42,
                 n_jobs=-1
             )
 
-            rf.fit(X_scaled, y_train, sample_weight=sample_weights)
+            rf.fit(X_scaled, y_train, sample_weight=balanced_weights)
 
             logger.info(
                 f"[CommitteeService] RF trained: n_estimators={n_estimators}, "

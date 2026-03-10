@@ -22,6 +22,41 @@ from ..models.classification import (
 logger = logging.getLogger(__name__)
 
 
+def compute_balanced_sample_weights(
+    y: np.ndarray,
+    sample_weights: np.ndarray
+) -> np.ndarray:
+    """Compute sample weights that are balanced by weighted class mass.
+
+    sklearn's class_weight='balanced' uses raw counts to balance classes,
+    ignoring sample_weight. This creates bias when classes have different
+    proportions of high/low-weight samples (e.g., click=1.0 vs threshold=0.2).
+
+    This function balances using effective class mass instead:
+        balanced_weight[i] = sample_weight[i] * total_mass / (n_classes * class_mass[c])
+    where class_mass[c] = sum(sample_weight[j] for j where y[j] == c).
+
+    Args:
+        y: (N,) class labels
+        sample_weights: (N,) per-sample weights
+
+    Returns:
+        (N,) balanced sample weights where total effective mass is equal per class
+    """
+    classes = np.unique(y)
+    n_classes = len(classes)
+    total_mass = np.sum(sample_weights)
+
+    balanced = sample_weights.copy()
+    for c in classes:
+        mask = (y == c)
+        class_mass = np.sum(sample_weights[mask])
+        if class_mass > 0:
+            balanced[mask] *= total_mass / (n_classes * class_mass)
+
+    return balanced
+
+
 def train_svm_model(
     selected_vectors: np.ndarray,
     rejected_vectors: np.ndarray,
@@ -51,6 +86,9 @@ def train_svm_model(
         rejected_weights = np.ones(len(rejected_vectors))
     sample_weights = np.concatenate([selected_weights, rejected_weights])
 
+    # Balance by weighted class mass (not raw counts like sklearn's class_weight='balanced')
+    sample_weights = compute_balanced_sample_weights(y, sample_weights)
+
     # Standardize features (critical for SVM)
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
@@ -60,7 +98,6 @@ def train_svm_model(
         kernel='rbf',
         C=1.0,
         gamma='scale',
-        class_weight='balanced',  # Handle class imbalance
         probability=False  # Faster without probability calibration
     )
     model.fit(X_scaled, y, sample_weight=sample_weights)

@@ -26,6 +26,8 @@ interface ActivationExampleProps {
   examplesPerQuantile?: number[]
   // Disable hover popover (for FeatureSplitPairViewer where we show more examples inline)
   disableHover?: boolean
+  // Disable feature-specific n-gram highlighting (Stage 1 only shows inter-feature patterns)
+  disableNgramHighlight?: boolean
 }
 
 /**
@@ -121,8 +123,11 @@ const renderActivationToken = (
   example: QuantileExample,
   ngramLength: number,
   interFeaturePositions?: ActivationExampleProps['interFeaturePositions'],
+  disableNgramHighlight?: boolean,
 ): React.ReactNode => {
-  const { highlight, charOffset } = getTokenHighlight(token.position, example)
+  const { highlight, charOffset } = disableNgramHighlight
+    ? { highlight: false, charOffset: null }
+    : getTokenHighlight(token.position, example)
   const hasWordUnderline = highlight && charOffset === null
   const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
 
@@ -176,7 +181,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   onHoverChange,
   numQuantiles = 3,  // Default to 3 quantiles for tables, override to 4 for feature split
   examplesPerQuantile,  // Custom examples per quantile, e.g., [2, 2, 1, 1]
-  disableHover = false  // Disable hover popover
+  disableHover = false,  // Disable hover popover
+  disableNgramHighlight = false  // Disable feature-specific n-gram highlighting
 }) => {
   // All hooks must be called unconditionally before any early returns
   const [showPopover, setShowPopover] = useState<boolean>(false)
@@ -311,7 +317,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, disableNgramHighlight)
               })}
             </div>
           )
@@ -335,7 +341,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, disableNgramHighlight)
                       })}
                     </div>
                   )

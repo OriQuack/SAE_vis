@@ -628,9 +628,9 @@ Matches .nav__button style: white background, 11px font
   box-shadow: inset 0 0 0 2px var(--selection-blue);
 }
 
-/* Cross-feature (shared) pattern - dashed blue border */
+/* Cross-feature (shared) pattern - solid blue border */
 .legend-sample--inter {
-  border: 2px dashed var(--selection-blue);
+  border: 2px solid var(--selection-blue);
 }
 
 /* Legend group - container for a group of legend items (tighter spacing, no separators) */

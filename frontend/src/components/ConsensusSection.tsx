@@ -25,6 +25,7 @@ export interface PhraseHighlightData {
 interface ConsensusSectionProps {
   consensus: ConsensusResponse | null
   onPhraseHover?: (data: PhraseHighlightData[] | null) => void
+  expanded?: boolean
 }
 
 interface TooltipData {
@@ -51,13 +52,13 @@ function consensusScoreToColor(score: number): string {
 export const ConsensusLegend: React.FC = React.memo(() => (
   <div className="consensus-legend">
     <div className="consensus-legend__side">
-      <span className="consensus-legend__pill consensus-legend__pill--fill" style={{ background: TEAL_GRADIENT }} />
+      <span className="consensus-legend__pill consensus-legend__pill--fill" style={{ background: METRIC_GRADIENT }} />
       <span className="legend-label">: Explainer Consensus</span>
       <span className="legend-hint">(higher = more agreement)</span>
     </div>
     <div className="legend-separator" />
     <div className="consensus-legend__side">
-      <span className="consensus-legend__pill consensus-legend__pill--right" style={{ background: METRIC_GRADIENT }} />
+      <span className="consensus-legend__pill consensus-legend__pill--right" style={{ background: TEAL_GRADIENT }} />
       <span className="legend-label">: Metric Score</span>
       <span className="legend-hint">(higher = better)</span>
     </div>
@@ -68,7 +69,7 @@ export const ConsensusLegend: React.FC = React.memo(() => (
 // CONSENSUS SECTION
 // ============================================================================
 
-const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover }) => {
+const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover, expanded }) => {
   // Local state for tooltip on hover
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
 
@@ -136,10 +137,39 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
 
   const renderPill = (item: ConsensusItem, idx: number) => {
     const qualityScore = item.is_outlier ? item.quality_score : item.avg_quality_score
-    const metricColor = qualityScore != null ? scoreToColor(qualityScore) : undefined
-    const consensusColor = item.is_outlier
-      ? consensusScoreToColor(0)
-      : consensusScoreToColor(item.cluster_score ?? 0)
+    // Consensus → green scale (normalize 0–3 to 0–1)
+    const consensusRaw = item.is_outlier ? 0 : (item.cluster_score ?? 0)
+    const consensusColor = scoreToColor(Math.min(1, Math.max(0, consensusRaw / 3)))
+    // Metric → teal scale
+    const metricColor = qualityScore != null
+      ? consensusScoreToColor(qualityScore * 3)
+      : undefined
+
+    // Expanded rendering for non-outlier cluster pills with sub-phrases
+    if (expanded && !item.is_outlier && (item.cluster_phrases?.length ?? 0) > 0) {
+      return (
+        <div
+          key={`${item.cluster_id}-${idx}`}
+          className="consensus-item__pill--expanded"
+          style={{ backgroundColor: chroma(consensusColor).alpha(0.25).css() }}
+        >
+          <div className="consensus-item__expanded-header">
+            <span className="consensus-item__phrase">{item.phrase}</span>
+            {metricColor && (
+              <span className="consensus-item__tag consensus-item__tag--right" style={{ backgroundColor: metricColor }} />
+            )}
+          </div>
+          <div className="consensus-item__expanded-phrases">
+            {item.cluster_phrases!.map((phrase, pIdx) => (
+              <span key={pIdx} className="consensus-tooltip__phrase">
+                {phrase.text}
+              </span>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     return (
       <div
         key={`${item.cluster_id}-${idx}`}

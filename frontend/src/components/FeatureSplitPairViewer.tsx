@@ -261,7 +261,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader" data-tooltip-html='Background opacity shows activation strength. <span style="border: 2px solid #3b82f6; padding: 1px 3px; border-radius: 3px;">Blue borders</span> mark recurring patterns; <span style="border: 2px dashed #3b82f6; padding: 1px 3px; border-radius: 3px;">blue dotted borders</span> mark shared patterns between the two features.'>Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" data-tooltip-html='Background opacity shows activation strength. <span style="border: 2px solid #3b82f6; padding: 1px 3px; border-radius: 3px;">Blue borders</span> mark shared patterns between the two features.'>Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>
@@ -279,10 +279,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
               <div className="legend-item">
                 <span className="legend-sample legend-sample--activation">token</span>:
                 <span className="legend-label">Activation Strength</span>
-              </div>
-              <div className="legend-item">
-                <span className="legend-sample legend-sample--intra">token</span>:
-                <span className="legend-label">Feature-Specific Pattern</span>
               </div>
               <div className="legend-item">
                 <span className="legend-sample legend-sample--inter">token</span>:
@@ -314,6 +310,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                       numQuantiles={4}
                       examplesPerQuantile={[2, 2, 2, 2]}
                       disableHover={true}
+                      disableNgramHighlight={true}
                     />
                   </div>
                 ) : (
@@ -345,6 +342,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                       numQuantiles={4}
                       examplesPerQuantile={[2, 2, 2, 2]}
                       disableHover={true}
+                      disableNgramHighlight={true}
                     />
                   </div>
                 ) : (

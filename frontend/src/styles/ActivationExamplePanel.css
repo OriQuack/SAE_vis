@@ -158,7 +158,7 @@
 /* Uses dotted blue border to differentiate from solid intra-feature blue border */
 /* Can coexist with confidence-based n-gram classes for dual highlighting */
 .activation-token--interfeature {
-  border: 2px dashed var(--selection-blue);
+  border: 2px solid var(--selection-blue);
 }
 
 /* Newline token styling */

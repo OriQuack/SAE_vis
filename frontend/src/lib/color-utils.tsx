@@ -278,11 +278,11 @@ export function getRowCategoryClass(
  */
 export function getSemanticSimilarityColor(similarity: number): string {
   if (similarity >= 0.85) {
-    return '#2eb3b3'   // hsl(180, 60%, 44%) - high saturation
+    return '#3a9a3a'   // green - high saturation
   } else if (similarity >= 0.7) {
-    return '#7fb8b8'   // hsl(180, 35%, 61%) - medium saturation
+    return '#7bb87b'   // green - medium saturation
   } else if (similarity >= 0.6) {
-    return '#c5dede'   // hsl(180, 20%, 82%) - low saturation
+    return '#c2ddc2'   // green - low saturation
   } else {
     return '#f3f4f6'   // Default gray
   }
@@ -303,6 +303,17 @@ export function scoreToColor(score: number): string {
 
 // Gradient CSS for legends (linear white → WE)
 export const METRIC_GRADIENT = `linear-gradient(to right, ${METRIC_SCALE(0).hex()} 0%, ${METRIC_SCALE(1).hex()} 100%)`
+
+// Teal metric scale (sequential single-hue: white → Teal) - used for metric scores in cross-metric views
+const TEAL_METRIC_SCALE = chroma.scale(['white', '#76b7b2']).mode('lab')
+
+/** Map a score in [0,1] to a sequential teal color */
+export function metricToTealColor(score: number): string {
+  const t = Math.min(1, Math.max(0, score))
+  return TEAL_METRIC_SCALE(t).hex()
+}
+
+export const TEAL_METRIC_GRADIENT = `linear-gradient(to right, ${TEAL_METRIC_SCALE(0).hex()} 0%, ${TEAL_METRIC_SCALE(1).hex()} 100%)`
 
 /** Return readable text color (black or white) for a given background */
 export function textColorForBackground(bgHex: string): string {

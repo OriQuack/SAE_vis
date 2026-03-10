@@ -98,10 +98,6 @@
 .stage-tab:nth-child(3) {
   flex: 0.9 1 0;
 }
-.stage-tab:nth-child(3) .stage-tag-row__prefix {
-  min-width: auto;
-}
-
 /* Prevent hover border changes for all non-active states */
 .stage-tab:not(.stage-tab--active):not(.stage-tab--completed):hover {
   border-color: #cbd5e1;
@@ -300,24 +296,6 @@
   gap: 6px;
 }
 
-.stage-tag-row__prefix {
-  font-size: 14px;
-  font-weight: 600;
-  color: #94a3b8;
-  white-space: nowrap;
-  line-height: 1;
-  min-width: 42px;
-  text-align: left;
-}
-
-.stage-tag-row__terminal {
-  font-size: 12px;
-  font-weight: 600;
-  color: #94a3b8;
-  white-space: nowrap;
-  line-height: 1;
-}
-
 .stage-tag-row__suffix {
   font-size: 12px;
   font-weight: 600;
@@ -328,11 +306,7 @@
 }
 
 /* Darker annotations for active/completed states */
-.stage-tab--active .stage-tag-row__prefix,
-.stage-tab--active .stage-tag-row__terminal,
 .stage-tab--active .stage-tag-row__suffix,
-.stage-tab--completed .stage-tag-row__prefix,
-.stage-tab--completed .stage-tag-row__terminal,
 .stage-tab--completed .stage-tag-row__suffix {
   color: #1e293b;
 }
@@ -464,10 +438,6 @@
     padding: 0px 5px 0px 3px;
   }
 
-  .stage-tag-row__prefix {
-    font-size: 11px;
-  }
-
 }
 
 @media (max-width: 1000px) {
@@ -521,9 +491,6 @@
     padding: 0px 4px 0px 2px;
   }
 
-  .stage-tag-row__prefix {
-    font-size: 10px;
-  }
 }
 
 /* ============================================================================
