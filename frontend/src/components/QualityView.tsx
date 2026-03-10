@@ -9,9 +9,9 @@ import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import { useSortableList, type ActiveStage, type BootstrapMode, type SortMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
-import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, UNSURE_GRAY, TAG_TOOLTIPS } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
-import { scoreToColor, textColorForBackground } from '../lib/color-utils'
+import { metricToTealColor, textColorForBackground } from '../lib/color-utils'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
 import ConsensusSection, { ConsensusLegend, type PhraseHighlightData } from './ConsensusSection'
 import { ExplanationWithPopover } from './ExplanationPanel'
@@ -1126,8 +1126,8 @@ const QualityView: React.FC<QualityViewProps> = ({
                         <span className="legend-label">Activation Strength</span>
                       </div>
                       <div className="legend-item">
-                        <span className="legend-sample legend-sample--intra">token</span>:
-                        <span className="legend-label">Shared pattern in examples</span>
+                        <span className="legend-sample legend-sample--inter">token</span>:
+                        <span className="legend-label">Shared Pattern in Examples</span>
                       </div>
                     </div>
                   </div>
@@ -1183,7 +1183,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                             const isHighlighted = highlightPhrases?.some(p => p.explainer === explainerId)
                             const badgeStyle: React.CSSProperties | undefined =
                               qualityScore != null
-                                ? (() => { const bg = scoreToColor(qualityScore); return { backgroundColor: bg, color: textColorForBackground(bg) } })()
+                                ? (() => { const bg = metricToTealColor(qualityScore); return { backgroundColor: bg, color: textColorForBackground(bg) } })()
                                 : undefined
                             return (
                               <div
@@ -1245,6 +1245,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       isSelected={currentSelectionState === 'rejected' || currentPreviewState === 'rejected'}
                       isAuto={currentPreviewState === 'rejected'}
                       onClick={handleNeedRevisionClick}
+                      tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_QUALITY}:Need Revision`]}
                     />
                     <TagButton
                       label="Well-Explained"
@@ -1253,6 +1254,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       isSelected={currentSelectionState === 'selected' || currentPreviewState === 'selected'}
                       isAuto={currentPreviewState === 'selected'}
                       onClick={handleWellExplainedClick}
+                      tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_QUALITY}:Well-Explained`]}
                     />
 
                     {/* Next button */}
@@ -1284,6 +1286,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                         color={unsureColor}
                         isSelected={currentSelectionState === null}
                         onClick={handleUnsureClick}
+                        tooltip={TAG_TOOLTIPS['Unsure']}
                       />
                     </div>
                   </div>

@@ -54,6 +54,11 @@
   align-content: flex-start;
 }
 
+/* Wider gap between expanded huge pills in the clusters column */
+.consensus-section__column:not(.consensus-section__column--outlier) > .consensus-section__items {
+  gap: 6px;
+}
+
 /* Custom scrollbar for items container */
 .consensus-section__items::-webkit-scrollbar {
   width: 6px;
@@ -108,24 +113,42 @@
 /* Expanded pill - full-width with inline sub-phrases */
 .consensus-item__pill--expanded {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   width: 100%;
   border: 1px solid #ccc;
   border-radius: 8px;
   overflow: hidden;
+  position: relative;
 }
 
-.consensus-item__expanded-header {
-  display: flex;
-  align-items: center;
+.consensus-item__pill--expanded::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--expanded-bg);
+  z-index: 0;
 }
 
-.consensus-item__expanded-phrases {
+.consensus-item__expanded-content {
   display: flex;
   flex-wrap: wrap;
   gap: 3px;
   padding: 4px;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  z-index: 1;
 }
+
+.consensus-tooltip__phrase--medroid {
+  font-weight: 600;
+}
+
+/* Override semi-transparent bg inside expanded pills so the green layer doesn't bleed through */
+.consensus-item__expanded-content .consensus-tooltip__phrase {
+  background-color: #fff;
+}
+
 
 /* Phrase text */
 .consensus-item__phrase {

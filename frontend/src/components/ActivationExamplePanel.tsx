@@ -14,6 +14,7 @@ interface ActivationExampleProps {
   interFeaturePositions?: {
     type: 'char' | 'word'
     positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
+    ngramLength?: number  // From best_ngram_text.length, for char-level border highlighting
   }
   // Hover coordination for paired activating examples
   isHovered?: boolean  // Whether this pair is currently hovered (from parent)
@@ -84,32 +85,34 @@ const renderTokenContent = (
 
 /**
  * Check if a token should be highlighted based on inter-feature positions
- * Uses same position-matching logic but for inter-feature highlighting
+ * Returns highlight status and char_offset for char-level border rendering
  */
-const shouldHighlightInterfeature = (
+const getInterfeatureHighlight = (
   tokenPosition: number,
   example: QuantileExample,
-  interFeaturePositions?: {
-    type: 'char' | 'word'
-    positions: Array<{prompt_id: number, positions: Array<{token_position: number, char_offset?: number}> | number[]}>
-  }
-): boolean => {
-  if (!interFeaturePositions) return false
+  interFeaturePositions?: ActivationExampleProps['interFeaturePositions']
+): { highlight: boolean; charOffset: number | null } => {
+  if (!interFeaturePositions) return { highlight: false, charOffset: null }
 
   // Find positions for this specific prompt_id
   const promptPositions = interFeaturePositions.positions.find(
     p => p.prompt_id === example.prompt_id
   )
 
-  if (!promptPositions) return false
+  if (!promptPositions) return { highlight: false, charOffset: null }
 
   if (interFeaturePositions.type === 'char') {
     // For char type, positions is Array<{token_position, char_offset}>
-    return (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
-      .some(pos => pos.token_position === tokenPosition)
+    const pos = (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
+      .find(p => p.token_position === tokenPosition)
+    if (pos) {
+      return { highlight: true, charOffset: pos.char_offset ?? null }
+    }
+    return { highlight: false, charOffset: null }
   } else {
     // For word type, positions is number[]
-    return (promptPositions.positions as number[]).includes(tokenPosition)
+    const found = (promptPositions.positions as number[]).includes(tokenPosition)
+    return { highlight: found, charOffset: null }
   }
 }
 
@@ -125,13 +128,31 @@ const renderActivationToken = (
   interFeaturePositions?: ActivationExampleProps['interFeaturePositions'],
   disableNgramHighlight?: boolean,
 ): React.ReactNode => {
-  const { highlight, charOffset } = disableNgramHighlight
+  // Intra-feature highlight (disabled in FeatureSplitPairViewer via disableNgramHighlight)
+  const intra = disableNgramHighlight
     ? { highlight: false, charOffset: null }
     : getTokenHighlight(token.position, example)
-  const hasWordUnderline = highlight && charOffset === null
-  const hasInterfeatureHighlight = shouldHighlightInterfeature(token.position, example, interFeaturePositions)
+  // Inter-feature highlight
+  const inter = getInterfeatureHighlight(token.position, example, interFeaturePositions)
 
-  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`
+  // Determine effective char-level highlight source (intra takes priority)
+  let effectiveCharOffset: number | null = null
+  let effectiveNgramLength = 0
+  if (intra.highlight && intra.charOffset !== null) {
+    // Intra char-level highlight
+    effectiveCharOffset = intra.charOffset
+    effectiveNgramLength = ngramLength
+  } else if (inter.highlight && inter.charOffset !== null && (interFeaturePositions?.ngramLength ?? 0) > 0) {
+    // Inter char-level highlight
+    effectiveCharOffset = inter.charOffset
+    effectiveNgramLength = interFeaturePositions!.ngramLength!
+  }
+
+  const hasWordUnderline = intra.highlight && intra.charOffset === null
+  // Inter-feature word-level: whole-token border (when no char offset or ngramLength missing)
+  const hasInterfeatureWordBorder = inter.highlight && effectiveCharOffset === null && !intra.highlight
+
+  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureWordBorder ? 'activation-token--interfeature' : ''}`
   const bgColor = token.activation_value
     ? getActivationColor(token.activation_value, example.max_activation)
     : undefined
@@ -139,12 +160,13 @@ const renderActivationToken = (
   // Split leading spaces from activated tokens to prevent merged highlights
   const leadingSpaces = token.activation_value && token.text.match(/^ +/)
   if (leadingSpaces) {
-    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureHighlight ? 'activation-token--interfeature' : ''}`
+    const spaceLen = leadingSpaces[0].length
+    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureWordBorder ? 'activation-token--interfeature' : ''}`
     return (
       <React.Fragment key={tokenIdx}>
         <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
         <span className={wordClassName} style={{ '--activation-color': bgColor } as React.CSSProperties}>
-          {renderTokenContent(token.text.slice(leadingSpaces[0].length), token.is_newline, charOffset !== null ? charOffset - leadingSpaces[0].length : charOffset, ngramLength)}
+          {renderTokenContent(token.text.slice(spaceLen), token.is_newline, effectiveCharOffset !== null ? effectiveCharOffset - spaceLen : effectiveCharOffset, effectiveNgramLength)}
         </span>
       </React.Fragment>
     )
@@ -152,7 +174,7 @@ const renderActivationToken = (
 
   return (
     <span key={tokenIdx} className={className} style={{ '--activation-color': bgColor } as React.CSSProperties}>
-      {renderTokenContent(token.text, token.is_newline, charOffset, ngramLength)}
+      {renderTokenContent(token.text, token.is_newline, effectiveCharOffset, effectiveNgramLength)}
     </span>
   )
 }

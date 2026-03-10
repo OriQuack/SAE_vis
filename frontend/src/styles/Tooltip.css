@@ -92,11 +92,63 @@
   cursor: help;
 }
 
+/* Tag buttons are clickable — override cursor: help */
+.selection__button[data-tooltip-html] {
+  cursor: pointer;
+}
+
 .data-tooltip-layer .tooltip {
-  max-width: 260px;
+  max-width: 320px;
   min-width: unset;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.4;
   color: var(--text-primary, #1f2937);
+}
+
+/* ============================================================================
+ * TAG TOOLTIP — Structured 3-line tooltip for tag buttons
+ * Line 1: Verdict (positive/negative/neutral) with colored dot
+ * Line 2: Flow (terminal / continues to next stage)
+ * Line 3: Description
+ * ============================================================================ */
+
+.tag-tooltip {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tag-tooltip__verdict {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tag-tooltip__verdict--positive { color: #15803d; }
+.tag-tooltip__verdict--negative { color: #b91c1c; }
+.tag-tooltip__verdict--neutral { color: #6b7280; }
+
+.tag-tooltip__flow {
+  font-weight: 400;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.tag-tooltip__desc {
+  font-size: 13px;
+  color: var(--text-primary, #1f2937);
+  border-top: 1px solid #e5e7eb;
+  padding-top: 3px;
+  margin-top: 1px;
+}
+
+.tag-tooltip__example {
+  font-size: 12px;
+  color: #6b7280;
+  font-style: italic;
 }

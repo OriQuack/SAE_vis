@@ -147,7 +147,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Diagnose the root cause of misinterpretation for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Q: Why does the explanations fail to reproduce activations?",
+    instruction: "Q: Why do the explanations fail to reproduce activations?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },
@@ -553,3 +553,53 @@ export const COMPONENT_COLORS = {
  * - unsure: not tagged
  */
 export type SelectionCategory = 'confirmed' | 'autoSelected' | 'rejected' | 'autoRejected' | 'unsure'
+
+// ============================================================================
+// TAG TOOLTIPS - Structured hover descriptions for tag buttons
+// Keyed by "categoryId:tagName" to disambiguate tags reused across stages
+// ============================================================================
+export interface TagTooltipInfo {
+  verdict: 'positive' | 'negative' | 'neutral'
+  flow?: string        // e.g. "Continues to Stage 2" or "Terminal" (omit for Stage 3 / Unsure)
+  description: string  // what the tag means
+  example?: string     // e.g. "morphological patterns, positional patterns, part-of-speech"
+}
+
+export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
+  // Stage 1: Structural Soundness
+  [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
+    verdict: 'positive', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable and can be treated as independent'
+  },
+  [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
+    verdict: 'negative', flow: 'Terminal', description: 'Concept boundary between the two features is ambiguous'
+  },
+
+  // Stage 2: Explanation Adequacy
+  [`${TAG_CATEGORY_QUALITY}:Well-Explained`]: {
+    verdict: 'positive', flow: 'Terminal', description: 'Explanations successfully capture the activation patterns'
+  },
+  [`${TAG_CATEGORY_QUALITY}:Need Revision`]: {
+    verdict: 'negative', flow: 'Further inspected in Stage 3', description: 'Explanations all fail to capture the activation patterns'
+  },
+
+  // Stage 3: Failure Attribution
+  [`${TAG_CATEGORY_CAUSE}:Well-Explained`]: {
+    verdict: 'positive', description: 'Explanation is faithful despite initial low scores'
+  },
+  [`${TAG_CATEGORY_CAUSE}:Missed Syntax`]: {
+    verdict: 'negative', description: 'Explainer omitted a shared surface-level syntactic pattern',
+    example: 'e.g. morphological patterns, positional patterns, before and after X'
+  },
+  [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
+    verdict: 'negative', description: 'Explainer omitted a shared semantic or contextual pattern',
+    example: 'e.g. domain, language, thematic content'
+  },
+  [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
+    verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency'
+  },
+
+  // Shared
+  'Unsure': {
+    verdict: 'neutral', description: 'Skip and revisit later'
+  },
+}

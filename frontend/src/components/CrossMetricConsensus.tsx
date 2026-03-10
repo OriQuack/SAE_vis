@@ -41,27 +41,20 @@ function getMetricScore(data: ExplainerScoreData, metric: MetricKey): number | n
 export const CrossMetricLegend: React.FC = React.memo(() => (
   <div className="legend-group">
     <div className="legend-item">
-      <span className="legend-label">Metric Score:</span>
-    </div>
-    <div className="legend-item">
-      <span className="legend-range">0</span>
       <span className="cross-metric-consensus__gradient-bar-wrapper">
         <span
           className="cross-metric-consensus__gradient-bar"
           style={{ background: TEAL_METRIC_GRADIENT }}
         />
-        <svg className="cross-metric-consensus__gradient-bar-baseline">
-          <line x1="50%" y1="0" x2="50%" y2="100%" stroke="#B22222" strokeWidth="1.5" strokeDasharray="3 2" />
-        </svg>
       </span>
-      <span className="legend-range">1</span>
+      <span className="legend-label">: Metric Score</span>
       <span className="legend-hint">(higher = better)</span>
     </div>
-    <div className="legend-item" style={{ marginLeft: 4 }}>
-      <svg width="6" height="12" style={{ verticalAlign: 'middle' }}>
+    <div className="legend-item" style={{ marginLeft: 6 }}>
+      <svg width="6" height="12" style={{ verticalAlign: 'middle', marginRight: -2 }}>
         <line x1="3" y1="0" x2="3" y2="12" stroke="#B22222" strokeWidth="1.5" strokeDasharray="3 2" />
       </svg>
-      <span className="legend-range">Random</span>
+      <span className="legend-label">: Random Baseline</span>
     </div>
   </div>
 ))

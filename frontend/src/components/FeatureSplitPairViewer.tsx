@@ -4,9 +4,8 @@ import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
 import { ExplanationWithPopover } from './ExplanationPanel'
 import { TagButton } from './Indicators'
-import { UNSURE_GRAY } from '../lib/constants'
+import { UNSURE_GRAY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_TOOLTIPS } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
-import { TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { extractInterFeaturePositions } from '../lib/activation-utils'
 import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
@@ -234,13 +233,19 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
       if (similarData?.inter_feature_similarity) {
         const extracted = extractInterFeaturePositions(similarData.inter_feature_similarity)
         if (extracted) {
+          // Extract n-gram length from best_ngram_text for char-level border highlighting
+          const interNgramLength = extracted.type === 'char' && similarData.inter_feature_similarity.best_ngram_text
+            ? similarData.inter_feature_similarity.best_ngram_text.length
+            : 0
           mainInterFeaturePositions = {
             type: extracted.type!,
-            positions: extracted.mainPositions
+            positions: extracted.mainPositions,
+            ngramLength: interNgramLength
           }
           similarInterFeaturePositions = {
             type: extracted.type!,
-            positions: extracted.similarPositions
+            positions: extracted.similarPositions,
+            ngramLength: interNgramLength
           }
         }
       }
@@ -370,6 +375,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 isSelected={pairSelectionState === 'rejected' || currentPairPreview === 'rejected'}
                 isAuto={currentPairPreview === 'rejected'}
                 onClick={handleMonosemanticClick}
+                tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]}
               />
               <TagButton
                 label="Incoherent Splitting"
@@ -378,6 +384,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 isSelected={pairSelectionState === 'selected' || currentPairPreview === 'selected'}
                 isAuto={currentPairPreview === 'selected'}
                 onClick={handleFragmentedClick}
+                tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]}
               />
 
               {/* Next button */}
@@ -405,6 +412,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                   color={unsureColor}
                   isSelected={pairSelectionState === null}
                   onClick={handleUnsureClick}
+                  tooltip={TAG_TOOLTIPS['Unsure']}
                 />
               </div>
             </div>

@@ -1,7 +1,7 @@
 import React from 'react'
 import { getTagColor } from '../lib/tag-system'
 import { getStripeGradient, addOpacityToHex, STRIPE_PATTERN } from '../lib/color-utils'
-import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY } from '../lib/constants'
+import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, type TagTooltipInfo } from '../lib/constants'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
 // ============================================================================
@@ -173,6 +173,7 @@ interface TagButtonProps {
   onClick: () => void        // Click handler
   className?: string         // Additional CSS classes (optional)
   isAuto?: boolean           // Whether this tag was auto-assigned (shows stripe pattern)
+  tooltip?: TagTooltipInfo    // Structured hover tooltip (rendered via DataTooltipLayer)
 }
 
 export const TagButton: React.FC<TagButtonProps> = ({
@@ -182,7 +183,8 @@ export const TagButton: React.FC<TagButtonProps> = ({
   isSelected,
   onClick,
   className = '',
-  isAuto = false
+  isAuto = false,
+  tooltip
 }) => {
   const showStripe = isAuto && isSelected
 
@@ -193,10 +195,17 @@ export const TagButton: React.FC<TagButtonProps> = ({
       }
     : undefined
 
+  const verdictLabel = tooltip?.verdict === 'positive' ? 'Positive' : tooltip?.verdict === 'negative' ? 'Negative' : 'Neutral'
+  const tooltipHtml = tooltip
+    ? `<div class="tag-tooltip"><div class="tag-tooltip__verdict tag-tooltip__verdict--${tooltip.verdict}">${verdictLabel}${tooltip.flow ? `<span class="tag-tooltip__flow"> · ${tooltip.flow}</span>` : ''}</div><div class="tag-tooltip__desc">${tooltip.description}</div>${tooltip.example ? `<div class="tag-tooltip__example">${tooltip.example}</div>` : ''}</div>`
+    : undefined
+
   return (
     <button
       className={`selection__button selection__button--${variant} ${isSelected ? 'selected' : ''} ${showStripe ? 'striped' : ''} ${className}`.trim()}
       onClick={onClick}
+      data-tooltip-html={tooltipHtml}
+      data-tooltip-below={tooltipHtml ? '' : undefined}
       style={{
         '--tag-color': color,
         ...stripeStyle

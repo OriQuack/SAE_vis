@@ -119,6 +119,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     return {
       clusters: consensus.items.filter(item => !item.is_outlier),
       outliers: consensus.items.filter(item => item.is_outlier)
+        .sort((a, b) => (b.quality_score ?? 0) - (a.quality_score ?? 0))
     }
   }, [consensus?.items])
 
@@ -151,21 +152,21 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
         <div
           key={`${item.cluster_id}-${idx}`}
           className="consensus-item__pill--expanded"
-          style={{ backgroundColor: chroma(consensusColor).alpha(0.25).css() }}
+          style={{ '--expanded-bg': chroma(consensusColor).alpha(0.25).css() } as React.CSSProperties}
+          onMouseEnter={(e) => handleMouseEnter(e, item)}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
         >
-          <div className="consensus-item__expanded-header">
-            <span className="consensus-item__phrase">{item.phrase}</span>
-            {metricColor && (
-              <span className="consensus-item__tag consensus-item__tag--right" style={{ backgroundColor: metricColor }} />
-            )}
-          </div>
-          <div className="consensus-item__expanded-phrases">
+          <div className="consensus-item__expanded-content">
             {item.cluster_phrases!.map((phrase, pIdx) => (
-              <span key={pIdx} className="consensus-tooltip__phrase">
+              <span key={pIdx} className={`consensus-tooltip__phrase${phrase.text === item.phrase ? ' consensus-tooltip__phrase--medroid' : ''}`}>
                 {phrase.text}
               </span>
             ))}
           </div>
+          {metricColor && (
+            <span className="consensus-item__tag consensus-item__tag--right" style={{ backgroundColor: metricColor }} />
+          )}
         </div>
       )
     }
@@ -221,7 +222,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
             ? `Outlier`
             : `Cluster (${tooltipData?.item.cluster_size} phrases)`}
         </Tooltip.Header>
-        <Tooltip.Summary showSeparator={!onPhraseHover && !tooltipData?.item.is_outlier && !!tooltipData?.item.cluster_phrases}>
+        <Tooltip.Summary showSeparator={!expanded && !onPhraseHover && !tooltipData?.item.is_outlier && !!tooltipData?.item.cluster_phrases}>
           Consensus: {tooltipData?.item.is_outlier
             ? '0.00'
             : (tooltipData?.item.cluster_score?.toFixed(2) ?? '0.00')} / 3.00
@@ -232,7 +233,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           )?.toFixed(2) ?? '0.00'} / 1.00
         </Tooltip.Summary>
         {/* Show all phrases for clusters */}
-        {!onPhraseHover && !tooltipData?.item.is_outlier && tooltipData?.item.cluster_phrases && (
+        {!expanded && !onPhraseHover && !tooltipData?.item.is_outlier && tooltipData?.item.cluster_phrases && (
           <div className="consensus-tooltip__phrases">
             {tooltipData.item.cluster_phrases.map((phrase, pIdx) => (
               <span key={pIdx} className="consensus-tooltip__phrase">

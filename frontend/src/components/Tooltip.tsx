@@ -22,6 +22,10 @@ interface TooltipProps {
   offsetX?: number
   /** Vertical offset from position (default: -10) */
   offsetY?: number
+  /** Center tooltip horizontally on position.x (default: false) */
+  centered?: boolean
+  /** Hide the arrow indicator (default: false) */
+  hideArrow?: boolean
   /** Content to render inside the tooltip */
   children: React.ReactNode
 }
@@ -33,6 +37,8 @@ const TooltipBase: React.FC<TooltipProps> = ({
   position,
   offsetX = 10,
   offsetY = -12,
+  centered = false,
+  hideArrow = false,
   children
 }) => {
   if (!position) return null
@@ -42,10 +48,11 @@ const TooltipBase: React.FC<TooltipProps> = ({
       className="tooltip"
       style={{
         left: position.x + offsetX,
-        top: position.y + offsetY
+        top: position.y + offsetY,
+        ...(centered ? { transform: 'translateX(-50%)' } : {})
       }}
     >
-      <span className="tooltip__arrow" />
+      {!hideArrow && <span className="tooltip__arrow" />}
       {children}
     </div>
   )
@@ -125,7 +132,7 @@ export const Tooltip: TooltipType = Object.assign(TooltipBase, {
 // ============================================================================
 
 export const DataTooltipLayer: React.FC = () => {
-  const [state, setState] = React.useState<{ text: string; html?: boolean; x: number; y: number } | null>(null)
+  const [state, setState] = React.useState<{ text: string; html?: boolean; x: number; y: number; below?: boolean } | null>(null)
   const activeRef = React.useRef(false)
 
   React.useEffect(() => {
@@ -138,13 +145,19 @@ export const DataTooltipLayer: React.FC = () => {
         activeRef.current = true
         const htmlContent = target.getAttribute('data-tooltip-html')
         const textContent = target.getAttribute('data-tooltip')
-        setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: e.clientX, y: e.clientY })
+        const below = target.hasAttribute('data-tooltip-below')
+        if (below) {
+          const rect = target.getBoundingClientRect()
+          setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: rect.left + rect.width / 2, y: rect.bottom, below: true })
+        } else {
+          setState({ text: (htmlContent || textContent)!, html: !!htmlContent, x: e.clientX, y: e.clientY })
+        }
       }
     }
 
     const onMove = (e: MouseEvent) => {
       if (activeRef.current) {
-        setState(prev => prev ? { ...prev, x: e.clientX, y: e.clientY } : null)
+        setState(prev => prev ? (prev.below ? prev : { ...prev, x: e.clientX, y: e.clientY }) : null)
       }
     }
 
@@ -173,7 +186,7 @@ export const DataTooltipLayer: React.FC = () => {
 
   return (
     <div className="data-tooltip-layer">
-      <Tooltip position={{ x: state.x, y: state.y }} offsetX={12} offsetY={-12}>
+      <Tooltip position={{ x: state.x, y: state.y }} offsetX={state.below ? 0 : 12} offsetY={state.below ? 6 : -12} centered={state.below} hideArrow={state.below}>
         <Tooltip.Summary showSeparator={false}>
           {state.html
             ? <span dangerouslySetInnerHTML={{ __html: state.text }} />
