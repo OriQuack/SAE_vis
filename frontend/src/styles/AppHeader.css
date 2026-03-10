@@ -109,9 +109,10 @@
   align-items: center;
   opacity: 0;
   transition: opacity 0.2s;
+  padding: 4px 8px;
 }
 
-.header:hover .header__demo-toggle {
+.header__demo-toggle:hover {
   opacity: 1;
 }
 
