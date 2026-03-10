@@ -102,8 +102,12 @@
   min-width: auto;
 }
 
-.stage-tab:not(.stage-tab--active):hover {
+/* Prevent hover border changes for all non-active states */
+.stage-tab:not(.stage-tab--active):not(.stage-tab--completed):hover {
   border-color: #cbd5e1;
+}
+.stage-tab--completed:hover {
+  border-color: #94a3b8;
 }
 
 .stage-tab:focus,
