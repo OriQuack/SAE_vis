@@ -176,8 +176,8 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   threshold,
   onThresholdChange,
   height,
-  sortMode = 'decisionMargin',
-  sortDirection = 'asc',
+  sortMode: _sortMode = 'decisionMargin',
+  sortDirection: _sortDirection = 'asc',
   canTrainSVM = true,
   manualTagCountsByCategory,
   activeStage,
@@ -192,7 +192,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
   const [liveThreshold, setLiveThreshold] = useState<number | null>(null)
 
   // Determine if we're in "Top X%" mode (Most Confident First)
-  const isTopMode = sortMode === 'decisionMargin' && sortDirection === 'desc'
+  const isTopMode = activeStage === 'apply'
 
   // Use live threshold during drag for interactive bar updates, otherwise use prop
   const effectiveThreshold = liveThreshold ?? threshold

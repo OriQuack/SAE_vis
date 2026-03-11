@@ -66,10 +66,12 @@ class WeightedMLPClassifier:
         Number of epochs with no improvement before stopping.
     learning_rate_init : float, default=0.001
         Initial learning rate for Adam optimizer.
-    batch_size : int, default=32
+    batch_size : int, default=256
         Mini-batch size for training.
     random_state : int, optional
         Random seed for reproducibility.
+    device : str, optional
+        Torch device ('cuda', 'cpu'). Auto-detects CUDA if None.
     """
 
     def __init__(
@@ -81,8 +83,9 @@ class WeightedMLPClassifier:
         validation_fraction: float = 0.2,
         n_iter_no_change: int = 20,
         learning_rate_init: float = 0.001,
-        batch_size: int = 32,
-        random_state: Optional[int] = None
+        batch_size: int = 256,
+        random_state: Optional[int] = None,
+        device: Optional[str] = None
     ):
         self.hidden_layer_sizes = hidden_layer_sizes
         self.alpha = alpha
@@ -93,6 +96,7 @@ class WeightedMLPClassifier:
         self.learning_rate_init = learning_rate_init
         self.batch_size = batch_size
         self.random_state = random_state
+        self.device = torch.device(device or ('cuda' if torch.cuda.is_available() else 'cpu'))
 
         self._model: Optional[_MLPNetwork] = None
         self._classes: Optional[np.ndarray] = None
@@ -121,6 +125,8 @@ class WeightedMLPClassifier:
         self : WeightedMLPClassifier
             Fitted estimator.
         """
+        logger.info(f"[MLP] Using device: {self.device}")
+
         if self.random_state is not None:
             torch.manual_seed(self.random_state)
             np.random.seed(self.random_state)
@@ -152,21 +158,22 @@ class WeightedMLPClassifier:
             X_train, y_train, w_train = X, y_mapped, sample_weight
             X_val, y_val, w_val = None, None, None
 
-        # Convert to tensors
+        # Convert to tensors (keep on CPU for DataLoader; moved to device in training loop)
         X_train_t = torch.from_numpy(X_train)
         y_train_t = torch.from_numpy(y_train).long()
         w_train_t = torch.from_numpy(w_train)
 
         if X_val is not None:
-            X_val_t = torch.from_numpy(X_val)
-            y_val_t = torch.from_numpy(y_val).long()
-            w_val_t = torch.from_numpy(w_val)
+            X_val_t = torch.from_numpy(X_val).to(self.device)
+            y_val_t = torch.from_numpy(y_val).long().to(self.device)
+            w_val_t = torch.from_numpy(w_val).to(self.device)
         else:
             X_val_t, y_val_t, w_val_t = None, None, None
 
-        # Initialize model
+        # Initialize model on device
         input_dim = X_train.shape[1]
         self._model = _MLPNetwork(input_dim, self.hidden_layer_sizes, n_classes)
+        self._model.to(self.device)
 
         # Optimizer with weight_decay for L2 regularization (matches sklearn's alpha)
         optimizer = torch.optim.Adam(
@@ -184,11 +191,13 @@ class WeightedMLPClassifier:
         criterion = nn.CrossEntropyLoss(reduction='none')
 
         # Create data loader
+        use_cuda = self.device.type == 'cuda'
         train_dataset = TensorDataset(X_train_t, y_train_t, w_train_t)
         train_loader = DataLoader(
             train_dataset,
             batch_size=min(self.batch_size, len(X_train)),
-            shuffle=True
+            shuffle=True,
+            pin_memory=use_cuda
         )
 
         # Training loop
@@ -201,6 +210,9 @@ class WeightedMLPClassifier:
             epoch_loss = 0.0
 
             for batch_X, batch_y, batch_w in train_loader:
+                batch_X = batch_X.to(self.device, non_blocking=use_cuda)
+                batch_y = batch_y.to(self.device, non_blocking=use_cuda)
+                batch_w = batch_w.to(self.device, non_blocking=use_cuda)
                 optimizer.zero_grad()
 
                 outputs = self._model(batch_X)
@@ -296,7 +308,7 @@ class WeightedMLPClassifier:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         X = np.asarray(X, dtype=np.float32)
-        X_t = torch.from_numpy(X)
+        X_t = torch.from_numpy(X).to(self.device)
 
         model = self._model
         classes = self._classes
@@ -307,7 +319,7 @@ class WeightedMLPClassifier:
             _, predicted = torch.max(outputs, 1)
 
         # Map back to original labels
-        return classes[predicted.numpy()]
+        return classes[predicted.cpu().numpy()]
 
     def predict_proba(self, X: np.ndarray) -> np.ndarray:
         """
@@ -327,7 +339,7 @@ class WeightedMLPClassifier:
             raise RuntimeError("Model not fitted. Call fit() first.")
 
         X = np.asarray(X, dtype=np.float32)
-        X_t = torch.from_numpy(X)
+        X_t = torch.from_numpy(X).to(self.device)
 
         model = self._model
         model.eval()
@@ -335,4 +347,4 @@ class WeightedMLPClassifier:
             outputs = model(X_t)
             proba = torch.softmax(outputs, dim=1)
 
-        return proba.numpy()
+        return proba.cpu().numpy()

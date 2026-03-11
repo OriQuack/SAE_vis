@@ -724,9 +724,9 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
     const history = tagAutomaticState?.flipTracking?.flipHistory
-    if (!history || history.length < 5) return false
-    const last5 = history.slice(-5)
-    return last5.every(h => h.flipRate < 0.03)
+    if (!history || history.length < 6) return false
+    const last6 = history.slice(-6)
+    return last6.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
 
   // Stability popover dismissal state — reset when condition goes away

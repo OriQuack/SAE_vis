@@ -397,7 +397,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   }, [setSortMode, setSelectedSortDirection])
 
   // Determine if we're in "Top" mode (Most Confident First)
-  const isTopMode = sortMode === 'decisionMargin' && selectedSortDirection === 'desc'
+  const isTopMode = activeStage === 'apply'
 
   // Check if feature is visible based on mode and threshold - delegates to utility function
   const isVisibleInCurrentMode = useCallback((featureId: number): boolean => {
@@ -507,9 +507,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
     const history = causeFlipTracking?.flipHistory
-    if (!history || history.length < 5) return false
-    const last5 = history.slice(-5)
-    return last5.every(h => h.flipRate < 0.03)
+    if (!history || history.length < 6) return false
+    const last6 = history.slice(-6)
+    return last6.every(h => h.flipRate < 0.03)
   }, [causeFlipTracking?.flipHistory])
 
   // Stability popover dismissal state — reset when condition goes away
@@ -945,7 +945,12 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     if (isSameCategory && !isAutoTagged) {
       // Already manually selected same category - keep tag and navigate
-      handlePostTagNavigation()
+      // Well-Explained doesn't affect SVM, so advance like unsure (next item)
+      if (category === 'well-explained') {
+        handlePostUnsureNavigation()
+      } else {
+        handlePostTagNavigation()
+      }
       return
     }
 
@@ -959,7 +964,12 @@ const CauseView: React.FC<CauseViewProps> = ({
 
     setCauseCategory(featureId, category)
     setLastClickTagAction({ stage: 'cause', featureId })
-    handlePostTagNavigation()
+    // Well-Explained doesn't trigger SVM retrain, so advance to next (like unsure)
+    if (category === 'well-explained') {
+      handlePostUnsureNavigation()
+    } else {
+      handlePostTagNavigation()
+    }
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory,
       setLastClickTagAction, markReviewed, handlePostTagNavigation, sortMode, causeDecisionMargins])
 
@@ -1263,7 +1273,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
                   showLearnPopover={lastRepReviewed}
-                  diversityLabel={`Representative ${diversityFeatureIds.size}`}
+                  diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
                   hideTagged={hideTagged}
                   onHideTaggedChange={(v: boolean) => { logAction('stage3', 'hide_tagged', { enabled: v }); setHideTagged(v) }}
