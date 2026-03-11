@@ -174,7 +174,7 @@ export function stageToSortConfig(
     case 'learn':
       return { sortMode: 'decisionMargin', sortDirection: 'asc' }
     case 'apply':
-      return { sortMode: 'decisionMargin', sortDirection: 'desc' }
+      return { sortMode: 'decisionMargin', sortDirection: 'asc' }
   }
 }
 

@@ -341,7 +341,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSortDirection('asc')
     } else if (stage === 'apply') {
       setSortMode('decisionMargin')
-      setSortDirection('desc')
+      setSortDirection('asc')
     }
     setHideTagged(stage === 'apply')
     setCurrentFeatureIndex(0)

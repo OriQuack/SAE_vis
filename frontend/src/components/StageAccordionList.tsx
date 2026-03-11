@@ -189,12 +189,11 @@ export function StageAccordionList<T>({
   // Column header is clickable ONLY in Bootstrap + byScore mode (for toggling sort direction)
   // In Learn/Apply stages, column header is NOT clickable (fixed labels)
   const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => {
-    const isBootstrapByScore = activeStage === 'bootstrap' && bootstrapMode === 'byScore'
+    const isHeaderClickable = (activeStage === 'bootstrap' && bootstrapMode === 'byScore') || activeStage === 'apply'
     const columnHeaderForList = columnHeader ? {
       label: columnHeader.label,
       sortDirection: columnHeader.sortDirection,
-      // Only include onClick and isSortable in Bootstrap + byScore mode
-      ...(isBootstrapByScore ? {
+      ...(isHeaderClickable ? {
         onClick: columnHeader.onClick,
         isSortable: columnHeader.isSortable
       } : {})
@@ -307,7 +306,7 @@ export function StageAccordionList<T>({
           )}
           {activeStage === 'apply' && (
             <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
-              Most Confident First
+              Confident Thresholded Region First
             </button>
           )}
         </div>

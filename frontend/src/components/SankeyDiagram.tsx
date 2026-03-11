@@ -20,7 +20,8 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
   SANKEY_COLORS,
-  UNSURE_GRAY
+  UNSURE_GRAY,
+  METRIC_DISPLAY_NAMES
 } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
 import { STRIPE_PATTERN, addOpacityToHex } from '../lib/color-utils'
@@ -838,8 +839,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                           const committedThreshold = structureNode?.type === 'segment' ? structureNode.threshold : null
                           const threshold = optimisticThresholds[node.id || ''] ?? committedThreshold
                           const comparison = segmentIndex === 0 ? '<' : '≥'
-                          // Replace underscores with spaces and capitalize first letter of each word
-                          const metricDisplay = metric ? metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : ''
+                          // Use display name from constants, falling back to formatted metric name
+                          const metricDisplay = metric ? (METRIC_DISPLAY_NAMES[metric] ?? metric.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) : ''
 
                           // Add "?" suffix for terminal segments (with stripe pattern) to show unsure status
                           const displayTagName = isTerminalSegment(segment.tagName)

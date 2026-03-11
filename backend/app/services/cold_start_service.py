@@ -460,7 +460,7 @@ class ColdStartService:
         feature_ids: List[int],
         num_suggestions: int,
         mode: str,
-        seed: int = 42
+        seed: int = 123
     ) -> ColdStartSuggestionsResponse:
         """Fallback to random selection when clustering fails."""
         random.seed(seed)
@@ -490,7 +490,7 @@ class ColdStartService:
         self,
         pairs: List[dict],
         num_suggestions: int,
-        seed: int = 42
+        seed: int = 123
     ) -> ColdStartSuggestionsResponse:
         """Fallback to random pair selection."""
         random.seed(seed)

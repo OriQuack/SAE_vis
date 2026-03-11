@@ -378,7 +378,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       setSelectedSortDirection('asc')
     } else if (stage === 'apply') {
       setSortMode('decisionMargin')
-      setSelectedSortDirection('desc')
+      setSelectedSortDirection('asc')
     }
     setCurrentFeatureIndex(0)
     setSelectedFeatureIdState(null)

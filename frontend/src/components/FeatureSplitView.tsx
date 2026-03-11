@@ -496,7 +496,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       setSortDirection('asc')
     } else if (stage === 'apply') {
       setSortMode('decisionMargin')
-      setSortDirection('desc')
+      setSortDirection('asc')
     }
     setHideTagged(stage === 'apply')
     setCurrentPairIndex(0)

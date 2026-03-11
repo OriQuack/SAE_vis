@@ -130,7 +130,7 @@
 }
 
 .tag-tooltip__verdict {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -144,13 +144,15 @@
 .tag-tooltip__verdict--neutral { color: #6b7280; }
 
 .tag-tooltip__flow {
+  font-size: 14px;
   font-weight: 400;
   color: #6b7280;
   font-style: italic;
 }
 
 .tag-tooltip__desc {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-primary, #1f2937);
   border-top: 1px solid #e5e7eb;
   padding-top: 3px;
@@ -158,7 +160,8 @@
 }
 
 .tag-tooltip__example {
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: #6b7280;
   font-style: italic;
 }
