@@ -83,38 +83,33 @@ const renderTokenContent = (
   return text
 }
 
-/**
- * Check if a token should be highlighted based on inter-feature positions
- * Returns highlight status and char_offset for char-level border rendering
- */
-const getInterfeatureHighlight = (
-  tokenPosition: number,
-  example: QuantileExample,
-  interFeaturePositions?: ActivationExampleProps['interFeaturePositions']
-): { highlight: boolean; charOffset: number | null } => {
-  if (!interFeaturePositions) return { highlight: false, charOffset: null }
-
-  // Find positions for this specific prompt_id
-  const promptPositions = interFeaturePositions.positions.find(
-    p => p.prompt_id === example.prompt_id
-  )
-
-  if (!promptPositions) return { highlight: false, charOffset: null }
-
-  if (interFeaturePositions.type === 'char') {
-    // For char type, positions is Array<{token_position, char_offset}>
-    const pos = (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
-      .find(p => p.token_position === tokenPosition)
-    if (pos) {
-      return { highlight: true, charOffset: pos.char_offset ?? null }
-    }
-    return { highlight: false, charOffset: null }
-  } else {
-    // For word type, positions is number[]
-    const found = (promptPositions.positions as number[]).includes(tokenPosition)
-    return { highlight: found, charOffset: null }
-  }
-}
+// COMMENTED OUT: Inter-feature blue border highlighting disabled
+// /**
+//  * Check if a token should be highlighted based on inter-feature positions
+//  * Returns highlight status and char_offset for char-level border rendering
+//  */
+// const getInterfeatureHighlight = (
+//   tokenPosition: number,
+//   example: QuantileExample,
+//   interFeaturePositions?: ActivationExampleProps['interFeaturePositions']
+// ): { highlight: boolean; charOffset: number | null } => {
+//   if (!interFeaturePositions) return { highlight: false, charOffset: null }
+//   const promptPositions = interFeaturePositions.positions.find(
+//     p => p.prompt_id === example.prompt_id
+//   )
+//   if (!promptPositions) return { highlight: false, charOffset: null }
+//   if (interFeaturePositions.type === 'char') {
+//     const pos = (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
+//       .find(p => p.token_position === tokenPosition)
+//     if (pos) {
+//       return { highlight: true, charOffset: pos.char_offset ?? null }
+//     }
+//     return { highlight: false, charOffset: null }
+//   } else {
+//     const found = (promptPositions.positions as number[]).includes(tokenPosition)
+//     return { highlight: found, charOffset: null }
+//   }
+// }
 
 /**
  * Render an activation token, splitting leading spaces from activated tokens
@@ -125,34 +120,34 @@ const renderActivationToken = (
   tokenIdx: number,
   example: QuantileExample,
   ngramLength: number,
-  interFeaturePositions?: ActivationExampleProps['interFeaturePositions'],
   disableNgramHighlight?: boolean,
 ): React.ReactNode => {
   // Intra-feature highlight (disabled in FeatureSplitPairViewer via disableNgramHighlight)
   const intra = disableNgramHighlight
     ? { highlight: false, charOffset: null }
     : getTokenHighlight(token.position, example)
-  // Inter-feature highlight
-  const inter = getInterfeatureHighlight(token.position, example, interFeaturePositions)
+  // COMMENTED OUT: Inter-feature blue border highlighting disabled
+  // const inter = getInterfeatureHighlight(token.position, example, interFeaturePositions)
 
-  // Determine effective char-level highlight source (intra takes priority)
+  // Determine effective char-level highlight source
   let effectiveCharOffset: number | null = null
   let effectiveNgramLength = 0
   if (intra.highlight && intra.charOffset !== null) {
     // Intra char-level highlight
     effectiveCharOffset = intra.charOffset
     effectiveNgramLength = ngramLength
-  } else if (inter.highlight && inter.charOffset !== null && (interFeaturePositions?.ngramLength ?? 0) > 0) {
-    // Inter char-level highlight
-    effectiveCharOffset = inter.charOffset
-    effectiveNgramLength = interFeaturePositions!.ngramLength!
   }
+  // COMMENTED OUT: Inter char-level highlight
+  // else if (inter.highlight && inter.charOffset !== null && (interFeaturePositions?.ngramLength ?? 0) > 0) {
+  //   effectiveCharOffset = inter.charOffset
+  //   effectiveNgramLength = interFeaturePositions!.ngramLength!
+  // }
 
   const hasWordUnderline = intra.highlight && intra.charOffset === null
-  // Inter-feature word-level: whole-token border (when no char offset or ngramLength missing)
-  const hasInterfeatureWordBorder = inter.highlight && effectiveCharOffset === null && !intra.highlight
+  // COMMENTED OUT: Inter-feature word-level border
+  // const hasInterfeatureWordBorder = inter.highlight && effectiveCharOffset === null && !intra.highlight
 
-  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureWordBorder ? 'activation-token--interfeature' : ''}`
+  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
   const bgColor = token.activation_value
     ? getActivationColor(token.activation_value, example.max_activation)
     : undefined
@@ -161,7 +156,7 @@ const renderActivationToken = (
   const leadingSpaces = token.activation_value && token.text.match(/^ +/)
   if (leadingSpaces) {
     const spaceLen = leadingSpaces[0].length
-    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''} ${hasInterfeatureWordBorder ? 'activation-token--interfeature' : ''}`
+    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
     return (
       <React.Fragment key={tokenIdx}>
         <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
@@ -198,7 +193,7 @@ const getWhitespaceSymbol = (text: string): string => {
 const ActivationExample: React.FC<ActivationExampleProps> = ({
   examples,
   containerWidth,
-  interFeaturePositions,
+  interFeaturePositions: _interFeaturePositions, // commented out: inter-feature highlighting
   isHovered,
   onHoverChange,
   numQuantiles = 3,  // Default to 3 quantiles for tables, override to 4 for feature split
@@ -339,7 +334,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, disableNgramHighlight)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight)
               })}
             </div>
           )
@@ -363,7 +358,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, interFeaturePositions, disableNgramHighlight)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight)
                       })}
                     </div>
                   )

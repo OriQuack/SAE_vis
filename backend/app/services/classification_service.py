@@ -119,7 +119,7 @@ class ClassificationService:
                 else:
                     df = df.with_columns(pl.lit(0.0).alias(metric))
 
-            logger.info(f"[_extract_metrics_from_svm_metrics] Extracted {len(SVM_FEATURE_METRICS)} metrics for {len(df)} features")
+            logger.info(f"[_extract_metrics] Requested {len(feature_ids)} features, got {len(df)} from svm_feature_metrics")
             return df
 
         except Exception as e:
@@ -531,6 +531,7 @@ class ClassificationService:
         metrics_matrix = np.column_stack([
             metrics_df[metric].to_numpy() for metric in SVM_FEATURE_METRICS
         ])
+        logger.info(f"[Stage3] metrics_matrix: {len(feature_ids_ordered)}/{len(feature_ids)} features have metrics")
 
         # Map feature_ids to indices for cause_selections lookup
         feature_id_to_idx = {int(fid): idx for idx, fid in enumerate(feature_ids_ordered)}
@@ -904,8 +905,14 @@ class ClassificationService:
             y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
             sample_weights = np.concatenate([selected_weights, rejected_weights])
 
-            # Train SVM with weights
-            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights)
+            # Fit scaler on full prediction pool for stable statistics
+            full_data_scaler = StandardScaler()
+            full_data_scaler.fit(metrics_matrix)
+            logger.info(f"[Stage2] Scaler fit on {len(metrics_matrix)} features (full prediction pool). "
+                        f"Training: {len(selected_vectors)} selected + {len(rejected_vectors)} rejected")
+
+            # Train SVM with weights (using pre-fit scaler)
+            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights, scaler=full_data_scaler)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:

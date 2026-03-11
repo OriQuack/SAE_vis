@@ -123,6 +123,8 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [reviewedFeatureIds, setReviewedFeatureIds] = useState<Set<number>>(() => new Set())
   // Store selected feature ID directly to preserve highlight across mode switches
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
+  // Freeze detail panel on tagged feature while SVM retrains (prevents double UI change)
+  const [frozenFeatureId, setFrozenFeatureId] = useState<number | null>(null)
 
   // Consensus data from preloaded store (lookup happens after selectedFeatureId is defined below)
   const consensusData = useVisualizationStore(state => state.consensusData)
@@ -690,8 +692,11 @@ const CauseView: React.FC<CauseViewProps> = ({
     return sortedFilteredFeatureList[currentFeatureIndex] ?? null
   }, [selectedFeatureIdState, sortedFilteredFeatureList, currentFeatureIndex])
 
+  // Display the frozen feature (during SVM retrain) or the real selection
+  const displayedFeatureId = frozenFeatureId ?? selectedFeatureId
+
   // Consensus lookup (must be after selectedFeatureId is defined)
-  const consensus = selectedFeatureId !== null ? consensusData[selectedFeatureId] ?? null : null
+  const consensus = displayedFeatureId !== null ? consensusData[displayedFeatureId] ?? null : null
 
   // Sync currentFeatureIndex when lists change (after mode switch)
   // This keeps the index pointing to the stored selected item
@@ -714,6 +719,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (sortMode === 'decisionMargin' && causeDecisionMargins.size > 0) {
       setSelectedFeatureIdState(null)
       setCurrentFeatureIndex(0)
+      setFrozenFeatureId(null)
     }
   }, [causeDecisionMargins, sortMode])
 
@@ -741,15 +747,15 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Get selected feature data for right panel
   const selectedFeatureData = useMemo(() => {
-    if (selectedFeatureId === null) return null
-    const feature = featureListWithMetadata.find(f => f.featureId === selectedFeatureId)
+    if (displayedFeatureId === null) return null
+    const feature = featureListWithMetadata.find(f => f.featureId === displayedFeatureId)
     if (!feature) return null
     return {
       featureId: feature.featureId,
       row: feature.row,
       activation: activationExamples[feature.featureId] || null
     }
-  }, [selectedFeatureId, featureListWithMetadata, activationExamples])
+  }, [displayedFeatureId, featureListWithMetadata, activationExamples])
 
   // Handle click on feature list item (main StageAccordionList)
   const handleListItemClick = useCallback((index: number) => {
@@ -943,11 +949,19 @@ const CauseView: React.FC<CauseViewProps> = ({
       return
     }
 
+    // Freeze detail panel during SVM retrain to prevent double UI change
+    const CAUSE_SVM_CATEGORIES: CauseCategory[] = ['noisy-activation', 'missed-N-gram', 'missed-context']
+    const willRetrain = sortMode === 'decisionMargin' && causeDecisionMargins.size > 0
+        && CAUSE_SVM_CATEGORIES.includes(category)
+    if (willRetrain) {
+      setFrozenFeatureId(featureId)
+    }
+
     setCauseCategory(featureId, category)
     setLastClickTagAction({ stage: 'cause', featureId })
     handlePostTagNavigation()
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory,
-      setLastClickTagAction, markReviewed, handlePostTagNavigation])
+      setLastClickTagAction, markReviewed, handlePostTagNavigation, sortMode, causeDecisionMargins])
 
   // Handle Unsure click - clear cause category and advance
   const handleUnsureClick = useCallback(() => {
@@ -1286,6 +1300,9 @@ const CauseView: React.FC<CauseViewProps> = ({
 
               {/* Right: Feature detail panel */}
               <div className="cause-view__top-right-panel" ref={rightPanelRef}>
+                {frozenFeatureId !== null && (
+                  <div className="cause-view__detail-loading-overlay" />
+                )}
                 {selectedFeatureData ? (
                   <>
                     {/* ---- Activation Section (top half) ---- */}
@@ -1490,7 +1507,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   canTrainSVM,
                   manualTagCountsByCategory,
                   flipTracking: causeFlipTracking,
-                  selectedFeatureId: selectedFeatureId,
+                  selectedFeatureId: displayedFeatureId,
                   stableFeatureIds,
                   hideTagged,
                   categories: [

@@ -211,7 +211,6 @@ export const createQualityActions = (set: any, get: any) => ({
       // Extract selected and rejected feature items with sources
       const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
       const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
-      const allFeatureIds: number[] = []
 
       const { featureSelectionSources } = get()
 
@@ -225,12 +224,12 @@ export const createQualityActions = (set: any, get: any) => ({
         }
       })
 
-      // Get all feature IDs from table data
-      if (tableData && tableData.features) {
-        tableData.features.forEach((feature: any) => {
-          allFeatureIds.push(feature.feature_id)
-        })
-      }
+      // Get feature IDs from selected Sankey node (not all table data)
+      // This matches how sortBySimilarity filters features for the sort API call
+      const selectedNodeFeatures = get().getSelectedNodeFeatures()
+      const allFeatureIds: number[] = selectedNodeFeatures && selectedNodeFeatures.size > 0
+        ? Array.from(selectedNodeFeatures)
+        : tableData?.features?.map((f: any) => f.feature_id) ?? []
 
       console.log('[Store.showTagAutomaticPopover] Fetching feature histogram:', {
         selected: selectedItems.length,

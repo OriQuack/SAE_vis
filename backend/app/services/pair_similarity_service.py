@@ -853,8 +853,11 @@ class PairSimilarityService:
             inter_semantics[i] = inter_data[1]
             decoder_sims[i] = pair_metrics.get(pair_key, 0.0)
 
-        # Log missing pairs
-        n_invalid = np.sum(~valid_mask)
+        # Log pair validity stats
+        n_valid = int(np.sum(valid_mask))
+        n_invalid = len(pair_ids) - n_valid
+        logger.info(f"[Stage1] Pair vectors: {n_valid}/{len(pair_ids)} pairs valid "
+                    f"(scaler will fit on {n_valid} valid pairs)")
         if n_invalid > 0:
             logger.warning(f"Missing metrics for {n_invalid} pairs")
 
@@ -948,8 +951,12 @@ class PairSimilarityService:
                 y_train = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
                 sample_weights_arr = np.concatenate([selected_weights_arr, rejected_weights_arr])
 
-            # Train SVM with weights
-            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr)
+            # Fit scaler on full prediction pool for stable statistics
+            full_data_scaler = StandardScaler()
+            full_data_scaler.fit(all_pair_vectors[valid_mask])
+
+            # Train SVM with weights (using pre-fit scaler)
+            model, scaler = train_svm_model(selected_vectors, rejected_vectors, selected_weights_arr, rejected_weights_arr, scaler=full_data_scaler)
 
             # Cache with size limit
             if len(self._svm_cache) >= self._max_cache_size:
@@ -989,14 +996,17 @@ class PairSimilarityService:
 
         if train_committee and X_train is not None and y_train is not None and len(pair_scores) > 0:
             logger.info("[PairSimilarityService] Training committee (RF + MLP) for QBC...")
-            rf_model, mlp_model, committee_scaler = self.committee_service.train_committee(
-                X_train, y_train, sample_weights_arr
+            # Pre-scale training data with SVM scaler so committee trains on same scale
+            X_train_scaled = scaler.transform(X_train)
+            rf_model, mlp_model, _committee_scaler = self.committee_service.train_committee(
+                X_train_scaled, y_train, sample_weights_arr, skip_scaling=True
             )
 
             if rf_model is not None or mlp_model is not None:
-                valid_vectors = all_pair_vectors[valid_vector_indices]
+                # Scale all features using the SVM scaler (consistent with SVM scoring)
+                valid_vectors_scaled = scaler.transform(all_pair_vectors[valid_vector_indices])
                 committee_preds = self.committee_service.predict_with_committee(
-                    valid_vectors, scores, rf_model, mlp_model, committee_scaler
+                    valid_vectors_scaled, scores, rf_model, mlp_model, None
                 )
                 committee_votes = self.committee_service.get_vote_info_dict(valid_pairs, committee_preds)
                 logger.info(f"[PairSimilarityService] Committee votes generated for {len(valid_pairs)} pairs")

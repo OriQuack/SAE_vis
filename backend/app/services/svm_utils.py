@@ -61,7 +61,8 @@ def train_svm_model(
     selected_vectors: np.ndarray,
     rejected_vectors: np.ndarray,
     selected_weights: Optional[np.ndarray] = None,
-    rejected_weights: Optional[np.ndarray] = None
+    rejected_weights: Optional[np.ndarray] = None,
+    scaler: Optional[StandardScaler] = None
 ) -> Tuple[SVC, StandardScaler]:
     """
     Train binary SVM classifier with RBF kernel and optional sample weights.
@@ -71,6 +72,8 @@ def train_svm_model(
         rejected_vectors: (N_neg, d) negative examples
         selected_weights: (N_pos,) sample weights for positive examples (default: all 1.0)
         rejected_weights: (N_neg,) sample weights for negative examples (default: all 1.0)
+        scaler: Optional pre-fit StandardScaler (e.g., fit on full prediction pool).
+                If None, fits a new scaler on training data (original behavior).
 
     Returns:
         Tuple of (trained_model, fitted_scaler)
@@ -90,8 +93,14 @@ def train_svm_model(
     sample_weights = compute_balanced_sample_weights(y, sample_weights)
 
     # Standardize features (critical for SVM)
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Use pre-fit scaler if provided (fit on full prediction pool for stable statistics),
+    # otherwise fit on training data (original behavior)
+    scaler_provided = scaler is not None
+    if scaler is None:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+    else:
+        X_scaled = scaler.transform(X)
 
     # Train SVM with RBF kernel
     model = SVC(
@@ -102,8 +111,9 @@ def train_svm_model(
     )
     model.fit(X_scaled, y, sample_weight=sample_weights)
 
+    scaler_msg = "pre-fit scaler (full prediction pool)" if scaler_provided else f"scaler fit on {len(X)} training samples"
     logger.info(f"SVM trained: {len(selected_vectors)} positive, {len(rejected_vectors)} negative, "
-               f"{model.n_support_.sum()} support vectors, weighted training")
+               f"{model.n_support_.sum()} support vectors, {scaler_msg}")
 
     return model, scaler
 

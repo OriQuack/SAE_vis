@@ -6,7 +6,7 @@ import { ExplanationWithPopover } from './ExplanationPanel'
 import { TagButton } from './Indicators'
 import { UNSURE_GRAY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_TOOLTIPS } from '../lib/constants'
 import { getTagColor } from '../lib/tag-system'
-import { extractInterFeaturePositions } from '../lib/activation-utils'
+// import { extractInterFeaturePositions } from '../lib/activation-utils' // commented out: inter-feature highlighting
 import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
 import { logAction } from '../lib/action-logger'
@@ -220,34 +220,34 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const mainExplanation = getBestExplanation(mainFeatureRow ?? null, tableData?.global_stats)
   const similarExplanation = getBestExplanation(similarFeatureRow ?? null, tableData?.global_stats)
 
-  let mainInterFeaturePositions = undefined
-  let similarInterFeaturePositions = undefined
-
-  if (currentPair && mainFeatureRow && similarFeatureRow) {
-    const decoderData = mainFeatureRow.decoder_similarity
-    if (decoderData && Array.isArray(decoderData)) {
-      const similarData = decoderData.find(d => d.feature_id === currentPair.similarFeatureId)
-      if (similarData?.inter_feature_similarity) {
-        const extracted = extractInterFeaturePositions(similarData.inter_feature_similarity)
-        if (extracted) {
-          // Extract n-gram length from best_ngram_text for char-level border highlighting
-          const interNgramLength = extracted.type === 'char' && similarData.inter_feature_similarity.best_ngram_text
-            ? similarData.inter_feature_similarity.best_ngram_text.length
-            : 0
-          mainInterFeaturePositions = {
-            type: extracted.type!,
-            positions: extracted.mainPositions,
-            ngramLength: interNgramLength
-          }
-          similarInterFeaturePositions = {
-            type: extracted.type!,
-            positions: extracted.similarPositions,
-            ngramLength: interNgramLength
-          }
-        }
-      }
-    }
-  }
+  // COMMENTED OUT: Inter-feature blue border highlighting disabled
+  // let mainInterFeaturePositions = undefined
+  // let similarInterFeaturePositions = undefined
+  //
+  // if (currentPair && mainFeatureRow && similarFeatureRow) {
+  //   const decoderData = mainFeatureRow.decoder_similarity
+  //   if (decoderData && Array.isArray(decoderData)) {
+  //     const similarData = decoderData.find(d => d.feature_id === currentPair.similarFeatureId)
+  //     if (similarData?.inter_feature_similarity) {
+  //       const extracted = extractInterFeaturePositions(similarData.inter_feature_similarity)
+  //       if (extracted) {
+  //         const interNgramLength = extracted.type === 'char' && similarData.inter_feature_similarity.best_ngram_text
+  //           ? similarData.inter_feature_similarity.best_ngram_text.length
+  //           : 0
+  //         mainInterFeaturePositions = {
+  //           type: extracted.type!,
+  //           positions: extracted.mainPositions,
+  //           ngramLength: interNgramLength
+  //         }
+  //         similarInterFeaturePositions = {
+  //           type: extracted.type!,
+  //           positions: extracted.similarPositions,
+  //           ngramLength: interNgramLength
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
 
   // Get tag colors for buttons
   const fragmentedColor = getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Incoherent Splitting') || '#F0E442'
@@ -263,7 +263,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html='Background opacity shows activation strength. <span style="border: 2px solid #3b82f6; padding: 1px 3px; border-radius: 3px;">Blue borders</span> mark shared patterns between the two features.'>Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html='Background opacity shows activation strength.'>Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>
@@ -282,10 +282,12 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 <span className="legend-sample legend-sample--activation">token</span>:
                 <span className="legend-label">Activation Strength</span>
               </div>
+              {/* COMMENTED OUT: Inter-feature blue border legend disabled
               <div className="legend-item">
                 <span className="legend-sample legend-sample--inter">token</span>:
                 <span className="legend-label">Shared Pattern Between Features</span>
               </div>
+              */}
             </div>
 
             {/* activating examples side-by-side */}
@@ -308,7 +310,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                     <ActivationExample
                       examples={mainActivation}
                       containerWidth={containerWidth - 40}
-                      interFeaturePositions={mainInterFeaturePositions}
                       numQuantiles={4}
                       examplesPerQuantile={[2, 2, 2, 2]}
                       disableHover={true}
@@ -340,7 +341,6 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                     <ActivationExample
                       examples={similarActivation}
                       containerWidth={containerWidth - 40}
-                      interFeaturePositions={similarInterFeaturePositions}
                       numQuantiles={4}
                       examplesPerQuantile={[2, 2, 2, 2]}
                       disableHover={true}
