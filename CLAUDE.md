@@ -70,9 +70,9 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │                                                                            │
 │  • Feature Grouping Service (filter → group by thresholds)                │
 │  • Hierarchical Clustering Service (decoder similarity)                   │
-│  • Classification Service (SVM binary + multi-class scoring)              │
+│  • Classification Service (SVM binary + OvO multi-class scoring)          │
 │  • Pair Similarity Service (SVM-based pair scoring)                       │
-│  • Committee Service (QBC: Random Forest + MLP for active learning)       │
+│  • Committee Service (QBC: Random Forest + PyTorch MLP for active learning)│
 │  • Alignment Service (semantic phrase matching)                           │
 │  • Consensus Service (HDBSCAN phrase clustering)                          │
 │  • Activation Cache Service (pre-computed msgpack+gzip)                   │
@@ -149,6 +149,7 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 - **Polars** (data processing)
 - **NumPy/SciPy** (clustering, SVM)
 - **scikit-learn** (SVM for similarity scoring)
+- **PyTorch** (WeightedMLPClassifier for QBC committee)
 - **Uvicorn** (ASGI server)
 
 ### Data
@@ -236,8 +237,8 @@ npm run dev -- --port 3003
 - **Metrics Used**: intra_feature_sim, score_embedding, score_fuzz, score_detection, explanation_semantic_sim, frac_nonzero
 - **Initial State**: All features start as "unsure" (no pre-assignment)
 - **Manual Tagging**: User tags features into cause categories (Missed Syntax / Missed Context / Noisy Activation)
-- **SVM Classification**: One-vs-Rest SVM predicts categories for untagged features
-- **Query by Committee (QBC)**: RF + MLP models trained alongside SVM to detect disagreement cases
+- **SVM Classification**: OvO-based SVC (libsvm internally) with OvR-shaped output predicts categories for untagged features
+- **Query by Committee (QBC)**: RF + PyTorch MLP models trained alongside SVM to detect disagreement cases
 - **Decision Flip Rate**: Tracks prediction stability across tagging iterations (convergence indicator)
 - **Flip Rate Stability Detection**: Shows guidance popover when flip rate < 3% for 5 consecutive iterations
 - **Decision Margin Histogram**: CauseMarginHistogram shows SVM confidence distribution with filtering support
@@ -255,8 +256,8 @@ npm run dev -- --port 3003
 ### SVM-Based Similarity Scoring
 Both Stage 1 (pairs) and Stage 2 (features) use the same SVM-based scoring mechanism:
 1. **Manual Tagging**: User tags 3+ items as selected and 3+ as rejected
-2. **SVM Training**: Backend trains SVM on manual selections
-3. **Query by Committee**: RF + MLP trained alongside SVM to detect disagreement (outliers)
+2. **SVM Training**: Backend trains SVM on manual selections (with balanced sample weights by weighted class mass)
+3. **Query by Committee**: RF + PyTorch MLP trained alongside SVM to detect disagreement (outliers)
 4. **Scoring**: All items scored by distance from decision boundary
 5. **Histogram**: Scores displayed in histogram distribution
 6. **Decision Flip Rate**: Tracks prediction changes across iterations for convergence

@@ -107,9 +107,10 @@ data/
 │       ├── step_13_explanation_consensus.py
 │       └── step_14_svm_metrics.py
 │
-├── diagnostics/                 # Diagnostic and analysis scripts
-│   ├── diagnose_token_extraction.py
+├── diagnostics/                 # Diagnostic and analysis scripts (6 files)
 │   ├── analyze_clustering.py
+│   ├── diagnose_explanation_consensus.py
+│   ├── diagnose_token_extraction.py
 │   ├── visualize_clustering_distribution.py
 │   ├── visualize_decoder_similarity_distribution.py
 │   └── visualize_similarity_distributions.py

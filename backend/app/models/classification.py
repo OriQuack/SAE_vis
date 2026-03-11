@@ -279,34 +279,3 @@ class CauseClassificationResponse(BaseModel):
     )
 
 
-# ============================================================================
-# STAGE 3 QUALITY SCORES MODELS (Using Stage 2 SVM)
-# ============================================================================
-
-class Stage3QualityScoresRequest(BaseModel):
-    """Request model for Stage 3 quality scores using Stage 2's SVM.
-
-    This trains an SVM on Stage 2's final Well-Explained vs Need Revision selections,
-    then scores all Need Revision features to determine their proximity to the
-    Well-Explained decision boundary.
-    """
-
-    well_explained_items: List[WeightedFeatureId] = Field(
-        ...,
-        description="Feature IDs with sources tagged as Well-Explained in Stage 2 (SVM positive class)",
-        min_length=1
-    )
-    need_revision_items: List[WeightedFeatureId] = Field(
-        ...,
-        description="Feature IDs with sources tagged as Need Revision in Stage 2 (SVM negative class)",
-        min_length=1
-    )
-    feature_ids: List[int] = Field(
-        ...,
-        description="Feature IDs to score (typically = need_revision_ids)",
-        min_length=1
-    )
-
-
-# Stage3QualityScoresResponse reuses SimilarityHistogramResponse
-# (same structure: scores, histogram, statistics, total_items)

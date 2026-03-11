@@ -7,7 +7,7 @@ Professional guidance for the FastAPI backend of the SAE Feature Visualization r
 **Purpose**: Provide stateless feature grouping, clustering, and SVM-based classification APIs for frontend visualization
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: SVM-based classification (binary + multi-class) + Query by Committee (QBC) active learning + hierarchical clustering + action logging
+**Key Innovation**: SVM-based classification (binary + OvO multi-class) + Query by Committee (QBC) active learning + hierarchical clustering + action logging
 
 ## Important Development Principles
 
@@ -71,13 +71,13 @@ Hierarchical clustering of features by decoder weight similarity with multi-crit
 ```
 
 ### 3. Classification Service (SVM-Based)
-Unified SVM-based classification for binary (Stage 2) and multi-class (Stage 3):
+Unified SVM-based classification for binary (Stage 2) and OvO multi-class (Stage 3):
 
 ```python
 # services/classification_service.py
 class ClassificationService:
     # Binary SVM (Stage 2): similarity sorting, histograms, quality scores
-    # Multi-class OvR SVM (Stage 3): cause classification
+    # OvO-based SVC (Stage 3): cause classification (libsvm internally OvO, OvR-shaped output)
     # Shared metric extraction (svm_feature_metrics fast path + legacy fallback)
     # Single CommitteeService instance for QBC
 
@@ -90,29 +90,35 @@ class ClassificationService:
 Shared SVM train/score functions are in `svm_utils.py`:
 ```python
 # services/svm_utils.py
-train_svm_model(selected_vectors, rejected_vectors, ...)  # RBF kernel SVM
+compute_balanced_sample_weights(y, sample_weights)        # Balance by weighted class mass
+train_svm_model(selected_vectors, rejected_vectors, ...)  # RBF kernel SVM (supports pre-fit scaler)
 score_with_svm(model, scaler, feature_vectors)            # Decision function scoring
 build_similarity_histogram_response(scores, ...)          # Histogram response builder
 ```
 
+**Key SVM patterns:**
+- **Balanced sample weights**: `compute_balanced_sample_weights()` replaces sklearn's `class_weight='balanced'`, balancing by effective class mass instead of raw counts
+- **Pre-fit scaler**: SVM training supports optional pre-fit scaler from full prediction pool for stable feature statistics
+- **OvO for multi-class**: Stage 3 uses `SVC(decision_function_shape='ovr')` which is internally OvO via libsvm but outputs OvR-shaped (N, K) decision matrix
+
 ### 4. Committee Service (QBC)
-Query by Committee approach using RF + MLP alongside SVM with majority voting:
+Query by Committee approach using RF + PyTorch MLP alongside SVM with majority voting:
 
 ```python
 # services/committee_service.py
 class CommitteeService:
-    """Train RF + MLP committee for active learning disagreement detection."""
+    """Train RF + PyTorch MLP committee for active learning disagreement detection."""
 
     MIN_SAMPLES_PER_CLASS = 3
 
-    def train_committee(self, X_train, y_train, sample_weights=None):
-        # 1. Train Random Forest
+    def train_committee(self, X_train, y_train, sample_weights=None, skip_scaling=False):
+        # 1. Train Random Forest (with balanced sample weights)
         rf = RandomForestClassifier(n_estimators=100, max_depth=5)
-        rf.fit(X_train, y_train, sample_weight=sample_weights)
+        rf.fit(X_train, y_train, sample_weight=balanced_weights)
 
-        # 2. Train MLP (fixed architecture: (32, 16))
-        mlp = MLPClassifier(hidden_layer_sizes=(32, 16), max_iter=500)
-        mlp.fit(X_train_scaled, y_train)
+        # 2. Train PyTorch MLP (WeightedMLPClassifier, architecture: (32, 16))
+        mlp = WeightedMLPClassifier(hidden_sizes=[32, 16])
+        mlp.fit(X_train_scaled, y_train, sample_weight=sample_weights)
 
         return rf, mlp, scaler
 
@@ -122,7 +128,10 @@ class CommitteeService:
         # Note: vote_entropy removed — uses simple majority voting instead
 ```
 
-**Use Cases**:
+**Key details**:
+- Uses `WeightedMLPClassifier` (PyTorch-based, from `pytorch_mlp.py`) — not sklearn's MLPClassifier
+- Supports `skip_scaling=True` when data is already standardized
+- Balances sample weights via `compute_balanced_sample_weights()` for RF training
 - Detect cases where SVM is confident but RF/MLP disagree
 - Guide users toward uncertain samples during active learning
 - Support both binary (Stage 1/2) and multi-class (Stage 3) classification
@@ -592,15 +601,24 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import StandardScaler
 
 # Shared functions in svm_utils.py:
-def train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights):
+def compute_balanced_sample_weights(y, sample_weights):
+    """Balance by weighted class mass (not raw counts like sklearn's class_weight='balanced')."""
+    # balanced_weight[i] = sample_weight[i] * total_mass / (n_classes * class_mass[c])
+    ...
+
+def train_svm_model(selected_vectors, rejected_vectors, selected_weights, rejected_weights, scaler=None):
     X = np.vstack([selected_vectors, rejected_vectors])
     y = np.array([1] * len(selected_vectors) + [0] * len(rejected_vectors))
-    sample_weights = np.concatenate([selected_weights, rejected_weights])
+    sample_weights = compute_balanced_sample_weights(y, np.concatenate([selected_weights, rejected_weights]))
 
-    scaler = StandardScaler()
-    X_scaled = scaler.fit_transform(X)
+    # Use pre-fit scaler if provided (fit on full prediction pool), else fit new
+    if scaler is None:
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+    else:
+        X_scaled = scaler.transform(X)
 
-    model = SVC(kernel='rbf', C=1.0, gamma='scale', class_weight='balanced')
+    model = SVC(kernel='rbf', C=1.0, gamma='scale')
     model.fit(X_scaled, y, sample_weight=sample_weights)
     return model, scaler
 

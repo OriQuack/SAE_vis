@@ -578,7 +578,7 @@ export interface FlipTrackingInfo {
   }>  // max 10 iterations
   totalIterations: number       // Total iterations so far (for x-axis after window slides)
   flippedBins: Set<number>      // Bin indices with flips (current iteration)
-  previousPredictions: Map<number | string, 'selected' | 'rejected'>  // For next flip calc
+  previousPredictions: Map<number | string, string>  // For next flip calc ('selected'|'rejected' for Stage 1/2, cause categories for Stage 3)
 }
 
 /**
@@ -718,26 +718,6 @@ export interface CauseClassificationResponse {
     mlp_category: string
   }>
 }
-
-// ============================================================================
-// STAGE 3 QUALITY SCORES TYPES (Using Stage 2 SVM)
-// ============================================================================
-
-/**
- * Stage 3 Quality Scores Request - Request for Stage 3 quality histogram
- *
- * Trains an SVM on Stage 2's final Well-Explained vs Need Revision selections,
- * then scores all specified feature_ids to determine their proximity to the
- * Well-Explained decision boundary.
- */
-export interface Stage3QualityScoresRequest {
-  well_explained_items: WeightedFeatureId[]  // Stage 2 selected with sources (SVM positive class)
-  need_revision_items: WeightedFeatureId[]   // Stage 2 rejected with sources (SVM negative class)
-  feature_ids: number[]                      // Features to score (typically = need_revision_ids)
-}
-
-// Stage3QualityScoresResponse reuses SimilarityScoreHistogramResponse
-// (same structure: scores, histogram, statistics, total_items)
 
 // ============================================================================
 // CONSENSUS TYPES (for explanation consensus visualization)

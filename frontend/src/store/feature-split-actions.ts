@@ -497,137 +497,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     }
   },
 
-  showTagAutomaticPopover: async (
-    mode: 'feature' | 'pair' | 'cause',
-    position: { x: number; y: number },
-    tagLabel: string,
-    selectedFeatureIds?: Set<number>,  // Optional: segment-specific feature IDs from FeatureSplitView
-    threshold?: number  // Optional: clustering threshold from Sankey segment
-  ) => {
-    // Only handle pair mode in this file
-    if (mode !== 'pair') {
-      console.warn('[FeatureSplitting.showTagAutomaticPopover] Wrong mode:', mode)
-      return
-    }
-
-    console.log('[FeatureSplitting.showTagAutomaticPopover] Received features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5, ', mode:', mode, ', tagLabel:', tagLabel)
-
-    try {
-      // Set loading state
-      set({
-        tagAutomaticState: {
-          visible: true,
-          minimized: false,
-          mode,
-          position,
-          histogramData: null,
-          selectThreshold: 0.1,
-          rejectThreshold: -0.1,
-          tagLabel,
-          isLoading: true,
-          flipTracking: null
-        }
-      })
-
-      // Fetch histogram data using the extracted function
-      // Pass segment-specific feature IDs if provided (from FeatureSplitView)
-      // This will fetch ALL cluster-based pairs for those features
-      // Also pass threshold to ensure clustering matches Sankey segment threshold
-      const result = await get().fetchSimilarityHistogram(selectedFeatureIds, threshold)
-
-      if (!result) {
-        console.warn('[Store.showTagAutomaticPopover] No histogram data available')
-        set({ tagAutomaticState: null })
-        return
-      }
-
-      const { histogramData, selectThreshold, rejectThreshold } = result
-
-      // Update state with histogram data
-      // Initialize flipTracking with empty history and current predictions
-      const currentState = get().tagAutomaticState
-      const existingFlipTracking = currentState?.flipTracking
-
-      // Build initial predictions map based on decision boundary (score >= 0) for flip tracking
-      const initialPredictions = new Map<string, 'selected' | 'rejected'>()
-      let selectedCount = 0
-      let rejectedCount = 0
-      if (histogramData.scores) {
-        Object.entries(histogramData.scores).forEach(([pairKey, score]) => {
-          if (typeof score === 'number') {
-            // Use decision boundary for consistent flip tracking
-            if (score >= 0) {
-              initialPredictions.set(pairKey, 'selected')
-              selectedCount++
-            } else {
-              initialPredictions.set(pairKey, 'rejected')
-              rejectedCount++
-            }
-          }
-        })
-      }
-
-      // Initialize flipHistory with iteration 0 entry (shows stacked bar only, no line point yet)
-      // Check length explicitly since empty array is truthy
-      const hasExistingHistory = existingFlipTracking?.flipHistory && existingFlipTracking.flipHistory.length > 0
-      const initialFlipHistory = hasExistingHistory
-        ? existingFlipTracking.flipHistory
-        : [{
-            flipRate: 0,
-            isBatch: false,
-            iteration: 0,
-            predictionCounts: { selected: selectedCount, rejected: rejectedCount },
-            flipTransitions: {}
-          }]
-
-      // Extract committee votes from histogram response
-      let committeeVotes: Map<string, { svm_prediction: 0 | 1; rf_prediction: 0 | 1; mlp_prediction: 0 | 1 }> | null = null
-
-      if (histogramData?.committee_votes) {
-        committeeVotes = new Map(
-          Object.entries(histogramData.committee_votes).map(([id, info]: [string, any]) => [
-            id,
-            {
-              svm_prediction: info.svm_prediction,
-              rf_prediction: info.rf_prediction,
-              mlp_prediction: info.mlp_prediction,
-            }
-          ])
-        )
-      }
-
-      set({
-        tagAutomaticState: {
-          visible: true,
-          minimized: false,
-          mode,
-          position,
-          histogramData,
-          selectThreshold,
-          rejectThreshold,
-          tagLabel,
-          isLoading: false,
-          flipTracking: {
-            flipHistory: initialFlipHistory,
-            totalIterations: hasExistingHistory ? existingFlipTracking.totalIterations : 0,
-            flippedBins: hasExistingHistory ? existingFlipTracking.flippedBins : new Set<number>(),
-            previousPredictions: hasExistingHistory ? existingFlipTracking.previousPredictions : initialPredictions
-          },
-          committeeVotes
-        }
-      })
-
-    } catch (error) {
-      console.error('[Store.showTagAutomaticPopover] ❌ Failed to fetch histogram:', error)
-      set({ tagAutomaticState: null })
-    }
-  },
-
-  hideTagAutomaticPopover: () => {
-    console.log('[Store.hideTagAutomaticPopover] Closing tagging popover')
-    set({ tagAutomaticState: null })
-  },
-
   updateSimilarityThresholds: (selectThreshold: number) => {
     const { tagAutomaticState } = get()
     if (!tagAutomaticState) return
@@ -647,10 +516,7 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     if (!tagAutomaticState) {
       set({
         tagAutomaticState: {
-          visible: false,
-          minimized: false,
           mode: 'pair',
-          position: { x: 0, y: 0 },
           histogramData: null,
           selectThreshold,
           rejectThreshold,
@@ -794,32 +660,6 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
     })
   },
 
-  minimizeSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: true
-      }
-    })
-    console.log('[Store.minimizeSimilarityTaggingPopover] Popover minimized')
-  },
-
-  restoreSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: false
-      }
-    })
-    console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
-  },
-  
   /**
    * Clear histogram data from tagAutomaticState while preserving thresholds
    * Used when selection count drops below minimum required for histogram

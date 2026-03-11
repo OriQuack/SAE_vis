@@ -190,15 +190,11 @@ interface AppState {
   fetchSimilarityHistogram: (selectedFeatureIds?: Set<number>, threshold?: number) => Promise<any>
 
   // Similarity tagging actions (automatic tagging based on histogram)
-  showTagAutomaticPopover: (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => Promise<void>
-  hideTagAutomaticPopover: () => void
   updateSimilarityThresholds: (selectThreshold: number) => void
   updateBothSimilarityThresholds: (selectThreshold: number, rejectThreshold: number) => void
   setTagAutomaticHistogramData: (histogramData: any, selectThreshold: number, rejectThreshold: number) => void
   clearTagAutomaticHistogram: () => void
   applySimilarityTags: () => void
-  minimizeSimilarityTaggingPopover: () => void
-  restoreSimilarityTaggingPopover: () => void
 
   // Undo last click tag action
   lastClickTagAction: {
@@ -267,10 +263,7 @@ interface AppState {
 
   // Tag automatic state (for automatic tagging feature with threshold controls)
   tagAutomaticState: {
-    visible: boolean
-    minimized: boolean  // Whether popover is minimized
     mode: 'feature' | 'pair'
-    position: { x: number; y: number }
     histogramData: any | null  // SimilarityScoreHistogramResponse
     selectThreshold: number  // Threshold for auto-selecting (blue, right side)
     rejectThreshold: number  // Threshold for auto-rejecting (light red, left side)
@@ -579,17 +572,6 @@ export const useStore = create<AppState>((set, get) => {
 
   // Create unified routing actions for similarity tagging (routes based on mode)
   const unifiedSimilarityActions = {
-    showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, selectedFeatureIds?: Set<number>, threshold?: number) => {
-      console.log('[store] Routing showTagAutomaticPopover - mode:', mode, ', features:', selectedFeatureIds?.size || 0, ', threshold:', threshold ?? 0.5)
-      if (mode === 'feature') {
-        return qualityActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
-      } else if (mode === 'pair') {
-        return featureSplitActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
-      } else if (mode === 'cause') {
-        return causeActions.showTagAutomaticPopover(mode, position, tagLabel, selectedFeatureIds, threshold)
-      }
-    },
-
     applySimilarityTags: () => {
       const { tagAutomaticState } = get()
       if (!tagAutomaticState) return
@@ -636,10 +618,6 @@ export const useStore = create<AppState>((set, get) => {
       }
     },
 
-    // Shared functions (use any implementation - they're identical)
-    hideTagAutomaticPopover: qualityActions.hideTagAutomaticPopover,
-    minimizeSimilarityTaggingPopover: qualityActions.minimizeSimilarityTaggingPopover,
-    restoreSimilarityTaggingPopover: qualityActions.restoreSimilarityTaggingPopover
   }
 
   return {

@@ -56,6 +56,19 @@ from core.logging import setup_logging
 
 logger = logging.getLogger(__name__)
 
+# Category A: null = missing measurement → median impute
+MEDIAN_IMPUTE_COLS = [
+    "score_embedding", "score_fuzz", "score_detection",
+    "explanation_semantic_sim", "frac_nonzero", "consensus_score",
+    "score_embedding_std", "score_fuzz_std", "score_detection_std",
+    "explanation_semantic_sim_std",
+]
+# Category B: null = no pattern exists → 0 is correct
+ZERO_FILL_COLS = [
+    "intra_ngram_jaccard", "intra_ngram_jaccard_std",
+    "intra_semantic_sim", "intra_semantic_sim_std",
+]
+
 
 class SvmMetricsProcessor(BaseProcessor):
     """Process feature and pair data into pre-aggregated SVM metrics."""
@@ -66,7 +79,7 @@ class SvmMetricsProcessor(BaseProcessor):
 
     @property
     def version(self) -> str:
-        return "4.0"
+        return "4.1"
 
     def _init_paths(self) -> None:
         """Initialize paths from configuration."""
@@ -164,9 +177,13 @@ class SvmMetricsProcessor(BaseProcessor):
                 .alias("explanation_semantic_sim")
         ])
 
-        # Fill null frac_nonzero
+        # Fill null frac_nonzero with median (before aggregation)
+        frac_nonzero_median = df["frac_nonzero"].drop_nulls().median()
+        if frac_nonzero_median is None:
+            frac_nonzero_median = 0.0
+        logger.info(f"frac_nonzero pre-agg median: {frac_nonzero_median:.6f}, nulls={df['frac_nonzero'].null_count()}")
         df = df.with_columns([
-            pl.col("frac_nonzero").fill_null(0.0)
+            pl.col("frac_nonzero").fill_null(frac_nonzero_median)
         ])
 
         # Apply feature limit before aggregation
@@ -373,21 +390,30 @@ class SvmMetricsProcessor(BaseProcessor):
             how="left"
         )
 
-        # Fill any remaining nulls
-        fill_cols = [
-            "score_embedding", "score_fuzz", "score_detection",
-            "explanation_semantic_sim", "frac_nonzero", "consensus_score",
-            "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
-            "score_embedding_std", "score_fuzz_std", "score_detection_std",
-            "explanation_semantic_sim_std", "intra_semantic_sim_std"
-        ]
-        for col in fill_cols:
+        # Category A: median imputation (null = missing measurement)
+        median_values = {}
+        for col in MEDIAN_IMPUTE_COLS:
+            if col in feature_df.columns:
+                null_count = feature_df[col].null_count()
+                if null_count > 0:
+                    col_median = feature_df[col].drop_nulls().median()
+                    if col_median is None:
+                        col_median = 0.0
+                    median_values[col] = col_median
+                    self.stats["missing_values_filled"] += null_count
+                    logger.info(f"Median imputation: {col} — {null_count} nulls, median={col_median:.6f}")
+                    feature_df = feature_df.with_columns([pl.col(col).fill_null(col_median)])
+
+        # Category B: zero fill (null = no pattern exists, 0 is correct)
+        for col in ZERO_FILL_COLS:
             if col in feature_df.columns:
                 null_count = feature_df[col].null_count()
                 if null_count > 0:
                     self.stats["missing_values_filled"] += null_count
-                    logger.info(f"Filling {null_count} null values in {col}")
+                    logger.info(f"Zero fill: {col} — {null_count} nulls")
                 feature_df = feature_df.with_columns([pl.col(col).fill_null(0.0)])
+
+        self.stats["median_imputation_values"] = median_values
 
         # Cast types
         feature_df = feature_df.with_columns([
@@ -466,6 +492,7 @@ class SvmMetricsProcessor(BaseProcessor):
             "stats": {
                 "features_processed": self.stats["features_processed"],
                 "missing_values_filled": self.stats["missing_values_filled"],
+                "median_imputation_values": self.stats.get("median_imputation_values", {}),
             },
         }
 

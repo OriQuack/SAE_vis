@@ -150,7 +150,7 @@ def build_similarity_histogram_response(
     """
     Build SimilarityHistogramResponse from raw score values.
 
-    Shared by feature histogram, pair histogram, and stage3 quality scores.
+    Shared by feature histogram and pair histogram.
 
     Args:
         scores_dict: Mapping of item ID/key to score

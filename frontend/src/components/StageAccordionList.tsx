@@ -95,7 +95,7 @@ export function StageAccordionList<T>({
   byScoreLabel = 'Score',
   hideTagged,
   onHideTaggedChange,
-  allItemsLabeled = false,
+  allItemsLabeled: _allItemsLabeled = false,
   showDisagreementOnly,
   onShowDisagreementOnlyChange,
   hasDisagreementData = false,
@@ -183,7 +183,7 @@ export function StageAccordionList<T>({
         <span className="scrollable-list__empty-subtext">{joined}</span>
       </>
     )
-  }, [emptyMessage, variant, activeStage, hideTagged, allItemsLabeled, showDisagreementOnly])
+  }, [emptyMessage, variant, activeStage, hideTagged, showDisagreementOnly])
 
   // Build list props to pass through
   // Column header is clickable ONLY in Bootstrap + byScore mode (for toggling sort direction)

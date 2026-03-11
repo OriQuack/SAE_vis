@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableStage } from '../lib/color-utils'
@@ -157,10 +157,8 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
   const causeDecisionMargins = useVisualizationStore(state => state.causeDecisionMargins)
   const causeMarginThreshold = useVisualizationStore(state => state.causeMarginThreshold)
   const allClusterPairs = useVisualizationStore(state => state.allClusterPairs)
-  const thresholdVisualization = useVisualizationStore(state => state.thresholdVisualization)
   const tagAutomaticState = useVisualizationStore(state => state.tagAutomaticState)
   const workflowActiveStage = useVisualizationStore(state => state.workflowActiveStage)
-  const restoreSimilarityTaggingPopover = useVisualizationStore(state => state.restoreSimilarityTaggingPopover)
   const getSelectedNodeFeatures = useVisualizationStore(state => state.getSelectedNodeFeatures)
   const getFeatureSplittingCounts = useVisualizationStore(state => state.getFeatureSplittingCounts)
 
@@ -203,9 +201,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
     return category || 'unsure'
   }
-
-  // Track if threshold button should highlight (first time showing preview)
-  const [shouldHighlightThresholdButton, setShouldHighlightThresholdButton] = useState(false)
 
   // Hover state for commit history tooltip
   const [hoveredCommitIndex, setHoveredCommitIndex] = useState<number | null>(null)
@@ -473,26 +468,9 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
 
   // Preview is active only in 'apply' phase when histogram data exists
   const isPreviewActive = !!tagAutomaticState?.histogramData && workflowActiveStage === 'apply'
-  // Show threshold controls only when thresholdVisualization is visible (after "Show on Table")
-  const showThresholdControls = thresholdVisualization?.visible ?? false
-
-  // Highlight threshold button when preview first becomes active
-  useEffect(() => {
-    if (showThresholdControls) {
-      setShouldHighlightThresholdButton(true)
-    } else {
-      setShouldHighlightThresholdButton(false)
-    }
-  }, [showThresholdControls])
-
   // Handlers
   const handleCategoryClick = (category: SelectionCategory) => {
     console.log(`[TableSelectionPanel] Clicked category: ${category}`)
-  }
-
-  const handleGoBackToHistogram = () => {
-    setShouldHighlightThresholdButton(false)
-    restoreSimilarityTaggingPopover()
   }
 
   const hasAnySelection = selectionStates.size > 0
@@ -552,19 +530,6 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
       {/* Actions Row: Bar + Buttons */}
       <div className="table-selection-panel__actions">
         {/* Threshold Controls (if active) */}
-        {showThresholdControls && (
-          <div className="table-selection-panel__left-actions">
-            {/* Go Back to Histogram Button */}
-            <button
-              className={`table-selection-panel__button table-selection-panel__button--histogram ${shouldHighlightThresholdButton ? 'table-selection-panel__button--highlighted' : ''}`}
-              onClick={handleGoBackToHistogram}
-              title="Return to histogram to adjust thresholds"
-            >
-              Go Back to Histogram
-            </button>
-          </div>
-        )}
-
         {/* Center: Selection State Bar + Commit History */}
         <div className="table-selection-panel__bar-container">
           <SelectionStateBar

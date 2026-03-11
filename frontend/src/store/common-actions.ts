@@ -477,10 +477,7 @@ export const createCommonActions = (set: any, get: any) => ({
     if (categoryId === TAG_CATEGORY_FEATURE_SPLITTING && updatedState.stage1FinalCommit?.histogramState) {
       const hs = updatedState.stage1FinalCommit.histogramState
       restoredTagAutomaticState = {
-        visible: false,
-        minimized: false,
         mode: 'pair' as const,
-        position: { x: 0, y: 0 },
         histogramData: hs.histogramData,
         selectThreshold: hs.selectThreshold,
         rejectThreshold: hs.rejectThreshold,
@@ -492,10 +489,7 @@ export const createCommonActions = (set: any, get: any) => ({
     } else if (categoryId === TAG_CATEGORY_QUALITY && updatedState.stage2FinalCommit?.histogramState) {
       const hs = updatedState.stage2FinalCommit.histogramState
       restoredTagAutomaticState = {
-        visible: false,
-        minimized: false,
         mode: 'feature' as const,
-        position: { x: 0, y: 0 },
         histogramData: hs.histogramData,
         selectThreshold: hs.selectThreshold,
         rejectThreshold: hs.rejectThreshold,

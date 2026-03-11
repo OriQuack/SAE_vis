@@ -73,26 +73,6 @@ export const createCauseActions = (set: any, get: any) => ({
   // SIMILARITY TAGGING ACTIONS (cause mode)
   // ============================================================================
 
-  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', _position: { x: number; y: number }, tagLabel: string, _selectedFeatureIds?: Set<number>, _threshold?: number) => {
-    // Only handle cause mode in this file
-    if (mode !== 'cause') {
-      console.warn('[Cause.showTagAutomaticPopover] Wrong mode:', mode)
-      return
-    }
-
-    console.log(`[Store.showTagAutomaticPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
-
-    // For cause mode, we don't use histogram-based tagging
-    // This is a placeholder for consistency
-    console.warn('[Store.showTagAutomaticPopover] Cause mode tagging not yet implemented')
-    set({ tagAutomaticState: null })
-  },
-
-  hideTagAutomaticPopover: () => {
-    console.log('[Store.hideTagAutomaticPopover] Closing tagging popover')
-    set({ tagAutomaticState: null })
-  },
-
   updateSimilarityThresholds: (selectThreshold: number) => {
     const { tagAutomaticState } = get()
     if (!tagAutomaticState) return
@@ -140,32 +120,6 @@ export const createCauseActions = (set: any, get: any) => ({
 
     // Close popover after applying
     set({ tagAutomaticState: null })
-  },
-
-  minimizeSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: true
-      }
-    })
-    console.log('[Store.minimizeSimilarityTaggingPopover] Popover minimized')
-  },
-
-  restoreSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: false
-      }
-    })
-    console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
   },
 
   /**
@@ -225,11 +179,25 @@ export const createCauseActions = (set: any, get: any) => ({
       // This enables contour visualization of the SVM classification results
       const currentState = get()
 
+      // Set of manually tagged feature IDs: includes cause-category tags (from the request)
+      // AND any other user-confirmed tags (e.g., well-explained) that should not be overwritten
+      const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
+      currentState.causeSelectionStates.forEach((_category: string, featureId: number) => {
+        const source = currentState.causeSelectionSources.get(featureId)
+        if (isUserConfirmed(source)) {
+          manualFeatureIds.add(featureId)
+        }
+      })
+
       // === FLIP TRACKING LOGIC ===
       // Build current predictions map from SVM results
+      // Exclude manually tagged features — their SVM predictions are meaningless
+      // (well-explained features aren't in training data, and training features are trivially correct)
       const currentPredictions = new Map<number, string>()
       response.results.forEach((result) => {
-        currentPredictions.set(result.feature_id, result.predicted_category)
+        if (!manualFeatureIds.has(result.feature_id)) {
+          currentPredictions.set(result.feature_id, result.predicted_category)
+        }
       })
 
       // Get existing flip tracking
@@ -271,7 +239,7 @@ export const createCauseActions = (set: any, get: any) => ({
           ].slice(-FLIP_HISTORY_WINDOW_SIZE),
           totalIterations: newIteration,
           flippedBins: new Set<number>(),
-          previousPredictions: currentPredictions as Map<number | string, string> as Map<number | string, 'selected' | 'rejected'>
+          previousPredictions: currentPredictions
         }
       } else {
         // First classification - initialize iteration 0
@@ -290,20 +258,10 @@ export const createCauseActions = (set: any, get: any) => ({
           }],
           totalIterations: 0,
           flippedBins: new Set<number>(),
-          previousPredictions: currentPredictions as Map<number | string, string> as Map<number | string, 'selected' | 'rejected'>
+          previousPredictions: currentPredictions
         }
       }
       // === END FLIP TRACKING LOGIC ===
-
-      // Set of manually tagged feature IDs: includes cause-category tags (from the request)
-      // AND any other user-confirmed tags (e.g., well-explained) that should not be overwritten
-      const manualFeatureIds = new Set(Object.keys(causeSelections).map(Number))
-      currentState.causeSelectionStates.forEach((_category: string, featureId: number) => {
-        const source = currentState.causeSelectionSources.get(featureId)
-        if (isUserConfirmed(source)) {
-          manualFeatureIds.add(featureId)
-        }
-      })
 
       // Build change lists first without creating Maps
       // Only create new Map objects if there are actual changes to prevent infinite loops
@@ -354,7 +312,15 @@ export const createCauseActions = (set: any, get: any) => ({
       })
       const causeLastClassificationSignature = classificationManualIds.sort((a, b) => a - b).join(',')
 
-      // Only create new Maps and update state if there are actual changes
+      // Always rebuild decision margins — SVM retrained so scores change even if categories don't
+      const categoryDecisionMargins = new Map<number, Record<string, number>>()
+      const decisionMargins = new Map<number, number>()
+      response.results.forEach((result) => {
+        categoryDecisionMargins.set(result.feature_id, result.decision_scores)
+        decisionMargins.set(result.feature_id, result.decision_margin)
+      })
+
+      // Only create new selection state Maps if there are actual category changes
       // This prevents cascading re-renders from new Map references that would cause infinite loops
       if (statesToUpdate.length > 0) {
         const newStates = new Map(currentState.causeSelectionStates)
@@ -362,14 +328,6 @@ export const createCauseActions = (set: any, get: any) => ({
 
         statesToUpdate.forEach(([id, category]) => newStates.set(id, category))
         sourcesToUpdate.forEach(([id, source]) => newSources.set(id, source))
-
-        // Build decision margins maps from response
-        const categoryDecisionMargins = new Map<number, Record<string, number>>()
-        const decisionMargins = new Map<number, number>()
-        response.results.forEach((result) => {
-          categoryDecisionMargins.set(result.feature_id, result.decision_scores)
-          decisionMargins.set(result.feature_id, result.decision_margin)
-        })
 
         set({
           causeCategoryDecisionMargins: categoryDecisionMargins,
@@ -383,8 +341,10 @@ export const createCauseActions = (set: any, get: any) => ({
           causeLastClassificationSignature
         })
       } else {
-        // No state changes but still update flip tracking and committee votes
+        // No category changes but still update decision margins, flip tracking, and committee votes
         set({
+          causeCategoryDecisionMargins: categoryDecisionMargins,
+          causeDecisionMargins: decisionMargins,
           causeClassificationLoading: false,
           causeClassificationError: null,
           causeFlipTracking: updatedFlipTracking,

@@ -19,7 +19,7 @@ from ..models.classification import (
     # Binary classification (Stage 2)
     SimilaritySortRequest, SimilaritySortResponse, FeatureScore,
     SimilarityHistogramRequest, SimilarityHistogramResponse,
-    HistogramStatistics, Stage3QualityScoresRequest,
+    HistogramStatistics,
     WeightedFeatureId, CommitteeVoteInfo,
     # Cause classification (Stage 3)
     CauseClassificationRequest,
@@ -62,29 +62,6 @@ class ClassificationService:
 
     async def _extract_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """
-        Extract all 14 metrics for the specified features.
-
-        Uses pre-aggregated svm_feature_metrics parquet for fast extraction.
-        Falls back to legacy extraction if svm_feature_metrics data not available.
-
-        Args:
-            feature_ids: List of feature IDs to extract metrics for
-
-        Returns:
-            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
-        """
-        # Try fast path: svm_feature_metrics parquet (pre-aggregated)
-        if self.data_service._svm_feature_metrics_lazy is not None:
-            result = await self._extract_metrics_from_svm_metrics(feature_ids)
-            if result is not None and len(result) > 0:
-                return result
-            logger.warning("[_extract_metrics] SVM feature metrics extraction failed, falling back to legacy")
-
-        # Fallback to legacy extraction
-        return await self._extract_metrics_legacy(feature_ids)
-
-    async def _extract_metrics_from_svm_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
         Extract pre-aggregated metrics from svm_feature_metrics.parquet (fast path).
 
         The svm_feature_metrics.parquet already contains 1 row per feature with
@@ -123,161 +100,7 @@ class ClassificationService:
             return df
 
         except Exception as e:
-            logger.error(f"[_extract_metrics_from_svm_metrics] Failed: {e}", exc_info=True)
-            return None
-
-    async def _extract_metrics_legacy(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
-        Legacy metric extraction from main dataframe + activation_display.
-
-        This is slower than svm_feature_metrics extraction but serves as fallback.
-        Computes mean and std aggregations across explainers/scorers at runtime.
-
-        Args:
-            feature_ids: List of feature IDs to extract metrics for
-
-        Returns:
-            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
-        """
-        try:
-            logger.info(f"[_extract_metrics_legacy] Starting extraction for {len(feature_ids)} features")
-
-            # Get the main dataframe
-            lf = self.data_service._df_lazy
-
-            if lf is None:
-                logger.error("Main dataframe not initialized")
-                return None
-
-            logger.info("[_extract_metrics_legacy] Main dataframe loaded")
-
-            # Filter to requested features
-            lf = lf.filter(pl.col("feature_id").is_in(feature_ids))
-            logger.info("[_extract_metrics_legacy] Filtered to requested features")
-
-            # Extract metrics from main dataframe
-            logger.info("[_extract_metrics_legacy] Extracting main dataframe metrics")
-
-            try:
-                # Aggregate scores across explainers/scorers: mean + std per feature
-                base_df = lf.group_by("feature_id").agg([
-                    # Mean metrics (across explainers × scorers)
-                    pl.col("score_embedding").fill_null(0.0).mean().alias("score_embedding"),
-                    pl.col("score_fuzz").fill_null(0.0).mean().alias("score_fuzz"),
-                    pl.col("score_detection").fill_null(0.0).mean().alias("score_detection"),
-                    pl.col("semsim_mean").fill_null(0.0).mean().alias("explanation_semantic_sim"),
-                    pl.col("frac_nonzero").fill_null(0.0).mean().alias("frac_nonzero"),
-                    # Std metrics (cross-explainer disagreement)
-                    pl.col("score_embedding").fill_null(0.0).std().alias("score_embedding_std"),
-                    pl.col("score_fuzz").fill_null(0.0).std().alias("score_fuzz_std"),
-                    pl.col("score_detection").fill_null(0.0).std().alias("score_detection_std"),
-                    pl.col("semsim_mean").fill_null(0.0).std().alias("explanation_semantic_sim_std"),
-                ]).collect()
-
-                # Compute log_frac_nonzero
-                base_df = base_df.with_columns([
-                    (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
-                ])
-
-                # Load consensus_score from explanation_consensus.parquet
-                try:
-                    consensus_file = self.data_service._resolve_data_path("explanation_consensus.parquet")
-                    if consensus_file.exists():
-                        consensus_df = pl.read_parquet(
-                            consensus_file, columns=["feature_id", "consensus_score"]
-                        ).with_columns(pl.col("feature_id").cast(pl.Int64))
-                        base_df = base_df.join(consensus_df, on="feature_id", how="left")
-                        logger.info(f"[_extract_metrics_legacy] Joined consensus_score for {len(base_df)} features")
-                except Exception as consensus_err:
-                    logger.warning(f"[_extract_metrics_legacy] Could not load consensus_score: {consensus_err}")
-
-                logger.info(f"[_extract_metrics_legacy] Main dataframe metrics extracted: {len(base_df)} features")
-            except Exception as agg_error:
-                logger.error(f"[_extract_metrics_legacy] Main dataframe extraction failed: {agg_error}", exc_info=True)
-                raise
-
-            # Cast feature_id to UInt32 to match activation dataframe
-            base_df = base_df.with_columns(pl.col("feature_id").cast(pl.UInt32))
-
-            # Extract activation-level metrics (intra-feature)
-            logger.info("[_extract_metrics_legacy] Extracting activation metrics")
-            activation_df = await self._extract_activation_metrics(feature_ids)
-            logger.info(f"[_extract_metrics_legacy] Activation metrics: {len(activation_df) if activation_df is not None else 0} rows")
-
-            # Join all metrics together
-            logger.info("[_extract_metrics_legacy] Joining all metrics")
-            result_df = base_df
-
-            if activation_df is not None:
-                result_df = result_df.join(activation_df, on="feature_id", how="left")
-                logger.info("[_extract_metrics_legacy] Joined activation metrics")
-
-            # Fill nulls with 0 for missing metrics (including std metrics that may not exist in legacy)
-            for metric in SVM_FEATURE_METRICS:
-                if metric not in result_df.columns:
-                    result_df = result_df.with_columns(pl.lit(0.0).alias(metric))
-                else:
-                    result_df = result_df.with_columns(
-                        pl.col(metric).fill_null(0.0)
-                    )
-
-            logger.info(f"Extracted metrics for {len(result_df)} features")
-            return result_df
-
-        except Exception as e:
-            logger.error(f"Failed to extract metrics: {e}", exc_info=True)
-            import traceback
-            traceback.print_exc()
-            return None
-
-    async def _extract_activation_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """
-        Extract intra-feature activation metrics for 14-metric configuration.
-
-        Extracts:
-        - intra_ngram_jaccard: max(char_ngram, word_ngram) - lexical consistency
-        - intra_semantic_sim: semantic_similarity - semantic consistency
-        - intra_semantic_sim_std: semantic_similarity_std - variability
-
-        Args:
-            feature_ids: List of feature IDs
-
-        Returns:
-            DataFrame with feature_id and activation-level metrics
-        """
-        try:
-            if self.data_service._activation_display_lazy is None:
-                logger.warning("No activation display data available")
-                return None
-
-            df = self.data_service._activation_display_lazy.filter(
-                pl.col("feature_id").is_in(feature_ids)
-            ).collect()
-
-            # Extract split activation metrics
-            df = df.select([
-                "feature_id",
-                # intra_ngram_jaccard = max(char_ngram, word_ngram)
-                pl.max_horizontal(
-                    "char_ngram_max_jaccard",
-                    "word_ngram_max_jaccard"
-                ).fill_null(0.0).alias("intra_ngram_jaccard"),
-                # intra_ngram_jaccard_std: pick std corresponding to whichever of char/word had higher mean
-                pl.when(pl.col("char_ngram_max_jaccard").fill_null(0.0) >= pl.col("word_ngram_max_jaccard").fill_null(0.0))
-                  .then(pl.col("char_ngram_max_jaccard_std").fill_null(0.0))
-                  .otherwise(pl.col("word_ngram_max_jaccard_std").fill_null(0.0))
-                  .alias("intra_ngram_jaccard_std"),
-                # intra_semantic_sim (activation-level semantic similarity)
-                pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim"),
-                # intra_semantic_sim_std
-                pl.col("semantic_similarity_std").fill_null(0.0).alias("intra_semantic_sim_std"),
-            ]).unique(subset=["feature_id"])
-
-            logger.info(f"Extracted activation metrics for {len(df)} features")
-            return df
-
-        except Exception as e:
-            logger.warning(f"Failed to extract activation metrics: {e}")
+            logger.error(f"[_extract_metrics] Failed: {e}", exc_info=True)
             return None
 
     # =========================================================================
@@ -402,80 +225,6 @@ class ClassificationService:
         return build_similarity_histogram_response(
             scores_dict, score_values, len(feature_scores),
             committee_votes_response
-        )
-
-    async def get_stage3_quality_scores(
-        self,
-        request: Stage3QualityScoresRequest
-    ) -> SimilarityHistogramResponse:
-        """
-        Calculate Stage 3 quality scores using Stage 2's SVM model.
-
-        Trains an SVM on Stage 2's Well-Explained (positive) vs Need Revision (negative)
-        features, then scores all specified feature_ids (typically the Need Revision set)
-        to determine their proximity to the Well-Explained decision boundary.
-
-        Args:
-            request: Request containing well_explained_ids, need_revision_ids, and feature_ids
-
-        Returns:
-            Response with scores and histogram data (reuses SimilarityHistogramResponse)
-        """
-        if not self.data_service.is_ready():
-            raise RuntimeError("DataService not ready")
-
-        # We need metrics for all features involved:
-        # - Training: well_explained_items + need_revision_items
-        # - Scoring: feature_ids
-        well_explained_ids = [item.id for item in request.well_explained_items]
-        need_revision_ids = [item.id for item in request.need_revision_items]
-        all_feature_ids = list(set(
-            well_explained_ids +
-            need_revision_ids +
-            request.feature_ids
-        ))
-
-        logger.info(f"[Stage3QualityScores] Extracting metrics for {len(all_feature_ids)} features "
-                   f"(well_explained={len(request.well_explained_items)}, "
-                   f"need_revision={len(request.need_revision_items)}, "
-                   f"to_score={len(request.feature_ids)})")
-
-        metrics_df = await self._extract_metrics(all_feature_ids)
-
-        if metrics_df is None or len(metrics_df) == 0:
-            logger.warning("[Stage3QualityScores] No metrics extracted, returning empty histogram")
-            return SimilarityHistogramResponse(
-                scores={},
-                histogram=HistogramData(bins=[], counts=[], bin_edges=[]),
-                statistics=HistogramStatistics(min=0.0, max=0.0, mean=0.0, median=0.0),
-                total_items=0
-            )
-
-        # Calculate similarity scores using SVM on ALL features (training + classification)
-        logger.info("[Stage3QualityScores] Training SVM on Stage 2 selections")
-        all_feature_scores, _ = self._calculate_similarity_scores(
-            metrics_df,  # Full dataframe with training + classification features
-            request.well_explained_items,
-            request.need_revision_items,
-            include_training_items=True,
-            train_committee=False,
-        )
-
-        # Filter to only return scores for classification features (request.feature_ids)
-        feature_ids_set = set(request.feature_ids)
-        feature_scores = [fs for fs in all_feature_scores if fs.feature_id in feature_ids_set]
-
-        logger.info(f"[Stage3QualityScores] SVM scored {len(all_feature_scores)} total, "
-                   f"filtered to {len(feature_scores)} classification features")
-
-        # Create scores dictionary
-        scores_dict = {str(item.feature_id): item.score for item in feature_scores}
-        score_values = np.array([item.score for item in feature_scores])
-
-        logger.info(f"[Stage3QualityScores] Generated histogram for {len(feature_scores)} features")
-
-        return build_similarity_histogram_response(
-            scores_dict, score_values, len(feature_scores)
         )
 
     # =========================================================================

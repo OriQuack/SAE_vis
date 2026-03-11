@@ -84,13 +84,17 @@ export const createQualityActions = (set: any, get: any) => ({
       return
     }
 
+    // Get feature IDs from selected Sankey node to filter training data
+    // This ensures training data matches DecisionMarginHistogram's filtering
+    const selectedNodeFeatures = state.getSelectedNodeFeatures()
+
     // Extract selected and rejected items with sources (ONLY manually labeled features)
     const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
     const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
 
     featureSelectionStates.forEach((selectionState: string, featureId: number) => {
+      if (selectedNodeFeatures && selectedNodeFeatures.size > 0 && !selectedNodeFeatures.has(featureId)) return
       const source = featureSelectionSources.get(featureId)
-      // Only use user-confirmed features (click or threshold) for similarity sorting
       if (isUserConfirmed(source)) {
         const weightedSource = source === 'click' ? 'click' : 'threshold' as const
         if (selectionState === 'selected') {
@@ -112,9 +116,6 @@ export const createQualityActions = (set: any, get: any) => ({
       return
     }
 
-    // Get feature IDs from selected Sankey node (not all table data)
-    // This matches how DecisionMarginHistogram filters features for the histogram API call
-    const selectedNodeFeatures = state.getSelectedNodeFeatures()
     const allFeatureIds = selectedNodeFeatures && selectedNodeFeatures.size > 0
       ? Array.from(selectedNodeFeatures)
       : tableData.features.map((f: any) => f.feature_id)
@@ -179,150 +180,6 @@ export const createQualityActions = (set: any, get: any) => ({
   // ============================================================================
   // SIMILARITY TAGGING ACTIONS (feature mode)
   // ============================================================================
-
-  showTagAutomaticPopover: async (mode: 'feature' | 'pair' | 'cause', position: { x: number; y: number }, tagLabel: string, _selectedFeatureIds?: Set<number>, _threshold?: number) => {
-    // Only handle feature mode in this file
-    if (mode !== 'feature') {
-      console.warn('[Quality.showTagAutomaticPopover] Wrong mode:', mode)
-      return
-    }
-
-    console.log(`[Store.showTagAutomaticPopover] Opening ${mode} tagging popover with label: ${tagLabel}`)
-
-    const { featureSelectionStates, tableData } = get()
-
-    try {
-      // Set loading state
-      set({
-        tagAutomaticState: {
-          visible: true,
-          minimized: false,
-          mode,
-          position,
-          histogramData: null,
-          selectThreshold: 0.1,
-          rejectThreshold: -0.1,
-          tagLabel,
-          isLoading: true,
-          flipTracking: null
-        }
-      })
-
-      // Extract selected and rejected feature items with sources
-      const selectedItems: { id: number; source: 'click' | 'threshold' }[] = []
-      const rejectedItems: { id: number; source: 'click' | 'threshold' }[] = []
-
-      const { featureSelectionSources } = get()
-
-      featureSelectionStates.forEach((state: string | null, featureId: number) => {
-        const source = featureSelectionSources.get(featureId)
-        // Only use user-confirmed features for SVM training
-        if (isUserConfirmed(source)) {
-          const weightedSource = source === 'click' ? 'click' : 'threshold' as const
-          if (state === 'selected') selectedItems.push({ id: featureId, source: weightedSource })
-          else if (state === 'rejected') rejectedItems.push({ id: featureId, source: weightedSource })
-        }
-      })
-
-      // Get feature IDs from selected Sankey node (not all table data)
-      // This matches how sortBySimilarity filters features for the sort API call
-      const selectedNodeFeatures = get().getSelectedNodeFeatures()
-      const allFeatureIds: number[] = selectedNodeFeatures && selectedNodeFeatures.size > 0
-        ? Array.from(selectedNodeFeatures)
-        : tableData?.features?.map((f: any) => f.feature_id) ?? []
-
-      console.log('[Store.showTagAutomaticPopover] Fetching feature histogram:', {
-        selected: selectedItems.length,
-        rejected: rejectedItems.length,
-        total: allFeatureIds.length
-      })
-
-      // Fetch histogram data
-      const histogramData = await api.getSimilarityScoreHistogram(
-        selectedItems,
-        rejectedItems,
-        allFeatureIds
-      )
-
-      // Calculate dynamic thresholds based on data range
-      // Use 1/2 of max value for initial select threshold (positive)
-      // Use -1/2 of max value for initial reject threshold (negative)
-      const { statistics } = histogramData
-      const maxAbsValue = Math.max(
-        Math.abs(statistics.min || 0),
-        Math.abs(statistics.max || 0)
-      )
-      // Default to 0.2 if data has no range or invalid values
-      const selectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
-      const rejectThreshold = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
-
-      // Update state with histogram data
-      // Initialize with dual thresholds for auto-selecting and auto-rejecting
-      // Initialize flipTracking with empty history and current predictions
-      const currentState = get()
-      const existingFlipTracking = currentState.tagAutomaticState?.flipTracking
-
-      // Build initial predictions map based on SVM decision boundary (score >= 0)
-      // Use decision boundary not thresholds to track actual prediction changes
-      const initialPredictions = new Map<number, 'selected' | 'rejected'>()
-      let selectedCount = 0
-      let rejectedCount = 0
-      Object.entries(histogramData.scores).forEach(([idStr, score]) => {
-        const featureId = parseInt(idStr, 10)
-        if (typeof score === 'number') {
-          if (score >= 0) {
-            initialPredictions.set(featureId, 'selected')
-            selectedCount++
-          } else {
-            initialPredictions.set(featureId, 'rejected')
-            rejectedCount++
-          }
-        }
-      })
-
-      // Initialize flipHistory with iteration 0 entry (shows stacked bar only, no line point yet)
-      // Check length explicitly since empty array is truthy
-      const hasExistingHistory = existingFlipTracking?.flipHistory && existingFlipTracking.flipHistory.length > 0
-      const initialFlipHistory = hasExistingHistory
-        ? existingFlipTracking.flipHistory
-        : [{
-            flipRate: 0,
-            isBatch: false,
-            iteration: 0,
-            predictionCounts: { selected: selectedCount, rejected: rejectedCount },
-            flipTransitions: {}
-          }]
-
-      set({
-        tagAutomaticState: {
-          visible: true,
-          minimized: false,
-          mode,
-          position,
-          histogramData,
-          selectThreshold,
-          rejectThreshold,
-          tagLabel,
-          isLoading: false,
-          flipTracking: {
-            flipHistory: initialFlipHistory,
-            totalIterations: hasExistingHistory ? existingFlipTracking.totalIterations : 0,
-            flippedBins: hasExistingHistory ? existingFlipTracking.flippedBins : new Set<number>(),
-            previousPredictions: hasExistingHistory ? existingFlipTracking.previousPredictions : initialPredictions
-          }
-        }
-      })
-
-    } catch (error) {
-      console.error('[Store.showTagAutomaticPopover] ❌ Failed to fetch histogram:', error)
-      set({ tagAutomaticState: null })
-    }
-  },
-
-  hideTagAutomaticPopover: () => {
-    console.log('[Store.hideTagAutomaticPopover] Closing tagging popover')
-    set({ tagAutomaticState: null })
-  },
 
   updateSimilarityThresholds: (selectThreshold: number) => {
     const { tagAutomaticState } = get()
@@ -459,10 +316,7 @@ export const createQualityActions = (set: any, get: any) => ({
     set({
       pendingBatchOperation: false,  // Clear the batch flag
       tagAutomaticState: {
-        visible: tagAutomaticState?.visible ?? false,
-        minimized: tagAutomaticState?.minimized ?? false,
         mode: 'feature' as const,
-        position: tagAutomaticState?.position ?? { x: 0, y: 0 },
         histogramData,
         selectThreshold,
         rejectThreshold,
@@ -599,29 +453,4 @@ export const createQualityActions = (set: any, get: any) => ({
     })
   },
 
-  minimizeSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: true
-      }
-    })
-    console.log('[Store.minimizeSimilarityTaggingPopover] Popover minimized')
-  },
-
-  restoreSimilarityTaggingPopover: () => {
-    const { tagAutomaticState } = get()
-    if (!tagAutomaticState) return
-
-    set({
-      tagAutomaticState: {
-        ...tagAutomaticState,
-        minimized: false
-      }
-    })
-    console.log('[Store.restoreSimilarityTaggingPopover] Popover restored')
-  }
 })
