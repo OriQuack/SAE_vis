@@ -62,11 +62,11 @@ class WeightedMLPClassifier:
         Whether to use early stopping based on validation loss.
     validation_fraction : float, default=0.2
         Fraction of training data for validation (when early_stopping=True).
-    n_iter_no_change : int, default=20
+    n_iter_no_change : int, default=10
         Number of epochs with no improvement before stopping.
     learning_rate_init : float, default=0.001
         Initial learning rate for Adam optimizer.
-    batch_size : int, default=256
+    batch_size : int, default=64
         Mini-batch size for training.
     random_state : int, optional
         Random seed for reproducibility.
@@ -81,9 +81,9 @@ class WeightedMLPClassifier:
         max_iter: int = 500,
         early_stopping: bool = True,
         validation_fraction: float = 0.2,
-        n_iter_no_change: int = 20,
+        n_iter_no_change: int = 10,
         learning_rate_init: float = 0.001,
-        batch_size: int = 256,
+        batch_size: int = 64,
         random_state: Optional[int] = None,
         device: Optional[str] = None
     ):
@@ -96,7 +96,8 @@ class WeightedMLPClassifier:
         self.learning_rate_init = learning_rate_init
         self.batch_size = batch_size
         self.random_state = random_state
-        self.device = torch.device(device or ('cuda' if torch.cuda.is_available() else 'cpu'))
+        # CPU is faster for this tiny model (688 params) — GPU kernel launch overhead dominates
+        self.device = torch.device(device or 'cpu')
 
         self._model: Optional[_MLPNetwork] = None
         self._classes: Optional[np.ndarray] = None

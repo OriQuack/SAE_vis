@@ -23,6 +23,7 @@ import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import ExportResultsPopup from './ExportResultsPopup'
+import { buildExportData, downloadExportJson } from '../lib/export-utils'
 import '../styles/CauseView.css'
 
 // ============================================================================
@@ -104,6 +105,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const activateStage4 = useVisualizationStore(state => state.activateStage4)
 
   // Export state
+  const leftPanel = useVisualizationStore(state => state.leftPanel)
+  const stage1FinalCommit = useVisualizationStore(state => state.stage1FinalCommit)
+  const stage2FinalCommit = useVisualizationStore(state => state.stage2FinalCommit)
   const pairSelectionStates = useVisualizationStore(state => state.pairSelectionStates)
   const pairSelectionSources = useVisualizationStore(state => state.pairSelectionSources)
   const featureSelectionSources = useVisualizationStore(state => state.featureSelectionSources)
@@ -125,6 +129,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   const [selectedFeatureIdState, setSelectedFeatureIdState] = useState<number | null>(null)
   // Freeze detail panel on tagged feature while SVM retrains (prevents double UI change)
   const [frozenFeatureId, setFrozenFeatureId] = useState<number | null>(null)
+  // Loading overlay for batch tagging (persists until SVM classification completes)
+  const [batchLoadingOverlay, setBatchLoadingOverlay] = useState(false)
+  const prevClassificationLoadingRef = useRef(false)
 
   // Consensus data from preloaded store (lookup happens after selectedFeatureId is defined below)
   const consensusData = useVisualizationStore(state => state.consensusData)
@@ -544,80 +551,22 @@ const CauseView: React.FC<CauseViewProps> = ({
     return true
   }, [selectedFeatureIds, causeSelectionSources])
 
-  // Download results as JSON (replaces Stage 4 RegenerationView)
+  // Download results as JSON
   const handleDownload = useCallback(() => {
-    // Stage 1: Feature Splitting (pairs)
-    const stage1 = {
-      fragmented: { manual: [] as string[], auto: [] as string[] },
-      monosemantic: { manual: [] as string[], auto: [] as string[] }
-    }
-    pairSelectionStates.forEach((state, key) => {
-      const tag = state === 'selected' ? 'fragmented' : 'monosemantic'
-      const source = pairSelectionSources.get(key) === 'click' ? 'manual' : 'auto'
-      stage1[tag][source].push(key)
+    const data = buildExportData({
+      sankeyNodes: leftPanel?.sankeyStructure?.nodes,
+      stage1FinalCommit,
+      stage2FinalCommit,
+      pairSelectionStates,
+      pairSelectionSources,
+      featureSelectionStates,
+      featureSelectionSources,
+      causeSelectionStates,
+      causeSelectionSources
     })
-
-    // Stage 2: Quality (features) + Stage 3 well-explained merged
-    const stage2 = {
-      wellExplained: { manual: [] as number[], auto: [] as number[] },
-      needRevision: { manual: [] as number[], auto: [] as number[] }
-    }
-    featureSelectionStates.forEach((state, id) => {
-      const tag = state === 'selected' ? 'wellExplained' : 'needRevision'
-      const source = featureSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
-      stage2[tag][source].push(id)
-    })
-    // Merge Stage 3 well-explained into Stage 2
-    causeSelectionStates.forEach((tag, id) => {
-      if (tag === 'well-explained') {
-        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
-        stage2.wellExplained[source].push(id)
-      }
-    })
-
-    // Stage 3: Cause categories (excluding well-explained, merged above)
-    const stage3 = {
-      patternMiss: { manual: [] as number[], auto: [] as number[] },
-      contextMiss: { manual: [] as number[], auto: [] as number[] },
-      noisyActivation: { manual: [] as number[], auto: [] as number[] }
-    }
-    causeSelectionStates.forEach((tag, id) => {
-      if (tag === 'missed-N-gram') {
-        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
-        stage3.patternMiss[source].push(id)
-      } else if (tag === 'missed-context') {
-        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
-        stage3.contextMiss[source].push(id)
-      } else if (tag === 'noisy-activation') {
-        const source = causeSelectionSources.get(id) === 'click' ? 'manual' : 'auto'
-        stage3.noisyActivation[source].push(id)
-      }
-    })
-
-    const exportData = {
-      exportedAt: new Date().toISOString(),
-      stage1_featureSplitting: stage1,
-      stage2_quality: stage2,
-      stage3_cause: stage3,
-      summary: {
-        totalPairsTagged: pairSelectionStates.size,
-        totalFeaturesTagged: featureSelectionStates.size,
-        totalCausesTagged: causeSelectionStates.size
-      }
-    }
-
-    const fileName = `tagging-results-${new Date().toISOString().slice(0, 10)}.json`
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = fileName
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-    return fileName
+    return downloadExportJson(data)
   }, [
+    leftPanel, stage1FinalCommit, stage2FinalCommit,
     pairSelectionStates, pairSelectionSources,
     featureSelectionStates, featureSelectionSources,
     causeSelectionStates, causeSelectionSources
@@ -722,6 +671,14 @@ const CauseView: React.FC<CauseViewProps> = ({
       setFrozenFeatureId(null)
     }
   }, [causeDecisionMargins, sortMode])
+
+  // Clear batch loading overlay when SVM classification finishes (true → false transition)
+  useEffect(() => {
+    if (prevClassificationLoadingRef.current && !causeClassificationLoading && batchLoadingOverlay) {
+      setBatchLoadingOverlay(false)
+    }
+    prevClassificationLoadingRef.current = causeClassificationLoading
+  }, [causeClassificationLoading, batchLoadingOverlay])
 
   // Compute highlight index for main list (always show where selected item is)
   const mainListHighlightIndex = useMemo(() => {
@@ -946,8 +903,10 @@ const CauseView: React.FC<CauseViewProps> = ({
     if (isSameCategory && !isAutoTagged) {
       // Already manually selected same category - keep tag and navigate
       // Well-Explained doesn't affect SVM, so advance like unsure (next item)
+      // But when hideTagged is ON, don't navigate — item disappears and next shifts into place
       if (category === 'well-explained') {
-        handlePostUnsureNavigation()
+        if (hideTagged) setSelectedFeatureIdState(null)
+        else handlePostUnsureNavigation()
       } else {
         handlePostTagNavigation()
       }
@@ -965,13 +924,15 @@ const CauseView: React.FC<CauseViewProps> = ({
     setCauseCategory(featureId, category)
     setLastClickTagAction({ stage: 'cause', featureId })
     // Well-Explained doesn't trigger SVM retrain, so advance to next (like unsure)
+    // But when hideTagged is ON, don't navigate — item disappears and next shifts into place
     if (category === 'well-explained') {
-      handlePostUnsureNavigation()
+      if (hideTagged) setSelectedFeatureIdState(null)
+      else handlePostUnsureNavigation()
     } else {
       handlePostTagNavigation()
     }
   }, [selectedFeatureData, currentCauseCategory, currentCauseSource, setCauseCategory,
-      setLastClickTagAction, markReviewed, handlePostTagNavigation, sortMode, causeDecisionMargins])
+      setLastClickTagAction, markReviewed, handlePostTagNavigation, handlePostUnsureNavigation, hideTagged, sortMode, causeDecisionMargins])
 
   // Handle Unsure click - clear cause category and advance
   const handleUnsureClick = useCallback(() => {
@@ -991,6 +952,7 @@ const CauseView: React.FC<CauseViewProps> = ({
 
   // Tag ALL confident features (all three categories at once)
   const handleTagAllConfident = useCallback(() => {
+    setBatchLoadingOverlay(true)
     logAction('stage3', 'tag_all_confident', { count: filteredFeatureIds.length, totalFeatures: selectedFeatureIds?.size ?? 0 })
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
@@ -1023,6 +985,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Well-Explained is tagged individually, not by SVM batch tagging
   const handleTagRemainingByBoundary = useCallback(() => {
     if (!causeCategoryDecisionMargins || causeCategoryDecisionMargins.size === 0) return
+    setBatchLoadingOverlay(true)
     if (!selectedFeatureIds) return
 
     // 1. Create new commit FIRST (copies current state with manual tags only)
@@ -1257,6 +1220,10 @@ const CauseView: React.FC<CauseViewProps> = ({
         <div className="cause-view__main">
           {/* Main content: Two rows (50/50 split) */}
           <div className="cause-view__content">
+            {/* Batch tagging loading overlay - persists until SVM classification completes */}
+            {batchLoadingOverlay && (
+              <div className="cause-view__batch-flash-overlay" />
+            )}
             {/* ============================================================ */}
             {/* TOP ROW: StageAccordionList (fixed) + Right Panel (flex: 1)  */}
             {/* ============================================================ */}

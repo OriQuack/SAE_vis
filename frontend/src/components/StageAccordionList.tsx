@@ -246,7 +246,7 @@ export function StageAccordionList<T>({
           disabled={applyDisabled}
           title={applyDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip-title={applyDisabled ? undefined : "Disagreement-first Phase"}
-          data-tooltip={applyDisabled ? undefined : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where classifiers disagree before automatic labeling.`}
+          data-tooltip={applyDisabled ? undefined : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where ensembled classifiers disagree before automatic labeling.`}
         >
           <span className="stage-selector__number">3</span>
           <span className="stage-selector__label">Disagreement</span>

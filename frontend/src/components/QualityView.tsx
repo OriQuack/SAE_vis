@@ -953,7 +953,7 @@ const QualityView: React.FC<QualityViewProps> = ({
     featureList.forEach((f: { featureId: number }) => {
       if (!newStates.has(f.featureId)) {
         newStates.set(f.featureId, 'rejected')
-        newSources.set(f.featureId, 'click')
+        newSources.set(f.featureId, 'threshold')
         taggedCount++
       }
     })
@@ -982,16 +982,16 @@ const QualityView: React.FC<QualityViewProps> = ({
       if (score !== undefined) {
         if (score >= 0) {
           newStates.set(f.featureId, 'selected')
-          newSources.set(f.featureId, 'click')
+          newSources.set(f.featureId, 'threshold')
           selectedCount++
         } else {
           newStates.set(f.featureId, 'rejected')
-          newSources.set(f.featureId, 'click')
+          newSources.set(f.featureId, 'threshold')
           rejectedCount++
         }
       } else {
         newStates.set(f.featureId, 'rejected')
-        newSources.set(f.featureId, 'click')
+        newSources.set(f.featureId, 'threshold')
         rejectedCount++
       }
     })

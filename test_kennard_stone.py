@@ -1,252 +1,216 @@
 #!/usr/bin/env python3
 """
-Temporary script to visualize max-min distance vs n for Kennard-Stone selection.
-Shows diversity metric across Stage 1 (pairs), Stage 2 (features), Stage 3 (cause).
+Compare feature sampling methods: Kennard-Stone, K-Means, K-Medoids, Density-based.
+
+Selects 20 representative features from the 14D SVM metric space and compares
+coverage, spread, and overlap between methods.
 """
 
 import numpy as np
 import polars as pl
-import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
-from pathlib import Path
+from sklearn.cluster import KMeans
+from sklearn_extra.cluster import KMedoids
+from scipy.spatial.distance import pdist, squareform
+from scipy.stats import gaussian_kde
+from itertools import combinations
 
-# Paths
-DATA_DIR = Path(__file__).parent / "data" / "master"
-FEATURES_PATH = DATA_DIR / "features.parquet"
-BARYCENTRIC_PATH = DATA_DIR / "explanation_barycentric.parquet"
-ACTIVATION_PATH = DATA_DIR / "activation_display.parquet"
-INTERFEATURE_PATH = DATA_DIR / "interfeature_activation_similarity.parquet"
-
-# Stage 2 & 3: 6D feature metrics
-FEATURE_METRICS = [
-    'intra_feature_sim', 'score_embedding', 'score_fuzz',
-    'score_detection', 'explanation_semantic_sim', 'frac_nonzero'
-]
-
-# Stage 1: 5D pair metrics (becomes 11D for pairs)
-PAIR_METRICS = [
+# Same 14 metrics used by the backend SVM pipeline
+SVM_FEATURE_METRICS = [
     'intra_ngram_jaccard', 'intra_semantic_sim',
-    'inter_ngram_jaccard', 'inter_semantic_sim', 'frac_nonzero'
+    'score_embedding', 'score_fuzz', 'score_detection',
+    'explanation_semantic_sim', 'log_frac_nonzero', 'consensus_score',
+    'intra_ngram_jaccard_std', 'intra_semantic_sim_std',
+    'explanation_semantic_sim_std',
+    'score_embedding_std', 'score_fuzz_std', 'score_detection_std',
 ]
 
+N_SELECT = 20
+RANDOM_STATE = 42
 
-def kennard_stone_with_distances(X: np.ndarray, max_n: int) -> tuple:
-    """
-    Run Kennard-Stone and track max-min distance at each step.
 
-    Returns:
-        ns: list of n values (2 to max_n)
-        distances: max-min distance at each n
-    """
-    n_samples = X.shape[0]
-    max_n = min(max_n, n_samples)
+def load_data():
+    """Load svm_feature_metrics.parquet and prepare 14D scaled matrix."""
+    df = pl.read_parquet("data/output/svm_feature_metrics.parquet")
+    # Compute log_frac_nonzero at runtime (same as backend)
+    df = df.with_columns([
+        (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
+    ])
+    for col in SVM_FEATURE_METRICS:
+        df = df.with_columns(pl.col(col).fill_null(0.0))
 
-    # Compute pairwise distance matrix
-    dist_matrix = np.linalg.norm(X[:, np.newaxis] - X, axis=2)
+    feature_ids = df["feature_id"].to_numpy()
+    X_raw = df.select(SVM_FEATURE_METRICS).to_numpy()
 
-    # Start with the two points furthest apart
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X_raw)
+
+    print(f"Loaded {len(feature_ids)} features, {X_scaled.shape[1]}D metric space")
+    return feature_ids, X_scaled
+
+
+# ---------- Method 1: Kennard-Stone ----------
+def kennard_stone(X, n):
+    """Greedy max-min distance selection (from cold_start_service.py)."""
+    dist_matrix = squareform(pdist(X))
     i, j = np.unravel_index(np.argmax(dist_matrix), dist_matrix.shape)
     selected = [int(i), int(j)]
 
-    ns = [2]
-    # Initial max-min distance is the distance between first two points
-    distances = [dist_matrix[i, j]]
-
-    # Track min distances from each point to selected set
+    # Track min distances incrementally
     min_dist_to_selected = np.minimum(dist_matrix[i], dist_matrix[j])
 
-    while len(selected) < max_n:
-        # Exclude already selected
+    while len(selected) < n:
         min_dist_to_selected[selected] = -1
-
-        # Find point with max min-distance
         next_idx = int(np.argmax(min_dist_to_selected))
-        max_min_dist = min_dist_to_selected[next_idx]
-
         selected.append(next_idx)
-        ns.append(len(selected))
-        distances.append(max_min_dist)
-
-        # Update min distances
         min_dist_to_selected = np.minimum(min_dist_to_selected, dist_matrix[next_idx])
 
-    return ns, distances
+    return selected
 
 
-def load_stage2_data(sample_size: int = 500) -> np.ndarray:
-    """Load Stage 2 (Feature/Quality) data - 6D metrics."""
-    print(f"Loading Stage 2 data (features, sample={sample_size})...")
+# ---------- Method 2: K-Means ----------
+def kmeans_select(X, n):
+    """K-Means clustering, pick nearest point to each centroid."""
+    km = KMeans(n_clusters=n, random_state=RANDOM_STATE, n_init=10)
+    km.fit(X)
+    centroids = km.cluster_centers_
 
-    bary_df = pl.read_parquet(BARYCENTRIC_PATH)
-    feature_ids = bary_df["feature_id"].unique().to_list()
+    selected = []
+    for c in centroids:
+        dists = np.linalg.norm(X - c, axis=1)
+        idx = int(np.argmin(dists))
+        # Avoid duplicates
+        while idx in selected:
+            dists[idx] = np.inf
+            idx = int(np.argmin(dists))
+        selected.append(idx)
 
-    if len(feature_ids) > sample_size:
-        np.random.seed(42)
-        feature_ids = list(np.random.choice(feature_ids, sample_size, replace=False))
+    return selected
 
-    df = bary_df.filter(pl.col("feature_id").is_in(feature_ids)).group_by("feature_id").agg([
-        pl.col("intra_feature_sim").mean(),
-        pl.col("score_embedding").mean(),
-        pl.col("score_fuzz").mean(),
-        pl.col("score_detection").mean(),
-        pl.col("explanation_semantic_sim").mean(),
-    ])
 
-    feat_df = pl.read_parquet(FEATURES_PATH).filter(
-        pl.col("feature_id").is_in(feature_ids)
-    ).select([
-        "feature_id",
-        pl.col("frac_nonzero").fill_null(0.0)
-    ]).unique(subset=["feature_id"])
+# ---------- Method 3: K-Medoids ----------
+def kmedoids_select(X, n):
+    """K-Medoids (PAM) — selected points are actual data points."""
+    km = KMedoids(n_clusters=n, random_state=RANDOM_STATE, method='pam')
+    km.fit(X)
+    return list(km.medoid_indices_)
 
-    df = df.join(feat_df, on="feature_id", how="left")
 
-    for metric in FEATURE_METRICS:
-        if metric in df.columns:
-            df = df.with_columns(pl.col(metric).fill_null(0.0))
+# ---------- Method 4: Density-based ----------
+def density_based_select(X, n):
+    """KDE density estimation, then stratified selection across density quantiles.
+
+    Picks samples spread across the density distribution so both dense clusters
+    and sparse outlier regions are represented.
+    """
+    rng = np.random.RandomState(RANDOM_STATE)
+    # Subsample for KDE fitting if dataset is large
+    if len(X) > 5000:
+        subsample_idx = rng.choice(len(X), 5000, replace=False)
+        kde = gaussian_kde(X[subsample_idx].T, bw_method='scott')
+    else:
+        kde = gaussian_kde(X.T, bw_method='scott')
+
+    # Evaluate density at all points
+    densities = kde(X.T)
+
+    # Bin into n quantile bins, pick one per bin
+    quantile_edges = np.linspace(0, 100, n + 1)
+    density_thresholds = np.percentile(densities, quantile_edges)
+
+    selected = []
+    for i in range(n):
+        lo, hi = density_thresholds[i], density_thresholds[i + 1]
+        if i == n - 1:
+            mask = (densities >= lo) & (densities <= hi)
         else:
-            df = df.with_columns(pl.lit(0.0).alias(metric))
+            mask = (densities >= lo) & (densities < hi)
+        candidates = np.where(mask)[0]
+        if len(candidates) == 0:
+            continue
 
-    matrix = df.select(FEATURE_METRICS).to_numpy()
-    scaler = StandardScaler()
-    return scaler.fit_transform(matrix)
+        # Pick the one closest to bin's median density
+        bin_median = np.median(densities[candidates])
+        best = candidates[np.argmin(np.abs(densities[candidates] - bin_median))]
+
+        if int(best) in selected:
+            for c in candidates:
+                if int(c) not in selected:
+                    best = c
+                    break
+        selected.append(int(best))
+
+    return selected
 
 
-def load_stage3_data(sample_size: int = 500) -> np.ndarray:
-    """Load Stage 3 (Cause) data - same 6D metrics as Stage 2."""
-    print(f"Loading Stage 3 data (cause, sample={sample_size})...")
-    # Stage 3 uses the same 6D metric space as Stage 2
-    return load_stage2_data(sample_size)
+# ---------- Evaluation ----------
+def compute_metrics(X, indices):
+    """Compute coverage metrics for a set of selected indices."""
+    subset = X[indices]
+    pairwise_dists = pdist(subset)
+    return {
+        'avg_pairwise_dist': float(np.mean(pairwise_dists)),
+        'min_pairwise_dist': float(np.min(pairwise_dists)),
+        'max_pairwise_dist': float(np.max(pairwise_dists)),
+        'std_pairwise_dist': float(np.std(pairwise_dists)),
+    }
 
 
-def load_stage1_data(sample_size: int = 300) -> np.ndarray:
-    """Load Stage 1 (Pair/Feature Split) data - 11D pair vectors."""
-    print(f"Loading Stage 1 data (pairs, sample={sample_size})...")
-
-    feat_df = pl.read_parquet(FEATURES_PATH).select([
-        pl.col("feature_id").cast(pl.UInt32),
-        pl.col("frac_nonzero").fill_null(0.0)
-    ]).unique(subset=["feature_id"])
-
-    act_df = pl.read_parquet(ACTIVATION_PATH).select([
-        pl.col("feature_id").cast(pl.UInt32),
-        pl.max_horizontal("char_ngram_max_jaccard", "word_ngram_max_jaccard")
-          .fill_null(0.0).alias("intra_ngram_jaccard"),
-        pl.col("semantic_similarity").fill_null(0.0).alias("intra_semantic_sim")
-    ]).unique(subset=["feature_id"])
-
-    inter_df = pl.read_parquet(INTERFEATURE_PATH)
-    inter_df = inter_df.select([
-        pl.col("feature_id").cast(pl.UInt32),
-        pl.max_horizontal([
-            pl.col("semantic_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0),
-            pl.col("lexical_pairs").list.eval(pl.element().struct.field("char_jaccard")).list.max().fill_null(0.0)
-        ]).alias("max_char"),
-        pl.max_horizontal([
-            pl.col("semantic_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0),
-            pl.col("lexical_pairs").list.eval(pl.element().struct.field("word_jaccard")).list.max().fill_null(0.0)
-        ]).alias("max_word"),
-        pl.max_horizontal([
-            pl.col("semantic_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0),
-            pl.col("lexical_pairs").list.eval(pl.element().struct.field("semantic_similarity")).list.max().fill_null(0.0)
-        ]).alias("inter_semantic_sim")
-    ]).select([
-        "feature_id",
-        pl.max_horizontal("max_char", "max_word").alias("inter_ngram_jaccard"),
-        "inter_semantic_sim"
-    ]).unique(subset=["feature_id"])
-
-    df = feat_df.join(act_df, on="feature_id", how="left")
-    df = df.join(inter_df, on="feature_id", how="left")
-
-    for metric in PAIR_METRICS:
-        if metric in df.columns:
-            df = df.with_columns(pl.col(metric).fill_null(0.0))
-        else:
-            df = df.with_columns(pl.lit(0.0).alias(metric))
-
-    # Create synthetic pairs
-    feature_ids = df["feature_id"].to_list()
-    np.random.seed(42)
-
-    if len(feature_ids) > sample_size * 2:
-        feature_ids = list(np.random.choice(feature_ids, sample_size * 2, replace=False))
-
-    metrics_arr = df.filter(pl.col("feature_id").is_in(feature_ids)).select(PAIR_METRICS).to_numpy()
-    n = len(metrics_arr)
-
-    pair_vectors = []
-    for i in range(min(n - 1, sample_size)):
-        j = (i + 1) % n
-        pair_sum = metrics_arr[i] + metrics_arr[j]
-        pair_diff = np.abs(metrics_arr[i] - metrics_arr[j])
-        pair_vector = np.concatenate([pair_sum, pair_diff, [0.0]])  # 11D
-        pair_vectors.append(pair_vector)
-
-    matrix = np.array(pair_vectors)
-    scaler = StandardScaler()
-    return scaler.fit_transform(matrix)
+def jaccard(a, b):
+    sa, sb = set(a), set(b)
+    if len(sa | sb) == 0:
+        return 0.0
+    return len(sa & sb) / len(sa | sb)
 
 
 def main():
-    print("=" * 60)
-    print("Max-Min Distance vs N (Kennard-Stone Diversity Analysis)")
-    print("=" * 60)
+    feature_ids, X = load_data()
 
-    # Load data for all stages
-    stage1_data = load_stage1_data(sample_size=300)
-    stage2_data = load_stage2_data(sample_size=500)
-    stage3_data = load_stage3_data(sample_size=500)
+    methods = {
+        'Kennard-Stone': kennard_stone,
+        'K-Means':       kmeans_select,
+        'K-Medoids':     kmedoids_select,
+        'Density-Based': density_based_select,
+    }
 
-    print(f"\nStage 1 (Pairs) shape: {stage1_data.shape}")
-    print(f"Stage 2 (Features) shape: {stage2_data.shape}")
-    print(f"Stage 3 (Cause) shape: {stage3_data.shape}")
+    results = {}
+    for name, func in methods.items():
+        print(f"\nRunning {name}...")
+        indices = func(X, N_SELECT)
+        fids = feature_ids[indices].tolist()
+        metrics = compute_metrics(X, indices)
+        results[name] = {'indices': indices, 'feature_ids': fids, 'metrics': metrics}
+        print(f"  Selected {len(fids)} features: {fids}")
 
-    # Run Kennard-Stone with distance tracking
-    max_n = 50
-    print(f"\nRunning Kennard-Stone up to n={max_n}...")
+    # --- Coverage comparison ---
+    print("\n" + "=" * 70)
+    print(f"{'Method':<16} {'Avg Dist':>10} {'Min Dist':>10} {'Max Dist':>10} {'Std Dist':>10}")
+    print("-" * 70)
+    for name, r in results.items():
+        m = r['metrics']
+        print(f"{name:<16} {m['avg_pairwise_dist']:>10.4f} {m['min_pairwise_dist']:>10.4f} "
+              f"{m['max_pairwise_dist']:>10.4f} {m['std_pairwise_dist']:>10.4f}")
+    print("=" * 70)
 
-    ns1, dist1 = kennard_stone_with_distances(stage1_data, max_n)
-    ns2, dist2 = kennard_stone_with_distances(stage2_data, max_n)
-    ns3, dist3 = kennard_stone_with_distances(stage3_data, max_n)
+    # --- Overlap (Jaccard) ---
+    method_names = list(results.keys())
+    print(f"\nPairwise Overlap (Jaccard on feature IDs):")
+    print(f"{'':>16}", end="")
+    for name in method_names:
+        print(f" {name:>16}", end="")
+    print()
+    for a in method_names:
+        print(f"{a:>16}", end="")
+        for b in method_names:
+            j = jaccard(results[a]['feature_ids'], results[b]['feature_ids'])
+            print(f" {j:>16.3f}", end="")
+        print()
 
-    # Print key values
-    print(f"\n{'='*60}")
-    print("MAX-MIN DISTANCE AT KEY N VALUES")
-    print(f"{'='*60}")
-    print(f"{'n':>4} | {'Stage 1 (Pairs)':>16} | {'Stage 2 (Features)':>18} | {'Stage 3 (Cause)':>16}")
-    print("-" * 60)
-    for n in [5, 10, 15, 20, 25, 30, 40, 50]:
-        if n <= len(ns1):
-            d1 = dist1[ns1.index(n)] if n in ns1 else 0
-            d2 = dist2[ns2.index(n)] if n in ns2 else 0
-            d3 = dist3[ns3.index(n)] if n in ns3 else 0
-            print(f"{n:>4} | {d1:>16.3f} | {d2:>18.3f} | {d3:>16.3f}")
-
-    # Plot
-    fig, ax = plt.subplots(figsize=(10, 6))
-
-    ax.plot(ns1, dist1, 'g-o', linewidth=2, markersize=4, label='Stage 1: Pairs (11D)', alpha=0.8)
-    ax.plot(ns2, dist2, 'b-s', linewidth=2, markersize=4, label='Stage 2: Features (6D)', alpha=0.8)
-    ax.plot(ns3, dist3, 'r-^', linewidth=2, markersize=4, label='Stage 3: Cause (6D)', alpha=0.8)
-
-    # Mark n=20 (default)
-    ax.axvline(x=20, color='gray', linestyle='--', alpha=0.7, label='Default n=20')
-
-    ax.set_xlabel('n (number of samples selected)', fontsize=12)
-    ax.set_ylabel('Max-Min Distance (diversity metric)', fontsize=12)
-    ax.set_title('Kennard-Stone: Max-Min Distance vs Number of Samples\n(Higher = more diverse coverage)', fontsize=12)
-    ax.grid(True, alpha=0.3)
-    ax.legend(loc='upper right')
-    ax.set_xlim(0, max_n + 2)
-
-    plt.tight_layout()
-
-    output_path = Path(__file__).parent / "kennard_stone_analysis.png"
-    plt.savefig(output_path, dpi=150, bbox_inches='tight')
-    print(f"\nPlot saved to: {output_path}")
-
-    plt.show()
+    # --- Overlap count ---
+    print(f"\nPairwise Overlap (count of shared feature IDs):")
+    for a, b in combinations(method_names, 2):
+        shared = set(results[a]['feature_ids']) & set(results[b]['feature_ids'])
+        print(f"  {a} & {b}: {len(shared)} shared — {sorted(shared) if shared else '(none)'}")
 
 
 if __name__ == "__main__":

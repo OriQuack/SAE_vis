@@ -123,7 +123,7 @@ class CommitteeService:
         """
         try:
             # Scale n_estimators with data size (min 10, max 100)
-            n_estimators = max(10, min(100, n_samples // 2))
+            n_estimators = max(50, min(300, n_samples * 2))
 
             # Shallow trees to avoid overfitting
             max_depth = min(5, max(2, int(np.log2(n_samples + 1))))
@@ -178,7 +178,7 @@ class CommitteeService:
                 max_iter=500,
                 early_stopping=True,
                 validation_fraction=0.2,
-                n_iter_no_change=20,
+                n_iter_no_change=10,
                 random_state=42
             )
 

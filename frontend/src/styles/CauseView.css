@@ -75,6 +75,7 @@
  * ============================================================================ */
 
 .cause-view__content {
+  position: relative;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -82,6 +83,18 @@
   min-width: 0;
   gap: 8px;
   overflow: visible;
+}
+
+/* Batch tagging loading overlay - persists until SVM classification completes */
+.cause-view__batch-flash-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.5);
+  z-index: 10;
+  pointer-events: none;
 }
 
 /* ============================================================================
@@ -132,7 +145,7 @@
 
 /* Activation section - content only (HAS border) */
 .cause-view__activation-section {
-  height: 174px;
+  height: 172px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;

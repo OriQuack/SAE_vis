@@ -833,7 +833,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
     pairList.forEach(pair => {
       if (!newStates.has(pair.pairKey)) {
         newStates.set(pair.pairKey, 'rejected')
-        newSources.set(pair.pairKey, 'click')
+        newSources.set(pair.pairKey, 'threshold')
         taggedCount++
       }
     })
@@ -865,17 +865,17 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
       if (score !== undefined) {
         if (score >= 0) {
           newStates.set(pair.pairKey, 'selected')
-          newSources.set(pair.pairKey, 'click')
+          newSources.set(pair.pairKey, 'threshold')
           selectedCount++
         } else {
           newStates.set(pair.pairKey, 'rejected')
-          newSources.set(pair.pairKey, 'click')
+          newSources.set(pair.pairKey, 'threshold')
           rejectedCount++
         }
       } else {
         // No score available - default to Monosemantic (conservative)
         newStates.set(pair.pairKey, 'rejected')
-        newSources.set(pair.pairKey, 'click')
+        newSources.set(pair.pairKey, 'threshold')
         rejectedCount++
       }
     })

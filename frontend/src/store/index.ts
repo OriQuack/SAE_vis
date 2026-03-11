@@ -201,6 +201,7 @@ interface AppState {
     stage: 'pair' | 'feature' | 'cause'
     pairKey?: string
     featureId?: number
+    previousFlipTracking?: FlipTrackingInfo | null
   } | null
   setLastClickTagAction: (action: { stage: 'pair' | 'feature' | 'cause'; pairKey?: string; featureId?: number } | null) => void
   undoLastClickTag: () => void
@@ -1011,9 +1012,17 @@ export const useStore = create<AppState>((set, get) => {
     })
   },
 
-  // Undo last click tag action
+  // Undo last click tag action (snapshots flip tracking for rollback on undo)
   setLastClickTagAction: (action) => {
-    set({ lastClickTagAction: action })
+    if (action) {
+      const state = get()
+      const previousFlipTracking = action.stage === 'cause'
+        ? state.causeFlipTracking
+        : state.tagAutomaticState?.flipTracking ?? null
+      set({ lastClickTagAction: { ...action, previousFlipTracking } })
+    } else {
+      set({ lastClickTagAction: null })
+    }
   },
 
   undoLastClickTag: () => {
@@ -1028,32 +1037,82 @@ export const useStore = create<AppState>((set, get) => {
       const newSources = new Map(state.pairSelectionSources)
       newStates.delete(pairKey)
       newSources.delete(pairKey)
+
+      // Compute post-undo signature to prevent SVM re-triggering
+      const selectedKeys: string[] = []
+      const rejectedKeys: string[] = []
+      newStates.forEach((s, pk) => {
+        const source = newSources.get(pk)
+        if (source === 'click' || source === 'threshold') {
+          if (s === 'selected') selectedKeys.push(pk)
+          else if (s === 'rejected') rejectedKeys.push(pk)
+        }
+      })
+      const signature = `selected:${selectedKeys.sort().join(',')}|rejected:${rejectedKeys.sort().join(',')}`
+
       set({
         pairSelectionStates: newStates,
         pairSelectionSources: newSources,
         lastClickTagAction: null,
-        donePairSelectionStates: null
+        donePairSelectionStates: null,
+        lastPairSortedSelectionSignature: signature,
+        tagAutomaticState: state.tagAutomaticState ? {
+          ...state.tagAutomaticState,
+          flipTracking: lastClickTagAction.previousFlipTracking ?? null
+        } : null
       })
     } else if (stage === 'feature' && featureId != null) {
       const newStates = new Map(state.featureSelectionStates)
       const newSources = new Map(state.featureSelectionSources)
       newStates.delete(featureId)
       newSources.delete(featureId)
+
+      // Compute post-undo signature to prevent SVM re-triggering
+      const selectedIds: number[] = []
+      const rejectedIds: number[] = []
+      newStates.forEach((s, fId) => {
+        const source = newSources.get(fId)
+        if (source === 'click' || source === 'threshold') {
+          if (s === 'selected') selectedIds.push(fId)
+          else if (s === 'rejected') rejectedIds.push(fId)
+        }
+      })
+      const signature = `selected:${selectedIds.sort((a, b) => a - b).join(',')}|rejected:${rejectedIds.sort((a, b) => a - b).join(',')}`
+
       set({
         featureSelectionStates: newStates,
         featureSelectionSources: newSources,
         lastClickTagAction: null,
-        doneFeatureSelectionStates: null
+        doneFeatureSelectionStates: null,
+        lastSortedSelectionSignature: signature,
+        tagAutomaticState: state.tagAutomaticState ? {
+          ...state.tagAutomaticState,
+          flipTracking: lastClickTagAction.previousFlipTracking ?? null
+        } : null
       })
     } else if (stage === 'cause' && featureId != null) {
       const newStates = new Map(state.causeSelectionStates)
       const newSources = new Map(state.causeSelectionSources)
       newStates.delete(featureId)
       newSources.delete(featureId)
+
+      // Compute post-undo signature to prevent SVM re-triggering
+      // Exclude 'well-explained' to match CauseRadViz's manualTagsSignature
+      const manualIds: number[] = []
+      newStates.forEach((category, fId) => {
+        const source = newSources.get(fId)
+        if ((source === 'click' || source === 'threshold') && category !== 'well-explained') {
+          manualIds.push(fId)
+        }
+      })
+      const causeSignature = manualIds.sort((a, b) => a - b).join(',')
+
       set({
         causeSelectionStates: newStates,
         causeSelectionSources: newSources,
-        lastClickTagAction: null
+        lastClickTagAction: null,
+        causeLastClassificationSignature: causeSignature,
+        causeFlipTracking: lastClickTagAction.previousFlipTracking ?? null
       })
     }
   },
