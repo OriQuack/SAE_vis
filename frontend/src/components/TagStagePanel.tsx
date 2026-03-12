@@ -320,7 +320,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     {stageTags.map((node) => {
                       const annotation = FLOW_ANNOTATIONS[node.tag];
                       return (
-                        <div key={node.id} className="stage-tag-row">
+                        <div key={node.id} className={`stage-tag-row${annotation?.suffix ? ' stage-tag-row--flow' : ''}`}>
                           <div
                             data-node-id={node.id}
                             className="stage-tag-badge"

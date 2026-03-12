@@ -7,7 +7,7 @@
 // - Foreground line: Currently selected feature (vivid)
 //
 // Axes (left to right):
-// - Activation Example Sim (intraFeatureSim)
+// - Activation Frequency (logFracNonzero)
 // - Explainer Consensus (consensusScore)
 // - Embedding (embedding)
 // - Detection (detection)
@@ -37,19 +37,20 @@ interface MetricConfig {
   key: keyof CauseMetricScores
   label: string
   shortLabel: string
+  description: string
 }
 
 // Define the 5 metrics in order (left to right)
 const METRICS: MetricConfig[] = [
-  { key: 'intraFeatureSim', label: 'Activation Example Sim', shortLabel: 'Act. Sim' },
-  { key: 'consensusScore', label: 'Explainer Consensus', shortLabel: 'Consensus' },
-  { key: 'embedding', label: 'Embedding', shortLabel: 'Embedding' },
-  { key: 'detection', label: 'Detection', shortLabel: 'Detection' },
-  { key: 'fuzz', label: 'Fuzz', shortLabel: 'Fuzz' }
+  { key: 'logFracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: 'How often this feature activates across text corpus (log-scaled, normalized)' },
+  { key: 'consensusScore', label: 'Consensus Score', shortLabel: 'Consensus', description: 'Agreement of key phrases across different LLM explainers' },
+  { key: 'embedding', label: 'Embedding Score', shortLabel: 'Embedding', description: 'How well the explanation semantically matches activating vs. non-activating examples (0.5 = random)' },
+  { key: 'detection', label: 'Detection Score', shortLabel: 'Detection', description: 'How well the explanation distinguishes activating from non-activating examples at the context level (0.5 = random)' },
+  { key: 'fuzz', label: 'Fuzz Score', shortLabel: 'Fuzz', description: 'How well the explanation identifies activating tokens vs. non-activating tokens within examples (0.5 = random)' }
 ]
 
 // Layout constants
-const MARGIN = { top: 6, right: 14, bottom: 28, left: 24 }
+const MARGIN = { top: 6, right: 14, bottom: 28, left: 25 }
 const FIXED_WIDTH = 250
 const MIN_HEIGHT = 80
 
@@ -204,7 +205,9 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
   const axes = useMemo(() => {
     return METRICS.map((metric, index) => ({
       x: xScale(index),
-      label: metric.shortLabel
+      label: metric.shortLabel,
+      tooltipTitle: metric.label,
+      tooltipText: metric.description
     }))
   }, [xScale])
 
@@ -232,19 +235,42 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
         >
         <g transform={`translate(${MARGIN.left},${MARGIN.top})`}>
           {/* Axis lines */}
-          {axes.map((axis, i) => (
+          {axes.map((axis, i) => {
+            // Wide invisible hover zone spanning halfway to neighboring axes
+            const axisSpacing = axes.length > 1 ? axes[1].x - axes[0].x : 40
+            const halfGap = axisSpacing / 2
+            const zoneX = i === 0 ? -MARGIN.left : axis.x - halfGap
+            const zoneWidth = i === 0
+              ? halfGap + MARGIN.left
+              : i === axes.length - 1
+                ? halfGap + MARGIN.right
+                : axisSpacing
+
+            return (
             <g key={i} className="cause-metric-parallel-coords__axis-group">
+              {/* Invisible wide hover target for tooltip */}
+              <rect
+                x={zoneX}
+                y={-MARGIN.top}
+                width={zoneWidth}
+                height={innerHeight + MARGIN.top + MARGIN.bottom}
+                fill="transparent"
+                data-tooltip-title={axis.tooltipTitle}
+                data-tooltip={axis.tooltipText}
+              />
               <line
                 x1={axis.x}
                 y1={0}
                 x2={axis.x}
                 y2={innerHeight}
                 className="cause-metric-parallel-coords__axis"
+                style={{ pointerEvents: 'none' }}
               />
               <text
                 x={axis.x}
                 y={innerHeight + (i % 2 === 0 ? 4 : 16)}
                 className="cause-metric-parallel-coords__axis-label"
+                style={{ pointerEvents: 'none' }}
               >
                 {axis.label}
               </text>
@@ -269,7 +295,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
                 </text>
               )}
             </g>
-          ))}
+          )})}
 
           {/* Random baseline dotted line at 0.5 for embedding, detection, fuzz */}
           <line
@@ -281,11 +307,12 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
             stroke="#B22222"
             strokeWidth="1.5"
             strokeDasharray="4 3"
+            style={{ pointerEvents: 'none' }}
           />
 
           {/* Category bands: IQR polygon + median line */}
           {bandShapes.map(({ band, polygon, medianLine }) => (
-            <g key={band.category}>
+            <g key={band.category} style={{ pointerEvents: 'none' }}>
               {/* IQR shaded band */}
               {polygon && (
                 <polygon
@@ -315,7 +342,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
             <polyline
               points={foregroundLine}
               className="cause-metric-parallel-coords__foreground-line"
-              style={{ stroke: LINE_COLOR }}
+              style={{ stroke: LINE_COLOR, pointerEvents: 'none' }}
             />
           )}
 
@@ -330,7 +357,7 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
                 cy={yScale(value)}
                 r={4}
                 className="cause-metric-parallel-coords__foreground-point"
-                style={{ fill: LINE_COLOR }}
+                style={{ fill: LINE_COLOR, pointerEvents: 'none' }}
               />
             )
           })}

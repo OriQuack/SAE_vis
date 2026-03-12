@@ -82,20 +82,24 @@ export function buildActivationTokens(
 /**
  * Get background color based on activation strength
  *
- * Uses Tableau10 orange gradient: transparent (0) → 50% orange (0.5) → full orange (1.0)
+ * Uses Tableau10 orange gradient: 0.15 opacity (min activated) → full opacity (max)
+ * Zero activation returns fully transparent.
  */
 export function getActivationColor(
   activationValue: number,
   maxActivation: number
 ): string {
+  if (activationValue === 0) {
+    return addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0)
+  }
+
   const normalized = activationValue / maxActivation  // 0-1 scale
 
   const colorScale = scaleLinear<string>()
-    .domain([0, 0.5, 1])
+    .domain([0, 1])
     .range([
-      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0),
-      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0.35),
-      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0.75),
+      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 0.15),
+      addOpacityToHex(D3_SCHEME_TABLEAU10.ORANGE, 1),
     ])
 
   return colorScale(normalized)

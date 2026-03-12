@@ -68,7 +68,7 @@ class ColdStartService:
         Get diverse suggestions using Kennard-Stone algorithm.
 
         For features: Uses 14D metric space (SVM_FEATURE_METRICS)
-        For pairs: Uses 11D symmetric pair vectors (4+4 intra + 3 inter)
+        For pairs: Uses 12D symmetric pair vectors (4+4 intra + 4 inter)
 
         Args:
             request: Request with mode, feature_ids, num_suggestions, and optional threshold
@@ -179,9 +179,9 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get pair suggestions using Kennard-Stone on 11D pair vectors.
+        """Get pair suggestions using Kennard-Stone on 12D pair vectors.
 
-        11D = [A+B (4 intra)] + [|A-B| (4 intra)] + [inter_ngram (1)] + [inter_semantic (1)] + [decoder_sim (1)]
+        12D = [A+B (4 intra)] + [|A-B| (4 intra)] + [inter_ngram (1)] + [inter_semantic (1)] + [decoder_sim (1)] + [correlation (1)]
         """
         if self.cluster_service is None:
             raise RuntimeError("Cluster service required for pair mode")
@@ -253,13 +253,13 @@ class ColdStartService:
             pair_sum = main_metrics + similar_metrics
             pair_diff = np.abs(main_metrics - similar_metrics)
 
-            # Inter: [inter_ngram, inter_semantic, decoder_sim]
+            # Inter: [inter_ngram, inter_semantic, decoder_sim, feature_correlation]
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
-            inter_data = inter_metrics.get(pair_key, (0.0, 0.0, 0.0))
+            inter_data = inter_metrics.get(pair_key, (0.0, 0.0, 0.0, 0.0))
 
             pair_vector = np.concatenate([
                 pair_sum, pair_diff,
-                [inter_data[0], inter_data[1], inter_data[2]]
+                [inter_data[0], inter_data[1], inter_data[2], inter_data[3]]
             ])
 
             pair_vectors.append(pair_vector)
@@ -423,7 +423,7 @@ class ColdStartService:
         """Extract inter-feature metrics from svm_pair_metrics parquet.
 
         Returns:
-            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim)
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim, feature_correlation)
         """
         if self.data_service._svm_pair_metrics_lazy is None:
             return {}
@@ -446,6 +446,7 @@ class ColdStartService:
                     float(row.get('inter_ngram_jaccard', 0.0) or 0.0),
                     float(row.get('inter_semantic_sim', 0.0) or 0.0),
                     float(row.get('decoder_sim', 0.0) or 0.0),
+                    float(row.get('feature_correlation', 0.0) or 0.0),
                 )
 
             logger.info(f"[ColdStart] Extracted inter metrics for {len(result)}/{len(pair_ids)} pairs")

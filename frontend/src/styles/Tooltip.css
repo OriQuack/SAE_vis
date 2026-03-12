@@ -99,9 +99,9 @@
 }
 
 .data-tooltip-layer .tooltip {
-  max-width: 320px;
+  max-width: 340px;
   min-width: unset;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 400;
   line-height: 1.4;
   color: var(--text-primary, #1f2937);
@@ -110,7 +110,7 @@
 
 .data-tooltip-layer .tooltip__header {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 15px;
   padding-bottom: 4px;
   border-bottom: 1px solid var(--border-color, #e5e7eb);
   margin-bottom: 4px;

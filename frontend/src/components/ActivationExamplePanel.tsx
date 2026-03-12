@@ -121,6 +121,7 @@ const renderActivationToken = (
   example: QuantileExample,
   ngramLength: number,
   disableNgramHighlight?: boolean,
+  maxActivation?: number,
 ): React.ReactNode => {
   // Intra-feature highlight (disabled in FeatureSplitPairViewer via disableNgramHighlight)
   const intra = disableNgramHighlight
@@ -149,7 +150,7 @@ const renderActivationToken = (
 
   const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
   const bgColor = token.activation_value
-    ? getActivationColor(token.activation_value, example.max_activation)
+    ? getActivationColor(token.activation_value, maxActivation ?? example.max_activation)
     : undefined
 
   // Split leading spaces from activated tokens to prevent merged highlights
@@ -249,6 +250,12 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     return examples.ngram_type === 'char' ? examples.ngram_length : 0
   }, [examples?.ngram_type, examples?.ngram_length, hasExamples])
 
+  // Feature-level max activation for consistent color scaling across all examples
+  const featureMaxActivation = useMemo(() => {
+    if (!hasExamples) return 1
+    return Math.max(...examples.quantile_examples.map(ex => ex.max_activation))
+  }, [examples, hasExamples])
+
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with n-gram positions
   const quantileGroups = useMemo(() => {
@@ -334,7 +341,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation)
               })}
             </div>
           )
@@ -358,7 +365,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation)
                       })}
                     </div>
                   )

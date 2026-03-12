@@ -92,7 +92,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Q: Can you separate shuffled activation examples into the\noriginal features they belong to?",
+    instruction: "Q: Does any activating example of both features represent the same concept?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: null  // Stage 1 has no parent
   },
@@ -117,7 +117,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Assesses the overall quality of the feature explanation based on multiple scoring metrics",
     parentTagForNextStage: "Need Revision",
-    instruction: "Q: Given the explanations, can you reproduce the\nactivation pattern?",
+    instruction: "Q: Do the explanations account for every\nactivating example?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Monosemantic"  // Children of Monosemantic from stage 1
   },
@@ -147,7 +147,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Diagnose the root cause of misinterpretation for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Q: Why do the explanations fail to reproduce activations?",
+    instruction: "Q: Why do the explanations fail to account for some activating examples?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },

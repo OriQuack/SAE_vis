@@ -263,7 +263,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html='Background opacity shows activation strength.'>Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html='2 examples per quartile, ranked by max activation strength (highest &rarr; lowest).'>Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>

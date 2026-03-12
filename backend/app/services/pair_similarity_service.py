@@ -4,12 +4,13 @@ Pair similarity-based sorting service for feature pairs.
 Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
 from user-labeled feature pairs. Scores pairs by signed distance from SVM decision boundary.
 
-11-dimensional pair vectors:
+12-dimensional pair vectors:
 - 4 dims: A + B (combined intra-feature properties)
 - 4 dims: |A - B| (intra-feature dissimilarity)
 - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
 - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
 - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
+- 1 dim: feature_correlation(A, B) - pair-specific activation correlation
 """
 
 import polars as pl
@@ -71,12 +72,13 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 11-dimensional:
+        Pair vectors are 12-dimensional:
         - 4 dims: A + B (combined intra-feature properties)
         - 4 dims: |A - B| (intra-feature dissimilarity)
         - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
         - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
         - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
+        - 1 dim: feature_correlation(A, B) - pair-specific activation correlation
 
         Only uses feature-level metrics (no explanation-related metrics).
 
@@ -400,7 +402,7 @@ class PairSimilarityService:
     async def _extract_all_pair_metrics_from_svm(
         self,
         pair_ids: List[Tuple[int, int]]
-    ) -> Optional[Dict[str, Tuple[float, float, float]]]:
+    ) -> Optional[Dict[str, Tuple[float, float, float, float]]]:
         """
         Extract all pair-specific metrics from svm_pair_metrics.parquet (fast path).
 
@@ -408,12 +410,13 @@ class PairSimilarityService:
         - inter_ngram_jaccard: max(char_jaccard, word_jaccard) for the pair
         - inter_semantic_sim: semantic similarity between feature activations
         - decoder_sim: cosine similarity from decoder weights
+        - feature_correlation: activation correlation between features
 
         Args:
             pair_ids: List of (main_id, similar_id) tuples
 
         Returns:
-            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim)
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, decoder_sim, feature_correlation)
             or None if svm_pair_metrics not available
         """
         if self.data_service._svm_pair_metrics_lazy is None:
@@ -442,7 +445,7 @@ class PairSimilarityService:
                 return None
 
             # Build result dict
-            result: Dict[str, Tuple[float, float, float]] = {}
+            result: Dict[str, Tuple[float, float, float, float]] = {}
             for row in df.iter_rows(named=True):
                 pair_key = f"{row['feature_a']}-{row['feature_b']}"
                 if pair_key in pair_keys_set:
@@ -450,6 +453,7 @@ class PairSimilarityService:
                         float(row.get('inter_ngram_jaccard', 0.0) or 0.0),
                         float(row.get('inter_semantic_sim', 0.0) or 0.0),
                         float(row.get('decoder_sim', 0.0) or 0.0),
+                        float(row.get('feature_correlation', 0.0) or 0.0),
                     )
 
             logger.info(f"[_extract_all_pair_metrics_from_svm] Extracted {len(result)}/{len(pair_ids)} pairs from svm_pair_metrics")
@@ -481,7 +485,7 @@ class PairSimilarityService:
     async def _extract_pair_specific_interfeature_metrics(
         self,
         pair_ids: List[Tuple[int, int]]
-    ) -> Dict[str, Tuple[float, float]]:
+    ) -> Dict[str, Tuple[float, float, float]]:
         """
         Extract inter-feature metrics for SPECIFIC pairs (A, B) from svm_pair_metrics.parquet.
 
@@ -489,12 +493,12 @@ class PairSimilarityService:
             pair_ids: List of (main_id, similar_id) tuples
 
         Returns:
-            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim)
+            Dict mapping pair_key -> (inter_ngram_jaccard, inter_semantic_sim, feature_correlation)
         """
         svm_pair_metrics = await self._extract_all_pair_metrics_from_svm(pair_ids)
         if svm_pair_metrics is not None:
-            # Extract inter_ngram_jaccard (0th) and inter_semantic_sim (1st) from tuple
-            return {pk: (metrics[0], metrics[1]) for pk, metrics in svm_pair_metrics.items()}
+            # Extract inter_ngram_jaccard (0th), inter_semantic_sim (1st), feature_correlation (3rd) from tuple
+            return {pk: (metrics[0], metrics[1], metrics[3]) for pk, metrics in svm_pair_metrics.items()}
         return {}
 
     # =========================================================================
@@ -505,7 +509,7 @@ class PairSimilarityService:
         self,
         metrics_df: pl.DataFrame,
         pair_metrics: Dict[str, float],
-        pair_inter_metrics: Dict[str, Tuple[float, float]],
+        pair_inter_metrics: Dict[str, Tuple[float, float, float]],
         selected_items: List[WeightedPairKey],
         rejected_items: List[WeightedPairKey],
         pair_ids: List[Tuple[int, int]],
@@ -515,12 +519,13 @@ class PairSimilarityService:
         """
         Calculate similarity scores for pairs using SVM.
 
-        11-dim pair vector:
+        12-dim pair vector:
         - [A+B (4)] intra-feature sum
         - [|A-B| (4)] intra-feature difference
         - [inter_ngram(A,B)] pair-specific lexical similarity
         - [inter_semantic(A,B)] pair-specific semantic similarity
         - [decoder_sim(A,B)] pair-specific decoder similarity
+        - [feature_correlation(A,B)] pair-specific activation correlation
 
         Args:
             metrics_df: DataFrame with 3 intra-feature metrics for all features
@@ -567,6 +572,7 @@ class PairSimilarityService:
         inter_ngrams = np.empty(n_pairs, dtype=np.float64)
         inter_semantics = np.empty(n_pairs, dtype=np.float64)
         decoder_sims = np.empty(n_pairs, dtype=np.float64)
+        correlations = np.empty(n_pairs, dtype=np.float64)
 
         # Single loop: build indices, pair keys, and extract metrics
         for i, (main_id, similar_id) in enumerate(pair_ids):
@@ -587,9 +593,10 @@ class PairSimilarityService:
                 similar_indices[i] = similar_idx
 
             # Extract inter-feature and decoder metrics in same loop
-            inter_data = pair_inter_metrics.get(pair_key, (0.0, 0.0))
+            inter_data = pair_inter_metrics.get(pair_key, (0.0, 0.0, 0.0))
             inter_ngrams[i] = inter_data[0]
             inter_semantics[i] = inter_data[1]
+            correlations[i] = inter_data[2]
             decoder_sims[i] = pair_metrics.get(pair_key, 0.0)
 
         # Log pair validity stats
@@ -608,14 +615,15 @@ class PairSimilarityService:
         pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
         pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
 
-        # Concatenate: (n_pairs, 11)
-        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim]
+        # Concatenate: (n_pairs, 12)
+        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim] + [correlation]
         all_pair_vectors = np.hstack([
             pair_sum,
             pair_diff,
             inter_ngrams.reshape(-1, 1),
             inter_semantics.reshape(-1, 1),
-            decoder_sims.reshape(-1, 1)
+            decoder_sims.reshape(-1, 1),
+            correlations.reshape(-1, 1)
         ])
 
         # Build pair_vectors dict for training vector extraction

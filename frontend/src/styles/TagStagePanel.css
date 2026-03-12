@@ -89,11 +89,14 @@
 }
 
 /* Stage 1 gets more width for its longer description */
+/* Higher z-index so flow arrows extend over the next tab */
 .stage-tab:nth-child(1) {
   flex: 1.1 1 0;
+  z-index: 2;
 }
 .stage-tab:nth-child(2) {
   flex: 1 1 0;
+  z-index: 1;
 }
 .stage-tab:nth-child(3) {
   flex: 0.9 1 0;
@@ -285,6 +288,12 @@
   flex-shrink: 0;
 }
 
+/* More spacing between badges for stages 1 and 2 (which have flow arrows) */
+.stage-tab:nth-child(1) .stage-tab__tags,
+.stage-tab:nth-child(2) .stage-tab__tags {
+  gap: 10px;
+}
+
 /* ============================================================================
    STAGE TAG ROW - Flow annotation wrapper around badges
    ============================================================================ */
@@ -294,9 +303,43 @@
   flex-direction: row;
   align-items: center;
   gap: 6px;
+  position: relative;
+}
+
+/* Background arrow for tags that flow to next stage */
+/* Arrow body (rounded left corners) */
+.stage-tag-row--flow::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -4px;
+  right: 2px;
+  height: 30px;
+  transform: translateY(-50%);
+  background: var(--selection-blue-light);
+  border-radius: 6px 0 0 6px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Arrow head (triangle) */
+.stage-tag-row--flow::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: -20px;
+  width: 24px;
+  height: 50px;
+  transform: translateY(-50%);
+  background: var(--selection-blue-light);
+  clip-path: polygon(0% 0%, 100% 50%, 0% 100%);
+  pointer-events: none;
+  z-index: 0;
 }
 
 .stage-tag-row__suffix {
+  position: relative;
+  z-index: 1;
   font-size: 12px;
   font-weight: 600;
   color: #94a3b8;

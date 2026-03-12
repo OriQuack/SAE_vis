@@ -71,11 +71,12 @@ SVM_PAIR_INTRA_METRICS = [
     'intra_semantic_sim_std',    # Feature-level: semantic consistency std
 ]
 
-# 3D pair-specific inter-feature metrics for pair SVM
+# 4D pair-specific inter-feature metrics for pair SVM
 SVM_PAIR_INTER_METRICS = [
     'inter_ngram_jaccard',       # Pair: max(char_jaccard, word_jaccard)
     'inter_semantic_sim',        # Pair: semantic similarity between activations
     'decoder_sim',               # Pair: decoder weight cosine similarity
+    'feature_correlation',       # Pair: activation correlation between features
 ]
 
 # Stage 3 cause categories

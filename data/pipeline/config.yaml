@@ -242,6 +242,7 @@ steps:
       activation_display: "${output}/activation_display.parquet"
       interfeature_similarity: "${output}/interfeature_similarity.parquet"
       explanation_consensus: "${output}/explanation_consensus.parquet"
+      feature_correlation: "data/raw/feature_similarity/${global.sae_id_sanitized}/feature_correlation.npy"
     outputs:
       feature_metrics: "${output}/svm_feature_metrics.parquet"
       pair_metrics: "${output}/svm_pair_metrics.parquet"

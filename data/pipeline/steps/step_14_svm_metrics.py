@@ -28,12 +28,13 @@ Feature Metrics Schema (15 columns):
 - explanation_semantic_sim_std: Float32 (cross-explainer disagreement)
 - intra_semantic_sim_std: Float32 (from activation_display)
 
-Pair Metrics Schema (5 columns):
+Pair Metrics Schema (6 columns):
 - feature_a: UInt32 (smaller feature ID)
 - feature_b: UInt32 (larger feature ID)
 - inter_ngram_jaccard: Float32 (max of char/word jaccard from interfeature_similarity)
 - inter_semantic_sim: Float32 (semantic_similarity from interfeature_similarity)
 - decoder_sim: Float32 (cosine_similarity from features.parquet decoder_similarity)
+- feature_correlation: Float32 (activation correlation from feature_correlation.npy)
 
 Note: log_frac_nonzero is computed at SVM training time in backend.
 """
@@ -42,6 +43,7 @@ import logging
 from pathlib import Path
 from typing import Optional, Tuple
 
+import numpy as np
 import polars as pl
 
 # Enable string cache for categorical operations
@@ -102,6 +104,9 @@ class SvmMetricsProcessor(BaseProcessor):
         self.explanation_consensus_path = self._resolve_path(
             inputs.get("explanation_consensus", f"{paths.get('output', 'data/output')}/explanation_consensus.parquet")
         )
+        self.feature_correlation_path = self._resolve_path(
+            inputs.get("feature_correlation", "data/raw/feature_similarity/feature_correlation.npy")
+        )
 
         # Output paths
         outputs = self.config.get("outputs", {})
@@ -124,6 +129,7 @@ class SvmMetricsProcessor(BaseProcessor):
         self.activation_df: Optional[pl.DataFrame] = None
         self.interfeature_df: Optional[pl.DataFrame] = None
         self.consensus_df: Optional[pl.DataFrame] = None
+        self.correlation_matrix: Optional[np.ndarray] = None
 
     def _load_data(self) -> None:
         """Load all required data files."""
@@ -153,6 +159,13 @@ class SvmMetricsProcessor(BaseProcessor):
             columns=["feature_id", "consensus_score"]
         )
         logger.info(f"Loaded {len(self.consensus_df):,} consensus rows")
+
+        logger.info(f"Loading feature correlation matrix from {self.feature_correlation_path}")
+        if self.feature_correlation_path.exists():
+            self.correlation_matrix = np.load(self.feature_correlation_path)
+            logger.info(f"Loaded correlation matrix: shape={self.correlation_matrix.shape}, dtype={self.correlation_matrix.dtype}")
+        else:
+            logger.warning(f"Feature correlation file not found: {self.feature_correlation_path} — feature_correlation will be 0.0")
 
     def _prepare_feature_metrics(self) -> pl.DataFrame:
         """Prepare feature-level metrics with extracted and aggregated scores."""
@@ -349,6 +362,25 @@ class SvmMetricsProcessor(BaseProcessor):
             pl.col("feature_a").cast(pl.UInt32),
             pl.col("feature_b").cast(pl.UInt32),
         ])
+
+        # Add feature_correlation from pre-computed correlation matrix
+        if self.correlation_matrix is not None:
+            matrix = self.correlation_matrix
+            max_id = matrix.shape[0]
+            feature_a = pair_df["feature_a"].to_numpy()
+            feature_b = pair_df["feature_b"].to_numpy()
+            # Vectorized lookup — features outside matrix range get 0.0
+            valid = (feature_a < max_id) & (feature_b < max_id)
+            correlations = np.where(valid, matrix[feature_a, feature_b], 0.0)
+            pair_df = pair_df.with_columns(
+                pl.Series("feature_correlation", correlations, dtype=pl.Float32)
+            )
+            logger.info(f"Added feature_correlation: min={correlations.min():.4f}, max={correlations.max():.4f}, mean={correlations.mean():.4f}")
+        else:
+            pair_df = pair_df.with_columns(
+                pl.lit(0.0).cast(pl.Float32).alias("feature_correlation")
+            )
+            logger.warning("No correlation matrix — feature_correlation set to 0.0 for all pairs")
 
         logger.info(f"Combined pair metrics: {len(pair_df):,} unique pairs")
         self.stats["pairs_processed"] = len(pair_df)
