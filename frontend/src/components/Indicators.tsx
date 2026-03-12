@@ -2,6 +2,7 @@ import React from 'react'
 import { getTagColor } from '../lib/tag-system'
 import { getStripeGradient, addOpacityToHex, STRIPE_PATTERN } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, type TagTooltipInfo } from '../lib/constants'
+import { getVerdictLabel } from '../lib/i18n'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 
 // ============================================================================
@@ -195,7 +196,7 @@ export const TagButton: React.FC<TagButtonProps> = ({
       }
     : undefined
 
-  const verdictLabel = tooltip?.verdict === 'positive' ? 'Positive' : tooltip?.verdict === 'negative' ? 'Negative' : 'Neutral'
+  const verdictLabel = tooltip ? getVerdictLabel(tooltip.verdict) : 'Neutral'
   const tooltipHtml = tooltip
     ? `<div class="tag-tooltip"><div class="tag-tooltip__verdict tag-tooltip__verdict--${tooltip.verdict}">${verdictLabel}${tooltip.flow ? `<span class="tag-tooltip__flow"> · ${tooltip.flow}</span>` : ''}</div><div class="tag-tooltip__desc">${tooltip.description}</div>${tooltip.example ? `<div class="tag-tooltip__example">${tooltip.example}</div>` : ''}</div>`
     : undefined

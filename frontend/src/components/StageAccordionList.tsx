@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useRef, useState, useEffect, type ReactNode } from 'react'
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
 import GuidancePopover from './GuidancePopover'
+import { t } from '../lib/i18n'
 import '../styles/StageAccordionList.css'
 
 // ============================================================================
@@ -223,7 +224,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'bootstrap' ? 'stage-selector__tab--active' : ''}`}
           onClick={() => handleStageClick('bootstrap')}
           data-tooltip-title="Prototype-first Phase"
-          data-tooltip={`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier.`}
+          data-tooltip={t(`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier.`, `대표 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토하여 classifier를 초기화합니다.`)}
         >
           <span className="stage-selector__number">1</span>
           <span className="stage-selector__label">Prototype</span>
@@ -235,7 +236,7 @@ export function StageAccordionList<T>({
           disabled={learnDisabled}
           title={learnDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip-title={learnDisabled ? undefined : "Uncertainty-first Phase"}
-          data-tooltip={learnDisabled ? undefined : `Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident.`}
+          data-tooltip={learnDisabled ? undefined : t(`Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident.`, `Classifier가 가장 불확실해하는 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토합니다.`)}
         >
           <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Uncertainty</span>
@@ -246,7 +247,7 @@ export function StageAccordionList<T>({
           disabled={applyDisabled}
           title={applyDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip-title={applyDisabled ? undefined : "Disagreement-first Phase"}
-          data-tooltip={applyDisabled ? undefined : `Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where ensembled classifiers disagree before automatic labeling.`}
+          data-tooltip={applyDisabled ? undefined : t(`Verify ${variant === 'allPairs' ? 'pairs' : 'features'} where ensembled classifiers disagree before automatic labeling.`, `Ensemble classifier 간 의견이 다른 ${variant === 'allPairs' ? 'pair' : 'feature'}를 자동 labeling 전에 검증합니다.`)}
         >
           <span className="stage-selector__number">3</span>
           <span className="stage-selector__label">Disagreement</span>
@@ -257,7 +258,7 @@ export function StageAccordionList<T>({
       {showLearnTabPopover && (
         <GuidancePopover
           anchorRef={learnTabRef}
-          message="Predictions ready. Switch to Uncertainty phase to review them."
+          message={t("Predictions ready. Switch to Uncertainty phase to review them.", "Prediction 준비 완료. Uncertainty 단계로 전환하여 검토하세요.")}
           onDismiss={() => setLearnPopoverDismissed(true)}
         />
       )}
@@ -266,7 +267,7 @@ export function StageAccordionList<T>({
       {showMetricPopover && (
         <GuidancePopover
           anchorRef={byScoreRef}
-          message="Sort by metric to find more."
+          message={t("Sort by metric to find more.", "Metric 기준 정렬로 더 찾아보세요.")}
           onDismiss={() => setLearnPopoverDismissed(true)}
         />
       )}
@@ -275,7 +276,7 @@ export function StageAccordionList<T>({
       {showSvmReadyPopover && (
         <GuidancePopover
           anchorRef={learnTabRef}
-          message="Predictions ready. Switch to Uncertainty phase to review them."
+          message={t("Predictions ready. Switch to Uncertainty phase to review them.", "Prediction 준비 완료. Uncertainty 단계로 전환하여 검토하세요.")}
           onDismiss={() => setSvmReadyPopoverDismissed(true)}
         />
       )}

@@ -4,6 +4,7 @@ import {
   getTagColor,
 } from '../lib/tag-system';
 import { type TagCategoryConfig, TAG_CATEGORY_REGENERATION } from '../lib/constants';
+import { getInstruction } from '../lib/i18n';
 import { useVisualizationStore } from '../store/index';
 import '../styles/TagStagePanel.css';
 
@@ -312,7 +313,7 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                     <div className="stage-tab__label">{stage.label}</div>
                   </div>
                   {stage.instruction && (
-                    <span className="stage-tab__instruction">{stage.instruction}</span>
+                    <span className="stage-tab__instruction">{getInstruction(stage.id)}</span>
                   )}
                 </div>
                 {stageTags.length > 0 && (

@@ -101,6 +101,10 @@
 .stage-tab:nth-child(3) {
   flex: 0.9 1 0;
 }
+/* Keep flow arrows visible above the active next-stage tab */
+.stage-tab:has(+ .stage-tab--active) {
+  z-index: 11;
+}
 /* Prevent hover border changes for all non-active states */
 .stage-tab:not(.stage-tab--active):not(.stage-tab--completed):hover {
   border-color: #cbd5e1;

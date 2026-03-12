@@ -8,7 +8,8 @@ import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
 import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
-import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY, PANEL_LEFT, TAG_TOOLTIPS } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY, PANEL_LEFT } from '../lib/constants'
+import { t, getTagTooltip } from '../lib/i18n'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll, useTaggingNavigation } from '../lib/tagging-hooks'
@@ -1285,7 +1286,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* ---- Activation Section (top half) ---- */}
                     {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
-                      <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip="2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                      <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
                       <div className="legend-group">
@@ -1375,7 +1376,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         isSelected={currentCauseCategory === 'missed-N-gram'}
                         isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'missed-N-gram'}
                         onClick={() => handleTagClick('missed-N-gram')}
-                        tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_CAUSE}:Missed Syntax`]}
+                        tooltip={getTagTooltip(`${TAG_CATEGORY_CAUSE}:Missed Syntax`)}
                       />
                       <TagButton
                         label="Missed Context"
@@ -1384,7 +1385,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         isSelected={currentCauseCategory === 'missed-context'}
                         isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'missed-context'}
                         onClick={() => handleTagClick('missed-context')}
-                        tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_CAUSE}:Missed Context`]}
+                        tooltip={getTagTooltip(`${TAG_CATEGORY_CAUSE}:Missed Context`)}
                       />
                       <TagButton
                         label="Noisy Activation"
@@ -1393,7 +1394,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         isSelected={currentCauseCategory === 'noisy-activation'}
                         isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'noisy-activation'}
                         onClick={() => handleTagClick('noisy-activation')}
-                        tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_CAUSE}:Noisy Activation`]}
+                        tooltip={getTagTooltip(`${TAG_CATEGORY_CAUSE}:Noisy Activation`)}
                       />
                       <TagButton
                         label="Well-Explained"
@@ -1402,7 +1403,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         isSelected={currentCauseCategory === 'well-explained'}
                         isAuto={activeStage === 'apply' && currentCauseSource === 'predicted' && currentCauseCategory === 'well-explained'}
                         onClick={() => handleTagClick('well-explained')}
-                        tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_CAUSE}:Well-Explained`]}
+                        tooltip={getTagTooltip(`${TAG_CATEGORY_CAUSE}:Well-Explained`)}
                       />
 
                       {/* Next button */}
@@ -1435,7 +1436,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                           isSelected={currentCauseCategory === 'unsure'}
                           isAuto={false}
                           onClick={handleUnsureClick}
-                          tooltip={TAG_TOOLTIPS['Unsure']}
+                          tooltip={getTagTooltip('Unsure')}
                         />
                       </div>
                     </div>

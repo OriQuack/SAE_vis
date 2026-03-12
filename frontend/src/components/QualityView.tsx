@@ -8,7 +8,8 @@ import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import { useSortableList, type ActiveStage, type BootstrapMode, type SortMode } from '../lib/tagging-hooks/useSortableList'
 import { useCommitHistory, createFeatureCommitHistoryOptions, type DisplayCommit, useTaggingNavigation, isUserConfirmed, useMainListScroll } from '../lib/tagging-hooks'
 import ActivationExample from './ActivationExamplePanel'
-import { TAG_CATEGORY_QUALITY, UNSURE_GRAY, TAG_TOOLTIPS } from '../lib/constants'
+import { TAG_CATEGORY_QUALITY, UNSURE_GRAY } from '../lib/constants'
+import { t, getTagTooltip } from '../lib/i18n'
 import { getTagColor } from '../lib/tag-system'
 import { metricToTealColor, textColorForBackground } from '../lib/color-utils'
 import { getExplainerDisplayName } from '../lib/table-data-utils'
@@ -1091,7 +1092,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
-                    <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip="2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.">Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                    <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}
@@ -1220,7 +1221,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       isSelected={currentSelectionState === 'rejected' || currentPreviewState === 'rejected'}
                       isAuto={currentPreviewState === 'rejected'}
                       onClick={handleNeedRevisionClick}
-                      tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_QUALITY}:Need Revision`]}
+                      tooltip={getTagTooltip(`${TAG_CATEGORY_QUALITY}:Need Revision`)}
                     />
                     <TagButton
                       label="Well-Explained"
@@ -1229,7 +1230,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                       isSelected={currentSelectionState === 'selected' || currentPreviewState === 'selected'}
                       isAuto={currentPreviewState === 'selected'}
                       onClick={handleWellExplainedClick}
-                      tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_QUALITY}:Well-Explained`]}
+                      tooltip={getTagTooltip(`${TAG_CATEGORY_QUALITY}:Well-Explained`)}
                     />
 
                     {/* Next button */}
@@ -1261,7 +1262,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                         color={unsureColor}
                         isSelected={currentSelectionState === null}
                         onClick={handleUnsureClick}
-                        tooltip={TAG_TOOLTIPS['Unsure']}
+                        tooltip={getTagTooltip('Unsure')}
                       />
                     </div>
                   </div>

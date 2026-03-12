@@ -4,7 +4,8 @@ import type { FeatureTableRow } from '../types'
 import ActivationExample from './ActivationExamplePanel'
 import { ExplanationWithPopover } from './ExplanationPanel'
 import { TagButton } from './Indicators'
-import { UNSURE_GRAY, TAG_CATEGORY_FEATURE_SPLITTING, TAG_TOOLTIPS } from '../lib/constants'
+import { UNSURE_GRAY, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
+import { t, getTagTooltip } from '../lib/i18n'
 import { getTagColor } from '../lib/tag-system'
 // import { extractInterFeaturePositions } from '../lib/activation-utils' // commented out: inter-feature highlighting
 import { getBestExplanation } from '../lib/table-data-utils'
@@ -263,7 +264,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html='2 examples per quartile, ranked by max activation strength (highest &rarr; lowest).'>Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html={t('2 examples per quartile, ranked by max activation strength (highest &rarr; lowest).', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 &rarr; 낮은 순).')}>Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>
@@ -372,7 +373,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 isSelected={pairSelectionState === 'rejected' || currentPairPreview === 'rejected'}
                 isAuto={currentPairPreview === 'rejected'}
                 onClick={handleMonosemanticClick}
-                tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]}
+                tooltip={getTagTooltip(`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`)}
               />
               <TagButton
                 label="Incoherent Splitting"
@@ -381,7 +382,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 isSelected={pairSelectionState === 'selected' || currentPairPreview === 'selected'}
                 isAuto={currentPairPreview === 'selected'}
                 onClick={handleFragmentedClick}
-                tooltip={TAG_TOOLTIPS[`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]}
+                tooltip={getTagTooltip(`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`)}
               />
 
               {/* Next button */}
@@ -409,7 +410,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                   color={unsureColor}
                   isSelected={pairSelectionState === null}
                   onClick={handleUnsureClick}
-                  tooltip={TAG_TOOLTIPS['Unsure']}
+                  tooltip={getTagTooltip('Unsure')}
                 />
               </div>
             </div>

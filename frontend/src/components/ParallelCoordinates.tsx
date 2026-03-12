@@ -17,6 +17,7 @@ import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 import type { CategoryBand } from '../lib/parallel-coords-utils'
+import { getMetricDescription } from '../lib/i18n'
 import '../styles/ParallelCoordinates.css'
 
 // ============================================================================
@@ -42,11 +43,11 @@ interface MetricConfig {
 
 // Define the 5 metrics in order (left to right)
 const METRICS: MetricConfig[] = [
-  { key: 'logFracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: 'How often this feature activates across text corpus (log-scaled, normalized)' },
-  { key: 'consensusScore', label: 'Consensus Score', shortLabel: 'Consensus', description: 'Agreement of key phrases across different LLM explainers' },
-  { key: 'embedding', label: 'Embedding Score', shortLabel: 'Embedding', description: 'How well the explanation semantically matches activating vs. non-activating examples (0.5 = random)' },
-  { key: 'detection', label: 'Detection Score', shortLabel: 'Detection', description: 'How well the explanation distinguishes activating from non-activating examples at the context level (0.5 = random)' },
-  { key: 'fuzz', label: 'Fuzz Score', shortLabel: 'Fuzz', description: 'How well the explanation identifies activating tokens vs. non-activating tokens within examples (0.5 = random)' }
+  { key: 'logFracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: getMetricDescription('logFracNonzero', 'How often this feature activates across text corpus (log-scaled, normalized)') },
+  { key: 'consensusScore', label: 'Consensus Score', shortLabel: 'Consensus', description: getMetricDescription('consensusScore', 'Agreement of key phrases across different LLM explainers') },
+  { key: 'embedding', label: 'Embedding Score', shortLabel: 'Embedding', description: getMetricDescription('embedding', 'How well the explanation semantically matches activating vs. non-activating examples (0.5 = random)') },
+  { key: 'detection', label: 'Detection Score', shortLabel: 'Detection', description: getMetricDescription('detection', 'How well the explanation distinguishes activating from non-activating examples at the context level (0.5 = random)') },
+  { key: 'fuzz', label: 'Fuzz Score', shortLabel: 'Fuzz', description: getMetricDescription('fuzz', 'How well the explanation identifies activating tokens vs. non-activating tokens within examples (0.5 = random)') }
 ]
 
 // Layout constants
