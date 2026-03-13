@@ -8,7 +8,6 @@ Clean flow:
 4. Build response (pure assembly, no calculations)
 """
 
-import math
 import polars as pl
 import numpy as np
 import logging
@@ -117,8 +116,8 @@ class TableDataService:
         # Load intra-feature similarity metrics from svm_feature_metrics.parquet
         self._intra_feature_sim_lookup: Dict[int, float] = self._load_intra_feature_sim_lookup()
 
-        # Load log_frac_nonzero (log-transformed, min-max normalized to [0,1])
-        self._log_frac_nonzero_lookup: Dict[int, float] = self._load_log_frac_nonzero_lookup()
+        # Load frac_nonzero (raw fraction of non-zero activations, already in [0,1])
+        self._frac_nonzero_lookup: Dict[int, float] = self._load_frac_nonzero_lookup()
 
         # Load consensus_score from explanation_consensus.parquet
         self._consensus_score_lookup: Dict[int, float] = self._load_consensus_score_lookup()
@@ -160,13 +159,12 @@ class TableDataService:
             logger.warning(f"Could not load intra_feature_sim lookup: {e}")
             return {}
 
-    def _load_log_frac_nonzero_lookup(self) -> Dict[int, float]:
+    def _load_frac_nonzero_lookup(self) -> Dict[int, float]:
         """
-        Load frac_nonzero from svm_feature_metrics.parquet, apply log transform,
-        then min-max normalize to [0, 1].
+        Load raw frac_nonzero from svm_feature_metrics.parquet.
 
         Returns:
-            Dict mapping feature_id to normalized log(frac_nonzero + 1e-8)
+            Dict mapping feature_id to frac_nonzero (already in [0, 1])
         """
         try:
             if self.data_service._svm_feature_metrics_lazy is None:
@@ -180,25 +178,16 @@ class TableDataService:
             feature_ids = df["feature_id"].to_list()
             frac_vals = df["frac_nonzero"].to_list()
 
-            # Log transform
-            log_vals = [math.log((v if v is not None else 0.0) + 1e-8) for v in frac_vals]
-
-            # Min-max normalize to [0, 1]
-            min_val = min(log_vals)
-            max_val = max(log_vals)
-            val_range = max_val - min_val if max_val > min_val else 1.0
-
             lookup = {
-                fid: (lv - min_val) / val_range
-                for fid, lv in zip(feature_ids, log_vals)
+                fid: (v if v is not None else 0.0)
+                for fid, v in zip(feature_ids, frac_vals)
             }
 
-            logger.info(f"Loaded log_frac_nonzero lookup: {len(lookup)} features "
-                        f"(log range [{min_val:.3f}, {max_val:.3f}])")
+            logger.info(f"Loaded frac_nonzero lookup: {len(lookup)} features")
             return lookup
 
         except Exception as e:
-            logger.warning(f"Could not load log_frac_nonzero lookup: {e}")
+            logger.warning(f"Could not load frac_nonzero lookup: {e}")
             return {}
 
     def _load_consensus_score_lookup(self) -> Dict[int, float]:
@@ -748,8 +737,8 @@ class TableDataService:
                 # Get intra_feature_sim from pre-loaded lookup
                 intra_feature_sim = self._intra_feature_sim_lookup.get(feature_id)
 
-                # Get log_frac_nonzero from pre-loaded lookup
-                log_frac_nonzero = self._log_frac_nonzero_lookup.get(feature_id)
+                # Get frac_nonzero from pre-loaded lookup
+                frac_nonzero = self._frac_nonzero_lookup.get(feature_id)
 
                 # Get consensus_score from pre-loaded lookup
                 consensus_score = self._consensus_score_lookup.get(feature_id)
@@ -759,7 +748,7 @@ class TableDataService:
                     decoder_similarity=decoder_similarity,
                     decoder_similarity_merge_threshold=merge_threshold,
                     intra_feature_sim=intra_feature_sim,
-                    log_frac_nonzero=log_frac_nonzero,
+                    frac_nonzero=frac_nonzero,
                     consensus_score=consensus_score,
                     explainers=explainers_dict
                 ))

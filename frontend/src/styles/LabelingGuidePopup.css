@@ -1,0 +1,99 @@
+/* ============================================================================
+   LABELING GUIDE POPUP - Decision flowchart overlay
+   ============================================================================ */
+
+.labeling-guide__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+}
+
+.labeling-guide__popup {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10000;
+  background: #ffffff;
+  border: 2px solid var(--selection-blue, #3b82f6);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  width: 520px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Header */
+.labeling-guide__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, var(--selection-blue, #3b82f6) 0%, var(--selection-blue-hover, #2563eb) 100%);
+  flex-shrink: 0;
+}
+
+.labeling-guide__title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.labeling-guide__close {
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  transition: color 0.15s ease;
+}
+
+.labeling-guide__close:hover {
+  color: #ffffff;
+}
+
+/* Content */
+.labeling-guide__content {
+  padding: 16px 20px 20px;
+}
+
+.labeling-guide__svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Help button in floating controls */
+.floating-controls__help-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 2px solid #94a3b8;
+  background: #ffffff;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.floating-controls__help-btn:hover {
+  border-color: var(--selection-blue, #3b82f6);
+  color: var(--selection-blue, #3b82f6);
+  background: var(--selection-blue-lighter, #dbeafe);
+}

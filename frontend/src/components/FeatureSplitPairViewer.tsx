@@ -11,6 +11,7 @@ import { getTagColor } from '../lib/tag-system'
 import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
 import { logAction } from '../lib/action-logger'
+import LabelingGuidePopup from './LabelingGuidePopup'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -81,6 +82,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
   const lastClickTagAction = useVisualizationStore(state => state.lastClickTagAction)
   const setLastClickTagAction = useVisualizationStore(state => state.setLastClickTagAction)
   const undoLastClickTag = useVisualizationStore(state => state.undoLastClickTag)
+
+  // Labeling guide popup
+  const [showGuide, setShowGuide] = useState(false)
 
   // Container width for activating examples (responsive to resize)
   const [containerWidth, setContainerWidth] = useState(1400)
@@ -365,6 +369,15 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
                 ← Prev
               </button>
 
+              {/* Help button */}
+              <button
+                className="floating-controls__help-btn"
+                onClick={() => setShowGuide(true)}
+                data-tooltip="Labeling guide"
+              >
+                ?
+              </button>
+
               {/* Selection buttons - Monosemantic | Fragmented */}
               <TagButton
                 label="Monosemantic"
@@ -431,6 +444,9 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           </div>
         )}
       </div>
+
+      {/* Labeling guide popup */}
+      {showGuide && <LabelingGuidePopup stage={1} onClose={() => setShowGuide(false)} />}
   </div>
   )
 }

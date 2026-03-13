@@ -32,9 +32,9 @@ const INSTRUCTION_KO: Record<string, string> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]:
     'Q: 한쪽 feature의 activating example 중에 다른 feature의 \n개념과 구분이 안 되는 것이 하나라도 있는가?',
   [TAG_CATEGORY_QUALITY]:
-    'Q: Explanation이 모든 activating example을\n설명하고 있는가?',
+    'Q: Explanation들이 모든 activating example을\n설명하고 있는가?',
   [TAG_CATEGORY_CAUSE]:
-    'Q: Explanation이 일부 activating example을\n설명하지 못하는 원인은 무엇인가?',
+    'Q: Explanation들이 일부 내지 전체 activating example을\n설명하지 못하는 원인은 무엇인가?',
   [TAG_CATEGORY_REGENERATION]:
     'Labeling 결과 및 통계 검토',
 }
@@ -55,17 +55,17 @@ const TAG_TOOLTIP_KO: Record<string, Partial<TagTooltipInfo>> = {
   // Stage 1
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
     flow: 'Stage 2에서 추가 검토',
-    description: '두 feature 사이 개념이 명확히 구분되거나, 적어도 하나의 feature에 일관된 개념이 없음',
+    description: '두 feature 사이 개념이 명확히 구분됨, 또는 적어도 하나의 feature에 모든 activating example을 아우르는 특징적인 개념이 없음',
     example: '두 feature 모두 Noisy하지 않다면, 섞인 activating example들을 원래 속했던 feature로 분리할 수 있음'
   },
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
-    flow: '확정',
-    description: '두 feature 모두 일관된 개념을 나타내지만 그 사이의 경계가 모호함',
+    flow: 'Stage 1에서 확정',
+    description: '두 feature 모두 각각의 activating example을 아우르는 특징적인 개념을 가지지만 그 사이 경계가 모호함',
     example: '섞인 activating example들을 원래 속했던 feature로 분리할 수 없음',
   },
   // Stage 2
   [`${TAG_CATEGORY_QUALITY}:Well-Explained`]: {
-    flow: '확정',
+    flow: 'Stage 2에서 확정',
     description: 'Explanation들이 모든 activating example의 의미를 포착하는 경우',
   },
   [`${TAG_CATEGORY_QUALITY}:Need Revision`]: {
@@ -86,7 +86,7 @@ const TAG_TOOLTIP_KO: Record<string, Partial<TagTooltipInfo>> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     description: '일관된 패턴 없이 이질적인 example에 반응',
-    example: '예: 무관한 activation 맥락, 공유되는 어휘적·의미적 패턴 없음',
+    example: '예: 무관한 activation 맥락, 공유되는 어휘적·의미적 패턴 없음, polysemantic',
   },
   // Shared
   'Unsure': {
@@ -121,7 +121,7 @@ export function getVerdictLabel(verdict: 'positive' | 'negative' | 'neutral'): s
 // ============================================================================
 
 const METRIC_DESC_KO: Record<string, string> = {
-  logFracNonzero: 'Text corpus에서 이 feature가 activate되는 빈도 (log-scaled, normalized)',
+  fracNonzero: 'Text corpus에서 이 feature가 activate되는 빈도 (0 = 비활성, 1 = 항상 활성)',
   consensusScore: '서로 다른 LLM explainer 간 핵심 phrase의 일치도',
   embedding: 'Explanation이 activating vs. non-activating example과 얼마나 의미적으로 일치하는지 (0.5 = random)',
   detection: 'Explanation이 context 수준에서 activating과 non-activating example을 얼마나 잘 구분하는지 (0.5 = random)',

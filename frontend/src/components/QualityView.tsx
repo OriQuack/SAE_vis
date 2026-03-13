@@ -18,6 +18,7 @@ import { ExplanationWithPopover } from './ExplanationPanel'
 import CrossMetricConsensus, { CrossMetricLegend } from './CrossMetricConsensus'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
+import LabelingGuidePopup from './LabelingGuidePopup'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -142,6 +143,7 @@ const QualityView: React.FC<QualityViewProps> = ({
   const stage2CurrentCommitIndex = useVisualizationStore(state => state.stage2CurrentCommitIndex)
 
   // Local state
+  const [showGuide, setShowGuide] = useState(false)
   const [currentFeatureIndex, setCurrentFeatureIndex] = useState(0)
 
   // Hide tagged items toggle
@@ -1216,6 +1218,15 @@ const QualityView: React.FC<QualityViewProps> = ({
                       ← Prev
                     </button>
 
+                    {/* Help button */}
+                    <button
+                      className="floating-controls__help-btn"
+                      onClick={() => setShowGuide(true)}
+                      data-tooltip="Labeling guide"
+                    >
+                      ?
+                    </button>
+
                     {/* Selection buttons - Need Revision | Well-Explained */}
                     <TagButton
                       label="Need Revision"
@@ -1319,6 +1330,9 @@ const QualityView: React.FC<QualityViewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Labeling guide popup */}
+      {showGuide && <LabelingGuidePopup stage={2} onClose={() => setShowGuide(false)} />}
     </div>
   )
 }

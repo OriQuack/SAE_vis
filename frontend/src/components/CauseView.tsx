@@ -24,6 +24,7 @@ import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import ExportResultsPopup from './ExportResultsPopup'
+import LabelingGuidePopup from './LabelingGuidePopup'
 import { buildExportData, downloadExportJson } from '../lib/export-utils'
 import '../styles/CauseView.css'
 
@@ -1129,6 +1130,9 @@ const CauseView: React.FC<CauseViewProps> = ({
     return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
   }, [selectedFeatureIds])
 
+  // Labeling guide popup
+  const [showGuide, setShowGuide] = useState(false)
+
   // Get colors for each cause category
   const noisyActivationColor = getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
   const missedNgramColor = getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9ca3af'
@@ -1243,6 +1247,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   hasDiversityIds={diversityFeatureIds.size > 0}
                   learnDisabled={!canTrainSVM}
                   applyDisabled={!canTrainSVM}
+                  learnSortable={true}
                   showLearnPopover={lastRepReviewed}
                   diversityLabel={`Most Critical ${diversityFeatureIds.size}`}
                   byScoreLabel="Feature ID"
@@ -1369,6 +1374,15 @@ const CauseView: React.FC<CauseViewProps> = ({
                         disabled={currentFeatureIndex === 0 || sortedFilteredFeatureList.length === 0}
                       >
                         ← Prev
+                      </button>
+
+                      {/* Help button */}
+                      <button
+                        className="floating-controls__help-btn"
+                        onClick={() => setShowGuide(true)}
+                        data-tooltip="Labeling guide"
+                      >
+                        ?
                       </button>
 
                       {/* Selection buttons - all features must have a tag */}
@@ -1552,6 +1566,9 @@ const CauseView: React.FC<CauseViewProps> = ({
           fileName={exportFileName}
         />
       )}
+
+      {/* Labeling guide popup */}
+      {showGuide && <LabelingGuidePopup stage={3} onClose={() => setShowGuide(false)} />}
     </div>
   )
 }

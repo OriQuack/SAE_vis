@@ -50,6 +50,9 @@ interface StageAccordionListProps<T> {
   onHideTaggedChange?: (value: boolean) => void
   allItemsLabeled?: boolean  // All items (unfiltered) have been labeled
 
+  // Learn phase sort toggle (CauseView only)
+  learnSortable?: boolean
+
   // QBC disagreement filter
   showDisagreementOnly?: boolean
   onShowDisagreementOnlyChange?: (value: boolean) => void
@@ -97,6 +100,7 @@ export function StageAccordionList<T>({
   hideTagged,
   onHideTaggedChange,
   allItemsLabeled: _allItemsLabeled = false,
+  learnSortable = false,
   showDisagreementOnly,
   onShowDisagreementOnlyChange,
   hasDisagreementData = false,
@@ -187,10 +191,9 @@ export function StageAccordionList<T>({
   }, [emptyMessage, variant, activeStage, hideTagged, showDisagreementOnly])
 
   // Build list props to pass through
-  // Column header is clickable ONLY in Bootstrap + byScore mode (for toggling sort direction)
-  // In Learn/Apply stages, column header is NOT clickable (fixed labels)
+  // Column header is clickable in Bootstrap + byScore, Apply, and Learn (when learnSortable)
   const listProps: Omit<ScrollableItemListProps<T>, 'variant'> = useMemo(() => {
-    const isHeaderClickable = (activeStage === 'bootstrap' && bootstrapMode === 'byScore') || activeStage === 'apply'
+    const isHeaderClickable = (activeStage === 'bootstrap' && bootstrapMode === 'byScore') || activeStage === 'apply' || (activeStage === 'learn' && learnSortable)
     const columnHeaderForList = columnHeader ? {
       label: columnHeader.label,
       sortDirection: columnHeader.sortDirection,
@@ -214,7 +217,7 @@ export function StageAccordionList<T>({
       disableAutoScroll,
       scrollTargetIndex
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, computedEmptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, computedEmptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode, learnSortable])
 
   return (
     <div className={`stage-selector ${className}`}>
@@ -302,7 +305,7 @@ export function StageAccordionList<T>({
           ))}
           {activeStage === 'learn' && (
             <button className="stage-selector__option-btn stage-selector__option-btn--active" disabled>
-              Most Uncertain First
+              {learnSortable ? 'Unsure Thresholded Region First' : 'Most Uncertain First'}
             </button>
           )}
           {activeStage === 'apply' && (

@@ -147,7 +147,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Diagnose the root cause of misinterpretation for features that need revision",
     parentTagForNextStage: null,
-    instruction: "Q: Why do the explanations fail to account for some activating examples?",
+    instruction: "Q: Why do the explanations fail to account for some or all activating examples?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: "Need Revision"  // Children of Need Revision from stage 2
   },
@@ -568,17 +568,17 @@ export interface TagTooltipInfo {
 export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   // Stage 1: Structural Soundness
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
-    verdict: 'neutral', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable, or at least one feature lacks a coherent concept altogether',
+    verdict: 'neutral', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable, or at least one feature lacks an overarching concept that encompasses all its activating examples',
     example: 'If neither feature is Noisy, shuffled activating examples can be separated into the original features they belong to'
   },
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
-    verdict: 'negative', flow: 'Terminal', description: 'Both features represent coherent concepts, but the boundary between them is ambiguous',
+    verdict: 'negative', flow: 'Finalized at Stage 1', description: 'Both features possess overarching concepts that encompass their activating examples, but the boundary between them is ambiguous',
     example: 'You cannot separate shuffled activating examples into original features they belong to'
   },
 
   // Stage 2: Explanation Adequacy
   [`${TAG_CATEGORY_QUALITY}:Well-Explained`]: {
-    verdict: 'positive', flow: 'Terminal', description: 'Explanations successfully capture the activation patterns'
+    verdict: 'positive', flow: 'Finalized at Stage 2', description: 'Explanations successfully capture the activation patterns'
   },
   [`${TAG_CATEGORY_QUALITY}:Need Revision`]: {
     verdict: 'negative', flow: 'Further inspected in Stage 3', description: 'Explanations all fail to capture the activation patterns'
@@ -598,7 +598,7 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency',
-    example: 'e.g. polysemantic overlap, unrelated activation contexts, no shared lexical or semantic pattern'
+    example: 'e.g. unrelated activation contexts, no shared lexical or semantic pattern, polysemantic'
   },
 
   // Shared

@@ -96,11 +96,37 @@ _MAX_MODIFIER_SUBTREE = 10
 _CONTENT_POS = {"NOUN", "PROPN", "VERB", "ADJ"}
 _STRIP_POS = {"PUNCT", "CCONJ", "SCONJ", "SPACE"}
 _QUOTE_CHARS = {'"', "'", '\u201c', '\u201d', '\u2018', '\u2019'}
+_CLAUSE_DEPS = {"ROOT", "advcl", "ccomp", "xcomp", "relcl", "parataxis", "acl"}
 
 
 def _is_quote_token(tok) -> bool:
     """Check if a token is a quotation mark (straight or curly)."""
     return tok.text in _QUOTE_CHARS
+
+
+def _find_clause_head(token):
+    """Walk up the dependency tree to find the clause head owning this token.
+
+    A clause head is a token whose dep_ is in _CLAUSE_DEPS, or a VERB token
+    with dep_=conj whose ultimate conj-chain head has a clause dep.
+    """
+    visited = {token.i}
+    cur = token
+    while cur.dep_ not in _CLAUSE_DEPS:
+        # Coordinated verb whose chain head is a clause head → treat as clause head
+        if cur.dep_ == "conj" and cur.pos_ == "VERB":
+            head = cur.head
+            while head.dep_ == "conj" and head.i not in visited:
+                visited.add(head.i)
+                head = head.head
+            if head.dep_ in _CLAUSE_DEPS:
+                return cur
+        # Walk up
+        if cur.head.i == cur.i:  # ROOT or cycle guard
+            return cur
+        visited.add(cur.head.i)
+        cur = cur.head
+    return cur
 
 
 def _extend_with_modifiers(root, indices: set) -> None:
@@ -592,6 +618,82 @@ def _recover_gaps_with_offsets(covered: set, doc) -> List[Tuple[str, List[Tuple[
     return recovered
 
 
+def clause_phrases_with_offsets(text: str) -> List[Tuple[str, List[Tuple[int, int]]]]:
+    """Extract clause-based phrases with per-run character offsets.
+
+    Assigns each token to its clause head by walking up the dependency tree,
+    guaranteeing 100% text coverage with no gap recovery needed.
+
+    Returns:
+        List of (phrase_text, [(start_char, end_char), ...]) tuples
+    """
+    if not text or not text.strip():
+        return []
+
+    text = text.strip()
+    nlp = _get_nlp()
+    doc = nlp(text)
+
+    # Assign each token to its clause head
+    clause_groups: dict = {}
+    for token in doc:
+        head = _find_clause_head(token)
+        clause_groups.setdefault(head.i, set()).add(token.i)
+
+    # Sort groups by document order
+    sorted_groups = sorted(clause_groups.values(), key=lambda s: min(s))
+
+    # Strip leading/trailing PUNCT/CCONJ/SCONJ/SPACE from each group
+    stripped_groups = []
+    for indices in sorted_groups:
+        sorted_idx = sorted(indices)
+        while sorted_idx and doc[sorted_idx[0]].pos_ in _STRIP_POS and not _is_quote_token(doc[sorted_idx[0]]):
+            sorted_idx.pop(0)
+        while sorted_idx and doc[sorted_idx[-1]].pos_ in _STRIP_POS and not _is_quote_token(doc[sorted_idx[-1]]):
+            sorted_idx.pop()
+        if sorted_idx:
+            stripped_groups.append(set(sorted_idx))
+
+    # Merge non-content groups into nearest neighbor
+    final_groups: List[set] = []
+    pending_merge: set = set()
+    for group in stripped_groups:
+        has_content = any(doc[i].pos_ in _CONTENT_POS for i in group)
+        if not has_content:
+            pending_merge.update(group)
+        else:
+            if pending_merge:
+                group.update(pending_merge)
+                pending_merge = set()
+            final_groups.append(group)
+    if pending_merge and final_groups:
+        final_groups[-1].update(pending_merge)
+    elif pending_merge:
+        final_groups.append(pending_merge)
+
+    if not final_groups:
+        return [(text.strip(), [(0, len(text))])]
+
+    # Convert to phrases with offsets (reuse existing utility)
+    phrases = _index_sets_to_phrases_with_offsets(final_groups, doc)
+
+    # Deduplicate, strip, filter empties
+    seen: set = set()
+    result = []
+    for phrase_text, offsets in phrases:
+        phrase_text = phrase_text.strip()
+        if phrase_text and phrase_text not in seen:
+            seen.add(phrase_text)
+            result.append((phrase_text, offsets))
+
+    return result if result else [(text.strip(), [(0, len(text))])]
+
+
+def clause_phrases(text: str) -> List[str]:
+    """Extract clause-based phrases (text only, no offsets)."""
+    return [phrase_text for phrase_text, _ in clause_phrases_with_offsets(text)]
+
+
 def chunk_text(text: str, method: str = "smart") -> List[str]:
     """Split text into chunks for analysis.
 
@@ -600,6 +702,7 @@ def chunk_text(text: str, method: str = "smart") -> List[str]:
         method: Chunking method:
             - "smart": Smart coordination (preserves "X and Y" noun phrases)
             - "aspect": Aspect-oriented noun chunk extraction with modifier absorption
+            - "clause": Clause-based segmentation via dependency tree (full coverage)
             - "phrase": Legacy regex split on comma/and/or/but
             - "sentence": Split on sentence boundaries (.!?;)
 
@@ -615,6 +718,8 @@ def chunk_text(text: str, method: str = "smart") -> List[str]:
         chunks = [c.strip() for c in re.split(r',|\band\b|\bor\b|\bbut\b', text) if c.strip()]
     elif method == "aspect":
         chunks = aspect_phrases(text)
+    elif method == "clause":
+        chunks = clause_phrases(text)
     else:  # "smart" - new default
         chunks = smart_coordination(text)
 
@@ -650,7 +755,7 @@ def extract_all_phrases_with_offsets(
 
     Args:
         explanations: List of explanation texts
-        method: Chunking method ("smart", "aspect", "phrase", or "sentence")
+        method: Chunking method ("smart", "aspect", "clause", "phrase", or "sentence")
 
     Returns:
         List of (phrase_text, exp_idx, phrase_idx, offsets_list) tuples
@@ -660,9 +765,12 @@ def extract_all_phrases_with_offsets(
     for exp_idx, text in enumerate(explanations):
         if not text or not text.strip():
             continue
-        if method == "aspect":
-            # aspect_phrases_with_offsets returns per-run offsets directly
-            phrases_with_offsets = aspect_phrases_with_offsets(text)
+        if method in ("aspect", "clause"):
+            # These methods return per-run offsets directly
+            if method == "aspect":
+                phrases_with_offsets = aspect_phrases_with_offsets(text)
+            else:
+                phrases_with_offsets = clause_phrases_with_offsets(text)
             for phrase_idx, (phrase_text, offsets) in enumerate(phrases_with_offsets):
                 result.append((phrase_text, exp_idx, phrase_idx, offsets))
         else:

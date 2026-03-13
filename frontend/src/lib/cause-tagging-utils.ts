@@ -24,8 +24,8 @@ export interface CauseMetricScores {
   // Component scores for detailed visualization
   /** Intra-feature similarity (component of noisyActivation) */
   intraFeatureSim: number | null
-  /** Log-transformed frac_nonzero, min-max normalized to [0,1] */
-  logFracNonzero: number | null
+  /** Fraction of non-zero activations (0 to 1) */
+  fracNonzero: number | null
   /** Consensus score from HDBSCAN phrase clustering (component of noisyActivation) */
   consensusScore: number | null
   /** Embedding score (component of missedContext) */
@@ -210,7 +210,7 @@ export function calculateCauseMetricScores(
       missedContext: null,
       missedNgram: null,
       intraFeatureSim: null,
-      logFracNonzero: null,
+      fracNonzero: null,
       consensusScore: null,
       embedding: null,
       detection: null,
@@ -222,7 +222,7 @@ export function calculateCauseMetricScores(
 
   // Calculate Noisy Activation score components
   const intraFeatureSim = calculateIntraFeatureSimilarity(row)
-  const logFracNonzero = row?.log_frac_nonzero ?? null
+  const fracNonzero = row?.frac_nonzero ?? null
   const consensusScore = row?.consensus_score ?? null
   const noisyActivation = averageValues([intraFeatureSim, consensusScore])
 
@@ -242,7 +242,7 @@ export function calculateCauseMetricScores(
     missedNgram,
     // Component scores
     intraFeatureSim,
-    logFracNonzero,
+    fracNonzero,
     consensusScore,
     embedding,
     detection,

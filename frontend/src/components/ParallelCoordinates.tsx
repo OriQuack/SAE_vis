@@ -7,7 +7,7 @@
 // - Foreground line: Currently selected feature (vivid)
 //
 // Axes (left to right):
-// - Activation Frequency (logFracNonzero)
+// - Activation Frequency (fracNonzero)
 // - Explainer Consensus (consensusScore)
 // - Embedding (embedding)
 // - Detection (detection)
@@ -43,7 +43,7 @@ interface MetricConfig {
 
 // Define the 5 metrics in order (left to right)
 const METRICS: MetricConfig[] = [
-  { key: 'logFracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: getMetricDescription('logFracNonzero', 'How often this feature activates across text corpus (log-scaled, normalized)') },
+  { key: 'fracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: getMetricDescription('fracNonzero', 'How often this feature activates across the text corpus (0 = never, 1 = always)') },
   { key: 'consensusScore', label: 'Consensus Score', shortLabel: 'Consensus', description: getMetricDescription('consensusScore', 'Agreement of key phrases across different LLM explainers') },
   { key: 'embedding', label: 'Embedding Score', shortLabel: 'Embedding', description: getMetricDescription('embedding', 'How well the explanation semantically matches activating vs. non-activating examples (0.5 = random)') },
   { key: 'detection', label: 'Detection Score', shortLabel: 'Detection', description: getMetricDescription('detection', 'How well the explanation distinguishes activating from non-activating examples at the context level (0.5 = random)') },

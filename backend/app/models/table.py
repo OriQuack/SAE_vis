@@ -140,9 +140,9 @@ class FeatureTableRow(BaseModel):
         None,
         description="Intra-feature similarity: max(intra_ngram_jaccard, intra_semantic_sim) from svm_feature_metrics"
     )
-    log_frac_nonzero: Optional[float] = Field(
+    frac_nonzero: Optional[float] = Field(
         None,
-        description="Log-transformed frac_nonzero, min-max normalized to [0, 1]"
+        description="Fraction of non-zero activations (0 to 1)"
     )
     consensus_score: Optional[float] = Field(
         None,

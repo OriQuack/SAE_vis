@@ -212,7 +212,7 @@ steps:
     outputs:
       main: "${output}/explanation_alignment.parquet"
     parameters:
-      chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
+      chunk_method: "clause"       # "aspect", "clause", "smart", "phrase", or "sentence"
 
   # Step 13: Explanation consensus analysis (phrase clustering)
   step_13_explanation_consensus:
@@ -232,7 +232,7 @@ steps:
       cluster_selection_epsilon: 0.0
       cluster_selection_method: "eom"
       metric: "cosine"
-      chunk_method: "aspect"       # "aspect" (noun chunks + modifier absorption), "smart", "phrase", or "sentence"
+      chunk_method: "clause"       # "aspect", "clause", "smart", "phrase", or "sentence"
 
   # Step 14: Pre-aggregate SVM metrics for feature and pair classification
   step_14_svm_metrics:

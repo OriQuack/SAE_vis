@@ -70,7 +70,7 @@ function computeSummary(values: (number | null)[]): MetricSummary | null {
 
 /** Metric keys used in parallel coordinates axes */
 const PARALLEL_METRIC_KEYS: (keyof CauseMetricScores)[] = [
-  'logFracNonzero', 'consensusScore', 'embedding', 'detection', 'fuzz'
+  'fracNonzero', 'consensusScore', 'embedding', 'detection', 'fuzz'
 ]
 
 /**
