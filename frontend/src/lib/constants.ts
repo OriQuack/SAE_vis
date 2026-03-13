@@ -92,7 +92,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Q: Does any activating example of both features represent the same concept?",
+    instruction: "Q: Does any activating example from one feature represent a concept indistinguishable from the other feature?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: null  // Stage 1 has no parent
   },
@@ -568,10 +568,12 @@ export interface TagTooltipInfo {
 export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   // Stage 1: Structural Soundness
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
-    verdict: 'positive', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable and can be treated as independent'
+    verdict: 'neutral', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable, or at least one feature lacks a coherent concept altogether',
+    example: 'If neither feature is Noisy, shuffled activating examples can be separated into the original features they belong to'
   },
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
-    verdict: 'negative', flow: 'Terminal', description: 'Concept boundary between the two features is ambiguous'
+    verdict: 'negative', flow: 'Terminal', description: 'Both features represent coherent concepts, but the boundary between them is ambiguous',
+    example: 'You cannot separate shuffled activating examples into original features they belong to'
   },
 
   // Stage 2: Explanation Adequacy
@@ -592,7 +594,7 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
     verdict: 'negative', description: 'Explainer omitted a shared semantic or contextual pattern',
-    example: 'e.g. domain, language, tone, sentiment, entity types'
+    example: 'e.g. specific situations, context, domain, topic, sentiment, tone, types, language, sentence components'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency',

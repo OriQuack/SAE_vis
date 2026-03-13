@@ -423,8 +423,11 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
-          20,  // Get 20 diverse pairs via Kennard-Stone
-          clusteringThreshold
+          20,  // Get 20 diverse pairs (12 typical + 8 anomaly)
+          clusteringThreshold,
+          undefined,  // randomSeed
+          'typiclust_odal',
+          0.4  // anomalyRatio: 8/20
         )
         const newIds = new Set(response.suggestions.map(s => s.id))
         setStage1DiversityCache(newIds, signature)
@@ -962,7 +965,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
           >
             Incoherent Splitting
           </span>
-          {' '}pair that represents the same concept.
+          {' '}pair that represents indistinguishable concept.
         </span>
       </div>
 

@@ -627,7 +627,9 @@ export async function getColdStartSuggestions(
   featureIds: number[],
   numSuggestions: number = 20,
   threshold?: number,
-  randomSeed?: number
+  randomSeed?: number,
+  method?: 'kennard-stone' | 'typiclust' | 'typiclust_odal',
+  anomalyRatio?: number
 ): Promise<ColdStartSuggestionsResponse> {
   console.log('[API] getColdStartSuggestions called with:', {
     mode,
@@ -641,7 +643,9 @@ export async function getColdStartSuggestions(
     feature_ids: featureIds,
     num_suggestions: numSuggestions,
     ...(threshold !== undefined && { threshold }),
-    ...(randomSeed !== undefined && { random_seed: randomSeed })
+    ...(randomSeed !== undefined && { random_seed: randomSeed }),
+    ...(method !== undefined && { method }),
+    ...(anomalyRatio !== undefined && { anomaly_ratio: anomalyRatio })
   }
 
   const response = await fetch(`${API_BASE}${API_ENDPOINTS.COLD_START_SUGGESTIONS}`, {

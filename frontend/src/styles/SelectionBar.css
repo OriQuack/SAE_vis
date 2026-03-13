@@ -256,6 +256,30 @@
 }
 
 /* ============================================================================
+   CAUSE LABELS - Collision-avoided labels for Stage 3 cause segments
+   ============================================================================ */
+
+/* Container positioned to the left of the bar */
+.selection-state-bar__cause-labels {
+  position: absolute;
+  right: 100%;
+  top: 0;
+  height: 100%;
+  pointer-events: none;
+  z-index: 150;
+}
+
+/* Individual label at computed position */
+.selection-state-bar__cause-label {
+  position: absolute;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+}
+
+/* ============================================================================
    TOOLTIP - Preview change highlight (used with Tooltip component)
    ============================================================================ */
 

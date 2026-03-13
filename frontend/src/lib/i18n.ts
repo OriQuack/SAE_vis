@@ -30,7 +30,7 @@ export function t(en: string, ko: string): string {
 
 const INSTRUCTION_KO: Record<string, string> = {
   [TAG_CATEGORY_FEATURE_SPLITTING]:
-    'Q: 두 feature의 activating example 중 같은 개념을\n나타내는 것이 있는가?',
+    'Q: 한쪽 feature의 activating example 중에 다른 feature의 \n개념과 구분이 안 되는 것이 하나라도 있는가?',
   [TAG_CATEGORY_QUALITY]:
     'Q: Explanation이 모든 activating example을\n설명하고 있는가?',
   [TAG_CATEGORY_CAUSE]:
@@ -55,11 +55,13 @@ const TAG_TOOLTIP_KO: Record<string, Partial<TagTooltipInfo>> = {
   // Stage 1
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
     flow: 'Stage 2에서 추가 검토',
-    description: '두 feature 사이 개념 분리가 명확해 독립적인 개념으로 취급할 수 있음',
+    description: '두 feature 사이 개념이 명확히 구분되거나, 적어도 하나의 feature에 일관된 개념이 없음',
+    example: '두 feature 모두 Noisy하지 않다면, 섞인 activating example들을 원래 속했던 feature로 분리할 수 있음'
   },
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
     flow: '확정',
-    description: '두 feature 사이 개념 분리가 모호함',
+    description: '두 feature 모두 일관된 개념을 나타내지만 그 사이의 경계가 모호함',
+    example: '섞인 activating example들을 원래 속했던 feature로 분리할 수 없음',
   },
   // Stage 2
   [`${TAG_CATEGORY_QUALITY}:Well-Explained`]: {
@@ -80,10 +82,11 @@ const TAG_TOOLTIP_KO: Record<string, Partial<TagTooltipInfo>> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
     description: 'Example들이 공유하는 의미적, 맥락적 패턴을 explainer가 설명에서 누락한 경우',
-    example: '예: 문맥, 도메인, 토픽, 감정, 톤, 종류, 언어, 특정 상황, 문장 성분',
+    example: '예: 특정 상황, 문맥, 도메인, 토픽, 감정, 톤, 종류, 언어, 문장 성분',
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     description: '일관된 패턴 없이 이질적인 example에 반응',
+    example: '예: 무관한 activation 맥락, 공유되는 어휘적·의미적 패턴 없음',
   },
   // Shared
   'Unsure': {

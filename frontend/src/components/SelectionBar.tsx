@@ -3,8 +3,12 @@ import { type SelectionCategory, TAG_CATEGORY_CAUSE } from '../lib/constants'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
 import { Tooltip } from './Tooltip'
-import { formatCount } from '../lib/utils'
+import { formatCount, useResizeObserver } from '../lib/utils'
 import '../styles/SelectionBar.css'
+
+// Constants for cause label collision avoidance
+const CAUSE_LABEL_HEIGHT = 32  // ~14px name + 12px count + line-height
+const CAUSE_LABEL_GAP = 4      // minimum gap between labels
 
 export interface CategoryCounts {
   confirmed: number
@@ -193,6 +197,109 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
       unsure: previewCounts.unsure - counts.unsure
     }
   }, [counts, previewCounts])
+
+  // Resize observer for bar height (cause label collision avoidance)
+  const { ref: barRef, size: barSize } = useResizeObserver<HTMLDivElement>({
+    defaultHeight: 0,
+    debounceMs: 100
+  })
+
+  // Compute cause label positions with collision avoidance (Stage 3 only)
+  const causeLabels = useMemo(() => {
+    if (stage !== 'stage3' || !causeCounts || !isVertical || !showLabels) return null
+
+    const barHeight = barSize.height
+    if (barHeight <= 0) return null
+
+    const total = causeCounts.total
+    if (total === 0) return null
+
+    const causeColors = {
+      missedNgram: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#E69F00',
+      missedContext: getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#D55E00',
+      noisyActivation: getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#CC79A7',
+      wellExplained: getTagColor(TAG_CATEGORY_CAUSE, 'Well-Explained') || '#009E73',
+      unsure: stageColors.unsure
+    }
+
+    const categories = [
+      { key: 'missedNgram', label: 'Missed Syntax', manual: causeCounts.missedNgram, auto: causeCounts.missedNgramAuto },
+      { key: 'missedContext', label: 'Missed Context', manual: causeCounts.missedContext, auto: causeCounts.missedContextAuto },
+      { key: 'noisyActivation', label: 'Noisy Activation', manual: causeCounts.noisyActivation, auto: causeCounts.noisyActivationAuto },
+      { key: 'wellExplained', label: 'Well-Explained', manual: causeCounts.wellExplained, auto: causeCounts.wellExplainedAuto },
+    ]
+
+    // Build label entries with ideal Y positions based on segment midpoints
+    const labels: { key: string; label: string; count: number; color: string; idealY: number; adjustedY: number }[] = []
+    let cumulativePercent = 0
+
+    for (const cat of categories) {
+      const manualPercent = total > 0 ? (cat.manual / total) * 100 : 0
+      const autoPercent = total > 0 ? (cat.auto / total) * 100 : 0
+
+      if (cat.manual > 0) {
+        const midPercent = cumulativePercent + manualPercent / 2
+        const idealY = (midPercent / 100) * barHeight
+        labels.push({
+          key: cat.key,
+          label: cat.label,
+          count: cat.manual,
+          color: causeColors[cat.key as keyof typeof causeColors],
+          idealY,
+          adjustedY: idealY - CAUSE_LABEL_HEIGHT / 2
+        })
+        cumulativePercent += manualPercent
+      }
+
+      if (cat.auto > 0) {
+        cumulativePercent += autoPercent
+      }
+    }
+
+    // Unsure segment
+    if (causeCounts.unsure > 0) {
+      const unsurePercent = total > 0 ? (causeCounts.unsure / total) * 100 : 0
+      const midPercent = cumulativePercent + unsurePercent / 2
+      const idealY = (midPercent / 100) * barHeight
+      labels.push({
+        key: 'unsure',
+        label: 'Unsure',
+        count: causeCounts.unsure,
+        color: causeColors.unsure,
+        idealY,
+        adjustedY: idealY - CAUSE_LABEL_HEIGHT / 2
+      })
+    }
+
+    if (labels.length === 0) return null
+
+    // Collision avoidance: greedy top-to-bottom
+    for (let i = 0; i < labels.length; i++) {
+      if (i > 0) {
+        const prevBottom = labels[i - 1].adjustedY + CAUSE_LABEL_HEIGHT
+        if (labels[i].adjustedY < prevBottom + CAUSE_LABEL_GAP) {
+          labels[i].adjustedY = prevBottom + CAUSE_LABEL_GAP
+        }
+      }
+      labels[i].adjustedY = Math.max(0, labels[i].adjustedY)
+    }
+
+    // If last label extends beyond bar, push everything up
+    if (labels.length > 0) {
+      const lastLabel = labels[labels.length - 1]
+      if (lastLabel.adjustedY + CAUSE_LABEL_HEIGHT > barHeight) {
+        lastLabel.adjustedY = Math.max(0, barHeight - CAUSE_LABEL_HEIGHT)
+        for (let i = labels.length - 2; i >= 0; i--) {
+          const nextTop = labels[i + 1].adjustedY
+          if (labels[i].adjustedY + CAUSE_LABEL_HEIGHT + CAUSE_LABEL_GAP > nextTop) {
+            labels[i].adjustedY = Math.max(0, nextTop - CAUSE_LABEL_HEIGHT - CAUSE_LABEL_GAP)
+          }
+        }
+      }
+    }
+
+    return labels
+  }, [stage, causeCounts, isVertical, showLabels, barSize.height, stageColors.unsure])
 
   // Helper to get count/percentage from objects
   const getCategoryValue = (category: SelectionCategory, obj: any): number => {
@@ -444,13 +551,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
             onMouseMove={handleCauseMouseMove}
             onMouseLeave={handleCauseMouseLeave}
           >
-            {/* Left-side label for vertical orientation */}
-            {isVertical && showLabels && (
-              <div className="selection-state-bar__left-label">
-                <span className="selection-state-bar__label-name">{label}</span>
-                <span className="selection-state-bar__label-count">({manual.toLocaleString()})</span>
-              </div>
-            )}
             {/* Inline label for horizontal orientation */}
             {!isVertical && showLabels && percentage > labelThreshold && (
               <span className="selection-state-bar__segment-label">
@@ -525,13 +625,6 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
           onMouseMove={handleCauseMouseMove}
           onMouseLeave={handleCauseMouseLeave}
         >
-          {/* Left-side label for vertical orientation */}
-          {isVertical && showLabels && (
-            <div className="selection-state-bar__left-label">
-              <span className="selection-state-bar__label-name">Unsure</span>
-              <span className="selection-state-bar__label-count">({causeCounts.unsure.toLocaleString()})</span>
-            </div>
-          )}
           {/* Inline label for horizontal orientation */}
           {!isVertical && showLabels && percentage > labelThreshold && (
             <span className="selection-state-bar__segment-label">
@@ -543,6 +636,57 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     }
 
     return segments
+  }
+
+  // Render collision-avoided labels for Stage 3 cause segments
+  const renderCauseLabels = () => {
+    if (!causeLabels || !isVertical) return null
+
+    const DISPLACEMENT_THRESHOLD = 3
+
+    return (
+      <>
+        {/* Label overlay positioned to the left of the bar */}
+        <div className="selection-state-bar__cause-labels">
+          {causeLabels.map(l => (
+            <div
+              key={`label-${l.key}`}
+              className="selection-state-bar__cause-label"
+              style={{ top: l.adjustedY }}
+            >
+              <span className="selection-state-bar__label-name">{l.label}</span>
+              <span className="selection-state-bar__label-count">({l.count.toLocaleString()})</span>
+            </div>
+          ))}
+        </div>
+        {/* Connector lines for displaced labels */}
+        <svg
+          style={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            width: 0,
+            height: '100%',
+            overflow: 'visible',
+            pointerEvents: 'none'
+          }}
+        >
+          {causeLabels
+            .filter(l => Math.abs((l.adjustedY + CAUSE_LABEL_HEIGHT / 2) - l.idealY) > DISPLACEMENT_THRESHOLD)
+            .map(l => (
+              <line
+                key={`connector-${l.key}`}
+                x1={-3}
+                y1={l.idealY}
+                x2={-3}
+                y2={l.adjustedY + CAUSE_LABEL_HEIGHT / 2}
+                stroke="#9ca3af"
+                strokeWidth={1}
+              />
+            ))}
+        </svg>
+      </>
+    )
   }
 
   return (
@@ -557,6 +701,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     >
       {/* Bar with segments */}
       <div
+        ref={barRef}
         className="selection-state-bar__bar"
         style={{
           width: isVertical ? 42 : undefined,
@@ -567,6 +712,7 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         }}
       >
         {stage === 'stage3' && causeCounts ? renderCauseSegments() : renderSegments()}
+        {stage === 'stage3' && renderCauseLabels()}
       </div>
 
       {/* Legend - Only show for horizontal orientation */}

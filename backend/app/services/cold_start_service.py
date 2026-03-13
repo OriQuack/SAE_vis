@@ -13,6 +13,9 @@ import hashlib
 import random
 from typing import List, Dict, Optional
 from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.neighbors import NearestNeighbors
+from sklearn.ensemble import IsolationForest
 
 from ..models.cold_start import (
     ColdStartSuggestionRequest,
@@ -55,7 +58,9 @@ class ColdStartService:
             str(sorted(request.feature_ids)),
             str(request.num_suggestions),
             str(request.threshold) if request.threshold else "none",
-            str(request.random_seed) if request.random_seed is not None else "ks"
+            str(request.random_seed) if request.random_seed is not None else "ks",
+            request.method,
+            str(request.anomaly_ratio) if request.method == 'typiclust_odal' else ""
         ]
         key_str = "_".join(key_parts)
         return hashlib.md5(key_str.encode()).hexdigest()
@@ -142,13 +147,21 @@ class ColdStartService:
         feature_id_list = metrics_df["feature_id"].to_list()
         metrics_matrix = metrics_df.select(SVM_FEATURE_METRICS).to_numpy()
 
-        # Standardize for Kennard-Stone
+        # Standardize
         scaler = StandardScaler()
         metrics_scaled = scaler.fit_transform(metrics_matrix)
 
-        # Select diverse samples via Kennard-Stone
+        # Select samples via chosen method
+        method = request.method
         n_select = min(num_suggestions, len(feature_id_list))
-        selected_indices = self._kennard_stone(metrics_scaled, n_select)
+        if method == 'typiclust_odal':
+            selected_indices, labels = self._typiclust_odal(metrics_scaled, n_select, request.anomaly_ratio, k_nn=10)
+        elif method == 'typiclust':
+            selected_indices = self._typiclust(metrics_scaled, n_select, k_nn=10)
+            labels = [f"Typiclust sample {i + 1}" for i in range(len(selected_indices))]
+        else:
+            selected_indices = self._kennard_stone(metrics_scaled, n_select)
+            labels = [f"Kennard-Stone sample {i + 1}" for i in range(len(selected_indices))]
 
         # Build suggestions
         suggestions = []
@@ -158,14 +171,14 @@ class ColdStartService:
                 id=str(feature_id),
                 cluster_id=idx,
                 is_medoid=True,
-                diversity_reason=f"Kennard-Stone sample {idx + 1}",
+                diversity_reason=labels[idx],
                 metrics={
                     metric: float(metrics_matrix[sample_idx, i])
                     for i, metric in enumerate(SVM_FEATURE_METRICS)
                 }
             ))
 
-        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse features via Kennard-Stone")
+        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse features via {method}")
 
         return ColdStartSuggestionsResponse(
             suggestions=suggestions,
@@ -268,14 +281,21 @@ class ColdStartService:
         if len(valid_pairs) < num_suggestions:
             return self._random_fallback_pairs(valid_pairs, min(num_suggestions, len(valid_pairs)))
 
-        # Kennard-Stone on pair vectors
+        # Select diverse samples
         pair_matrix = np.array(pair_vectors)
         scaler = StandardScaler()
         pair_scaled = scaler.fit_transform(pair_matrix)
 
-        # Select diverse samples via Kennard-Stone
+        method = request.method
         n_select = min(num_suggestions, len(valid_pairs))
-        selected_indices = self._kennard_stone(pair_scaled, n_select)
+        if method == 'typiclust_odal':
+            selected_indices, labels = self._typiclust_odal(pair_scaled, n_select, request.anomaly_ratio, k_nn=7)
+        elif method == 'typiclust':
+            selected_indices = self._typiclust(pair_scaled, n_select, k_nn=10)
+            labels = [f"Typiclust sample {i + 1}" for i in range(len(selected_indices))]
+        else:
+            selected_indices = self._kennard_stone(pair_scaled, n_select)
+            labels = [f"Kennard-Stone sample {i + 1}" for i in range(len(selected_indices))]
 
         suggestions = []
         for idx, sample_idx in enumerate(selected_indices):
@@ -284,10 +304,10 @@ class ColdStartService:
                 id=pair["pair_key"],
                 cluster_id=idx,
                 is_medoid=True,
-                diversity_reason=f"Kennard-Stone sample {idx + 1}"
+                diversity_reason=labels[idx]
             ))
 
-        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse pairs via Kennard-Stone")
+        logger.info(f"[ColdStart] Selected {len(suggestions)} diverse pairs via {method}")
 
         return ColdStartSuggestionsResponse(
             suggestions=suggestions,
@@ -330,6 +350,140 @@ class ColdStartService:
             selected.append(next_idx)
 
         return selected
+
+    def _typiclust(self, X: np.ndarray, n: int, k_nn: int = 7) -> List[int]:
+        """
+        Typiclust: KMeans clustering + KNN typicality scoring.
+
+        Selects the most "typical" (densely surrounded) sample from each cluster,
+        as opposed to Kennard-Stone which selects maximally spread-out points.
+
+        Args:
+            X: Data matrix (n_samples, n_features), should be pre-scaled
+            n: Number of samples to select (= number of clusters)
+            k_nn: Max nearest neighbors for typicality (adapted per cluster:
+                  min(k_nn, cluster_size - 1); clusters < 5 fall back to centroid)
+
+        Returns:
+            List of selected sample indices
+        """
+        n_samples = X.shape[0]
+        if n >= n_samples:
+            return list(range(n_samples))
+
+        km = KMeans(n_clusters=n, init='k-means++', n_init=10, random_state=42)
+        labels = km.fit_predict(X)
+
+        selected: List[int] = []
+        for c in range(n):
+            cluster_mask = np.where(labels == c)[0]
+            if len(cluster_mask) == 0:
+                continue
+
+            cluster_size = len(cluster_mask)
+            typicality = np.empty(0)
+
+            if cluster_size < 5:
+                # Small cluster fallback: nearest to centroid
+                dists = np.linalg.norm(X[cluster_mask] - km.cluster_centers_[c], axis=1)
+                best_local = int(np.argmin(dists))
+                idx = int(cluster_mask[best_local])
+                use_typicality = False
+            else:
+                # Adaptive k: min(k_nn, cluster_size - 1)
+                k = min(k_nn, cluster_size - 1)
+                cluster_points = X[cluster_mask]
+                nn = NearestNeighbors(n_neighbors=k + 1, metric='euclidean')
+                nn.fit(cluster_points)
+                distances, _ = nn.kneighbors(cluster_points)
+                mean_dists = distances[:, 1:].mean(axis=1)  # exclude self
+                typicality = 1.0 / (mean_dists + 1e-10)
+                best_local = int(np.argmax(typicality))
+                idx = int(cluster_mask[best_local])
+                use_typicality = True
+
+            # Avoid duplicates
+            if idx in selected:
+                if use_typicality:
+                    order = np.argsort(-typicality)
+                    for alt in order:
+                        alt_idx = int(cluster_mask[alt])
+                        if alt_idx not in selected:
+                            idx = alt_idx
+                            break
+                else:
+                    dists = np.linalg.norm(X[cluster_mask] - km.cluster_centers_[c], axis=1)
+                    order = np.argsort(dists)
+                    for alt in order:
+                        alt_idx = int(cluster_mask[alt])
+                        if alt_idx not in selected:
+                            idx = alt_idx
+                            break
+
+            selected.append(idx)
+
+        return selected
+
+    def _typiclust_odal(
+        self, X: np.ndarray, n: int, anomaly_ratio: float = 0.25, k_nn: int = 7
+    ) -> tuple[List[int], List[str]]:
+        """
+        Typiclust + Isolation Forest anomaly detection (simplified ODAL).
+
+        Combines KMeans+KNN typicality for coverage with Isolation Forest to
+        surface minority candidates in low-density regions.
+
+        Args:
+            X: Data matrix (n_samples, n_features), should be pre-scaled
+            n: Total number of samples to select
+            anomaly_ratio: Fraction of n allocated to anomaly detection
+            k_nn: Max nearest neighbors for typicality scoring
+
+        Returns:
+            Tuple of (selected indices, diversity reason labels)
+        """
+        n_samples = X.shape[0]
+        if n >= n_samples:
+            labels = [f"Typiclust sample {i + 1}" for i in range(n_samples)]
+            return list(range(n_samples)), labels
+
+        n_anomaly = max(1, round(n * anomaly_ratio))
+        n_typical = n - n_anomaly
+
+        # Step 1: Typical samples via Typiclust
+        typical_indices = self._typiclust(X, n_typical, k_nn)
+        typical_set = set(typical_indices)
+
+        # Step 2: Anomaly detection via Isolation Forest
+        iso = IsolationForest(
+            n_estimators=100, contamination=0.1,
+            max_features=1.0, max_samples='auto', random_state=42
+        )
+        iso.fit(X)
+        anomaly_scores = iso.decision_function(X)  # lower = more anomalous
+
+        # Sort by anomaly score ascending (most anomalous first),
+        # pick top n_anomaly not already in typical set
+        sorted_by_anomaly = np.argsort(anomaly_scores)
+        anomaly_indices: List[int] = []
+        for idx in sorted_by_anomaly:
+            if int(idx) not in typical_set:
+                anomaly_indices.append(int(idx))
+                if len(anomaly_indices) >= n_anomaly:
+                    break
+
+        selected = typical_indices + anomaly_indices
+        labels = (
+            [f"Typiclust sample {i + 1}" for i in range(len(typical_indices))] +
+            [f"Anomaly sample {i + 1}" for i in range(len(anomaly_indices))]
+        )
+
+        logger.info(
+            f"[ColdStart] Typiclust-ODAL: {len(typical_indices)} typical + "
+            f"{len(anomaly_indices)} anomaly = {len(selected)} total"
+        )
+
+        return selected, labels
 
     async def _extract_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
         """Extract 14D metrics from svm_feature_metrics parquet (pre-aggregated)."""

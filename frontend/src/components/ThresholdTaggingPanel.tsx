@@ -211,17 +211,31 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
       <div className="threshold-tagging-panel__histogram-column">
         <h4 className="subheader" data-tooltip-title="Confidence Histogram" data-tooltip={mode === 'cause' ? t('Distance to the nearest decision boundary. Higher values indicate more confident classification.', '가장 가까운 decision boundary까지의 거리. 높을수록 confident한 classification.') : t(`Confidence of the classifier for each ${mode === 'pair' ? 'pair' : 'feature'}. Extremes are confident; near zero is ambiguous.`, `각 ${mode === 'pair' ? 'pair' : 'feature'}에 대한 classifier confidence. 극단값은 확신, 0 근처는 모호.`)}>Confidence Histogram {(activeStage === 'apply' || (activeStage === 'learn' && mode === 'cause')) && (
           <span className="instruction-subheader" style={{ marginLeft: 8 }}>
-            {t('Drag the', '드래그하여')} <ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
-              ? t(' to set Unsure threshold for Uncertainty list above and category scatter', ' 위 Uncertainty 목록과 category scatter의 Unsure threshold 설정')
-              : <> {t('to set a threshold to filter the Disagreement list above', '위 Disagreement 목록의 필터링 threshold 설정')}{mode === 'cause' ? t(' and category scatter', ' 및 category scatter') : ''}</>}
+            {t('Drag the ', '')}<ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
+              ? t('to set Unsure threshold for Uncertainty list above and category scatter', '을 드래그하여 위 Uncertainty 목록과 category scatter의 Unsure threshold 설정')
+              : t(
+                  mode === 'cause'
+                    ? 'to set a threshold to filter the Disagreement list above and category scatter'
+                    : 'to set a threshold to filter the Disagreement list above',
+                  mode === 'cause'
+                    ? '을 드래그하여 위 Disagreement 목록 및 category scatter를 필터링할 threshold 설정'
+                    : '을 드래그하여 위 Disagreement 목록을 필터링할 threshold 설정'
+                )}
           </span>
         )}</h4>
         {showHandlePopover && (
           <GuidancePopover
             anchorRef={thresholdHandleRef}
-            message={<>{t('Drag the', '드래그하여')} <ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
-              ? t(' to set Unsure threshold for Uncertainty list above and category scatter', ' 위 Uncertainty 목록과 category scatter의 Unsure threshold 설정')
-              : <> {t('to set a threshold to filter the Disagreement list above', '위 Disagreement 목록의 필터링 threshold 설정')}{mode === 'cause' ? t(' and category scatter', ' 및 category scatter') : ''}</>}</>}
+            message={<>{t('Drag the ', '')}<ThresholdHandleIcon orientation="horizontal" width={20} height={18} className="view-threshold-icon" />{activeStage === 'learn' && mode === 'cause'
+              ? t('to set Unsure threshold for Uncertainty list above and category scatter', '을 드래그하여 위 Uncertainty 목록과 category scatter의 Unsure threshold 설정')
+              : t(
+                  mode === 'cause'
+                    ? 'to set a threshold to filter the Disagreement list above and category scatter'
+                    : 'to set a threshold to filter the Disagreement list above',
+                  mode === 'cause'
+                    ? '을 드래그하여 위 Disagreement 목록 및 category scatter를 필터링할 threshold 설정'
+                    : '을 드래그하여 위 Disagreement 목록을 필터링할 threshold 설정'
+                )}</>}
             onDismiss={() => setShowHandlePopover(false)}
             position="above"
           />

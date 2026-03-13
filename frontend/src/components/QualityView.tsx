@@ -274,7 +274,10 @@ const QualityView: React.FC<QualityViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          20  // Get 20 diverse features via Kennard-Stone
+          20,  // Get 20 diverse features via Typiclust
+          undefined,
+          undefined,
+          'typiclust'
         )
         const newIds = new Set(response.suggestions.map(s => parseInt(s.id, 10)))
         setStage2DiversityCache(newIds, signature)

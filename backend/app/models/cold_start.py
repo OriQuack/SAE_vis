@@ -37,6 +37,16 @@ class ColdStartSuggestionRequest(BaseModel):
         default=None,
         description="If provided, use random sampling with this seed instead of Kennard-Stone"
     )
+    method: Literal['kennard-stone', 'typiclust', 'typiclust_odal'] = Field(
+        default='kennard-stone',
+        description="Sampling method: 'kennard-stone' (max diversity), 'typiclust' (cluster typicality), or 'typiclust_odal' (typicality + anomaly detection)"
+    )
+    anomaly_ratio: float = Field(
+        default=0.25,
+        description="Fraction of suggestions allocated to anomaly detection (typiclust_odal only)",
+        ge=0.0,
+        le=0.5
+    )
 
 
 class ColdStartSuggestion(BaseModel):
