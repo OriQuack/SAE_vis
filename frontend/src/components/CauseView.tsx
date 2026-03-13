@@ -1356,7 +1356,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       </div>
                     </div>
                     <div className="cause-view__consensus-with-metrics">
-                      <ConsensusSection consensus={consensus} expanded />
+                      <ConsensusSection consensus={consensus} expanded hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} />
                       <div className="cause-view__metrics-container">
                         <CauseMetricParallelCoords
                           categoryBands={categoryBands}

@@ -52,7 +52,7 @@ class WeightedMLPClassifier:
 
     Parameters
     ----------
-    hidden_layer_sizes : tuple of int, default=(32, 16)
+    hidden_layer_sizes : tuple of int, default=(16, 16)
         The number of neurons in each hidden layer.
     alpha : float, default=0.01
         L2 regularization strength (weight_decay in Adam optimizer).
@@ -76,7 +76,7 @@ class WeightedMLPClassifier:
 
     def __init__(
         self,
-        hidden_layer_sizes: Tuple[int, ...] = (32, 16),
+        hidden_layer_sizes: Tuple[int, ...] = (16, 16),
         alpha: float = 0.01,
         max_iter: int = 500,
         early_stopping: bool = True,
@@ -96,7 +96,7 @@ class WeightedMLPClassifier:
         self.learning_rate_init = learning_rate_init
         self.batch_size = batch_size
         self.random_state = random_state
-        # CPU is faster for this tiny model (688 params) — GPU kernel launch overhead dominates
+        # CPU is faster for this tiny model (~500 params) — GPU kernel launch overhead dominates
         self.device = torch.device(device or 'cpu')
 
         self._model: Optional[_MLPNetwork] = None

@@ -46,7 +46,7 @@ async def cold_start_suggestions(
     Returns suggestions that maximize diversity for effective SVM training.
 
     For Stage 1 (pair mode):
-        - Clusters pairs in 11D space (5 sum + 5 diff + 1 decoder_sim)
+        - Clusters pairs in 8D space (4 min/max intra + 4 inter)
         - Requires threshold parameter for pair generation
 
     For Stage 2 (feature mode):

@@ -11,7 +11,7 @@ Output:
 1. svm_feature_metrics.parquet - Feature-level metrics (1 row per feature)
 2. svm_pair_metrics.parquet - Pair-level metrics (1 row per pair)
 
-Feature Metrics Schema (15 columns):
+Feature Metrics Schema (12 columns):
 - feature_id: UInt32
 - score_embedding: Float32 (mean across 3 explainers)
 - score_fuzz: Float32 (mean across 3 explainers)
@@ -22,11 +22,11 @@ Feature Metrics Schema (15 columns):
 - intra_ngram_jaccard: Float32 (max of char/word ngram from activation_display)
 - intra_ngram_jaccard_std: Float32 (std of pairwise Jaccard for the best k-size)
 - intra_semantic_sim: Float32 (from activation_display)
-- score_embedding_std: Float32 (cross-explainer disagreement)
-- score_fuzz_std: Float32 (cross-explainer disagreement)
-- score_detection_std: Float32 (cross-explainer disagreement)
 - explanation_semantic_sim_std: Float32 (cross-explainer disagreement)
 - intra_semantic_sim_std: Float32 (from activation_display)
+
+Note: score_embedding_std, score_fuzz_std, score_detection_std dropped — n=3 std is unreliable.
+Cross-explainer disagreement is better captured by explanation_semantic_sim + consensus_score.
 
 Pair Metrics Schema (6 columns):
 - feature_a: UInt32 (smaller feature ID)
@@ -62,7 +62,6 @@ logger = logging.getLogger(__name__)
 MEDIAN_IMPUTE_COLS = [
     "score_embedding", "score_fuzz", "score_detection",
     "explanation_semantic_sim", "frac_nonzero", "consensus_score",
-    "score_embedding_std", "score_fuzz_std", "score_detection_std",
     "explanation_semantic_sim_std",
 ]
 # Category B: null = no pattern exists → 0 is correct
@@ -214,9 +213,8 @@ class SvmMetricsProcessor(BaseProcessor):
             pl.col("explanation_semantic_sim").mean().alias("explanation_semantic_sim"),
             pl.col("frac_nonzero").mean().alias("frac_nonzero"),
             # Std metrics (cross-explainer disagreement)
-            pl.col("score_embedding").std().alias("score_embedding_std"),
-            pl.col("score_fuzz").std().alias("score_fuzz_std"),
-            pl.col("score_detection").std().alias("score_detection_std"),
+            # Note: score_*_std dropped — n=3 std is unreliable; cross-explainer disagreement
+            # is better captured by explanation_semantic_sim + consensus_score
             pl.col("explanation_semantic_sim").std().alias("explanation_semantic_sim_std"),
         ])
 
@@ -404,7 +402,6 @@ class SvmMetricsProcessor(BaseProcessor):
             "score_embedding", "score_fuzz", "score_detection",
             "explanation_semantic_sim", "frac_nonzero", "consensus_score",
             "intra_ngram_jaccard", "intra_ngram_jaccard_std", "intra_semantic_sim",
-            "score_embedding_std", "score_fuzz_std", "score_detection_std",
             "explanation_semantic_sim_std", "intra_semantic_sim_std"
         ]
         for col in float_cols:
@@ -515,9 +512,6 @@ class SvmMetricsProcessor(BaseProcessor):
             "intra_ngram_jaccard": pl.Float32,
             "intra_ngram_jaccard_std": pl.Float32,
             "intra_semantic_sim": pl.Float32,
-            "score_embedding_std": pl.Float32,
-            "score_fuzz_std": pl.Float32,
-            "score_detection_std": pl.Float32,
             "explanation_semantic_sim_std": pl.Float32,
             "intra_semantic_sim_std": pl.Float32,
         }

@@ -210,7 +210,6 @@ All backend-required files are in `/data/output/`.
   - `intra_semantic_sim`
   - `intra_semantic_sim_std`
 - Cross-explainer disagreement (std):
-  - `score_embedding_std`, `score_fuzz_std`, `score_detection_std`
   - `explanation_semantic_sim_std`
 
 **Note**: `log_frac_nonzero` is computed at runtime during SVM training

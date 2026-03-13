@@ -1136,7 +1136,7 @@ const QualityView: React.FC<QualityViewProps> = ({
                     <div style={{ flex: 1 }} />
                     <ConsensusLegend />
                   </div>
-                  <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} />
+                  <ConsensusSection consensus={consensus} onPhraseHover={setHighlightPhrases} hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} />
 
                   {/* Explanation Header */}
                   <div className="quality-view__explanation-header">

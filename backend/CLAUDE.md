@@ -116,8 +116,8 @@ class CommitteeService:
         rf = RandomForestClassifier(n_estimators=100, max_depth=5)
         rf.fit(X_train, y_train, sample_weight=balanced_weights)
 
-        # 2. Train PyTorch MLP (WeightedMLPClassifier, architecture: (32, 16))
-        mlp = WeightedMLPClassifier(hidden_sizes=[32, 16])
+        # 2. Train PyTorch MLP (WeightedMLPClassifier, architecture: (16, 16))
+        mlp = WeightedMLPClassifier(hidden_sizes=[16, 16])
         mlp.fit(X_train_scaled, y_train, sample_weight=sample_weights)
 
         return rf, mlp, scaler
@@ -164,8 +164,8 @@ Diversity-based representative sampling for initializing tagging:
 # services/cold_start_service.py
 async def get_representative_features(feature_ids, n_samples, method):
     # Kennard-Stone algorithm for diversity-based sampling
-    # Features: Uses SVM_FEATURE_METRICS (14D) from data_constants.py
-    # Pairs: Uses 11D vectors (4+4 intra from SVM_PAIR_INTRA_METRICS + 3 inter from svm_pair_metrics)
+    # Features: Uses SVM_FEATURE_METRICS (11D) from data_constants.py
+    # Pairs: Uses 8D vectors (4 min/max intra + 4 inter from svm_pair_metrics)
     # Returns representative feature/pair IDs for cold start
 ```
 
@@ -324,7 +324,7 @@ Sort features by SVM similarity
 ```
 
 #### POST /api/pair-similarity-sort
-Sort pairs by SVM similarity (11-dimensional vectors)
+Sort pairs by SVM similarity (8-dimensional vectors)
 
 **Request**:
 ```json
@@ -533,7 +533,7 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Purpose**: Pre-aggregated feature-level metrics for SVM (Stage 2/3)
 - **Size**: ~569KB
 - **Key Columns**: Mean metrics across explainers (score_embedding, score_fuzz, score_detection, consensus_score, etc.)
-- **Used by**: classification_service.py (14D SVM feature vectors), pair_similarity_service.py (4D intra-feature vectors)
+- **Used by**: classification_service.py (11D SVM feature vectors), pair_similarity_service.py (4D intra-feature vectors)
 
 #### svm_pair_metrics.parquet
 - **Location**: `/data/output/svm_pair_metrics.parquet`

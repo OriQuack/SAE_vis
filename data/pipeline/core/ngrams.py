@@ -118,10 +118,6 @@ def extract_word_ngrams(
     for ngram_size in ngram_sizes:
         if len(words_with_positions) >= ngram_size:
             for i in range(len(words_with_positions) - ngram_size + 1):
-                # Safety check for index bounds
-                if i >= len(words_with_positions) or i + ngram_size > len(words_with_positions):
-                    continue
-
                 # Create word n-gram (space-separated, lowercase)
                 word_ngram = " ".join([w[0] for w in words_with_positions[i:i+ngram_size]])
                 # Use token position of first word in n-gram
@@ -178,90 +174,17 @@ def find_top_ngram(
         return min(tied_ngrams)
 
 
-def compute_per_k_jaccard_all(
+def compute_per_k_jaccard(
     examples_a: List[Tuple],
     examples_b: List[Tuple],
     ngram_sizes: List[int],
     window_size: int,
     is_word: bool = False
-) -> Dict[int, float]:
-    """Compute Jaccard similarity for each k-size separately.
+) -> Tuple[Dict[int, float], Optional[float], Optional[float]]:
+    """Compute Jaccard similarity for each k-size separately in a single pass.
 
-    Returns a dictionary mapping k-size to mean Jaccard similarity.
-    This enables selecting the "longest n-gram above threshold" for display.
-
-    Args:
-        examples_a: List of (prompt_id, activation, tokens, max_pos) tuples
-        examples_b: Same format, or same as examples_a for intra-feature
-        ngram_sizes: List of n-gram sizes (e.g., [2, 3, 4, 5] for char, [1, 2, 3] for word)
-        window_size: Token window size around max activation position
-        is_word: If True, extract word n-grams; if False, extract character n-grams
-
-    Returns:
-        Dict mapping k-size → mean Jaccard (e.g., {2: 0.3, 3: 0.5, 4: 0.4, 5: 0.2})
-    """
-    from .tokens import extract_token_window
-    import numpy as np
-
-    if not examples_a or not examples_b:
-        return {}
-
-    # Check if this is intra-feature (same list) comparison
-    is_intra_feature = examples_a is examples_b
-
-    per_k_results = {}
-
-    for k in ngram_sizes:
-        # Extract n-gram sets for this k only
-        sets_a = []
-        for _, _, tokens, max_pos in examples_a:
-            window = extract_token_window(tokens, max_pos, window_size)
-            if is_word:
-                ngrams = extract_word_ngrams(window, [k])
-            else:
-                ngrams = extract_token_char_ngrams_simple(window, [k])
-            sets_a.append(set(ngrams.keys()))
-
-        # For inter-feature, extract sets_b separately
-        if is_intra_feature:
-            sets_b = sets_a
-        else:
-            sets_b = []
-            for _, _, tokens, max_pos in examples_b:
-                window = extract_token_window(tokens, max_pos, window_size)
-                if is_word:
-                    ngrams = extract_word_ngrams(window, [k])
-                else:
-                    ngrams = extract_token_char_ngrams_simple(window, [k])
-                sets_b.append(set(ngrams.keys()))
-
-        # Compute pairwise Jaccard
-        pairwise = []
-        for i, set_a in enumerate(sets_a):
-            for j, set_b in enumerate(sets_b):
-                # For intra-feature, skip self-comparison (same index)
-                if is_intra_feature and i >= j:
-                    continue
-                pairwise.append(compute_jaccard_similarity(set_a, set_b))
-
-        if pairwise:
-            per_k_results[k] = float(np.mean(pairwise))
-
-    return per_k_results
-
-
-def compute_per_k_max_jaccard(
-    examples_a: List[Tuple],
-    examples_b: List[Tuple],
-    ngram_sizes: List[int],
-    window_size: int,
-    is_word: bool = False
-) -> Tuple[Optional[float], Optional[float]]:
-    """Compute Jaccard similarity per k-size, return max mean and its corresponding std.
-
-    This addresses the issue where pooling all n-gram sizes together causes
-    set cardinality explosion, resulting in very low Jaccard scores even when
-    features share the same n-gram/word patterns.
+    Returns per-k mean Jaccard values, plus the max mean and its corresponding std.
+    This avoids set cardinality explosion from pooling all n-gram sizes together.
 
     For intra-feature comparison: pass the same list as examples_a and examples_b
     For inter-feature comparison: pass different lists
@@ -274,19 +197,23 @@ def compute_per_k_max_jaccard(
         is_word: If True, extract word n-grams; if False, extract character n-grams
 
     Returns:
-        Tuple of (max_mean_jaccard, corresponding_std), or (None, None) if empty inputs
+        Tuple of (per_k_means, max_mean, max_std):
+        - per_k_means: Dict mapping k-size → mean Jaccard (e.g., {2: 0.3, 3: 0.5})
+        - max_mean: The highest per-k mean Jaccard, or None if empty
+        - max_std: The std corresponding to the best k, or None if empty
     """
     from .tokens import extract_token_window
     import numpy as np
 
     if not examples_a or not examples_b:
-        return None, None
+        return {}, None, None
 
     # Check if this is intra-feature (same list) comparison
     is_intra_feature = examples_a is examples_b
 
+    per_k_means = {}
     # Store (mean, std, k_size) tuples to enable tie-breaking by length
-    per_k_results = []
+    per_k_stats = []
 
     for k in ngram_sizes:
         # Extract n-gram sets for this k only
@@ -322,14 +249,17 @@ def compute_per_k_max_jaccard(
                 pairwise.append(compute_jaccard_similarity(set_a, set_b))
 
         if pairwise:
-            per_k_results.append((float(np.mean(pairwise)), float(np.std(pairwise)), k))
+            mean_val = float(np.mean(pairwise))
+            std_val = float(np.std(pairwise))
+            per_k_means[k] = mean_val
+            per_k_stats.append((mean_val, std_val, k))
 
-    if not per_k_results:
-        return None, None
+    if not per_k_stats:
+        return per_k_means, None, None
 
     # Return max Jaccard; prefer longer n-gram (larger k) on tie
-    best = max(per_k_results, key=lambda x: (x[0], x[2]))
-    return best[0], best[1]
+    best = max(per_k_stats, key=lambda x: (x[0], x[2]))
+    return per_k_means, best[0], best[1]
 
 
 def select_longest_ngram_above_threshold(

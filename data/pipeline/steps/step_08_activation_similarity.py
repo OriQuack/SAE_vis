@@ -44,8 +44,7 @@ from core.tokens import extract_token_window, calculate_window_offset
 from core.ngrams import (
     extract_token_char_ngrams,
     extract_word_ngrams,
-    compute_per_k_max_jaccard,
-    compute_per_k_jaccard_all,
+    compute_per_k_jaccard,
     find_top_ngram,
 )
 from core.embeddings import compute_intra_feature_semantic_similarity
@@ -114,6 +113,10 @@ class ActivationSimilarityProcessor(BaseProcessor):
         self.embeddings_df = None
         self.activation_df = None
 
+        # Pre-built lookup indices for performance
+        self._embedding_prompt_ids: Dict[int, List[int]] = {}
+        self._activation_index: Dict[int, Dict[int, Dict]] = {}
+
     def _load_data(self) -> None:
         """Load activation examples and embeddings data."""
         logger.info(f"Loading activation examples from {self.activation_path}")
@@ -126,10 +129,36 @@ class ActivationSimilarityProcessor(BaseProcessor):
         if not self.embeddings_path.exists():
             raise FileNotFoundError(
                 f"Pre-computed embeddings not found: {self.embeddings_path}\n"
-                f"Please run step_07_activation_embeddings first."
+                f"Please run step_05_activation_embeddings first."
             )
         self.embeddings_df = pl.read_parquet(self.embeddings_path)
         logger.info(f"Loaded embeddings for {len(self.embeddings_df):,} features")
+
+        # Build lookup indices for fast O(1) access
+        self._build_lookup_indices()
+
+    def _build_lookup_indices(self) -> None:
+        """Build pre-computed lookup indices for fast O(1) access."""
+        logger.info("Building lookup indices for fast access...")
+        assert self.embeddings_df is not None
+        assert self.activation_df is not None
+
+        for row in self.embeddings_df.iter_rows(named=True):
+            feature_id = row["feature_id"]
+            prompt_ids = row["prompt_ids"]
+            if hasattr(prompt_ids, 'to_list'):
+                prompt_ids = prompt_ids.to_list()
+            self._embedding_prompt_ids[feature_id] = prompt_ids or []
+
+        for row in self.activation_df.iter_rows(named=True):
+            fid = row["feature_id"]
+            pid = row["prompt_id"]
+            if fid not in self._activation_index:
+                self._activation_index[fid] = {}
+            self._activation_index[fid][pid] = row
+
+        logger.info(f"Built indices: {len(self._embedding_prompt_ids):,} embedding lookups, "
+                   f"{len(self._activation_index):,} activation lookups")
 
     def _compute_ngram_analysis(
         self,
@@ -162,7 +191,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
             window_offset = calculate_window_offset(max_pos, char_window_size)
 
             for ngram, token_list in token_ngrams.items():
-                char_ngram_counts[ngram] += len(token_list)
+                char_ngram_counts[ngram] += 1
                 for token_idx, token_text, char_offset in token_list:
                     char_ngram_occurrences[ngram].append({
                         "prompt_id": prompt_id,
@@ -195,7 +224,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
             window_offset = calculate_window_offset(max_pos, word_window_size)
 
             for word_ngram, positions in word_ngrams.items():
-                word_ngram_counts[word_ngram] += len(positions)
+                word_ngram_counts[word_ngram] += 1
                 for pos in positions:
                     word_ngram_occurrences[word_ngram].append({
                         "prompt_id": prompt_id,
@@ -251,50 +280,46 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word": overall_top_word
         }
 
-    def _process_feature(self, feature_id: int, feature_df: pl.DataFrame) -> Dict[str, Any]:
+    def _process_feature(self, feature_id: int) -> Dict[str, Any]:
         """Process a single feature to compute all similarity metrics.
 
         Args:
             feature_id: Feature ID
-            feature_df: DataFrame with activation examples for this feature
 
         Returns:
             Dictionary with computed metrics
         """
-        # Get prompt IDs from pre-computed embeddings
-        assert self.embeddings_df is not None
-        feature_embeddings = self.embeddings_df.filter(pl.col("feature_id") == feature_id)
+        # Get prompt IDs from pre-built lookup index (O(1))
+        stored_prompt_ids = self._embedding_prompt_ids.get(feature_id, [])
 
-        if len(feature_embeddings) == 0:
+        if not stored_prompt_ids:
             logger.warning(f"No pre-computed embeddings found for feature {feature_id}")
             self.stats["features_with_no_activations"] += 1
             return self._create_empty_result(feature_id)
 
-        all_prompt_ids = feature_embeddings["prompt_ids"][0]
-        if hasattr(all_prompt_ids, 'to_list'):
-            all_prompt_ids = all_prompt_ids.to_list()
-
-        # Fetch activation data for embedded prompts
+        # Fetch activation data from pre-built index (O(1) per lookup)
+        activation_data = self._activation_index.get(feature_id, {})
         all_examples = []
-        for prompt_id in all_prompt_ids:
-            example_row = feature_df.filter(pl.col("prompt_id") == prompt_id)
-            if len(example_row) > 0:
-                row_dict = example_row.to_dicts()[0]
-                activation_pairs = row_dict.get("activation_pairs", [])
-                max_activation = row_dict.get("max_activation")
+        for prompt_id in stored_prompt_ids:
+            row_dict = activation_data.get(prompt_id)
+            if row_dict is None:
+                continue
 
-                if activation_pairs and len(activation_pairs) > 0:
-                    max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
-                    max_token_pos = max_pair["token_position"]
-                else:
-                    max_token_pos = 0
+            activation_pairs = row_dict.get("activation_pairs", [])
+            max_activation = row_dict.get("max_activation")
 
-                all_examples.append((
-                    prompt_id,
-                    max_activation if max_activation is not None else 0.0,
-                    row_dict.get("prompt_tokens", []),
-                    max_token_pos
-                ))
+            if activation_pairs and len(activation_pairs) > 0:
+                max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
+                max_token_pos = max_pair["token_position"]
+            else:
+                max_token_pos = 0
+
+            all_examples.append((
+                prompt_id,
+                max_activation if max_activation is not None else 0.0,
+                row_dict.get("prompt_tokens", []),
+                max_token_pos
+            ))
 
         if len(all_examples) == 0:
             self.stats["features_with_no_activations"] += 1
@@ -312,37 +337,25 @@ class ActivationSimilarityProcessor(BaseProcessor):
         if semantic_sim_mean is not None:
             self.stats["semantic_similarity_computed"] += 1
 
-        # Compute per-k-max Jaccard similarity (avoids set cardinality explosion)
+        # Compute per-k Jaccard similarity (avoids set cardinality explosion)
         char_window = self.proc_params["char_ngram_window_size"]
         word_window = self.proc_params["word_ngram_window_size"]
         char_ngram_sizes = self.proc_params["char_ngram_sizes"]
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
-        # Compute per-k-max Jaccard for character n-grams (intra-feature)
-        char_ngram_max_jaccard, char_ngram_max_jaccard_std = compute_per_k_max_jaccard(
+        # Compute per-k Jaccard for character n-grams (intra-feature)
+        char_per_k, char_ngram_max_jaccard, char_ngram_max_jaccard_std = compute_per_k_jaccard(
             all_examples, all_examples,  # Same list = intra-feature comparison
             char_ngram_sizes, char_window, is_word=False
         )
+        char_ngram_per_k_jaccard = {f"k{k}": v for k, v in char_per_k.items()}
 
-        # Compute per-k-max Jaccard for word n-grams (intra-feature)
-        word_ngram_max_jaccard, word_ngram_max_jaccard_std = compute_per_k_max_jaccard(
+        # Compute per-k Jaccard for word n-grams (intra-feature)
+        word_per_k, word_ngram_max_jaccard, word_ngram_max_jaccard_std = compute_per_k_jaccard(
             all_examples, all_examples,  # Same list = intra-feature comparison
             word_ngram_sizes, word_window, is_word=True
         )
-
-        # NEW: Compute per-k Jaccard values (for longest n-gram selection)
-        # Convert int keys to string keys (e.g., {2: 0.3} -> {"k2": 0.3}) for Polars compatibility
-        char_per_k_raw = compute_per_k_jaccard_all(
-            all_examples, all_examples,
-            char_ngram_sizes, char_window, is_word=False
-        )
-        char_ngram_per_k_jaccard = {f"k{k}": v for k, v in char_per_k_raw.items()}
-
-        word_per_k_raw = compute_per_k_jaccard_all(
-            all_examples, all_examples,
-            word_ngram_sizes, word_window, is_word=True
-        )
-        word_ngram_per_k_jaccard = {f"k{k}": v for k, v in word_per_k_raw.items()}
+        word_ngram_per_k_jaccard = {f"k{k}": v for k, v in word_per_k.items()}
 
         if char_ngram_max_jaccard is not None or word_ngram_max_jaccard is not None:
             self.stats["ngram_jaccard_computed"] += 1
@@ -424,8 +437,7 @@ class ActivationSimilarityProcessor(BaseProcessor):
         # Process features
         results = []
         for feature_id in tqdm(unique_features, desc="Processing features"):
-            feature_df = self.activation_df.filter(pl.col("feature_id") == feature_id)  # type: ignore[union-attr]
-            result = self._process_feature(feature_id, feature_df)
+            result = self._process_feature(feature_id)
             results.append(result)
             self.stats["features_processed"] += 1
 

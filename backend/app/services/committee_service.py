@@ -170,7 +170,7 @@ class CommitteeService:
         back-propagation."
         """
         try:
-            hidden_layer_sizes = (32, 16)
+            hidden_layer_sizes = (16, 16)
 
             mlp = WeightedMLPClassifier(
                 hidden_layer_sizes=hidden_layer_sizes,

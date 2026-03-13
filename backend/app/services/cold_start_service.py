@@ -72,8 +72,8 @@ class ColdStartService:
         """
         Get diverse suggestions using Kennard-Stone algorithm.
 
-        For features: Uses 14D metric space (SVM_FEATURE_METRICS)
-        For pairs: Uses 12D symmetric pair vectors (4+4 intra + 4 inter)
+        For features: Uses 11D metric space (SVM_FEATURE_METRICS)
+        For pairs: Uses 8D pair vectors (4 min/max intra + 4 inter)
 
         Args:
             request: Request with mode, feature_ids, num_suggestions, and optional threshold
@@ -132,7 +132,7 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get feature suggestions using Kennard-Stone on 14D metric space."""
+        """Get feature suggestions using Kennard-Stone on 11D metric space."""
         feature_ids = request.feature_ids
         num_suggestions = min(request.num_suggestions, len(feature_ids))
 
@@ -192,9 +192,9 @@ class ColdStartService:
         self,
         request: ColdStartSuggestionRequest
     ) -> ColdStartSuggestionsResponse:
-        """Get pair suggestions using Kennard-Stone on 12D pair vectors.
+        """Get pair suggestions using Kennard-Stone on 8D pair vectors.
 
-        12D = [A+B (4 intra)] + [|A-B| (4 intra)] + [inter_ngram (1)] + [inter_semantic (1)] + [decoder_sim (1)] + [correlation (1)]
+        8D = [min/max intra (4)] + [inter_ngram (1)] + [inter_semantic (1)] + [decoder_sim (1)] + [correlation (1)]
         """
         if self.cluster_service is None:
             raise RuntimeError("Cluster service required for pair mode")
@@ -245,7 +245,7 @@ class ColdStartService:
         fid_to_idx = {fid: i for i, fid in enumerate(intra_df["feature_id"].to_list())}
         intra_matrix = intra_df.select(SVM_PAIR_INTRA_METRICS).to_numpy()
 
-        # Build 11D pair vectors
+        # Build 8D pair vectors
         pair_vectors = []
         valid_pairs = []
 
@@ -262,16 +262,20 @@ class ColdStartService:
             main_metrics = intra_matrix[main_idx]
             similar_metrics = intra_matrix[similar_idx]
 
-            # Intra: [A+B (4)] + [|A-B| (4)]
-            pair_sum = main_metrics + similar_metrics
-            pair_diff = np.abs(main_metrics - similar_metrics)
+            # Worst-member aggregation: min(consistency), max(variability)
+            # SVM_PAIR_INTRA_METRICS: [ngram_jaccard, ngram_jaccard_std, semantic_sim, semantic_sim_std]
+            intra_agg = np.empty(4)
+            intra_agg[0] = min(main_metrics[0], similar_metrics[0])  # min(ngram_jaccard)
+            intra_agg[1] = max(main_metrics[1], similar_metrics[1])  # max(ngram_jaccard_std)
+            intra_agg[2] = min(main_metrics[2], similar_metrics[2])  # min(semantic_sim)
+            intra_agg[3] = max(main_metrics[3], similar_metrics[3])  # max(semantic_sim_std)
 
             # Inter: [inter_ngram, inter_semantic, decoder_sim, feature_correlation]
             pair_key = f"{min(main_id, similar_id)}-{max(main_id, similar_id)}"
             inter_data = inter_metrics.get(pair_key, (0.0, 0.0, 0.0, 0.0))
 
             pair_vector = np.concatenate([
-                pair_sum, pair_diff,
+                intra_agg,
                 [inter_data[0], inter_data[1], inter_data[2], inter_data[3]]
             ])
 
@@ -486,7 +490,7 @@ class ColdStartService:
         return selected, labels
 
     async def _extract_feature_metrics(self, feature_ids: List[int]) -> Optional[pl.DataFrame]:
-        """Extract 14D metrics from svm_feature_metrics parquet (pre-aggregated)."""
+        """Extract 11D metrics from svm_feature_metrics parquet (pre-aggregated)."""
         if self.data_service._svm_feature_metrics_lazy is None:
             logger.warning("[ColdStart] SVM feature metrics lazy not available")
             return None
@@ -504,7 +508,7 @@ class ColdStartService:
                 (pl.col("frac_nonzero") + 1e-8).log().alias("log_frac_nonzero")
             ])
 
-            # Fill null values for all 14 metrics
+            # Fill null values for all metrics
             for metric in SVM_FEATURE_METRICS:
                 if metric in df.columns:
                     df = df.with_columns(pl.col(metric).fill_null(0.0))

@@ -4,13 +4,17 @@ Pair similarity-based sorting service for feature pairs.
 Uses SVM (Support Vector Machine) with RBF kernel to learn similarity patterns
 from user-labeled feature pairs. Scores pairs by signed distance from SVM decision boundary.
 
-12-dimensional pair vectors:
-- 4 dims: A + B (combined intra-feature properties)
-- 4 dims: |A - B| (intra-feature dissimilarity)
-- 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
-- 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
-- 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
-- 1 dim: feature_correlation(A, B) - pair-specific activation correlation
+8-dimensional pair vectors:
+- 4 dims: min/max intra-feature (answers "is either feature noisy?")
+  - min(A,B) intra_ngram_jaccard: worst lexical consistency
+  - min(A,B) intra_semantic_sim: worst semantic consistency
+  - max(A,B) intra_ngram_jaccard_std: worst lexical variability
+  - max(A,B) intra_semantic_sim_std: worst semantic variability
+- 4 dims: inter-feature (answers "is the conceptual separation clear?")
+  - inter_ngram_jaccard(A, B) - pair-specific lexical similarity
+  - inter_semantic_sim(A, B) - pair-specific semantic similarity
+  - decoder_sim(A, B) - pair-specific decoder similarity
+  - feature_correlation(A, B) - pair-specific activation correlation
 """
 
 import polars as pl
@@ -72,13 +76,9 @@ class PairSimilarityService:
         """
         Calculate similarity scores for feature pairs and return sorted pairs.
 
-        Pair vectors are 12-dimensional:
-        - 4 dims: A + B (combined intra-feature properties)
-        - 4 dims: |A - B| (intra-feature dissimilarity)
-        - 1 dim: inter_ngram_jaccard(A, B) - pair-specific lexical similarity
-        - 1 dim: inter_semantic_sim(A, B) - pair-specific semantic similarity
-        - 1 dim: decoder_sim(A, B) - pair-specific decoder similarity
-        - 1 dim: feature_correlation(A, B) - pair-specific activation correlation
+        Pair vectors are 8-dimensional:
+        - 4 dims: min/max intra-feature (worst-member aggregation)
+        - 4 dims: inter-feature (pair-specific metrics)
 
         Only uses feature-level metrics (no explanation-related metrics).
 
@@ -519,16 +519,15 @@ class PairSimilarityService:
         """
         Calculate similarity scores for pairs using SVM.
 
-        12-dim pair vector:
-        - [A+B (4)] intra-feature sum
-        - [|A-B| (4)] intra-feature difference
-        - [inter_ngram(A,B)] pair-specific lexical similarity
-        - [inter_semantic(A,B)] pair-specific semantic similarity
-        - [decoder_sim(A,B)] pair-specific decoder similarity
-        - [feature_correlation(A,B)] pair-specific activation correlation
+        8-dim pair vector:
+        - [min/max (4)] intra-feature worst-member aggregation
+          - min(A,B) ngram_jaccard, min(A,B) semantic_sim (worst consistency)
+          - max(A,B) ngram_jaccard_std, max(A,B) semantic_sim_std (worst variability)
+        - [inter (4)] pair-specific metrics
+          - inter_ngram, inter_semantic, decoder_sim, feature_correlation
 
         Args:
-            metrics_df: DataFrame with 3 intra-feature metrics for all features
+            metrics_df: DataFrame with 4 intra-feature metrics for all features
             pair_metrics: Dictionary mapping pair_key to decoder cosine_similarity
             pair_inter_metrics: Dictionary mapping pair_key to (inter_ngram, inter_semantic)
             selected_items: Weighted pair items marked as selected (✓)
@@ -608,18 +607,27 @@ class PairSimilarityService:
             logger.warning(f"Missing metrics for {n_invalid} pairs")
 
         # Vectorized metric extraction for all pairs (4 intra-feature metrics)
+        # SVM_PAIR_INTRA_METRICS order: [ngram_jaccard, ngram_jaccard_std, semantic_sim, semantic_sim_std]
         main_metrics_all = metrics_matrix[main_indices]      # (n_pairs, 4)
         similar_metrics_all = metrics_matrix[similar_indices]  # (n_pairs, 4)
 
-        # Vectorized pair vector construction for intra-feature metrics
-        pair_sum = main_metrics_all + similar_metrics_all      # (n_pairs, 4)
-        pair_diff = np.abs(main_metrics_all - similar_metrics_all)  # (n_pairs, 4)
+        # Worst-member aggregation aligned with diagnostic questions:
+        # Q1 "Is either feature noisy?" → min(consistency), max(variability)
+        # Metrics: [ngram_jaccard, ngram_jaccard_std, semantic_sim, semantic_sim_std]
+        # Consistency metrics (idx 0, 2): min(A,B) — worst consistency
+        # Variability metrics (idx 1, 3): max(A,B) — worst variability
+        intra_min = np.minimum(main_metrics_all, similar_metrics_all)  # (n_pairs, 4)
+        intra_max = np.maximum(main_metrics_all, similar_metrics_all)  # (n_pairs, 4)
+        intra_aggregated = np.empty_like(main_metrics_all)  # (n_pairs, 4)
+        intra_aggregated[:, 0] = intra_min[:, 0]  # min(ngram_jaccard) — worst lexical consistency
+        intra_aggregated[:, 1] = intra_max[:, 1]  # max(ngram_jaccard_std) — worst lexical variability
+        intra_aggregated[:, 2] = intra_min[:, 2]  # min(semantic_sim) — worst semantic consistency
+        intra_aggregated[:, 3] = intra_max[:, 3]  # max(semantic_sim_std) — worst semantic variability
 
-        # Concatenate: (n_pairs, 12)
-        # [A+B (4)] + [|A-B| (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim] + [correlation]
+        # Concatenate: (n_pairs, 8)
+        # [min/max intra (4)] + [inter_ngram] + [inter_semantic] + [decoder_sim] + [correlation]
         all_pair_vectors = np.hstack([
-            pair_sum,
-            pair_diff,
+            intra_aggregated,
             inter_ngrams.reshape(-1, 1),
             inter_semantics.reshape(-1, 1),
             decoder_sims.reshape(-1, 1),

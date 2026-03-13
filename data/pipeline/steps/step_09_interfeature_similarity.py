@@ -46,8 +46,7 @@ from core.tokens import extract_token_window, normalize_token, calculate_window_
 from core.ngrams import (
     extract_token_char_ngrams_simple,
     extract_word_ngrams,
-    compute_per_k_max_jaccard,
-    compute_per_k_jaccard_all,
+    compute_per_k_jaccard,
     find_top_ngram,
 )
 
@@ -392,27 +391,15 @@ class InterFeatureSimilarityProcessor(BaseProcessor):
         char_ngram_sizes = self.proc_params["char_ngram_sizes"]
         word_ngram_sizes = self.proc_params["word_ngram_sizes"]
 
-        # Compute per-k-max Jaccard for character n-grams
-        char_ngram_max_jaccard, _ = compute_per_k_max_jaccard(
-            main_examples, selected_examples,
-            char_ngram_sizes, char_window_size, is_word=False
-        )
-
-        # Compute per-k-max Jaccard for word n-grams
-        word_ngram_max_jaccard, _ = compute_per_k_max_jaccard(
-            main_examples, selected_examples,
-            word_ngram_sizes, word_window_size, is_word=True
-        )
-
-        # NEW: Compute per-k Jaccard values (for longest n-gram selection)
-        # Convert int keys to string keys (e.g., {2: 0.3} -> {"k2": 0.3}) for Polars compatibility
-        char_per_k_raw = compute_per_k_jaccard_all(
+        # Compute per-k Jaccard for character n-grams
+        char_per_k_raw, char_ngram_max_jaccard, _ = compute_per_k_jaccard(
             main_examples, selected_examples,
             char_ngram_sizes, char_window_size, is_word=False
         )
         char_per_k = {f"k{k}": v for k, v in char_per_k_raw.items()}
 
-        word_per_k_raw = compute_per_k_jaccard_all(
+        # Compute per-k Jaccard for word n-grams
+        word_per_k_raw, word_ngram_max_jaccard, _ = compute_per_k_jaccard(
             main_examples, selected_examples,
             word_ngram_sizes, word_window_size, is_word=True
         )

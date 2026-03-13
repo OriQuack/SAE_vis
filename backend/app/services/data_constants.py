@@ -47,32 +47,31 @@ THRESHOLD_WEIGHT = 0.2
 # T=1.0 is standard softmax; higher T → more uniform probabilities
 SOFTMAX_TEMPERATURE = 1.0
 
-# 14D feature metrics for SVM (used by similarity_sort + cause)
+# 11D feature metrics for SVM (used by similarity_sort + cause)
 SVM_FEATURE_METRICS = [
-    # Mean metrics (8)
-    'intra_ngram_jaccard',       # Activation-level: max(char_ngram, word_ngram) - lexical consistency
-    'intra_semantic_sim',        # Activation-level: semantic_similarity - semantic consistency
-    'score_embedding',           # Score: embedding-based scoring
-    'score_fuzz',                # Score: fuzzy matching score
-    'score_detection',           # Score: detection score
-    'explanation_semantic_sim',  # Explanation-level: semantic similarity between LLM explanations
-    'log_frac_nonzero',          # Neuronpedia: log(frac_nonzero + 1e-8) - sparse activation handling
-    'consensus_score',           # Consensus: cross-explainer phrase clustering agreement [0, 1]
-    # Std metrics (6) - captures cross-explainer disagreement and activation variability
-    'intra_ngram_jaccard_std',   # Activation-level: lexical consistency std (pairwise Jaccard variability)
-    'intra_semantic_sim_std',    # Activation-level: semantic consistency std (variability within feature)
-    'explanation_semantic_sim_std',  # Explanation-level: cross-explainer semantic disagreement
-    'score_embedding_std',
-    'score_fuzz_std',
-    'score_detection_std',
+    # Activation coherence (4) — answers "is it noisy?"
+    'intra_ngram_jaccard',       # Lexical consistency across activations
+    'intra_semantic_sim',        # Semantic consistency across activations
+    'intra_ngram_jaccard_std',   # Lexical variability (high = noisy)
+    'intra_semantic_sim_std',    # Semantic variability (high = noisy)
+    # Explanation quality (3) — answers "do explanations capture the pattern?"
+    'score_fuzz',                # Lexical matching (mean across explainers) — Missed Syntax indicator
+    'score_embedding',           # Semantic matching (mean across explainers) — Missed Context indicator
+    'score_detection',           # Detection quality (mean across explainers) — Missed Context indicator
+    # Cross-explainer agreement (3)
+    'explanation_semantic_sim',      # Direct pairwise explainer agreement
+    'explanation_semantic_sim_std',  # Cross-explainer semantic disagreement
+    'consensus_score',               # Phrase-level clustering agreement
+    # Sparsity (1)
+    'log_frac_nonzero',          # Activation sparsity — context for all diagnostics
 ]
 
-# 4D intra-feature metrics for pair SVM (used with A+B and |A-B| → 8 dims)
+# 4D intra-feature metrics for pair SVM (used with min/max aggregation → 4 dims)
 SVM_PAIR_INTRA_METRICS = [
-    'intra_ngram_jaccard',       # Feature-level: lexical consistency (max of char/word)
-    'intra_ngram_jaccard_std',   # Feature-level: lexical consistency std
-    'intra_semantic_sim',        # Feature-level: semantic consistency (mean)
-    'intra_semantic_sim_std',    # Feature-level: semantic consistency std
+    'intra_ngram_jaccard',       # min(A,B): worst lexical consistency
+    'intra_ngram_jaccard_std',   # max(A,B): worst lexical variability
+    'intra_semantic_sim',        # min(A,B): worst semantic consistency
+    'intra_semantic_sim_std',    # max(A,B): worst semantic variability
 ]
 
 # 4D pair-specific inter-feature metrics for pair SVM

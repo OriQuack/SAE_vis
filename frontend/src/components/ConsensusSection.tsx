@@ -26,6 +26,7 @@ interface ConsensusSectionProps {
   consensus: ConsensusResponse | null
   onPhraseHover?: (data: PhraseHighlightData[] | null) => void
   expanded?: boolean
+  hasNoActivations?: boolean
 }
 
 interface TooltipData {
@@ -69,7 +70,7 @@ export const ConsensusLegend: React.FC = React.memo(() => (
 // CONSENSUS SECTION
 // ============================================================================
 
-const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover, expanded }) => {
+const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover, expanded, hasNoActivations }) => {
   // Local state for tooltip on hover
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
 
@@ -127,6 +128,14 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setTooltipData(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)
   }, [])
+
+  if (hasNoActivations) {
+    return (
+      <div className="consensus-section">
+        <span className="consensus-section__empty">No Explanation available</span>
+      </div>
+    )
+  }
 
   if (!consensus || consensus.items.length === 0) {
     return (

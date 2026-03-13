@@ -72,7 +72,7 @@ class ClassificationService:
             feature_ids: List of feature IDs to extract metrics for
 
         Returns:
-            DataFrame with feature_id and all 14 metrics (see SVM_FEATURE_METRICS)
+            DataFrame with feature_id and all 11 metrics (see SVM_FEATURE_METRICS)
         """
         try:
             logger.info(f"[_extract_metrics_from_svm_metrics] Extracting metrics for {len(feature_ids)} features")
