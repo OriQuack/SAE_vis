@@ -425,7 +425,7 @@ class ColdStartService:
         return selected
 
     def _typiclust_odal(
-        self, X: np.ndarray, n: int, anomaly_ratio: float = 0.25, k_nn: int = 7
+        self, X: np.ndarray, n: int, anomaly_ratio: float = 0.5, k_nn: int = 7
     ) -> tuple[List[int], List[str]]:
         """
         Typiclust + Isolation Forest anomaly detection (simplified ODAL).

@@ -33,7 +33,7 @@ Pair Metrics Schema (6 columns):
 - feature_b: UInt32 (larger feature ID)
 - inter_ngram_jaccard: Float32 (max of char/word jaccard from interfeature_similarity)
 - inter_semantic_sim: Float32 (semantic_similarity from interfeature_similarity)
-- decoder_sim: Float32 (cosine_similarity from features.parquet decoder_similarity)
+- decoder_sim: Float32 (decoder_similarity_score from interfeature_similarity)
 - feature_correlation: Float32 (activation correlation from feature_correlation.npy)
 
 Note: log_frac_nonzero is computed at SVM training time in backend.
@@ -260,20 +260,22 @@ class SvmMetricsProcessor(BaseProcessor):
         return df
 
     def _prepare_pair_metrics(self) -> pl.DataFrame:
-        """Prepare pair-level metrics from interfeature_similarity and features.parquet.
+        """Prepare pair-level metrics from interfeature_similarity.
 
         Creates a unified pair metrics table with:
         - inter_ngram_jaccard: max(char_jaccard, word_jaccard) from interfeature_similarity
         - inter_semantic_sim: semantic_similarity from interfeature_similarity
-        - decoder_sim: cosine_similarity from features.parquet decoder_similarity
+        - decoder_sim: decoder_similarity_score from interfeature_similarity
         """
         logger.info("Preparing pair metrics...")
         assert self.interfeature_df is not None
-        assert self.features_df is not None
 
-        # Step 1: Get inter-feature metrics from interfeature_similarity
-        # Columns: main_feature_id, similar_feature_id, char_ngram_max_jaccard, word_ngram_max_jaccard, semantic_similarity
-        inter_df = self.interfeature_df.select([
+        # Step 1: Get all pair metrics from interfeature_similarity
+        # decoder_similarity_score is the same cosine similarity as features.parquet's
+        # decoder_similarity but covers all 288K+ pairs (vs only 114K from top-K lists)
+        inter_df = self.interfeature_df.filter(
+            pl.col("main_feature_id").is_not_null() & pl.col("similar_feature_id").is_not_null()
+        ).select([
             "main_feature_id",
             "similar_feature_id",
             pl.max_horizontal(
@@ -281,6 +283,7 @@ class SvmMetricsProcessor(BaseProcessor):
                 pl.col("word_ngram_max_jaccard").fill_null(0.0),
             ).alias("inter_ngram_jaccard"),
             pl.col("semantic_similarity").fill_null(0.0).alias("inter_semantic_sim"),
+            pl.col("decoder_similarity_score").fill_null(0.0).alias("decoder_sim"),
         ])
 
         # Normalize to canonical pair ordering (smaller ID first)
@@ -292,75 +295,19 @@ class SvmMetricsProcessor(BaseProcessor):
             pl.col("feature_b").cast(pl.UInt32),
             "inter_ngram_jaccard",
             "inter_semantic_sim",
-        ])
-
-        # Deduplicate pairs (keep first occurrence, or could aggregate)
-        inter_df = inter_df.unique(subset=["feature_a", "feature_b"])
-        logger.info(f"Inter-feature pairs: {len(inter_df):,}")
-
-        # Step 2: Extract decoder similarities from features.parquet
-        # The decoder_similarity column is a list of structs: [{feature_id, cosine_similarity}, ...]
-
-        # Apply feature limit if set
-        features_to_process = self.features_df
-        if self.feature_limit is not None:
-            unique_features = features_to_process["feature_id"].unique().sort()[:self.feature_limit]
-            features_to_process = features_to_process.filter(pl.col("feature_id").is_in(unique_features))
-
-        # Get unique features (one row per feature, not per explainer)
-        features_unique = features_to_process.select(["feature_id", "decoder_similarity"]).unique(subset=["feature_id"])
-
-        logger.info(f"Extracting decoder similarities from {len(features_unique):,} unique features...")
-
-        # Explode decoder_similarity list to get one row per pair
-        decoder_df = features_unique.explode("decoder_similarity")
-
-        # Filter out null decoder_similarity entries
-        decoder_df = decoder_df.filter(pl.col("decoder_similarity").is_not_null())
-
-        # Extract fields from struct
-        decoder_df = decoder_df.with_columns([
-            pl.col("decoder_similarity").struct.field("feature_id").alias("similar_feature_id"),
-            pl.col("decoder_similarity").struct.field("cosine_similarity").alias("decoder_sim"),
-        ]).select([
-            pl.col("feature_id").cast(pl.UInt32).alias("main_feature_id"),
-            pl.col("similar_feature_id").cast(pl.UInt32),
-            pl.col("decoder_sim").cast(pl.Float32),
-        ])
-
-        # Normalize to canonical pair ordering
-        decoder_df = decoder_df.with_columns([
-            pl.min_horizontal("main_feature_id", "similar_feature_id").alias("feature_a"),
-            pl.max_horizontal("main_feature_id", "similar_feature_id").alias("feature_b"),
-        ]).select([
-            pl.col("feature_a").cast(pl.UInt32),
-            pl.col("feature_b").cast(pl.UInt32),
             "decoder_sim",
         ])
 
-        # Deduplicate decoder pairs
-        decoder_df = decoder_df.unique(subset=["feature_a", "feature_b"])
-        logger.info(f"Decoder pairs: {len(decoder_df):,}")
+        # Drop self-pairs and deduplicate
+        inter_df = inter_df.filter(pl.col("feature_a") < pl.col("feature_b"))
+        pair_df = inter_df.unique(subset=["feature_a", "feature_b"])
+        logger.info(f"Pair metrics from interfeature_similarity: {len(pair_df):,}")
 
-        # Step 3: Join inter-feature and decoder metrics
-        # Use outer join to keep all pairs from both sources
-        pair_df = inter_df.join(
-            decoder_df,
-            on=["feature_a", "feature_b"],
-            how="outer"
-        )
-
-        # Fill nulls with 0.0
+        # Cast metric columns
         pair_df = pair_df.with_columns([
-            pl.col("inter_ngram_jaccard").fill_null(0.0).cast(pl.Float32),
-            pl.col("inter_semantic_sim").fill_null(0.0).cast(pl.Float32),
-            pl.col("decoder_sim").fill_null(0.0).cast(pl.Float32),
-        ])
-
-        # Ensure proper types
-        pair_df = pair_df.with_columns([
-            pl.col("feature_a").cast(pl.UInt32),
-            pl.col("feature_b").cast(pl.UInt32),
+            pl.col("inter_ngram_jaccard").cast(pl.Float32),
+            pl.col("inter_semantic_sim").cast(pl.Float32),
+            pl.col("decoder_sim").cast(pl.Float32),
         ])
 
         # Add feature_correlation from pre-computed correlation matrix

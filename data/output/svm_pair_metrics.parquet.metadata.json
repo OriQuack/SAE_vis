@@ -1,8 +1,8 @@
 {
   "step_name": "Step 14: SVM Metrics",
   "version": "4.1",
-  "created_at": "2026-03-12T16:08:00.781692",
-  "row_count": 375034,
+  "created_at": "2026-03-13T19:52:20.495049",
+  "row_count": 375017,
   "columns": [
     "feature_a",
     "feature_b",
@@ -20,6 +20,6 @@
     "feature_correlation": "Float32"
   },
   "stats": {
-    "pairs_processed": 375034
+    "pairs_processed": 375017
   }
 }

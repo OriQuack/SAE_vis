@@ -170,7 +170,6 @@ frontend/src/
 │   ├── cause-visualization-utils.ts  # Cause scales, contours, colors
 │   ├── radviz-utils.ts           # RadViz positioning, anchors, scales
 │   ├── color-utils.tsx           # Color manipulation utilities
-│   ├── triangle-grid.ts          # Triangle grid layout utilities
 │   ├── utils.ts                  # General helpers
 │   └── tagging-hooks/            # Reusable tagging hooks (7 files)
 │       ├── index.ts              # Hook exports

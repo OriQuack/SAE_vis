@@ -43,6 +43,10 @@ FILTER_COLUMNS = [COL_SAE_ID, COL_EXPLANATION_METHOD, COL_LLM_EXPLAINER, COL_LLM
 CLICK_WEIGHT = 1.0
 THRESHOLD_WEIGHT = 0.2
 
+# Softmax temperature for decision margin normalization (Stage 3)
+# T=1.0 is standard softmax; higher T → more uniform probabilities
+SOFTMAX_TEMPERATURE = 1.0
+
 # 14D feature metrics for SVM (used by similarity_sort + cause)
 SVM_FEATURE_METRICS = [
     # Mean metrics (8)

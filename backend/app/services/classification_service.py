@@ -28,7 +28,7 @@ from ..models.classification import (
 from .committee_service import CommitteeService
 from .data_constants import (
     COL_FEATURE_ID, CLICK_WEIGHT, THRESHOLD_WEIGHT,
-    SVM_FEATURE_METRICS, CAUSE_CATEGORIES,
+    SVM_FEATURE_METRICS, CAUSE_CATEGORIES, SOFTMAX_TEMPERATURE,
 )
 from .data_service import DataService
 from .svm_utils import (
@@ -314,8 +314,13 @@ class ClassificationService:
         # Vectorized argmax + margin computation (replaces per-row loop)
         n_categories = len(CAUSE_CATEGORIES)
         predicted_indices = np.argmax(decision_vectors, axis=1)
-        sorted_dv = np.sort(decision_vectors, axis=1)[:, ::-1]
-        margins = sorted_dv[:, 0] - sorted_dv[:, 1]
+        # Softmax-normalized margin (bounded [0, 1])
+        scaled_dv = decision_vectors / SOFTMAX_TEMPERATURE
+        scaled_dv = scaled_dv - scaled_dv.max(axis=1, keepdims=True)  # numeric stability
+        exp_dv = np.exp(scaled_dv)
+        probs = exp_dv / exp_dv.sum(axis=1, keepdims=True)
+        sorted_probs = np.sort(probs, axis=1)[:, ::-1]
+        margins = sorted_probs[:, 0] - sorted_probs[:, 1]
 
         # Count predictions
         counts = np.bincount(predicted_indices, minlength=n_categories)

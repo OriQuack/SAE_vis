@@ -22,7 +22,7 @@ class ColdStartSuggestionRequest(BaseModel):
         min_length=6
     )
     num_suggestions: int = Field(
-        default=20,
+        default=30,
         description="Number of diverse suggestions to return",
         ge=6,
         le=50
@@ -42,7 +42,7 @@ class ColdStartSuggestionRequest(BaseModel):
         description="Sampling method: 'kennard-stone' (max diversity), 'typiclust' (cluster typicality), or 'typiclust_odal' (typicality + anomaly detection)"
     )
     anomaly_ratio: float = Field(
-        default=0.25,
+        default=0.5,
         description="Fraction of suggestions allocated to anomaly detection (typiclust_odal only)",
         ge=0.0,
         le=0.5

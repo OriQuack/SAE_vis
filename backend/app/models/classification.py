@@ -245,7 +245,7 @@ class CauseClassificationResult(BaseModel):
     )
     decision_margin: float = Field(
         ...,
-        description="Gap between top two category scores (higher = more confident prediction)"
+        description="Softmax-normalized decision margin (0-1, higher = more confident prediction)"
     )
     decision_scores: Dict[str, float] = Field(
         ...,

@@ -211,7 +211,7 @@ const CauseView: React.FC<CauseViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'feature',
           Array.from(selectedFeatureIds),
-          20,  // Get 20 diverse features via Typiclust
+          30,  // Get 30 diverse features via Typiclust
           undefined,
           undefined,
           'typiclust'
