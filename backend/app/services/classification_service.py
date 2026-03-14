@@ -3,7 +3,7 @@ Classification service for SVM-based feature scoring.
 
 Unified service handling:
 - Binary SVM classification (Stage 2: similarity sorting, histograms, quality scores)
-- Multi-class SVM classification (Stage 3: cause classification with OvO-based SVC)
+- Multi-class SVM classification (Stage 3: cause classification with raw OvO scores)
 """
 
 import polars as pl
@@ -28,7 +28,7 @@ from ..models.classification import (
 from .committee_service import CommitteeService
 from .data_constants import (
     COL_FEATURE_ID, CLICK_WEIGHT, THRESHOLD_WEIGHT,
-    SVM_FEATURE_METRICS, CAUSE_CATEGORIES, SOFTMAX_TEMPERATURE,
+    SVM_FEATURE_METRICS, CAUSE_CATEGORIES,
 )
 from .data_service import DataService
 from .svm_utils import (
@@ -238,8 +238,8 @@ class ClassificationService:
         """Classify features into cause categories using OvO-based multi-class SVM.
 
         Trains a single multi-class SVC (internally OvO via libsvm) using only
-        user's manual tags. decision_function_shape='ovr' produces per-category
-        scores with the same (N, 3) shape as the previous manual OvR approach.
+        user's manual tags. Raw OvO pairwise scores are summed per class to produce
+        continuous per-category decision scores without vote-dominated discretization.
 
         Returns a plain dict (bypasses Pydantic serialization for speed).
 
@@ -314,13 +314,9 @@ class ClassificationService:
         # Vectorized argmax + margin computation (replaces per-row loop)
         n_categories = len(CAUSE_CATEGORIES)
         predicted_indices = np.argmax(decision_vectors, axis=1)
-        # Softmax-normalized margin (bounded [0, 1])
-        scaled_dv = decision_vectors / SOFTMAX_TEMPERATURE
-        scaled_dv = scaled_dv - scaled_dv.max(axis=1, keepdims=True)  # numeric stability
-        exp_dv = np.exp(scaled_dv)
-        probs = exp_dv / exp_dv.sum(axis=1, keepdims=True)
-        sorted_probs = np.sort(probs, axis=1)[:, ::-1]
-        margins = sorted_probs[:, 0] - sorted_probs[:, 1]
+        # Raw B-SB margin (best minus second-best decision score)
+        sorted_dv = np.sort(decision_vectors, axis=1)[:, ::-1]
+        margins = sorted_dv[:, 0] - sorted_dv[:, 1]
 
         # Count predictions
         counts = np.bincount(predicted_indices, minlength=n_categories)
@@ -400,11 +396,11 @@ class ClassificationService:
         train_labels: List[int],
         sample_weights: List[float]
     ) -> Tuple[np.ndarray, StandardScaler]:
-        """Train OvO-based multi-class SVM and compute decision function vectors.
+        """Train OvO-based multi-class SVM and compute per-class decision scores.
 
         Uses sklearn's native SVC which internally trains OvO (pairwise) classifiers
-        via libsvm. With decision_function_shape='ovr', the output is transformed to
-        per-category scores — same (N, 3) shape as the previous manual OvR approach.
+        via libsvm. With decision_function_shape='ovo', raw pairwise decision values
+        are summed per class (no voting, no squashing) for continuous decision scores.
 
         Args:
             metrics_matrix: (N, D) feature metric matrix (raw values)
@@ -436,12 +432,12 @@ class ClassificationService:
         # Balance by weighted class mass (not raw counts like sklearn's class_weight='balanced')
         weights = compute_balanced_sample_weights(y_train, weights)
 
-        # Train single multi-class SVC (OvO internally, OvR-shaped output)
+        # Train single multi-class SVC (OvO internally, raw OvO output)
         svm = SVC(
             kernel='rbf',
             C=1.0,
             gamma='scale',
-            decision_function_shape='ovr'
+            decision_function_shape='ovo'
         )
         svm.fit(X_train, y_train, sample_weight=weights)
 
@@ -453,7 +449,7 @@ class ClassificationService:
 
         if len(svm.classes_) == 2:
             # Binary case: decision_function returns (N,) 1D array
-            # Positive direction = classes_[1], negative = classes_[0]
+            # Output is identical for 'ovr' and 'ovo' when n_classes == 2
             pos_idx = int(svm.classes_[1])
             neg_idx = int(svm.classes_[0])
             decision_vectors[:, pos_idx] = raw_decisions
@@ -465,15 +461,23 @@ class ClassificationService:
             logger.warning(f"Binary SVM: only {len(svm.classes_)} classes detected, "
                            f"missing categories set to -|decision_function|")
         else:
-            # Multi-class (3+): decision_function returns (N, K) with OvR shape
-            # Columns correspond to svm.classes_ ordering
-            for col_idx, class_label in enumerate(svm.classes_):
-                cat_idx = int(class_label)
-                decision_vectors[:, cat_idx] = raw_decisions[:, col_idx]
+            # Multi-class (3+): raw OvO output, shape (N, K*(K-1)/2)
+            # Sum pairwise contributions per class (no voting, no squashing)
+            # Sign: positive dec[k] favors first class in pair (i < j)
+            # (derived from sklearn _base.py:780 — _ovr_decision_function receives -dec)
+            n_cls = len(svm.classes_)
+            k = 0
+            for i in range(n_cls):
+                for j in range(i + 1, n_cls):
+                    cat_i = int(svm.classes_[i])
+                    cat_j = int(svm.classes_[j])
+                    decision_vectors[:, cat_i] += raw_decisions[:, k]
+                    decision_vectors[:, cat_j] -= raw_decisions[:, k]
+                    k += 1
 
         n_train = len(train_indices)
         n_cats = len(unique_labels)
-        logger.info(f"Trained OvO SVM: {n_train} samples across {n_cats} categories")
+        logger.info(f"Trained OvO SVM (raw scores): {n_train} samples across {n_cats} categories")
 
         return decision_vectors, scaler
 
