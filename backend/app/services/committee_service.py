@@ -153,6 +153,44 @@ class CommitteeService:
             logger.error(f"[CommitteeService] RF training failed: {e}")
             return None
 
+    @staticmethod
+    def _select_mlp_config(n_samples: int) -> dict:
+        """
+        Select MLP architecture, regularization, and early stopping based on sample count.
+
+        5-tier system tuned for D≈10 features, C=3 classes:
+          Tier 1 (N<30):     (6,)      WD=1e-2  DO=0.0  ES=off  max_iter=300
+          Tier 2 (30–100):   (12,)     WD=5e-3  DO=0.0  ES=on if N≥50
+          Tier 3 (100–400):  (16, 8)   WD=5e-4  DO=0.0  ES=on
+          Tier 4 (400–1500): (32, 16)  WD=1e-4  DO=0.2  ES=on
+          Tier 5 (1500+):    (64, 32)  WD=1e-4  DO=0.3  ES=on
+        """
+        if n_samples < 30:
+            return dict(
+                tier=1, hidden_layer_sizes=(6,), alpha=1e-2,
+                dropout=0.0, early_stopping=False, max_iter=300,
+            )
+        elif n_samples < 100:
+            return dict(
+                tier=2, hidden_layer_sizes=(12,), alpha=5e-3,
+                dropout=0.0, early_stopping=(n_samples >= 50), max_iter=500,
+            )
+        elif n_samples < 400:
+            return dict(
+                tier=3, hidden_layer_sizes=(16, 8), alpha=5e-4,
+                dropout=0.0, early_stopping=True, max_iter=500,
+            )
+        elif n_samples < 1500:
+            return dict(
+                tier=4, hidden_layer_sizes=(32, 16), alpha=1e-4,
+                dropout=0.2, early_stopping=True, max_iter=500,
+            )
+        else:
+            return dict(
+                tier=5, hidden_layer_sizes=(64, 32), alpha=1e-4,
+                dropout=0.2, early_stopping=True, max_iter=500,
+            )
+
     def _train_mlp(
         self,
         X_scaled: np.ndarray,
@@ -161,7 +199,7 @@ class CommitteeService:
         n_samples: int
     ) -> Optional[WeightedMLPClassifier]:
         """
-        Train PyTorch MLP with proper sample weight support.
+        Train PyTorch MLP with adaptive architecture based on sample count.
 
         Uses WeightedMLPClassifier which applies sample weights directly to
         CrossEntropyLoss during training, as described in the cVIL paper:
@@ -170,13 +208,11 @@ class CommitteeService:
         back-propagation."
         """
         try:
-            hidden_layer_sizes = (16, 16)
+            cfg = self._select_mlp_config(n_samples)
+            tier = cfg.pop("tier")
 
             mlp = WeightedMLPClassifier(
-                hidden_layer_sizes=hidden_layer_sizes,
-                alpha=0.01,  # L2 regularization (weight_decay in Adam)
-                max_iter=500,
-                early_stopping=True,
+                **cfg,
                 validation_fraction=0.2,
                 n_iter_no_change=10,
                 random_state=42
@@ -186,8 +222,10 @@ class CommitteeService:
             mlp.fit(X_scaled, y_train, sample_weight=sample_weights)
 
             logger.info(
-                f"[CommitteeService] PyTorch MLP trained: hidden_layers={hidden_layer_sizes}, "
-                f"iterations={mlp.n_iter_}"
+                f"[CommitteeService] MLP Tier {tier}: layers={cfg['hidden_layer_sizes']}, "
+                f"WD={cfg['alpha']}, DO={cfg['dropout']}, "
+                f"ES={'on' if cfg['early_stopping'] else 'off'}, "
+                f"iters={mlp.n_iter_}/{cfg['max_iter']}"
             )
 
             return mlp
