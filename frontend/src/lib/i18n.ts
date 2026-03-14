@@ -78,11 +78,11 @@ const TAG_TOOLTIP_KO: Record<string, Partial<TagTooltipInfo>> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Syntax`]: {
     description: 'Example들이 공유하는 표현 형태적 패턴을 explainer가 설명에서 누락한 경우',
-    example: '예: suffix, prefix, 단어/문장 속 위치, 특정 토큰, 반복',
+    example: '예: suffix, prefix, 단어/문장 속 위치, 특정 토큰 앞/뒤, 문장 성분, 반복',
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
     description: 'Example들이 공유하는 의미적, 맥락적 패턴을 explainer가 설명에서 누락한 경우',
-    example: '예: 특정 상황, 문맥, 도메인, 토픽, 감정, 톤, 종류, 언어, 문장 성분',
+    example: '예: 문맥, 도메인, 토픽, 감정, 톤, 종류, 언어',
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     description: '일관된 패턴 없이 이질적인 example에 반응',

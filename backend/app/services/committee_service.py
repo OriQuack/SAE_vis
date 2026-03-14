@@ -218,8 +218,10 @@ class CommitteeService:
                 random_state=42
             )
 
-            # Sample weights are applied directly in loss function (cVIL approach)
-            mlp.fit(X_scaled, y_train, sample_weight=sample_weights)
+            # Balance by weighted class mass (consistent with SVM and RF)
+            # then apply via cVIL weighted loss in MLP training
+            balanced_weights = compute_balanced_sample_weights(y_train, sample_weights) if sample_weights is not None else None
+            mlp.fit(X_scaled, y_train, sample_weight=balanced_weights)
 
             logger.info(
                 f"[CommitteeService] MLP Tier {tier}: layers={cfg['hidden_layer_sizes']}, "

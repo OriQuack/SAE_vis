@@ -364,6 +364,7 @@ const QualityView: React.FC<QualityViewProps> = ({
       setSortDirection('asc')
     }
     setCurrentFeatureIndex(0)
+    setSelectedFeatureIdState(null)
   }, [setSortMode, setSortDirection])
 
   // Memoized QBC disagreement lookup - flags only when SVM loses the majority vote (both RF+MLP disagree)
@@ -619,9 +620,9 @@ const QualityView: React.FC<QualityViewProps> = ({
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
     const history = tagAutomaticState?.flipTracking?.flipHistory
-    if (!history || history.length < 6) return false
-    const last6 = history.slice(-6)
-    return last6.every(h => h.flipRate < 0.03)
+    if (!history || history.length < 5) return false
+    const last5 = history.slice(-5)
+    return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
 
   // Stability popover dismissal state — reset when condition goes away
@@ -710,6 +711,7 @@ const QualityView: React.FC<QualityViewProps> = ({
 
     return {
       featureId: feature.featureId,
+      qualityScore: feature.qualityScore,
       row: feature.row,
       activation: activationExamples[feature.featureId] || null
     }
@@ -1097,7 +1099,11 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <>
                   {/* Header row - Feature ID and Legends */}
                   <div className="quality-view__header-row">
-                    <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                    <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('Ranked by max activation strength, then 2 examples sampled per quartile (highest → lowest). Blue-bordered tokens mark recurring patterns.', '최대 activation 강도순 정렬 후, Quartile별 2개 example 추출 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                    <div className="pair-info__similarity">
+                      <span className="subheader__label">Avg. Metric Score:</span>
+                      <span className="subheader__value">{selectedFeatureData.qualityScore.toFixed(3)}</span>
+                    </div>
                     {/* Spacer to push legends to the right */}
                     <div style={{ flex: 1 }} />
                     {/* Activation legend */}

@@ -107,14 +107,21 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   // This prevents infinite loops by only triggering when the SET of manual tag IDs changes
   const manualTagsSignature = useMemo(() => {
     const manualIds: number[] = []
+    const wellExplainedIds: number[] = []
     causeSelectionStates.forEach((category, featureId) => {
       const source = causeSelectionSources.get(featureId)
-      // Only include cause categories — well-explained tags should not trigger SVM retraining
       if ((source === 'click' || source === 'threshold') && CAUSE_CATEGORIES.includes(category)) {
         manualIds.push(featureId)
       }
+      // Track well-explained so signature changes when pool size changes
+      if (category === 'well-explained') {
+        wellExplainedIds.push(featureId)
+      }
     })
-    return manualIds.sort((a, b) => a - b).join(',')
+    const causeSignature = manualIds.sort((a, b) => a - b).join(',')
+    if (wellExplainedIds.length === 0) return causeSignature
+    const excludedSignature = wellExplainedIds.sort((a, b) => a - b).join(',')
+    return `${causeSignature}|ex:${excludedSignature}`
   }, [causeSelectionStates, causeSelectionSources])
 
   // Track last signature that triggered API call to prevent duplicate requests

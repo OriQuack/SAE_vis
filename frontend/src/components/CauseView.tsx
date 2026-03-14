@@ -357,7 +357,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const setWorkflowActiveStage = useVisualizationStore(state => state.setWorkflowActiveStage)
   useEffect(() => {
     setWorkflowActiveStage(activeStage)
-    if (activeStage === 'apply') {
+    if (activeStage === 'apply' || activeStage === 'learn') {
       setHideTagged(true)
     } else {
       setHideTagged(false)
@@ -406,6 +406,7 @@ const CauseView: React.FC<CauseViewProps> = ({
       setSelectedSortDirection('asc')
     }
     setCurrentFeatureIndex(0)
+    setSelectedFeatureIdState(null)
   }, [setSortMode, setSelectedSortDirection])
 
   // Determine if we're in "Top" mode (Most Confident First)
@@ -519,9 +520,9 @@ const CauseView: React.FC<CauseViewProps> = ({
   // Check if flip rate stable (last 5 iterations all < 3%)
   const isFlipRateStable = useMemo(() => {
     const history = causeFlipTracking?.flipHistory
-    if (!history || history.length < 6) return false
-    const last6 = history.slice(-6)
-    return last6.every(h => h.flipRate < 0.03)
+    if (!history || history.length < 5) return false
+    const last5 = history.slice(-5)
+    return last5.every(h => h.flipRate < 0.03)
   }, [causeFlipTracking?.flipHistory])
 
   // Stability popover dismissal state — reset when condition goes away
@@ -1124,11 +1125,23 @@ const CauseView: React.FC<CauseViewProps> = ({
     return { patternMiss, contextMiss, noisyActivation, manualCount, taggableCount }
   }, [filteredFeatureIds, causeSelectionSources, causeSelectionStates])
 
-  // Memoize featureIds array to prevent unnecessary re-renders
-  // Array.from creates a new array reference on every call, so we memoize it
-  const stableFeatureIds = useMemo(() => {
-    return selectedFeatureIds ? Array.from(selectedFeatureIds) : []
-  }, [selectedFeatureIds])
+  // Exclude well-explained features from the classification pool.
+  // Like terminal tags in previous stages, well-explained doesn't belong to the 3 cause categories
+  // and would get forced into a cause category by the SVM, skewing scaler stats and margins.
+  const classifiableFeatureIds = useMemo(() => {
+    if (!selectedFeatureIds) return new Set<number>()
+    const filtered = new Set<number>()
+    for (const fid of selectedFeatureIds) {
+      if (causeSelectionStates.get(fid) !== 'well-explained') {
+        filtered.add(fid)
+      }
+    }
+    return filtered
+  }, [selectedFeatureIds, causeSelectionStates])
+
+  const classifiableFeatureIdsArray = useMemo(() => {
+    return Array.from(classifiableFeatureIds)
+  }, [classifiableFeatureIds])
 
   // Labeling guide popup
   const [showGuide, setShowGuide] = useState(false)
@@ -1294,7 +1307,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                     {/* ---- Activation Section (top half) ---- */}
                     {/* Header row - OUTSIDE bordered container */}
                     <div className="cause-view__header-row">
-                      <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('2 examples per quartile, ranked by max activation strength (highest → lowest). Blue-bordered tokens mark recurring patterns.', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
+                      <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('Ranked by max activation strength, then 2 examples sampled per quartile (highest → lowest). Blue-bordered tokens mark recurring patterns.', '최대 activation 강도순 정렬 후, Quartile별 2개 example 추출 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                       <div style={{ flex: 1 }} />
                       {/* Activation legend */}
                       <div className="legend-group">
@@ -1491,7 +1504,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                 onTagAll={() => {}}
                 activeStage={activeStage}
                 causeProps={{
-                  featureIds: selectedFeatureIds || new Set(),
+                  featureIds: classifiableFeatureIds,
                   causeDecisionMargins,
                   causeSelectionStates: causeSelectionStates as Map<number, CauseCategory>,
                   causeSelectionSources: causeSelectionSources as Map<number, 'click' | 'threshold' | 'predicted'>,
@@ -1503,7 +1516,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                   manualTagCountsByCategory,
                   flipTracking: causeFlipTracking,
                   selectedFeatureId: displayedFeatureId,
-                  stableFeatureIds,
+                  stableFeatureIds: classifiableFeatureIdsArray,
                   hideTagged,
                   categories: [
                     {

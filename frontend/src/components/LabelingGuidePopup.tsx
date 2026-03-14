@@ -48,12 +48,12 @@ const STAGE_1_CONFIG: FlowchartConfig = {
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 특징적인 개념을 찾을 수 있는가?'),
+      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
       x: 60, y: 20, width: 360, height: 56
     },
     {
       id: 'q2', type: 'question',
-      text: t('Can you separate shuffled activating examples into the original feature they belong to?', '섞인 activating example들을 원래 속한 feature로 분리할 수 있는가?'),
+      text: t('Can you separate shuffled activating examples into the original feature they belong to?', '찾은 개념을 사용해 섞인 activating example들을 원래 속한 feature로 분리할 수 있는가?'),
       x: 200, y: 150, width: 260, height: 56
     },
     {
@@ -111,66 +111,89 @@ const STAGE_1_CONFIG: FlowchartConfig = {
 
 const STAGE_2_CONFIG: FlowchartConfig = {
   stageLabel: 'Explanation Adequacy',
-  viewBox: '0 0 480 360',
+  viewBox: '0 0 530 400',
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 특징적인 개념을 찾을 수 있는가?'),
-      x: 60, y: 20, width: 360, height: 56
+      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
+      x: 70, y: 20, width: 360, height: 56
     },
     {
       id: 'q2', type: 'question',
-      text: t('Given the explanations, can you reproduce the activation pattern (sequence of tokens or context)?', 'Explanation을 참고하여 activation pattern (token sequence 또는 context)을 재현할 수 있는가?'),
-      x: 200, y: 150, width: 260, height: 56
+      text: t('Does the concept you identified match the concepts in the explanations?', '찾은 개념과 explanation들이 나타내는 개념이 일치한가?'),
+      x: 170, y: 130, width: 300, height: 48
+    },
+    {
+      id: 'q3', type: 'question',
+      text: t('Is the concept specific enough to distinguish activating examples from non-activating ones?', '찾은 개념이 activating example과 non-activating example을 구별할 수 있을 만큼 구체적인가?'),
+      x: 170, y: 230, width: 300, height: 56
     },
     {
       id: 'need-revision', type: 'outcome',
       text: 'Need Revision',
       tag: 'Need Revision', categoryId: TAG_CATEGORY_QUALITY,
-      x: 20, y: 280, width: 140, height: 44
+      x: 20, y: 330, width: 140, height: 44
     },
     {
       id: 'well-explained', type: 'outcome',
       text: 'Well-Explained',
       tag: 'Well-Explained', categoryId: TAG_CATEGORY_QUALITY,
-      x: 310, y: 280, width: 150, height: 44
+      x: 310, y: 330, width: 150, height: 44
     },
   ],
   edges: [
-    // Q1 --Yes--> Q2  (exit Q1 bottom-right at x=330)
+    // Q1 --Yes--> Q2
     {
       from: 'q1', to: 'q2', label: 'Yes',
       points: [
-        { x: 330, y: 76 },
-        { x: 330, y: 150 }
+        { x: 320, y: 76 },
+        { x: 320, y: 130 }
       ]
     },
-    // Q1 --No--> Need Revision  (exit Q1 bottom-left at x=150, L-path left)
+    // Q1 --No--> Need Revision (L-path left)
     {
       from: 'q1', to: 'need-revision', label: 'No',
       points: [
         { x: 150, y: 76 },
-        { x: 150, y: 115 },
-        { x: 85, y: 115 },
-        { x: 85, y: 280 }
+        { x: 150, y: 105 },
+        { x: 90, y: 105 },
+        { x: 90, y: 330 }
       ]
     },
-    // Q2 --No--> Need Revision  (exit Q2 bottom-left at x=270, L-path left)
+    // Q2 --Yes--> Q3
+    {
+      from: 'q2', to: 'q3', label: 'Yes',
+      points: [
+        { x: 320, y: 178 },
+        { x: 320, y: 230 }
+      ]
+    },
+    // Q2 --No--> Need Revision (L-path left)
     {
       from: 'q2', to: 'need-revision', label: 'No',
       points: [
-        { x: 270, y: 206 },
-        { x: 270, y: 250 },
-        { x: 85, y: 250 },
-        { x: 85, y: 280 }
+        { x: 240, y: 178 },
+        { x: 240, y: 205 },
+        { x: 90, y: 205 },
+        { x: 90, y: 330 }
       ]
     },
-    // Q2 --Yes--> Well-Explained  (exit Q2 bottom-right at x=385)
+    // Q3 --Yes--> Well-Explained
     {
-      from: 'q2', to: 'well-explained', label: 'Yes',
+      from: 'q3', to: 'well-explained', label: 'Yes',
       points: [
-        { x: 385, y: 206 },
-        { x: 385, y: 280 }
+        { x: 385, y: 286 },
+        { x: 385, y: 330 }
+      ]
+    },
+    // Q3 --No--> Q1 (loop back right: Verify)
+    {
+      from: 'q3', to: 'q1', label: 'No',
+      points: [
+        { x: 470, y: 258 },
+        { x: 520, y: 258 },
+        { x: 520, y: 48 },
+        { x: 430, y: 48 }
       ]
     },
   ]
@@ -182,13 +205,13 @@ const STAGE_3_CONFIG: FlowchartConfig = {
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 특징적인 개념을 찾을 수 있는가?'),
+      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
       x: 60, y: 20, width: 360, height: 56
     },
     {
       id: 'q2', type: 'question',
-      text: t('What additional information do you need to reproduce the activation pattern?', 'Activation pattern을 재현하기 위해 어떤 추가 정보가 필요한가?'),
-      x: 20, y: 150, width: 260, height: 44
+      text: t('Compared to the concept you identified, what is missing from the explanations?', '찾은 개념과 비교하여 explanation에서 누락된 부분은 무엇인가?'),
+      x: 20, y: 150, width: 280, height: 52
     },
     {
       id: 'noisy-activation', type: 'outcome',
@@ -232,7 +255,7 @@ const STAGE_3_CONFIG: FlowchartConfig = {
     {
       from: 'q2', to: 'missed-syntax', label: 'Syntax',
       points: [
-        { x: 90, y: 194 },
+        { x: 90, y: 202 },
         { x: 90, y: 260 }
       ]
     },
@@ -240,9 +263,9 @@ const STAGE_3_CONFIG: FlowchartConfig = {
     {
       from: 'q2', to: 'missed-context', label: 'Context',
       points: [
-        { x: 210, y: 194 },
-        { x: 210, y: 228 },
-        { x: 275, y: 228 },
+        { x: 210, y: 202 },
+        { x: 210, y: 232 },
+        { x: 275, y: 232 },
         { x: 275, y: 260 }
       ]
     },

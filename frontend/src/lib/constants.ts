@@ -102,7 +102,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     label: "Explanation Adequacy",
     stageOrder: 2,
     metric: METRIC_QUALITY_SCORE,
-    defaultThresholds: [0.5],
+    defaultThresholds: [0.35],
     showHistogram: true,
     tags: [
       "Need Revision",       // Group 0 (< threshold, LOW quality score)
@@ -594,7 +594,7 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
     verdict: 'negative', description: 'Explainer omitted a shared semantic or contextual pattern',
-    example: 'e.g. specific situations, context, domain, topic, sentiment, tone, types, language, sentence components'
+    example: 'e.g. specific situations, context, domain, topic, sentiment, tone, types, language'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
     verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency',

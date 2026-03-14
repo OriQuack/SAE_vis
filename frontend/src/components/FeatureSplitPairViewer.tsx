@@ -268,7 +268,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
             {/* Header row */}
             <div className="pair-viewer__header">
               {/* Subheader */}
-              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html={t('2 examples per quartile, ranked by max activation strength (highest &rarr; lowest).', 'Quartile별 2개 example, 최대 activation 강도순 정렬 (높은 순 &rarr; 낮은 순).')}>Activating Examples <span className="instruction-subheader">of</span>{' '}
+              <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip-html={t('Ranked by max activation strength, then 2 examples sampled per quartile (highest &rarr; lowest).', '최대 activation 강도순 정렬 후, Quartile별 2개 example 추출 (높은 순 &rarr; 낮은 순).')}>Activating Examples <span className="instruction-subheader">of</span>{' '}
                 <span className="panel-header__id">#{currentPair.mainFeatureId}</span>{' '}
                 <span className="panel-header__id">#{currentPair.similarFeatureId}</span>
               </h4>
