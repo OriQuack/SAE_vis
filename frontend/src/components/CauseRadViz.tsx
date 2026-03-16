@@ -374,24 +374,25 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
               })}
             </g>
 
-            {/* Selected point highlight (on top) */}
+            {/* Selected point pin marker (on top) */}
             {selectedPointData && (
-              <g className="cause-radviz__selected-point">
-                <circle
-                  cx={selectedPointData.cx}
-                  cy={selectedPointData.cy}
-                  r={3.5}
-                  fill="none"
+              <g
+                className="cause-radviz__selected-point"
+                transform={`translate(${selectedPointData.cx},${selectedPointData.cy})`}
+              >
+                {/* Pin shape: tip at (0,0), head circle at (0,-14) */}
+                <path
+                  d="M0,0 C-3,-5 -5,-10 -5,-14 A5,5 0 1 1 5,-14 C5,-10 3,-5 0,0Z"
+                  fill={SELECTION_BLUE.DEFAULT}
                   stroke="#fff"
-                  strokeWidth={4.5}
+                  strokeWidth={1.5}
                 />
+                {/* Inner dot on pin head */}
                 <circle
-                  cx={selectedPointData.cx}
-                  cy={selectedPointData.cy}
-                  r={3.5}
-                  fill="none"
-                  stroke={SELECTION_BLUE.DEFAULT}
-                  strokeWidth={2.5}
+                  cx={0}
+                  cy={-14}
+                  r={2}
+                  fill="#fff"
                 />
               </g>
             )}
@@ -406,7 +407,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['noisy-activation'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['noisy-activation'].y),
-                  transform: 'translate(-50%, -100%) translateY(-8px)',
+                  transform: 'translate(-50%, -100%) translate(8px, -8px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
                 } as React.CSSProperties}
               >
@@ -440,6 +441,27 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
               </div>
             </>
           )}
+        </div>
+
+      </div>
+
+      {/* Legend (top-left) */}
+      <div className="cause-radviz__legend">
+        <div className="cause-radviz__legend-item">
+          <svg className="cause-radviz__legend-pin" width="10" height="16" viewBox="-6 -21 12 22">
+            <path
+              d="M0,0 C-3,-5 -5,-10 -5,-14 A5,5 0 1 1 5,-14 C5,-10 3,-5 0,0Z"
+              fill={SELECTION_BLUE.DEFAULT}
+              stroke="#fff"
+              strokeWidth={1}
+            />
+            <circle cx={0} cy={-14} r={1.5} fill="#fff" />
+          </svg>
+          <span>Selected</span>
+        </div>
+        <div className="cause-radviz__legend-item">
+          <span className="cause-radviz__legend-gradient" />
+          <span>Density</span>
         </div>
       </div>
 

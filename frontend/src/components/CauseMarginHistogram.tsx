@@ -134,13 +134,13 @@ const HISTOGRAM_STRIPE = {
 }
 
 // Category order for stacking (bottom to top)
-// Visual top-to-bottom: unsure, well-explained, Missed Syntax, Missed Context, Noisy Activation
+// Visual top-to-bottom: Missed Syntax, Missed Context, Noisy Activation, Well-Explained, Unsure
 const CATEGORY_STACK_ORDER: (CauseCategory | 'unsure')[] = [
+  'unsure',
+  'well-explained',
   'noisy-activation',
   'missed-context',
-  'missed-N-gram',
-  'well-explained',
-  'unsure'
+  'missed-N-gram'
 ]
 
 // Map internal category names to display tag names for color lookup
@@ -344,26 +344,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
         const manualCount = bin.manualCounts[category]
         const autoCount = bin.autoCounts[category]
 
-        // Manual segment (solid fill) - bottom
-        if (manualCount > 0) {
-          const barHeight = chartHeight - yScale(manualCount)
-          const y = chartHeight - cumulativeHeight - barHeight
-
-          segments.push({
-            binIndex,
-            x: binIndex * binWidth + LAYOUT.bar.padding,
-            y,
-            width: Math.max(binWidth - LAYOUT.bar.padding * 2, 1),
-            height: barHeight,
-            color: getCategoryColor(category),
-            category,
-            isManual: true
-          })
-
-          cumulativeHeight += barHeight
-        }
-
-        // Auto segment (striped fill) - top
+        // Auto segment (striped fill) - bottom
         if (autoCount > 0) {
           const barHeight = chartHeight - yScale(autoCount)
           const y = chartHeight - cumulativeHeight - barHeight
@@ -377,6 +358,25 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             color: getCategoryColor(category),
             category,
             isManual: false
+          })
+
+          cumulativeHeight += barHeight
+        }
+
+        // Manual segment (solid fill) - top
+        if (manualCount > 0) {
+          const barHeight = chartHeight - yScale(manualCount)
+          const y = chartHeight - cumulativeHeight - barHeight
+
+          segments.push({
+            binIndex,
+            x: binIndex * binWidth + LAYOUT.bar.padding,
+            y,
+            width: Math.max(binWidth - LAYOUT.bar.padding * 2, 1),
+            height: barHeight,
+            color: getCategoryColor(category),
+            category,
+            isManual: true
           })
 
           cumulativeHeight += barHeight
@@ -694,7 +694,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
             fill="#666"
             textAnchor="middle"
           >
-            |Decision Margin|
+            Confidence Margin
           </text>
 
           {/* Y-axis label */}

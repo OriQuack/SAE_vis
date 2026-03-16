@@ -13,15 +13,10 @@ import { t, getTagTooltip } from '../lib/i18n'
 import { getTagColor } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import { useCommitHistory, createCauseCommitHistoryOptions, type DisplayCommit, isUserConfirmed, useMainListScroll, useTaggingNavigation } from '../lib/tagging-hooks'
-import { CauseMetricParallelCoords } from './ParallelCoordinates'
 import {
-  calculateCauseMetricScores,
   getEffectiveCategory as getEffectiveCategoryUtil,
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
-import { computeCategoryBands } from '../lib/parallel-coords-utils'
-import type { LogNormRange } from '../lib/parallel-coords-utils'
-import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import ExportResultsPopup from './ExportResultsPopup'
@@ -80,7 +75,7 @@ const CauseView: React.FC<CauseViewProps> = ({
   const stage3CurrentCommitIndex = useVisualizationStore(state => state.stage3CurrentCommitIndex)
   const causeSelectionStates = useVisualizationStore(state => state.causeSelectionStates)
   const causeSelectionSources = useVisualizationStore(state => state.causeSelectionSources)
-  const causeMetricScores = useVisualizationStore(state => state.causeMetricScores)
+
 
   // Stage 2 selection states (for well-explained background lines)
   const featureSelectionStates = useVisualizationStore(state => state.featureSelectionStates)
@@ -343,6 +338,7 @@ const CauseView: React.FC<CauseViewProps> = ({
     decisionMarginScores: causeDecisionMargins,
     diversityIds: diversityFeatureIds,
     defaultLabel: 'Feature ID',
+    decisionMarginLabel: 'Confidence Margin',
     initialMode: 'diversity',
     templateMode: 'decisionMargin',
     templateDirection: 'asc'
@@ -581,72 +577,6 @@ const CauseView: React.FC<CauseViewProps> = ({
     featureSelectionStates, featureSelectionSources,
     causeSelectionStates, causeSelectionSources
   ])
-
-  // Compute global log(fracNonzero) range for parallel coordinates normalization
-  const fracNonzeroLogRange: LogNormRange | null = useMemo(() => {
-    if (!causeMetricScores || causeMetricScores.size === 0) return null
-    const logValues: number[] = []
-    causeMetricScores.forEach(scores => {
-      if (scores.fracNonzero !== null && scores.fracNonzero > 0) {
-        logValues.push(Math.log(scores.fracNonzero))
-      }
-    })
-    if (logValues.length < 2) return null
-    return { logMin: Math.min(...logValues), logMax: Math.max(...logValues) }
-  }, [causeMetricScores])
-
-  // Compute category bands for parallel coordinates (median + IQR per category)
-  const categoryBands = useMemo(() => {
-    if (!tableData?.features) return []
-
-    // Build feature lookup for score calculation
-    const featureMap = new Map<number, FeatureTableRow>(
-      tableData.features.map((f: FeatureTableRow) => [f.feature_id, f])
-    )
-
-    // Helper: compute CauseMetricScores for a set of feature IDs
-    const buildScoresMap = (featureIds: Iterable<number>) => {
-      const scores = new Map<number, ReturnType<typeof calculateCauseMetricScores>>()
-      for (const fid of featureIds) {
-        const row = featureMap.get(fid)
-        if (row) scores.set(fid, calculateCauseMetricScores(row))
-      }
-      return scores
-    }
-
-    // 1. Well-Explained: from Stage 2 selected features
-    const wellExplainedIds: number[] = []
-    featureSelectionStates.forEach((state, fid) => {
-      if (state === 'selected') wellExplainedIds.push(fid)
-    })
-
-    // 2. Cause categories: from Stage 3 tags
-    const causeGroups = new Map<string, number[]>()
-    causeSelectionStates.forEach((cat, fid) => {
-      if (cat === 'well-explained') return // already counted above
-      if (!causeGroups.has(cat)) causeGroups.set(cat, [])
-      causeGroups.get(cat)!.push(fid)
-    })
-
-    // Build the categoryScoresMap
-    const categoryScoresMap = new Map<string, Map<number, ReturnType<typeof calculateCauseMetricScores>>>()
-    categoryScoresMap.set('well-explained', buildScoresMap(wellExplainedIds))
-    for (const [cat, ids] of causeGroups) {
-      categoryScoresMap.set(cat, buildScoresMap(ids))
-    }
-
-    // Build color/label maps from legend
-    const legend = getCauseCategoryLegend()
-    const colorMap = new Map<string, string>()
-    const labelMap = new Map<string, string>()
-    for (const item of legend) {
-      if (item.category === 'unsure') continue
-      colorMap.set(item.category, item.color)
-      labelMap.set(item.category, item.label)
-    }
-
-    return computeCategoryBands(categoryScoresMap, colorMap, labelMap, fracNonzeroLogRange)
-  }, [featureSelectionStates, causeSelectionStates, tableData, fracNonzeroLogRange])
 
   // Reset feature index when visible categories change (auto-select first feature)
   useEffect(() => {
@@ -1387,13 +1317,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                     </div>
                     <div className="cause-view__consensus-with-metrics">
                       <ConsensusSection consensus={consensus} expanded hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} />
-                      <div className="cause-view__metrics-container">
-                        <CauseMetricParallelCoords
-                          categoryBands={categoryBands}
-                          currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
-                          fracNonzeroLogRange={fracNonzeroLogRange}
-                        />
-                      </div>
                     </div>
 
                     {/* ---- Floating control panel ---- */}

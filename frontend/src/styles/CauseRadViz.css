@@ -167,6 +167,52 @@
    ANCHOR LABELS - Tag-styled labels at circle anchor positions
    ============================================================================ */
 
+/* ============================================================================
+   LEGEND - Small legend in top-left of chart
+   ============================================================================ */
+
+.cause-radviz__legend {
+  position: absolute;
+  top: 2px;
+  left: 0px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 2px 2px 0px;
+  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.cause-radviz__legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  color: #374151;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.cause-radviz__legend-pin {
+  flex-shrink: 0;
+}
+
+.cause-radviz__legend-gradient {
+  display: inline-block;
+  width: 20px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  background: linear-gradient(to right, rgba(136, 136, 136, 0.15), rgba(136, 136, 136, 0.9));
+}
+
+/* ============================================================================
+   ANCHOR LABELS - Tag-styled labels at circle anchor positions
+   ============================================================================ */
+
 .cause-radviz__vertex-label {
   position: absolute;
   padding: 1px 4px;

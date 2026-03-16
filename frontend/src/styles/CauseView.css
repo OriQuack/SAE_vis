@@ -163,13 +163,11 @@
   justify-content: space-between;
 }
 
-/* Consensus + Parallel Coordinates side by side */
+/* Consensus section container */
 .cause-view__consensus-with-metrics {
   flex: 1;
   min-height: 0;
   display: flex;
-  flex-direction: row;
-  gap: 4px;
 }
 
 /* Let consensus section fill available height in CauseView (override 90px max-height from ConsensusSection.css) */
@@ -251,18 +249,6 @@
 /* ============================================================================
  * EXPLANATION ROW - Left metrics (no border) + Right explanation (bordered)
  * ============================================================================ */
-
-/* Cause metrics container - fixed width beside consensus */
-.cause-view__metrics-container {
-  flex-shrink: 0;
-  display: flex;
-  align-items: stretch;
-  border: 1px solid #e5e7eb;
-  border-radius: 4px;
-  padding: 4px;
-}
-
-
 
 /* Floating controls layout uses .floating-controls from base.css */
 

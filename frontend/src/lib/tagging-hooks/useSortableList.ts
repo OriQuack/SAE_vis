@@ -21,6 +21,7 @@ export interface SortableListConfig<T, K> {
   decisionMarginScores: Map<K, number>
   diversityIds?: Set<K>     // IDs of medoids to show first in diversity mode
   defaultLabel: string      // e.g., 'Quality score', 'Decoder sim'
+  decisionMarginLabel?: string  // Override label for decisionMargin mode (default: '|Decision Margin|')
   defaultDirection?: 'asc' | 'desc'  // default: 'desc' (used as initial direction for default mode)
   // Template configuration - defines the "canonical" sort state for this view (used for isTemplateSort)
   templateMode?: SortMode   // default: 'decisionMargin'
@@ -52,6 +53,7 @@ export function useSortableList<T, K>({
   decisionMarginScores,
   diversityIds,
   defaultLabel,
+  decisionMarginLabel = '|Decision Margin|',
   defaultDirection: _defaultDirection = 'desc',  // Kept for backward compatibility, but sortDirection is used
   templateMode = 'decisionMargin',
   templateDirection = 'asc',
@@ -123,7 +125,7 @@ export function useSortableList<T, K>({
   }, [sortDirection, setSortDirection])
 
   const columnHeaderProps = useMemo(() => ({
-    label: sortMode === 'decisionMargin' ? '|Decision Margin|' : sortMode === 'diversity' ? '-' : defaultLabel,
+    label: sortMode === 'decisionMargin' ? decisionMarginLabel : sortMode === 'diversity' ? '-' : defaultLabel,
     sortDirection: sortMode === 'diversity' ? undefined : sortDirection,  // No direction for diversity mode
     onClick: toggleSortDirection,
     isSortable: sortMode !== 'diversity',  // Diversity mode doesn't support direction toggle

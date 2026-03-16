@@ -578,27 +578,27 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
 
   // Stage 2: Explanation Adequacy
   [`${TAG_CATEGORY_QUALITY}:Well-Explained`]: {
-    verdict: 'positive', flow: 'Finalized at Stage 2', description: 'Explanations successfully capture the activation patterns'
+    verdict: 'positive', flow: 'Finalized at Stage 2', description: 'Explanations successfully capture all the activating examples'
   },
   [`${TAG_CATEGORY_QUALITY}:Need Revision`]: {
-    verdict: 'negative', flow: 'Further inspected in Stage 3', description: 'Explanations all fail to capture the activation patterns'
+    verdict: 'negative', flow: 'Further inspected in Stage 3', description: 'Explanations fail to capture all the activating examples'
   },
 
   // Stage 3: Failure Attribution
   [`${TAG_CATEGORY_CAUSE}:Well-Explained`]: {
-    verdict: 'positive', description: 'Explanation is faithful despite initial low scores'
+    verdict: 'positive', description: 'Explanation is sufficiently faithful despite low scores'
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Syntax`]: {
-    verdict: 'negative', description: 'Explainer omitted a shared surface-level syntactic pattern',
-    example: 'e.g. morphological patterns, positional patterns, before and after X, capitalization'
+    verdict: 'negative', description: 'Explainer omitted shared surface-level patterns from the activating examples',
+    example: 'e.g. suffix, prefix, position within words/sentences, before/after specific tokens, sentence components, repetition'
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
-    verdict: 'negative', description: 'Explainer omitted a shared semantic or contextual pattern',
-    example: 'e.g. specific situations, context, domain, topic, sentiment, tone, types, language'
+    verdict: 'negative', description: 'Explainer omitted shared semantic or contextual patterns from the activating examples',
+    example: 'e.g. context, domain, topic, sentiment, tone, types, language'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {
-    verdict: 'negative', description: 'Activation patterns are heterogeneous with no consistency',
-    example: 'e.g. unrelated activation contexts, no shared lexical or semantic pattern, polysemantic'
+    verdict: 'negative', description: 'Activates on heterogeneous examples with no consistent pattern',
+    example: 'e.g. unrelated activation contexts, no shared lexical or semantic patterns, polysemantic'
   },
 
   // Shared

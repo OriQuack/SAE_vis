@@ -53,7 +53,7 @@ const STAGE_1_CONFIG: FlowchartConfig = {
     },
     {
       id: 'q2', type: 'question',
-      text: t('Can you separate shuffled activating examples into the original feature they belong to?', '찾은 개념을 사용해 섞인 activating example들을 원래 속한 feature로 분리할 수 있는가?'),
+      text: t('Using the concept you found, can you separate shuffled activating examples into the original feature they belong to?', '찾은 개념을 사용해 섞인 activating example들을 원래 속한 feature로 분리할 수 있는가?'),
       x: 200, y: 150, width: 260, height: 56
     },
     {
@@ -120,12 +120,12 @@ const STAGE_2_CONFIG: FlowchartConfig = {
     },
     {
       id: 'q2', type: 'question',
-      text: t('Does the concept you identified match the concepts in the explanations?', '찾은 개념과 explanation들이 나타내는 개념이 일치한가?'),
+      text: t('Does the concept you found match the concepts expressed in the explanations?', '찾은 개념과 explanation들이 나타내는 개념이 일치한가?'),
       x: 170, y: 130, width: 300, height: 48
     },
     {
       id: 'q3', type: 'question',
-      text: t('Is the concept specific enough to distinguish activating examples from non-activating ones?', '찾은 개념이 activating example과 non-activating example을 구별할 수 있을 만큼 구체적인가?'),
+      text: t('Is the concept you found specific enough to distinguish activating examples from non-activating ones?', '찾은 개념이 activating example과 non-activating example을 구별할 수 있을 만큼 구체적인가?'),
       x: 170, y: 230, width: 300, height: 56
     },
     {
@@ -210,7 +210,7 @@ const STAGE_3_CONFIG: FlowchartConfig = {
     },
     {
       id: 'q2', type: 'question',
-      text: t('Compared to the concept you identified, what is missing from the explanations?', '찾은 개념과 비교하여 explanation에서 누락된 부분은 무엇인가?'),
+      text: t('Compared to the concept you found, what is missing from the explanations?', '찾은 개념과 비교하여 explanation에서 누락된 부분은 무엇인가?'),
       x: 20, y: 150, width: 280, height: 52
     },
     {
