@@ -625,11 +625,14 @@ const QualityView: React.FC<QualityViewProps> = ({
     return last5.every(h => h.flipRate < 0.03)
   }, [tagAutomaticState?.flipTracking?.flipHistory])
 
-  // Stability popover dismissal state — reset when condition goes away
-  const [stabilityPopoverDismissed, setStabilityPopoverDismissed] = useState(false)
+  // Flip rate popover dismiss (resets when flip rate becomes unstable — existing behavior)
+  const [flipRatePopoverDismissed, setFlipRatePopoverDismissed] = useState(false)
   useEffect(() => {
-    if (!isFlipRateStable) setStabilityPopoverDismissed(false)
+    if (!isFlipRateStable) setFlipRatePopoverDismissed(false)
   }, [isFlipRateStable])
+
+  // Label count > 50 popover — show once, permanently dismissed
+  const labelCountPopoverShown = useRef(false)
 
 
   // ============================================================================
@@ -1318,8 +1321,14 @@ const QualityView: React.FC<QualityViewProps> = ({
             onApplyTags={handleApplyTags}
             onTagAll={handleTagAll}
             activeStage={activeStage}
-            showStabilityPopover={activeStage === 'learn' && isFlipRateStable && !stabilityPopoverDismissed}
-            onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
+            showStabilityPopover={activeStage === 'learn' && (
+              (isFlipRateStable && !flipRatePopoverDismissed) ||
+              (featureSelectionStates.size > 50 && !labelCountPopoverShown.current)
+            )}
+            onDismissStabilityPopover={() => {
+              setFlipRatePopoverDismissed(true)
+              if (featureSelectionStates.size > 50) labelCountPopoverShown.current = true
+            }}
           />
           </div>
         </div>

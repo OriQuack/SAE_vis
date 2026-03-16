@@ -121,7 +121,7 @@ export function getVerdictLabel(verdict: 'positive' | 'negative' | 'neutral'): s
 // ============================================================================
 
 const METRIC_DESC_KO: Record<string, string> = {
-  fracNonzero: 'Text corpus에서 이 feature가 activate되는 빈도 (0 = 비활성, 1 = 항상 활성)',
+  fracNonzero: 'Log-normalized activation frequency: text corpus에서 이 feature가 activate되는 빈도 (log 스케일, min-max 정규화)',
   consensusScore: '서로 다른 LLM explainer 간 핵심 phrase의 일치도',
   embedding: 'Explanation이 activating vs. non-activating example과 얼마나 의미적으로 일치하는지 (0.5 = random)',
   detection: 'Explanation이 context 수준에서 activating과 non-activating example을 얼마나 잘 구분하는지 (0.5 = random)',

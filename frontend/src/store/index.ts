@@ -20,7 +20,7 @@ import {
   TAG_CATEGORY_FEATURE_SPLITTING
 } from '../lib/constants'
 import { calculateMetricScoresOnly, type CauseMetricScores } from '../lib/cause-tagging-utils'
-import { createInitialPanelState, type PanelState } from './utils'
+import { createInitialPanelState, computeCauseSignature, type PanelState } from './utils'
 import { createSimplifiedSankeyActions } from './sankey-actions'
 import { createCommonActions } from './common-actions'
 import { createFeatureSplitActions } from './feature-split-actions'
@@ -742,15 +742,8 @@ export const useStore = create<AppState>((set, get) => {
   },
 
   restoreCauseSelectionStates: (states: Map<number, CauseCategory>, sources: Map<number, 'click' | 'threshold' | 'predicted'>) => {
-    // Compute signature from restored states to prevent SVM re-training in CauseRadViz
-    const manualIds: number[] = []
-    states.forEach((_category, featureId) => {
-      const source = sources.get(featureId)
-      if (source === 'click' || source === 'threshold') {
-        manualIds.push(featureId)
-      }
-    })
-    const signature = manualIds.sort((a, b) => a - b).join(',')
+    // Compute signature matching CauseRadViz's manualTagsSignature format
+    const signature = computeCauseSignature(states as Map<number, string>, sources as Map<number, string>)
 
     set({
       causeSelectionStates: new Map(states),
@@ -913,17 +906,23 @@ export const useStore = create<AppState>((set, get) => {
 
     const commitData = state.stage3CommitData.get(index)
     if (commitData) {
+      const signature = computeCauseSignature(
+        commitData.states as Map<number, string>,
+        commitData.sources as Map<number, string>
+      )
       set({
         causeSelectionStates: new Map(commitData.states),
         causeSelectionSources: new Map(commitData.sources),
-        stage3CurrentCommitIndex: index
+        stage3CurrentCommitIndex: index,
+        causeLastClassificationSignature: signature
       })
       console.log('[Store.restoreStage3Commit] Restored commit:', index)
     } else if (index === 0) {
       set({
         causeSelectionStates: new Map(),
         causeSelectionSources: new Map(),
-        stage3CurrentCommitIndex: 0
+        stage3CurrentCommitIndex: 0,
+        causeLastClassificationSignature: ''
       })
       console.log('[Store.restoreStage3Commit] Restored initial commit')
     }
@@ -1096,16 +1095,11 @@ export const useStore = create<AppState>((set, get) => {
       newStates.delete(featureId)
       newSources.delete(featureId)
 
-      // Compute post-undo signature to prevent SVM re-triggering
-      // Exclude 'well-explained' to match CauseRadViz's manualTagsSignature
-      const manualIds: number[] = []
-      newStates.forEach((category, fId) => {
-        const source = newSources.get(fId)
-        if ((source === 'click' || source === 'threshold') && category !== 'well-explained') {
-          manualIds.push(fId)
-        }
-      })
-      const causeSignature = manualIds.sort((a, b) => a - b).join(',')
+      // Compute post-undo signature matching CauseRadViz's manualTagsSignature format
+      const causeSignature = computeCauseSignature(
+        newStates as Map<number, string>,
+        newSources as Map<number, string>
+      )
 
       set({
         causeSelectionStates: newStates,

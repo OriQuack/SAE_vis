@@ -17,6 +17,8 @@ import React, { useMemo, useRef, useState, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
 import type { CauseMetricScores } from '../lib/cause-tagging-utils'
 import type { CategoryBand } from '../lib/parallel-coords-utils'
+import { logNormalize } from '../lib/parallel-coords-utils'
+import type { LogNormRange } from '../lib/parallel-coords-utils'
 import { getMetricDescription } from '../lib/i18n'
 import '../styles/ParallelCoordinates.css'
 
@@ -29,6 +31,8 @@ export interface ParallelCoordsProps {
   categoryBands: CategoryBand[]
   /** Scores of the currently selected feature for foreground line */
   currentScores: CauseMetricScores | null
+  /** Log normalization range for fracNonzero axis */
+  fracNonzeroLogRange?: LogNormRange | null
   /** Optional className for container */
   className?: string
 }
@@ -43,7 +47,7 @@ interface MetricConfig {
 
 // Define the 5 metrics in order (left to right)
 const METRICS: MetricConfig[] = [
-  { key: 'fracNonzero', label: 'Activation Frequency', shortLabel: 'Act. Freq', description: getMetricDescription('fracNonzero', 'How often this feature activates across the text corpus (0 = never, 1 = always)') },
+  { key: 'fracNonzero', label: 'Activation Frequency (log)', shortLabel: 'Act. Freq', description: getMetricDescription('fracNonzero', 'Log-normalized activation frequency: how often this feature activates across the text corpus (log-scale, min-max normalized to 0–1)') },
   { key: 'consensusScore', label: 'Consensus Score', shortLabel: 'Consensus', description: getMetricDescription('consensusScore', 'Agreement of key phrases across different LLM explainers') },
   { key: 'embedding', label: 'Embedding Score', shortLabel: 'Embedding', description: getMetricDescription('embedding', 'How well the explanation semantically matches activating vs. non-activating examples (0.5 = random)') },
   { key: 'detection', label: 'Detection Score', shortLabel: 'Detection', description: getMetricDescription('detection', 'How well the explanation distinguishes activating from non-activating examples at the context level (0.5 = random)') },
@@ -68,17 +72,22 @@ const MEDIAN_STROKE_WIDTH = 1.5
 // ============================================================================
 
 /**
- * Generate polyline points string for a set of metric scores
+ * Generate polyline points string for a set of metric scores.
+ * Applies log+minmax normalization to fracNonzero when range is provided.
  */
 function generatePolylinePoints(
   scores: CauseMetricScores,
   xScale: (index: number) => number,
-  yScale: (value: number) => number
+  yScale: (value: number) => number,
+  fracNonzeroLogRange?: LogNormRange | null
 ): string {
   const points: string[] = []
 
   METRICS.forEach((metric, index) => {
-    const value = scores[metric.key]
+    let value = scores[metric.key]
+    if (metric.key === 'fracNonzero' && fracNonzeroLogRange) {
+      value = logNormalize(value, fracNonzeroLogRange)
+    }
     if (value !== null && value !== undefined) {
       const x = xScale(index)
       const y = yScale(value)
@@ -148,6 +157,7 @@ function generateMedianLine(
 export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
   categoryBands,
   currentScores,
+  fracNonzeroLogRange,
   className = ''
 }) => {
   // Track height dynamically via ResizeObserver
@@ -199,8 +209,8 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
   // Generate foreground line (current feature)
   const foregroundLine = useMemo(() => {
     if (!currentScores) return null
-    return generatePolylinePoints(currentScores, xScale, yScale)
-  }, [currentScores, xScale, yScale])
+    return generatePolylinePoints(currentScores, xScale, yScale, fracNonzeroLogRange)
+  }, [currentScores, xScale, yScale, fracNonzeroLogRange])
 
   // Generate axis lines and labels
   const axes = useMemo(() => {
@@ -349,7 +359,10 @@ export const CauseMetricParallelCoords: React.FC<ParallelCoordsProps> = ({
 
           {/* Data points on foreground line */}
           {currentScores && METRICS.map((metric, index) => {
-            const value = currentScores[metric.key]
+            let value = currentScores[metric.key]
+            if (metric.key === 'fracNonzero' && fracNonzeroLogRange) {
+              value = logNormalize(value, fracNonzeroLogRange)
+            }
             if (value === null || value === undefined) return null
             return (
               <circle

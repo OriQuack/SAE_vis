@@ -65,6 +65,26 @@ function computeSummary(values: (number | null)[]): MetricSummary | null {
 }
 
 // ============================================================================
+// LOG NORMALIZATION
+// ============================================================================
+
+export interface LogNormRange {
+  logMin: number
+  logMax: number
+}
+
+/**
+ * Apply log + min-max normalization to a value.
+ * Returns null if value is null/undefined/zero or range is degenerate.
+ */
+export function logNormalize(value: number | null | undefined, range: LogNormRange | null): number | null {
+  if (value === null || value === undefined || value <= 0 || !range) return null
+  const span = range.logMax - range.logMin
+  if (span === 0) return 0.5
+  return (Math.log(value) - range.logMin) / span
+}
+
+// ============================================================================
 // MAIN FUNCTION
 // ============================================================================
 
@@ -79,12 +99,14 @@ const PARALLEL_METRIC_KEYS: (keyof CauseMetricScores)[] = [
  * @param categoryScoresMap - Map from category string to Map<featureId, CauseMetricScores>
  * @param colorMap - Map from category string to hex color
  * @param labelMap - Map from category string to display label
+ * @param fracNonzeroLogRange - Optional log normalization range for fracNonzero axis
  * @returns Array of CategoryBand objects
  */
 export function computeCategoryBands(
   categoryScoresMap: Map<string, Map<number, CauseMetricScores>>,
   colorMap: Map<string, string>,
-  labelMap: Map<string, string>
+  labelMap: Map<string, string>,
+  fracNonzeroLogRange?: LogNormRange | null
 ): CategoryBand[] {
   const bands: CategoryBand[] = []
 
@@ -98,7 +120,11 @@ export function computeCategoryBands(
     for (const key of PARALLEL_METRIC_KEYS) {
       const values: (number | null)[] = []
       scoresMap.forEach(scores => {
-        values.push(scores[key])
+        if (key === 'fracNonzero' && fracNonzeroLogRange) {
+          values.push(logNormalize(scores[key], fracNonzeroLogRange))
+        } else {
+          values.push(scores[key])
+        }
       })
       metrics[key] = computeSummary(values)
     }

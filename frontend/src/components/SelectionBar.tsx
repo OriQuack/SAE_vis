@@ -84,7 +84,30 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
   // Set default dimensions based on orientation
   const isVertical = orientation === 'vertical'
   const containerHeight = height ?? (isVertical ? '100%' : 24)
-  const containerWidth = width ?? (isVertical ? 'auto' : '100%')
+  const containerWidth = width ?? (isVertical ? 42 : '100%')
+
+  // Compute labeled vs total counts for status header
+  const labelingStatus = useMemo(() => {
+    let featureLabeled: number
+    let featureTotal: number
+
+    if (stage === 'stage3' && causeCounts) {
+      featureLabeled = causeCounts.total - causeCounts.unsure
+      featureTotal = causeCounts.total
+    } else {
+      featureLabeled = counts.total - counts.unsure
+      featureTotal = counts.total
+    }
+
+    let pairLabeled: number | undefined
+    let pairTotal: number | undefined
+    if (pairCategoryCounts) {
+      pairLabeled = pairCategoryCounts.total - pairCategoryCounts.unsure
+      pairTotal = pairCategoryCounts.total
+    }
+
+    return { featureLabeled, featureTotal, pairLabeled, pairTotal }
+  }, [stage, counts, causeCounts, pairCategoryCounts])
 
   // Store refs to category segments for external access (e.g., flow overlays)
   const categoryRefs = useRef<Map<SelectionCategory, HTMLDivElement>>(new Map())
@@ -699,13 +722,35 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
         flexDirection: isVertical ? 'column' : 'row'
       }}
     >
+      {/* Labeling status header (vertical mode only) */}
+      {isVertical && labelingStatus.featureTotal > 0 && (
+        <div className="selection-state-bar__header">
+          <div className="selection-state-bar__total">
+            <span className="selection-state-bar__total-primary">
+              {formatCount(labelingStatus.featureLabeled)}{' / '}{formatCount(labelingStatus.featureTotal)}
+            </span>
+            <span className="selection-state-bar__total-secondary">features labeled</span>
+            {labelingStatus.pairLabeled !== undefined && labelingStatus.pairTotal !== undefined && (
+              <>
+                <span className="selection-state-bar__total-primary">
+                  {formatCount(labelingStatus.pairLabeled)}{' / '}{formatCount(labelingStatus.pairTotal)}
+                </span>
+                <span className="selection-state-bar__total-secondary">pairs labeled</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Bar with segments */}
       <div
         ref={barRef}
         className="selection-state-bar__bar"
         style={{
           width: isVertical ? 42 : undefined,
-          height: isVertical ? '100%' : (typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight),
+          height: isVertical ? undefined : (typeof containerHeight === 'number' ? `${containerHeight}px` : containerHeight),
+          flex: isVertical ? '1 1 0' : undefined,
+          minHeight: isVertical ? 0 : undefined,
           display: 'flex',
           flexDirection: isVertical ? 'column' : 'row',
           position: 'relative'

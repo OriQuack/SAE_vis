@@ -20,6 +20,7 @@ import {
   isFeatureVisibleInMode
 } from '../lib/cause-tagging-utils'
 import { computeCategoryBands } from '../lib/parallel-coords-utils'
+import type { LogNormRange } from '../lib/parallel-coords-utils'
 import { getCauseCategoryLegend } from '../lib/cause-visualization-utils'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
@@ -525,11 +526,14 @@ const CauseView: React.FC<CauseViewProps> = ({
     return last5.every(h => h.flipRate < 0.03)
   }, [causeFlipTracking?.flipHistory])
 
-  // Stability popover dismissal state — reset when condition goes away
-  const [stabilityPopoverDismissed, setStabilityPopoverDismissed] = useState(false)
+  // Flip rate popover dismiss (resets when flip rate becomes unstable — existing behavior)
+  const [flipRatePopoverDismissed, setFlipRatePopoverDismissed] = useState(false)
   useEffect(() => {
-    if (!isFlipRateStable) setStabilityPopoverDismissed(false)
+    if (!isFlipRateStable) setFlipRatePopoverDismissed(false)
   }, [isFlipRateStable])
+
+  // Label count > 50 popover — show once, permanently dismissed
+  const labelCountPopoverShown = useRef(false)
 
   // Build feature list with metadata for the top row detail view (ALL features from segment)
   const featureListWithMetadata = useMemo(() => {
@@ -577,6 +581,19 @@ const CauseView: React.FC<CauseViewProps> = ({
     featureSelectionStates, featureSelectionSources,
     causeSelectionStates, causeSelectionSources
   ])
+
+  // Compute global log(fracNonzero) range for parallel coordinates normalization
+  const fracNonzeroLogRange: LogNormRange | null = useMemo(() => {
+    if (!causeMetricScores || causeMetricScores.size === 0) return null
+    const logValues: number[] = []
+    causeMetricScores.forEach(scores => {
+      if (scores.fracNonzero !== null && scores.fracNonzero > 0) {
+        logValues.push(Math.log(scores.fracNonzero))
+      }
+    })
+    if (logValues.length < 2) return null
+    return { logMin: Math.min(...logValues), logMax: Math.max(...logValues) }
+  }, [causeMetricScores])
 
   // Compute category bands for parallel coordinates (median + IQR per category)
   const categoryBands = useMemo(() => {
@@ -628,8 +645,8 @@ const CauseView: React.FC<CauseViewProps> = ({
       labelMap.set(item.category, item.label)
     }
 
-    return computeCategoryBands(categoryScoresMap, colorMap, labelMap)
-  }, [featureSelectionStates, causeSelectionStates, tableData])
+    return computeCategoryBands(categoryScoresMap, colorMap, labelMap, fracNonzeroLogRange)
+  }, [featureSelectionStates, causeSelectionStates, tableData, fracNonzeroLogRange])
 
   // Reset feature index when visible categories change (auto-select first feature)
   useEffect(() => {
@@ -1374,6 +1391,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                         <CauseMetricParallelCoords
                           categoryBands={categoryBands}
                           currentScores={causeMetricScores.get(selectedFeatureData.featureId) ?? null}
+                          fracNonzeroLogRange={fracNonzeroLogRange}
                         />
                       </div>
                     </div>
@@ -1548,8 +1566,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                   onConfirmAll: handleTagAllConfident,
                   onTagAllUnsure: handleTagRemainingByBoundary,
                 }}
-                showStabilityPopover={activeStage === 'learn' && isFlipRateStable && !stabilityPopoverDismissed}
-                onDismissStabilityPopover={() => setStabilityPopoverDismissed(true)}
+                showStabilityPopover={activeStage === 'learn' && (
+                  (isFlipRateStable && !flipRatePopoverDismissed) ||
+                  (causeSelectionStates.size > 50 && !labelCountPopoverShown.current)
+                )}
+                onDismissStabilityPopover={() => {
+                  setFlipRatePopoverDismissed(true)
+                  if (causeSelectionStates.size > 50) labelCountPopoverShown.current = true
+                }}
             />
           </div>
         </div>

@@ -7,38 +7,42 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow: visible;
 }
 
-/* Header - Total count display */
+/* Header - Labeling status display, right-aligned to bar's right edge */
 .selection-state-bar__header {
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   align-items: center;
-  width: 100%;
+  align-self: flex-end;
+  flex-shrink: 0;
+  margin-bottom: 12px;
 }
 
 .selection-state-bar__total {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  width: 100%;
+  align-items: flex-end;
+  gap: 1px;
+  white-space: nowrap;
 }
 
 .selection-state-bar__total-primary {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   color: #111827;
   text-align: center;
-  line-height: 1.2;
+  line-height: 1.3;
 }
 
 .selection-state-bar__total-secondary {
-  font-size: 14px;
+  font-size: 10px;
   font-weight: 500;
-  color: #6b7280;
+  color: #9ca3af;
   text-align: center;
   line-height: 1.2;
+  margin-bottom: 2px;
 }
 
 /* ============================================================================

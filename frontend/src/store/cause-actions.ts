@@ -1,6 +1,7 @@
 import * as api from '../api'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import { FLIP_HISTORY_WINDOW_SIZE } from '../components/ConvergenceIndicator'
+import { computeCauseSignature } from './utils'
 import type { FlipTrackingInfo } from '../types'
 
 // ============================================================================
@@ -301,16 +302,12 @@ export const createCauseActions = (set: any, get: any) => ({
         console.log('[Store.fetchCauseClassification] Committee votes parsed:', causeCommitteeVotes.size)
       }
 
-      // Compute signature of manual tags to mark as "already classified"
-      // This prevents CauseRadViz from re-triggering classification on commit restore
-      const classificationManualIds: number[] = []
-      currentState.causeSelectionStates.forEach((_category: string, featureId: number) => {
-        const source = currentState.causeSelectionSources.get(featureId)
-        if (source === 'click' || source === 'threshold') {
-          classificationManualIds.push(featureId)
-        }
-      })
-      const causeLastClassificationSignature = classificationManualIds.sort((a, b) => a - b).join(',')
+      // Compute signature matching CauseRadViz's manualTagsSignature format
+      // to prevent the sync effect from causing a format mismatch that triggers duplicate API calls
+      const causeLastClassificationSignature = computeCauseSignature(
+        currentState.causeSelectionStates,
+        currentState.causeSelectionSources
+      )
 
       // Always rebuild decision margins — SVM retrained so scores change even if categories don't
       const categoryDecisionMargins = new Map<number, Record<string, number>>()

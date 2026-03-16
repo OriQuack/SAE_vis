@@ -1,5 +1,6 @@
 import React, { useRef, useMemo, useEffect, useCallback } from 'react'
 import { useVisualizationStore } from '../store/index'
+import { computeCauseSignature } from '../store/utils'
 import { useResizeObserver } from '../lib/utils'
 import { hexbin as d3Hexbin } from 'd3-hexbin'
 import {
@@ -105,23 +106,12 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
 
   // Compute signature of manual tags to use as stable dependency
   // This prevents infinite loops by only triggering when the SET of manual tag IDs changes
+  // Uses shared computeCauseSignature to guarantee format consistency with store's causeLastClassificationSignature
   const manualTagsSignature = useMemo(() => {
-    const manualIds: number[] = []
-    const wellExplainedIds: number[] = []
-    causeSelectionStates.forEach((category, featureId) => {
-      const source = causeSelectionSources.get(featureId)
-      if ((source === 'click' || source === 'threshold') && CAUSE_CATEGORIES.includes(category)) {
-        manualIds.push(featureId)
-      }
-      // Track well-explained so signature changes when pool size changes
-      if (category === 'well-explained') {
-        wellExplainedIds.push(featureId)
-      }
-    })
-    const causeSignature = manualIds.sort((a, b) => a - b).join(',')
-    if (wellExplainedIds.length === 0) return causeSignature
-    const excludedSignature = wellExplainedIds.sort((a, b) => a - b).join(',')
-    return `${causeSignature}|ex:${excludedSignature}`
+    return computeCauseSignature(
+      causeSelectionStates as Map<number, string>,
+      causeSelectionSources as Map<number, string>
+    )
   }, [causeSelectionStates, causeSelectionSources])
 
   // Track last signature that triggered API call to prevent duplicate requests
