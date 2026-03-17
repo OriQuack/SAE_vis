@@ -1290,30 +1290,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <span className="subheader">Explainer Consensus</span>
                       <div style={{ flex: 1 }} />
                       <ConsensusLegend />
-                      <div className="legend-separator" />
-                      <div className="legend-group">
-                        <div className="legend-item">
-                          <svg width="16" height="8"><line x1="0" y1="4" x2="16" y2="4" stroke="#6b7280" strokeWidth="1.5" /></svg>
-                          <span className="legend-label">Median</span>
-                        </div>
-                        <div className="legend-item">
-                          <svg width="16" height="8"><rect x="0" y="0" width="16" height="8" fill="#6b7280" fillOpacity="0.18" /></svg>
-                          <span className="legend-label">Q1-Q3</span>
-                        </div>
-                        <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke="#000" strokeWidth="2.5" strokeLinecap="round" />
-                            <circle cx="12" cy="6" r="3" fill="#000" stroke="white" strokeWidth="1" />
-                          </svg>
-                          <span className="legend-label">Current</span>
-                        </div>
-                        <div className="legend-item">
-                          <svg width="24" height="12">
-                            <line x1="0" y1="6" x2="24" y2="6" stroke="#B22222" strokeWidth="1.5" strokeDasharray="4 3" />
-                          </svg>
-                          <span className="legend-label">Random</span>
-                        </div>
-                      </div>
                     </div>
                     <div className="cause-view__consensus-with-metrics">
                       <ConsensusSection consensus={consensus} expanded hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} />

@@ -423,11 +423,10 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         const response = await api.getColdStartSuggestions(
           'pair',
           Array.from(selectedFeatureIds),
-          20,  // Get 20 diverse pairs (10 typical + 10 anomaly)
+          20,  // Get 20 diverse pairs via Typiclust
           clusteringThreshold,
           undefined,  // randomSeed
-          'typiclust_odal',
-          0.5  // anomalyRatio: 10/20
+          'typiclust'
         )
         const newIds = new Set(response.suggestions.map(s => s.id))
         setStage1DiversityCache(newIds, signature)

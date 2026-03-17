@@ -148,16 +148,19 @@ const renderActivationToken = (
   // COMMENTED OUT: Inter-feature word-level border
   // const hasInterfeatureWordBorder = inter.highlight && effectiveCharOffset === null && !intra.highlight
 
-  const className = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
-  const bgColor = token.activation_value
-    ? getActivationColor(token.activation_value, maxActivation ?? example.max_activation)
+  // Filter out low activations: tokens below 5% of per-example max are treated as non-activated
+  const isActivated = (token.activation_value ?? 0) >= example.max_activation * 0.05
+
+  const className = `activation-token ${isActivated ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
+  const bgColor = isActivated
+    ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
     : undefined
 
   // Split leading spaces from activated tokens to prevent merged highlights
-  const leadingSpaces = token.activation_value && token.text.match(/^ +/)
+  const leadingSpaces = isActivated && token.text.match(/^ +/)
   if (leadingSpaces) {
     const spaceLen = leadingSpaces[0].length
-    const wordClassName = `activation-token ${token.activation_value ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
+    const wordClassName = `activation-token ${isActivated ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${hasWordUnderline ? 'activation-token--ngram' : ''}`
     return (
       <React.Fragment key={tokenIdx}>
         <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
