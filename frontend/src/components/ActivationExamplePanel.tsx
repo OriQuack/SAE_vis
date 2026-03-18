@@ -29,7 +29,14 @@ interface ActivationExampleProps {
   disableHover?: boolean
   // Disable feature-specific n-gram highlighting (Stage 1 only shows inter-feature patterns)
   disableNgramHighlight?: boolean
+  // Highlight mode: 'syntax' or 'context' for score-based highlighting
+  // When set, uses syntax_scores/context_scores instead of ngram_positions
+  highlightMode?: 'syntax' | 'context'
 }
+
+// Highlight colors from cause category palette (D3_SCHEME_TABLEAU10)
+const SYNTAX_HIGHLIGHT_COLOR = '#af7aa1'  // PURPLE = Missed Syntax
+const CONTEXT_HIGHLIGHT_COLOR = '#edc949' // YELLOW = Missed Context
 
 /**
  * Check if a token should be highlighted and get char offset (unified logic)
@@ -122,31 +129,65 @@ const renderActivationToken = (
   ngramLength: number,
   disableNgramHighlight?: boolean,
   maxActivation?: number,
+  highlightMode?: 'syntax' | 'context',
 ): React.ReactNode => {
-  // Intra-feature highlight (disabled in FeatureSplitPairViewer via disableNgramHighlight)
+  // Score-based highlighting mode (syntax or context)
+  if (highlightMode) {
+    const scores = highlightMode === 'syntax' ? example.syntax_scores : example.context_scores
+    const score = scores?.[token.position] ?? 0
+    const highlightColor = highlightMode === 'syntax' ? SYNTAX_HIGHLIGHT_COLOR : CONTEXT_HIGHLIGHT_COLOR
+
+    // Filter out low activations: tokens below 5% of per-example max are treated as non-activated
+    const isActivated = (token.activation_value ?? 0) >= example.max_activation * 0.05
+
+    const className = `activation-token ${isActivated ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''}`
+    const bgColor = isActivated
+      ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
+      : undefined
+
+    // Build style: orange activation + score-based highlight background
+    const style: React.CSSProperties = { '--activation-color': bgColor } as React.CSSProperties
+    if (score > 0) {
+      style.backgroundColor = `color-mix(in srgb, ${highlightColor} ${Math.round(score * 60)}%, transparent)`
+    }
+
+    // Handle newlines
+    if (token.is_newline) {
+      return (
+        <span key={tokenIdx} className={className} style={style}>
+          <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
+        </span>
+      )
+    }
+
+    // Split leading spaces
+    const leadingSpaces = isActivated && token.text.match(/^ +/)
+    if (leadingSpaces) {
+      const spaceLen = leadingSpaces[0].length
+      return (
+        <React.Fragment key={tokenIdx}>
+          <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
+          <span className={className} style={style}>{token.text.slice(spaceLen)}</span>
+        </React.Fragment>
+      )
+    }
+
+    return <span key={tokenIdx} className={className} style={style}>{token.text}</span>
+  }
+
+  // Legacy: binary ngram_positions highlighting
   const intra = disableNgramHighlight
     ? { highlight: false, charOffset: null }
     : getTokenHighlight(token.position, example)
-  // COMMENTED OUT: Inter-feature blue border highlighting disabled
-  // const inter = getInterfeatureHighlight(token.position, example, interFeaturePositions)
 
-  // Determine effective char-level highlight source
   let effectiveCharOffset: number | null = null
   let effectiveNgramLength = 0
   if (intra.highlight && intra.charOffset !== null) {
-    // Intra char-level highlight
     effectiveCharOffset = intra.charOffset
     effectiveNgramLength = ngramLength
   }
-  // COMMENTED OUT: Inter char-level highlight
-  // else if (inter.highlight && inter.charOffset !== null && (interFeaturePositions?.ngramLength ?? 0) > 0) {
-  //   effectiveCharOffset = inter.charOffset
-  //   effectiveNgramLength = interFeaturePositions!.ngramLength!
-  // }
 
   const hasWordUnderline = intra.highlight && intra.charOffset === null
-  // COMMENTED OUT: Inter-feature word-level border
-  // const hasInterfeatureWordBorder = inter.highlight && effectiveCharOffset === null && !intra.highlight
 
   // Filter out low activations: tokens below 5% of per-example max are treated as non-activated
   const isActivated = (token.activation_value ?? 0) >= example.max_activation * 0.05
@@ -203,7 +244,8 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   numQuantiles = 3,  // Default to 3 quantiles for tables, override to 4 for feature split
   examplesPerQuantile,  // Custom examples per quantile, e.g., [2, 2, 1, 1]
   disableHover = false,  // Disable hover popover
-  disableNgramHighlight = false  // Disable feature-specific n-gram highlighting
+  disableNgramHighlight = false,  // Disable feature-specific n-gram highlighting
+  highlightMode,  // Score-based highlighting: 'syntax' or 'context'
 }) => {
   // All hooks must be called unconditionally before any early returns
   const [showPopover, setShowPopover] = useState<boolean>(false)
@@ -344,7 +386,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode)
               })}
             </div>
           )
@@ -368,7 +410,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode)
                       })}
                     </div>
                   )

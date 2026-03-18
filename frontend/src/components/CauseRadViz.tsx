@@ -14,9 +14,6 @@ import {
 import { getCauseColor, type CauseCategory } from '../lib/cause-visualization-utils'
 import { getTagColor } from '../lib/tag-system'
 import { TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, SELECTION_BLUE } from '../lib/constants'
-import {
-  getEffectiveCategory as getEffectiveCategoryUtil,
-} from '../lib/cause-tagging-utils'
 import { isUserConfirmed } from '../lib/tagging-hooks'
 import type { ActiveStage } from '../lib/tagging-hooks/useSortableList'
 import '../styles/CauseRadViz.css'
@@ -162,17 +159,6 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return getRadVizCircleParams(scales)
   }, [scales])
 
-  // Get effective category for a feature
-  const getEffectiveCategory = useCallback((featureId: number): FilterCategory => {
-    return getEffectiveCategoryUtil(
-      featureId,
-      causeSelectionStates as Map<number, CauseCategory>,
-      causeSelectionSources,
-      causeDecisionMargins,
-      causeMarginThreshold
-    )
-  }, [causeSelectionStates, causeSelectionSources, causeDecisionMargins, causeMarginThreshold])
-
   // Compute RadViz positions from decision margins
   const radVizPositions = useMemo(() => {
     // No positions until SVM trained
@@ -181,26 +167,16 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return computeRadVizPositions(causeCategoryDecisionMargins, featureIds)
   }, [featureIds, causeCategoryDecisionMargins])
 
-  // Filter RadViz points by phase (activeStage)
+  // Filter RadViz points — always show all features, only apply hideTagged
   const filteredRadVizPoints = useMemo(() => {
     if (!radVizPositions) return null
-    const stage = activeStage ?? 'bootstrap'
 
     return radVizPositions.filter(point => {
       // hideTagged: hide user-confirmed tagged features
       if (hideTagged && isUserConfirmed(causeSelectionSources.get(point.feature_id))) return false
-
-      // Bootstrap: show ALL features
-      if (stage === 'bootstrap') return true
-
-      // Learn/Apply: filter by margin threshold (no tagged-feature exemption)
-      const margin = causeDecisionMargins.get(point.feature_id)
-      if (margin === undefined) return true
-      return stage === 'apply'
-        ? margin >= causeMarginThreshold
-        : margin < causeMarginThreshold
+      return true
     })
-  }, [radVizPositions, activeStage, hideTagged, causeSelectionSources, causeDecisionMargins, causeMarginThreshold])
+  }, [radVizPositions, hideTagged, causeSelectionSources])
 
 
   // ============================================================================
@@ -217,20 +193,26 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
     return getCauseColor(0, dummyMap)
   }, [])
 
-  // Bootstrap/Learn: only user-confirmed tags (click/threshold) show color; predictions are gray
-  // Apply: all tags (including predicted) show color
+  // Threshold-based coloring: above threshold = category color, below = gray
+  // Manual tags always show color; bootstrap = all non-manual gray
   const hexbinGetCategory = useCallback((featureId: number): FilterCategory => {
     const tag = causeSelectionStates.get(featureId)
+    const source = causeSelectionSources.get(featureId)
+
+    // Rule 1: Manual tags (click/threshold) always show category color
+    if (tag && isUserConfirmed(source)) return tag as FilterCategory
+
+    // Rule 2: Bootstrap (no threshold visualization) — non-manual = gray
+    if ((activeStage ?? 'bootstrap') === 'bootstrap') return 'unsure'
+
+    // Rule 3: Learn/Apply — above threshold = category color, below = gray
     if (tag) {
-      const source = causeSelectionSources.get(featureId)
-      if ((activeStage ?? 'bootstrap') === 'apply' || isUserConfirmed(source)) {
-        return tag as FilterCategory
-      }
+      const margin = causeDecisionMargins.get(featureId) ?? 0
+      return margin >= causeMarginThreshold ? tag as FilterCategory : 'unsure'
     }
-    return (activeStage ?? 'bootstrap') === 'apply'
-      ? getEffectiveCategory(featureId)
-      : 'unsure'
-  }, [activeStage, causeSelectionStates, causeSelectionSources, getEffectiveCategory])
+
+    return 'unsure'
+  }, [activeStage, causeSelectionStates, causeSelectionSources, causeDecisionMargins, causeMarginThreshold])
 
   // Compute hexbin data from filtered points
   const hexbinData = useMemo(() => {
@@ -256,15 +238,17 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
   }, [hexbinData])
 
   // Compute selected point data for SVG rendering
+  // Falls back to unfiltered positions when selected feature is hidden by hideTagged
   const selectedPointData = useMemo(() => {
-    if (selectedFeatureId == null || !filteredRadVizPoints || !scales) return null
-    const selectedPoint = filteredRadVizPoints.find(p => p.feature_id === selectedFeatureId)
-    if (!selectedPoint) return null
+    if (selectedFeatureId == null || !scales) return null
+    const point = filteredRadVizPoints?.find(p => p.feature_id === selectedFeatureId)
+      ?? radVizPositions?.find(p => p.feature_id === selectedFeatureId)
+    if (!point) return null
     return {
-      cx: scales.xScale(selectedPoint.x),
-      cy: scales.yScale(selectedPoint.y),
+      cx: scales.xScale(point.x),
+      cy: scales.yScale(point.y),
     }
-  }, [selectedFeatureId, filteredRadVizPoints, scales])
+  }, [selectedFeatureId, filteredRadVizPoints, radVizPositions, scales])
 
   // ============================================================================
   // RENDER
@@ -463,6 +447,23 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
           <span className="cause-radviz__legend-gradient" />
           <span>Density</span>
         </div>
+        {(activeStage === 'learn' || activeStage === 'apply') && (
+          <>
+            <div className="cause-radviz__legend-item">
+              {/* Tri-color pie: 3 equal 120° slices for the 3 cause categories */}
+              <svg className="cause-radviz__legend-pie" width="10" height="10" viewBox="0 0 10 10">
+                <path d="M5,5 L5,0 A5,5 0 0,1 9.33,7.5 Z" fill={getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#cc79a7'} />
+                <path d="M5,5 L9.33,7.5 A5,5 0 0,1 0.67,7.5 Z" fill={getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#d55e00'} />
+                <path d="M5,5 L0.67,7.5 A5,5 0 0,1 5,0 Z" fill={getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#e69f00'} />
+              </svg>
+              <span>Confident</span>
+            </div>
+            <div className="cause-radviz__legend-item">
+              <span className="cause-radviz__legend-swatch" style={{ background: DARK_UNSURE_GRAY }} />
+              <span>Unsure</span>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Classification loading indicator */}

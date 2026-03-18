@@ -8,7 +8,7 @@ from tokenized text, along with Jaccard similarity computation.
 from collections import defaultdict
 from typing import Any, Dict, List, Optional, Set, Tuple
 
-from .tokens import normalize_token, reconstruct_words_with_positions
+from .tokens import normalize_token, reconstruct_words_with_positions, extract_token_window, calculate_window_offset
 
 
 def extract_character_ngrams(text: str, n: int) -> List[str]:
@@ -385,3 +385,82 @@ def select_best_ngram(
         "similar_positions": None,
         "occurrences": [],
     }
+
+
+def compute_common_ngrams(
+    examples: List[Tuple],
+    char_window_size: int,
+    word_window_size: int,
+    char_ngram_sizes: List[int],
+    word_ngram_sizes: List[int],
+    min_example_count: int = 3,
+) -> Dict[str, Dict]:
+    """Find n-grams appearing in >= min_example_count distinct examples.
+
+    Extracts both character-level and word-level n-grams from token windows
+    around activation positions. Returns all n-grams above the threshold
+    with their per-example positions.
+
+    Args:
+        examples: List of (prompt_id, max_activation, tokens, max_pos) tuples
+        char_window_size: Window size for char n-gram extraction
+        word_window_size: Window size for word n-gram extraction
+        char_ngram_sizes: Char n-gram sizes (e.g., [2, 3, 4, 5])
+        word_ngram_sizes: Word n-gram sizes (e.g., [1, 2, 3])
+        min_example_count: Minimum distinct examples for a common n-gram
+
+    Returns:
+        Dict mapping ngram_text -> {
+            "count": int (number of distinct examples),
+            "type": "char" | "word",
+            "ngram_size": int (k value),
+            "positions": {prompt_id: [(token_pos, char_offset_or_None), ...]}
+        }
+    """
+    # Track example sets and positions for each n-gram
+    # Key: (ngram_text, type) to avoid collisions between char/word
+    ngram_example_sets: Dict[Tuple[str, str], Set[int]] = defaultdict(set)
+    ngram_positions: Dict[Tuple[str, str], Dict[int, List[Tuple[int, Optional[int]]]]] = defaultdict(lambda: defaultdict(list))
+    ngram_sizes: Dict[Tuple[str, str], int] = {}
+
+    for prompt_id, _, tokens, max_pos in examples:
+        # --- Character n-grams ---
+        char_window = extract_token_window(tokens, max_pos, char_window_size)
+        char_offset = calculate_window_offset(max_pos, char_window_size)
+        char_ngrams = extract_token_char_ngrams(char_window, char_ngram_sizes)
+
+        for ngram_text, token_list in char_ngrams.items():
+            key = (ngram_text, "char")
+            ngram_example_sets[key].add(prompt_id)
+            ngram_sizes[key] = len(ngram_text)
+            for token_idx, _, char_off in token_list:
+                abs_pos = char_offset + token_idx
+                ngram_positions[key][prompt_id].append((abs_pos, char_off))
+
+        # --- Word n-grams ---
+        word_window = extract_token_window(tokens, max_pos, word_window_size)
+        word_offset = calculate_window_offset(max_pos, word_window_size)
+        word_ngrams = extract_word_ngrams(word_window, word_ngram_sizes)
+
+        for ngram_text, start_positions in word_ngrams.items():
+            key = (ngram_text, "word")
+            ngram_example_sets[key].add(prompt_id)
+            ngram_sizes[key] = len(ngram_text.split())
+            for start_pos in start_positions:
+                abs_pos = word_offset + start_pos
+                ngram_positions[key][prompt_id].append((abs_pos, None))
+
+    # Filter to common n-grams (>= min_example_count distinct examples)
+    result: Dict[str, Dict] = {}
+    for (ngram_text, ngram_type), example_set in ngram_example_sets.items():
+        if len(example_set) >= min_example_count:
+            # Use type-prefixed key to avoid char/word collisions
+            result_key = f"{ngram_type}:{ngram_text}"
+            result[result_key] = {
+                "count": len(example_set),
+                "type": ngram_type,
+                "ngram_size": ngram_sizes[(ngram_text, ngram_type)],
+                "positions": dict(ngram_positions[(ngram_text, ngram_type)]),
+            }
+
+    return result

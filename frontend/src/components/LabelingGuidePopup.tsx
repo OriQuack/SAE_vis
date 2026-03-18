@@ -53,7 +53,7 @@ const STAGE_1_CONFIG: FlowchartConfig = {
     },
     {
       id: 'q2', type: 'question',
-      text: t('Using the concept you found, can you separate shuffled activating examples into the original feature they belong to?', '찾은 개념을 사용해 섞인 activating example들을 원래 속한 feature로 분리할 수 있는가?'),
+      text: t('Given any activating example, can you determine which feature it belongs to based on the concept alone?', '임의의 activating example을 보고 어느 feature에 속하는지 찾은 개념만으로 판별할 수 있는가?'),
       x: 200, y: 150, width: 260, height: 56
     },
     {

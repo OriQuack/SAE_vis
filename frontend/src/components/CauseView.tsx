@@ -1268,17 +1268,28 @@ const CauseView: React.FC<CauseViewProps> = ({
                         </div>
                       </div>
                     </div>
-                    {/* Activation section - content only (HAS border) */}
+                    {/* Activation section — Syntax + Context dual panels */}
                     <div className="cause-view__activation-section">
                       <div className="cause-view__activation-examples">
                         {selectedFeatureData.activation ? (
-                          <ActivationExample
-                            examples={selectedFeatureData.activation}
-                            containerWidth={containerWidth}
-                            numQuantiles={4}
-                            examplesPerQuantile={[2, 2, 2, 2]}
-                            disableHover={true}
-                          />
+                          <>
+                            <ActivationExample
+                              examples={selectedFeatureData.activation}
+                              containerWidth={containerWidth}
+                              numQuantiles={4}
+                              examplesPerQuantile={[2, 2, 2, 2]}
+                              disableHover={true}
+                              highlightMode="syntax"
+                            />
+                            <ActivationExample
+                              examples={selectedFeatureData.activation}
+                              containerWidth={containerWidth}
+                              numQuantiles={4}
+                              examplesPerQuantile={[2, 2, 2, 2]}
+                              disableHover={true}
+                              highlightMode="context"
+                            />
+                          </>
                         ) : (
                           <div className="cause-view__loading">Loading activating examples...</div>
                         )}

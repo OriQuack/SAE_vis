@@ -415,6 +415,9 @@ export interface QuantileExample {
     token_position: number             // Token index containing the n-gram
     char_offset: number | null         // Character offset (null = highlight entire token for word n-grams)
   }>
+  // Per-token highlight scores [0,1], normalized and combined from pipeline components
+  syntax_scores?: number[]             // Syntax pattern strength (S1 n-gram + S2 parse)
+  context_scores?: number[]            // Context/semantic strength (C1 span + C2 discriminative)
 }
 
 export interface TableDataRequest {

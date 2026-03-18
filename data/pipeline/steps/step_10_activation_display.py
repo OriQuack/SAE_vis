@@ -29,6 +29,7 @@ Optimizations (v5.0):
 """
 
 import logging
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -91,6 +92,21 @@ class ActivationDisplayProcessor(BaseProcessor):
         self.ngram_jaccard_threshold = thresholds.get("ngram_jaccard", self.DEFAULT_NGRAM_JACCARD_THRESHOLD)
 
         logger.info(f"Pattern type thresholds: semantic={self.semantic_threshold}, lexical={self.lexical_threshold}, ngram_jaccard={self.ngram_jaccard_threshold}")
+
+        # Highlight scoring config
+        highlight = parameters.get("highlight_scoring", {})
+        self.hl = {
+            "enabled": highlight.get("enabled", True),
+            "char_window": highlight.get("char_window_size", 5),
+            "word_window": highlight.get("word_window_size", 15),
+            "char_sizes": highlight.get("char_ngram_sizes", [2, 3, 4, 5]),
+            "word_sizes": highlight.get("word_ngram_sizes", [1, 2, 3]),
+            "min_examples": highlight.get("min_example_count", 3),
+            "span_model": highlight.get("span_model", "all-MiniLM-L6-v2"),
+            "span_sizes": highlight.get("span_sizes", [1, 8, 16, 32]),
+            "span_32_threshold": highlight.get("span_32_threshold", 0.5),
+        }
+        self.highlights_output_path = self._resolve_path(f"{output_dir}/activation_highlights.parquet")
 
         # Initialize statistics
         self.stats = {
@@ -556,6 +572,388 @@ class ActivationDisplayProcessor(BaseProcessor):
             "best_ngram_size": best_ngram_size,
         }
 
+    def _compute_highlights(self, unique_features: list) -> None:
+        """Compute per-token highlight component scores and write to separate parquet.
+
+        Produces activation_highlights.parquet with 7 component score arrays per
+        (feature_id, prompt_id) row. Components are stored individually for later
+        normalization/combining in the backend.
+
+        Args:
+            unique_features: List of feature IDs to process
+        """
+        from core.ngrams import compute_common_ngrams
+        from core.highlight import (
+            compute_word_ngram_scores,
+            compute_char_ngram_scores,
+            compute_span_token_scores,
+            compute_discriminative_scores,
+        )
+        from core.span_embeddings import (
+            load_sentence_encoder,
+            extract_spans,
+            batch_encode_spans,
+            compute_cross_example_span_scores,
+            compute_pairwise_avg_sim,
+            compute_discriminative_tokens,
+            build_global_token_idf,
+            compute_token_idf_scores,
+            detokenize_span,
+        )
+        from core.structural_parse import (
+            build_char_to_token_map,
+            get_activated_char_range,
+            extract_dependency_relations,
+            extract_ast_relations,
+            compute_common_structural_relations,
+            compute_structural_parse_scores,
+            load_spacy_model,
+            load_tree_sitter_parsers,
+        )
+
+        logger.info("=" * 60)
+        logger.info("Computing highlight component scores")
+        logger.info("=" * 60)
+
+        # ============================================================
+        # Pass 1: Global IDF (vectorized Polars, uses ALL examples)
+        # ============================================================
+        logger.info("Building global token IDF...")
+        global_idf_lookup = build_global_token_idf(self.examples_df)
+        logger.info(f"Global IDF: {len(global_idf_lookup):,} unique tokens")
+
+        # ============================================================
+        # Load models (S2 + C1)
+        # ============================================================
+        logger.info("Loading spaCy model...")
+        spacy_nlp = load_spacy_model()
+        logger.info("Loading tree-sitter parsers...")
+        ts_parsers = load_tree_sitter_parsers()
+        logger.info("Loading sentence encoder...")
+        span_model = load_sentence_encoder(self.hl["span_model"])
+
+        # ============================================================
+        # Pass 2: Single merged loop — build ALL data structures
+        # (activation index + parse jobs + span texts)
+        # ============================================================
+        logger.info("Building activation index + parse data + span texts (merged pass)...")
+        filtered_examples = self.examples_df.filter(
+            pl.col("feature_id").is_in(unique_features)
+        )
+        logger.info(f"Filtered to {len(filtered_examples):,} examples for {len(unique_features):,} features")
+
+        feature_examples: Dict[int, list] = {}
+        parse_jobs = []      # (fid, prompt_id, tokens, max_pos, char_to_token)
+        parse_texts = []     # detokenized text for spaCy (reused for span_32)
+        span_32_texts = []   # same as parse_texts (reused reference)
+        span_1_texts = []
+        span_32_index = []   # (fid, ex_idx)
+        span_1_index = []
+
+        for row in filtered_examples.to_dicts():
+            fid = row["feature_id"]
+            if fid not in feature_examples:
+                feature_examples[fid] = []
+
+            activation_pairs = row.get("activation_pairs", [])
+            max_activation = row.get("max_activation", 0.0)
+            tokens = row.get("prompt_tokens", [])
+            max_pos = 0
+            if activation_pairs:
+                max_pair = max(activation_pairs, key=lambda p: p["activation_value"])
+                max_pos = max_pair["token_position"]
+
+            prompt_id = row["prompt_id"]
+            ex_idx = len(feature_examples[fid])
+
+            # Activation index
+            feature_examples[fid].append((
+                prompt_id,
+                max_activation if max_activation is not None else 0.0,
+                tokens,
+                max_pos,
+            ))
+
+            # Parse job (text + char_to_token mapping; text reused for span_32)
+            text, c2t = build_char_to_token_map(tokens)
+            parse_texts.append(text)
+            parse_jobs.append((fid, prompt_id, tokens, max_pos, c2t))
+
+            # Span texts (span_32 = full text, already computed)
+            span_32_texts.append(text)
+            span_32_index.append((fid, ex_idx))
+
+            # Span_1: activated token
+            pos = min(max_pos, len(tokens) - 1) if tokens else 0
+            text_1 = detokenize_span(tokens, pos, pos + 1) if tokens else ""
+            span_1_texts.append(text_1)
+            span_1_index.append((fid, ex_idx))
+
+        features_to_process = [f for f in unique_features if f in feature_examples]
+        logger.info(f"Highlight scoring for {len(features_to_process):,} features, "
+                     f"{len(parse_texts):,} examples")
+
+        # ============================================================
+        # S2: Tree-sitter first (to identify code), then spaCy on non-code only
+        # ============================================================
+        # Step 1: Run tree-sitter AST on all examples
+        logger.info("Running tree-sitter AST parsing...")
+        ast_relations_by_feature: Dict[int, list] = defaultdict(list)
+        prompt_ids_by_feature: Dict[int, list] = defaultdict(list)
+        is_code: List[bool] = []  # parallel to parse_jobs: True if tree-sitter found structure
+
+        for idx, (fid, prompt_id, tokens, max_pos, c2t) in enumerate(parse_jobs):
+            char_start, char_end = get_activated_char_range(max_pos, c2t)
+            ast_rels = extract_ast_relations(
+                parse_texts[idx], char_start, char_end, c2t, ts_parsers, prompt_id
+            )
+            ast_relations_by_feature[fid].append(ast_rels)
+            prompt_ids_by_feature[fid].append(prompt_id)
+            is_code.append(len(ast_rels) > 0)
+
+        code_count = sum(is_code)
+        logger.info(f"Tree-sitter: {code_count:,}/{len(parse_jobs):,} examples identified as code")
+
+        # Step 2: Run spaCy only on non-code examples
+        nl_indices = [i for i, ic in enumerate(is_code) if not ic]
+        nl_texts = [parse_texts[i] for i in nl_indices]
+        logger.info(f"Running spaCy on {len(nl_texts):,} non-code examples...")
+        spacy_docs = list(spacy_nlp.pipe(nl_texts, batch_size=256))
+
+        dep_relations_by_feature: Dict[int, list] = defaultdict(list)
+        # Initialize with empty lists for all examples (code examples get [])
+        for fid in features_to_process:
+            dep_relations_by_feature[fid] = [[] for _ in feature_examples[fid]]
+
+        for doc_idx, orig_idx in enumerate(nl_indices):
+            fid, prompt_id, tokens, max_pos, c2t = parse_jobs[orig_idx]
+            char_start, _ = get_activated_char_range(max_pos, c2t)
+            dep_rels = extract_dependency_relations(spacy_docs[doc_idx], char_start, c2t, prompt_id)
+            # Find example index within this feature
+            ex_idx = prompt_ids_by_feature[fid].index(prompt_id)
+            dep_relations_by_feature[fid][ex_idx] = dep_rels
+
+        logger.info(f"spaCy parsed {len(nl_texts):,} texts (skipped {code_count:,} code examples)")
+
+        # Compute common structural relations per feature
+        common_dep_by_feature: Dict[int, list] = {}
+        common_ast_by_feature: Dict[int, list] = {}
+        for fid in features_to_process:
+            common_dep_by_feature[fid] = compute_common_structural_relations(
+                dep_relations_by_feature[fid], prompt_ids_by_feature[fid]
+            )
+            common_ast_by_feature[fid] = compute_common_structural_relations(
+                ast_relations_by_feature[fid], prompt_ids_by_feature[fid]
+            )
+
+        dep_features_with_patterns = sum(1 for v in common_dep_by_feature.values() if v)
+        ast_features_with_patterns = sum(1 for v in common_ast_by_feature.values() if v)
+        logger.info(f"S2 dep parse: {dep_features_with_patterns:,} features with common relations")
+        logger.info(f"S2 AST parse: {ast_features_with_patterns:,} features with common relations")
+
+        # ============================================================
+        # C1: Batch span embedding
+        # ============================================================
+        # Span_32 + Span_1 (already collected in merged loop)
+
+        logger.info(f"Encoding {len(span_32_texts):,} span_32 texts + {len(span_1_texts):,} span_1 texts...")
+        span_32_embs = batch_encode_spans(span_model, span_32_texts)
+        span_1_embs = batch_encode_spans(span_model, span_1_texts)
+
+        # Compute span_32 avg_sim per feature
+        span_32_avg_sims: Dict[int, float] = {}
+        span_32_embs_by_feature: Dict[int, list] = {}
+        span_1_embs_by_feature: Dict[int, list] = {}
+
+        for i, (fid, ex_idx) in enumerate(span_32_index):
+            if fid not in span_32_embs_by_feature:
+                span_32_embs_by_feature[fid] = []
+            span_32_embs_by_feature[fid].append(span_32_embs[i])
+
+        for i, (fid, ex_idx) in enumerate(span_1_index):
+            if fid not in span_1_embs_by_feature:
+                span_1_embs_by_feature[fid] = []
+            span_1_embs_by_feature[fid].append(span_1_embs[i])
+
+        import numpy as np
+        for fid, embs in span_32_embs_by_feature.items():
+            emb_array = np.array(embs)
+            span_32_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
+
+        # Identify qualifying features for span_8/16
+        qualifying_features = {
+            fid for fid, sim in span_32_avg_sims.items()
+            if sim > self.hl["span_32_threshold"]
+        }
+        logger.info(f"span_32 avg_sim > {self.hl['span_32_threshold']}: "
+                     f"{len(qualifying_features):,}/{len(features_to_process):,} features qualify for span_8/16")
+
+        # Compute span_1 avg_sim per feature
+        span_1_avg_sims: Dict[int, float] = {}
+        for fid, embs in span_1_embs_by_feature.items():
+            emb_array = np.array(embs)
+            span_1_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
+
+        # Pass 2: span_8 + span_16 for qualifying features
+        span_data: Dict[int, Dict] = {}  # fid -> {span_size: {embs_by_ex, spans_by_ex}}
+
+        if qualifying_features:
+            for span_size in [8, 16]:
+                logger.info(f"Pass 2: Computing span_{span_size} embeddings for {len(qualifying_features):,} features...")
+                all_texts = []
+                text_index = []  # (fid, ex_idx, span_idx)
+
+                spans_by_feature: Dict[int, List[List[Dict]]] = {}
+
+                for fid in qualifying_features:
+                    examples = feature_examples[fid]
+                    spans_by_feature[fid] = []
+                    for ex_idx, (_, _, tokens, max_pos) in enumerate(examples):
+                        spans = extract_spans(tokens, max_pos, span_size)
+                        spans_by_feature[fid].append(spans)
+                        for sp_idx, span in enumerate(spans):
+                            all_texts.append(span["text"])
+                            text_index.append((fid, ex_idx, sp_idx))
+
+                logger.info(f"Encoding {len(all_texts):,} span_{span_size} texts...")
+                all_embs = batch_encode_spans(span_model, all_texts)
+
+                # Distribute embeddings back to per-feature per-example
+                embs_by_feature: Dict[int, List[list]] = {}
+                for fid in qualifying_features:
+                    n_examples = len(feature_examples[fid])
+                    embs_by_feature[fid] = [[] for _ in range(n_examples)]
+
+                for i, (fid, ex_idx, sp_idx) in enumerate(text_index):
+                    embs_by_feature[fid][ex_idx].append(all_embs[i])
+
+                # Compute cross-example span scores
+                for fid in qualifying_features:
+                    embs_by_ex = [np.array(e) if e else np.array([]).reshape(0, all_embs.shape[1])
+                                  for e in embs_by_feature[fid]]
+                    scores = compute_cross_example_span_scores(embs_by_ex, spans_by_feature[fid])
+
+                    if fid not in span_data:
+                        span_data[fid] = {}
+                    span_data[fid][span_size] = {
+                        "scores": scores,
+                        "spans": spans_by_feature[fid],
+                    }
+
+        # ============================================================
+        # Per-feature: compute all component scores
+        # ============================================================
+        logger.info("Computing per-feature highlight component scores...")
+        highlight_rows = []
+
+        for fid in tqdm(features_to_process, desc="Highlight scoring"):
+            examples = feature_examples[fid]
+            num_examples = len(examples)
+            if num_examples == 0:
+                continue
+
+            # S1: common n-grams
+            common = compute_common_ngrams(
+                examples,
+                char_window_size=self.hl["char_window"],
+                word_window_size=self.hl["word_window"],
+                char_ngram_sizes=self.hl["char_sizes"],
+                word_ngram_sizes=self.hl["word_sizes"],
+                min_example_count=self.hl["min_examples"],
+            )
+            word_common = {k: v for k, v in common.items() if v["type"] == "word"}
+            char_common = {k: v for k, v in common.items() if v["type"] == "char"}
+
+            # C2: discriminative tokens
+            disc_tokens = compute_discriminative_tokens(
+                examples,
+                window_size=32,
+                min_example_count=self.hl["min_examples"],
+            )
+
+            # Per-example scoring
+            span_32_sim = span_32_avg_sims.get(fid, 0.0)
+            span_1_sim = span_1_avg_sims.get(fid, 0.0)
+            fid_span_data = span_data.get(fid, {})
+
+            for ex_idx, (prompt_id, _, tokens, max_pos) in enumerate(examples):
+                num_tokens = len(tokens)
+
+                # S1 components
+                s_word = compute_word_ngram_scores(num_tokens, prompt_id, word_common, num_examples)
+                s_char = compute_char_ngram_scores(num_tokens, prompt_id, char_common, num_examples)
+
+                # S2 components
+                s_dep = compute_structural_parse_scores(
+                    num_tokens, prompt_id, common_dep_by_feature.get(fid, [])
+                )
+                s_ast = compute_structural_parse_scores(
+                    num_tokens, prompt_id, common_ast_by_feature.get(fid, [])
+                )
+
+                # C1 span_1: activated token gets the avg pairwise sim
+                c_span_1 = [0.0] * num_tokens
+                act_pos = min(max_pos, num_tokens - 1) if num_tokens > 0 else 0
+                if num_tokens > 0:
+                    c_span_1[act_pos] = span_1_sim
+
+                # C1 span_8
+                span_8_data = fid_span_data.get(8)
+                if span_8_data and ex_idx < len(span_8_data["scores"]):
+                    c_span_8 = compute_span_token_scores(
+                        num_tokens,
+                        span_8_data["scores"][ex_idx],
+                        span_8_data["spans"][ex_idx],
+                    )
+                else:
+                    c_span_8 = [0.0] * num_tokens
+
+                # C1 span_16
+                span_16_data = fid_span_data.get(16)
+                if span_16_data and ex_idx < len(span_16_data["scores"]):
+                    c_span_16 = compute_span_token_scores(
+                        num_tokens,
+                        span_16_data["scores"][ex_idx],
+                        span_16_data["spans"][ex_idx],
+                    )
+                else:
+                    c_span_16 = [0.0] * num_tokens
+
+                # C1 span_32: uniform across all tokens
+                c_span_32 = [span_32_sim] * num_tokens
+
+                # C2 discriminative + IDF
+                c_disc = compute_discriminative_scores(tokens, disc_tokens)
+                c_idf = compute_token_idf_scores(tokens, global_idf_lookup)
+
+                highlight_rows.append({
+                    "feature_id": fid,
+                    "prompt_id": prompt_id,
+                    "s_word_ngram": s_word,
+                    "s_char_ngram": s_char,
+                    "s_dep_parse": s_dep,
+                    "s_ast_parse": s_ast,
+                    "c_span_1": c_span_1,
+                    "c_span_8": c_span_8,
+                    "c_span_16": c_span_16,
+                    "c_span_32": c_span_32,
+                    "c_discriminative": c_disc,
+                    "c_token_idf": c_idf,
+                })
+
+        # Create and save highlights DataFrame
+        logger.info(f"Creating highlights DataFrame with {len(highlight_rows):,} rows...")
+        if highlight_rows:
+            highlights_df = pl.DataFrame(highlight_rows)
+            highlights_df = highlights_df.with_columns([
+                pl.col("feature_id").cast(pl.UInt32),
+            ])
+            highlights_df.write_parquet(self.highlights_output_path)
+            logger.info(f"Saved highlights to {self.highlights_output_path} "
+                        f"({len(highlights_df):,} rows, {len(highlights_df.columns)} columns)")
+        else:
+            logger.warning("No highlight rows to save")
+
     def process(self) -> pl.DataFrame:
         """Execute the main processing logic.
 
@@ -613,6 +1011,10 @@ class ActivationDisplayProcessor(BaseProcessor):
                 self.stats["features_processed"] += 1
 
         logger.info(f"Processed {self.stats['features_processed']:,} features")
+
+        # Compute highlight component scores (separate output file)
+        if self.hl["enabled"]:
+            self._compute_highlights(unique_features)
 
         return self._create_dataframe(results)
 

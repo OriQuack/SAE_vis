@@ -330,7 +330,7 @@ export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
         className={`disagreement-indicator ${className}`.trim()}
         style={{
           position: 'absolute',
-          inset: 0,
+          inset: '-1px 0',
           backgroundColor: 'rgba(245, 158, 11, 0.1)',
           borderRadius: '4px',
           pointerEvents: 'none',
@@ -343,8 +343,8 @@ export const DisagreementIndicator: React.FC<DisagreementIndicatorProps> = ({
         style={{
           position: 'absolute',
           left: 0,
-          top: 0,
-          bottom: 0,
+          top: '-1px',
+          bottom: '-1px',
           width: '3px',
           backgroundColor: '#f59e0b',
           borderRadius: '4px 0 0 4px',
