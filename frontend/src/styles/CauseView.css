@@ -143,8 +143,8 @@
   z-index: 10;
 }
 
-/* Activation section - content only (HAS border) */
-.cause-view__activation-section {
+/* Activation panel - each syntax/context panel */
+.cause-view__activation-panel {
   height: 172px;
   flex-shrink: 0;
   display: flex;
@@ -155,6 +155,7 @@
   padding: 6px;
   overflow: hidden;
 }
+
 
 /* Consensus row header - subheader + metrics legend */
 .cause-view__consensus-row-header {

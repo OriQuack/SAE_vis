@@ -28,8 +28,9 @@ class ActivationCacheService:
     serializes to MessagePack, compresses with gzip, and stores in memory.
     """
 
-    def __init__(self, data_path: str = "../data"):
+    def __init__(self, data_path: str = "../data", highlight_service=None):
         self.data_path = Path(data_path)
+        self.highlight_service = highlight_service
         self.activation_display_file = self.data_path / "output" / "activation_display.parquet"
 
         # Pre-computed cache (msgpack + gzip compressed)
@@ -114,6 +115,13 @@ class ActivationCacheService:
 
                 # quantile_examples already has ngram_positions pre-computed in step_10 v4.0+
                 quantile_examples = row["quantile_examples"]
+
+                # Inject per-component highlight data if available
+                if self.highlight_service is not None:
+                    for qe in quantile_examples:
+                        data = self.highlight_service.get_scores(feature_id, qe.get("prompt_id", 0))
+                        if data:
+                            qe["highlights"] = data["highlights"]
 
                 examples_dict[feature_id] = {
                     "quantile_examples": quantile_examples,

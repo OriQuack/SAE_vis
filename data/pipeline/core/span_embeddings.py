@@ -164,7 +164,7 @@ def batch_encode_spans(model, texts: List[str], batch_size: int = 256) -> np.nda
     return model.encode(
         texts,
         batch_size=batch_size,
-        show_progress_bar=False,
+        show_progress_bar=True,
         normalize_embeddings=True,
     )
 

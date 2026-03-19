@@ -633,6 +633,26 @@ Matches .nav__button style: white background, 11px font
   border: 2px solid var(--selection-blue);
 }
 
+/* Syntax highlight - purple (#af7aa1), continuous scale matching score * 60% intensity */
+.legend-sample--syntax {
+  background: linear-gradient(90deg,
+    rgba(175, 122, 161, 0.05) 0%,
+    rgba(175, 122, 161, 0.15) 30%,
+    rgba(175, 122, 161, 0.35) 60%,
+    rgba(175, 122, 161, 0.6) 100%);
+  border: none;
+}
+
+/* Context highlight - yellow (#edc949), continuous scale matching score * 60% intensity */
+.legend-sample--context {
+  background: linear-gradient(90deg,
+    rgba(237, 201, 73, 0.05) 0%,
+    rgba(237, 201, 73, 0.15) 30%,
+    rgba(237, 201, 73, 0.35) 60%,
+    rgba(237, 201, 73, 0.6) 100%);
+  border: none;
+}
+
 /* Legend group - container for a group of legend items (tighter spacing, no separators) */
 .legend-group {
   display: flex;

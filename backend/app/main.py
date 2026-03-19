@@ -18,6 +18,7 @@ from .services.consensus_service import ConsensusService
 from .services.table_data_service import TableDataService
 from .services.feature_group_service import FeatureGroupService
 from .services.histogram_service import HistogramService
+from .services.highlight_service import HighlightService
 from .api import feature_groups, classification, cluster_candidates, cold_start, consensus, table, filters, histogram, activation_examples
 
 # Configure logging for the application
@@ -95,6 +96,13 @@ async def lifespan(app: FastAPI):
         cluster_candidates.set_cluster_candidate_service(cluster_candidate_service)
         logger.info("Hierarchical cluster candidate service initialized successfully")
 
+        # Initialize highlight service (per-token syntax/context scores)
+        highlights_path = project_root / "data" / "output" / "activation_highlights.parquet"
+        highlight_service = HighlightService(highlights_path)
+        highlight_service.initialize()
+        activation_examples.set_highlight_service(highlight_service)
+        logger.info("Highlight service initialized successfully")
+
         # Initialize classification service (binary + multi-class SVM)
         classification_service = ClassificationService(data_service=data_service)
         logger.info("Classification service initialized successfully")
@@ -119,6 +127,7 @@ async def lifespan(app: FastAPI):
         logger.info("Cold-start service initialized successfully")
 
         # Initialize activation cache service (pre-compute msgpack+gzip blob)
+        activation_cache_service.highlight_service = highlight_service
         await activation_cache_service.initialize()
         logger.info("Activation cache service initialized successfully")
 

@@ -384,7 +384,11 @@ def compute_structural_parse_scores(
     """Per-token score from common structural relations.
 
     For each token j that is a partner in a common relation:
-      score[j] += rate
+      score[j] = max(rate) across all common relations involving j.
+
+    Uses max (not sum) for consistency with s_word_ngram and s_char_ngram.
+    Multiple relations at the same token are correlated evidence about
+    structural role, not independent signals. Keeps scores in [0, 1].
 
     Args:
         num_tokens: Number of tokens in the example
@@ -392,7 +396,7 @@ def compute_structural_parse_scores(
         common_relations: Common relations from compute_common_structural_relations
 
     Returns:
-        List of floats, length = num_tokens
+        List of floats, length = num_tokens, values in [0, 1]
     """
     scores = [0.0] * num_tokens
 
@@ -401,7 +405,8 @@ def compute_structural_parse_scores(
         rate = rel["rate"]
         for pos in positions:
             if 0 <= pos < num_tokens:
-                scores[pos] += rate
+                if rate > scores[pos]:
+                    scores[pos] = rate
 
     return scores
 

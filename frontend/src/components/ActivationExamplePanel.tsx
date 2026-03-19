@@ -5,6 +5,7 @@ import {
   getActivationColor,
   formatTokensWithEllipsis
 } from '../lib/activation-utils'
+import { addOpacityToHex } from '../lib/color-utils'
 import '../styles/ActivationExamplePanel.css'
 
 interface ActivationExampleProps {
@@ -29,14 +30,38 @@ interface ActivationExampleProps {
   disableHover?: boolean
   // Disable feature-specific n-gram highlighting (Stage 1 only shows inter-feature patterns)
   disableNgramHighlight?: boolean
-  // Highlight mode: 'syntax' or 'context' for score-based highlighting
-  // When set, uses syntax_scores/context_scores instead of ngram_positions
+  // Highlight mode: 'syntax' or 'context' for per-component highlighting
+  // When set, uses highlights data instead of ngram_positions
   highlightMode?: 'syntax' | 'context'
+  // Show orange activation strength overlay (default true)
+  showActivation?: boolean
 }
 
 // Highlight colors from cause category palette (D3_SCHEME_TABLEAU10)
 const SYNTAX_HIGHLIGHT_COLOR = '#af7aa1'  // PURPLE = Missed Syntax
 const CONTEXT_HIGHLIGHT_COLOR = '#edc949' // YELLOW = Missed Context
+
+// Component classification
+const isSyntaxComponent = (comp: string) => comp.startsWith('s_')
+
+/** Build position → [{comp, score}] lookup from highlights data */
+function buildHighlightLookup(
+  highlights: Record<string, [number, number][]> | undefined
+): Map<number, Array<{comp: string, score: number}>> {
+  const map = new Map<number, Array<{comp: string, score: number}>>()
+  if (!highlights) return map
+  for (const [comp, entries] of Object.entries(highlights)) {
+    for (const [pos, score] of entries) {
+      const existing = map.get(pos)
+      if (existing) {
+        existing.push({ comp, score })
+      } else {
+        map.set(pos, [{ comp, score }])
+      }
+    }
+  }
+  return map
+}
 
 /**
  * Check if a token should be highlighted and get char offset (unified logic)
@@ -90,37 +115,8 @@ const renderTokenContent = (
   return text
 }
 
-// COMMENTED OUT: Inter-feature blue border highlighting disabled
-// /**
-//  * Check if a token should be highlighted based on inter-feature positions
-//  * Returns highlight status and char_offset for char-level border rendering
-//  */
-// const getInterfeatureHighlight = (
-//   tokenPosition: number,
-//   example: QuantileExample,
-//   interFeaturePositions?: ActivationExampleProps['interFeaturePositions']
-// ): { highlight: boolean; charOffset: number | null } => {
-//   if (!interFeaturePositions) return { highlight: false, charOffset: null }
-//   const promptPositions = interFeaturePositions.positions.find(
-//     p => p.prompt_id === example.prompt_id
-//   )
-//   if (!promptPositions) return { highlight: false, charOffset: null }
-//   if (interFeaturePositions.type === 'char') {
-//     const pos = (promptPositions.positions as Array<{token_position: number, char_offset?: number}>)
-//       .find(p => p.token_position === tokenPosition)
-//     if (pos) {
-//       return { highlight: true, charOffset: pos.char_offset ?? null }
-//     }
-//     return { highlight: false, charOffset: null }
-//   } else {
-//     const found = (promptPositions.positions as number[]).includes(tokenPosition)
-//     return { highlight: found, charOffset: null }
-//   }
-// }
-
 /**
- * Render an activation token, splitting leading spaces from activated tokens
- * so consecutive highlighted words don't visually merge into one orange block.
+ * Render an activation token with per-component highlight support.
  */
 const renderActivationToken = (
   token: { text: string; activation_value?: number; is_max?: boolean; is_newline?: boolean; position: number },
@@ -130,31 +126,50 @@ const renderActivationToken = (
   disableNgramHighlight?: boolean,
   maxActivation?: number,
   highlightMode?: 'syntax' | 'context',
+  highlightLookup?: Map<number, Array<{comp: string, score: number}>>,
+  hoveredHighlight?: {comp: string, promptId: number} | null,
+  onTokenHover?: (comp: string | null, promptId: number) => void,
+  promptId?: number,
+  showActivation?: boolean,
 ): React.ReactNode => {
-  // Score-based highlighting mode (syntax or context)
-  if (highlightMode) {
-    const scores = highlightMode === 'syntax' ? example.syntax_scores : example.context_scores
-    const score = scores?.[token.position] ?? 0
+  // Per-component highlighting mode (syntax or context)
+  if (highlightMode && highlightLookup) {
+    const entries = highlightLookup.get(token.position) ?? []
+    // Filter to components matching the mode
+    const matching = entries.filter(e =>
+      highlightMode === 'syntax' ? isSyntaxComponent(e.comp) : !isSyntaxComponent(e.comp)
+    )
     const highlightColor = highlightMode === 'syntax' ? SYNTAX_HIGHLIGHT_COLOR : CONTEXT_HIGHLIGHT_COLOR
 
     // Filter out low activations: tokens below 5% of per-example max are treated as non-activated
-    const isActivated = (token.activation_value ?? 0) >= example.max_activation * 0.05
+    const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
 
-    const className = `activation-token ${isActivated ? 'activation-token--activated' : ''} ${token.is_max ? 'activation-token--max' : ''} ${token.is_newline ? 'activation-token--newline' : ''}`
+    // Check if this token is in the hovered component group (same component AND same example)
+    const isInHoverGroup = hoveredHighlight != null && hoveredHighlight.promptId === promptId && matching.some(e => e.comp === hoveredHighlight.comp)
+
+    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}`
     const bgColor = isActivated
       ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
       : undefined
 
     // Build style: orange activation + score-based highlight background
-    const style: React.CSSProperties = { '--activation-color': bgColor } as React.CSSProperties
-    if (score > 0) {
-      style.backgroundColor = `color-mix(in srgb, ${highlightColor} ${Math.round(score * 60)}%, transparent)`
+    const style: React.CSSProperties = isActivated ? { '--activation-color': bgColor } as React.CSSProperties : {}
+    if (matching.length > 0) {
+      const maxScore = Math.max(...matching.map(e => e.score))
+      const opacity = 0.15 + maxScore * 0.85
+      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
     }
+
+    // Hover handlers for highlighted tokens
+    const hoverProps = matching.length > 0 && onTokenHover && promptId != null ? {
+      onMouseEnter: () => onTokenHover(matching[0].comp, promptId),
+      onMouseLeave: () => onTokenHover(null, promptId),
+    } : undefined
 
     // Handle newlines
     if (token.is_newline) {
       return (
-        <span key={tokenIdx} className={className} style={style}>
+        <span key={tokenIdx} className={className} style={style} {...hoverProps}>
           <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
         </span>
       )
@@ -167,12 +182,12 @@ const renderActivationToken = (
       return (
         <React.Fragment key={tokenIdx}>
           <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
-          <span className={className} style={style}>{token.text.slice(spaceLen)}</span>
+          <span className={className} style={style} {...hoverProps}>{token.text.slice(spaceLen)}</span>
         </React.Fragment>
       )
     }
 
-    return <span key={tokenIdx} className={className} style={style}>{token.text}</span>
+    return <span key={tokenIdx} className={className} style={style} {...hoverProps}>{token.text}</span>
   }
 
   // Legacy: binary ngram_positions highlighting
@@ -245,12 +260,17 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
   examplesPerQuantile,  // Custom examples per quantile, e.g., [2, 2, 1, 1]
   disableHover = false,  // Disable hover popover
   disableNgramHighlight = false,  // Disable feature-specific n-gram highlighting
-  highlightMode,  // Score-based highlighting: 'syntax' or 'context'
+  highlightMode,  // Per-component highlighting: 'syntax' or 'context'
+  showActivation = true,  // Show orange activation strength overlay
 }) => {
   // All hooks must be called unconditionally before any early returns
   const [showPopover, setShowPopover] = useState<boolean>(false)
   const [popoverPosition, setPopoverPosition] = useState<'above' | 'below'>('below')
   const [popoverStyle, setPopoverStyle] = useState<React.CSSProperties>({})
+  const [hoveredHighlight, setHoveredHighlight] = useState<{comp: string, promptId: number} | null>(null)
+  const handleTokenHover = useCallback((comp: string | null, promptId: number) => {
+    setHoveredHighlight(comp ? { comp, promptId } : null)
+  }, [])
   const containerRef = useRef<HTMLDivElement>(null)
 
   // Check if we have empty examples (used for conditional rendering below)
@@ -300,6 +320,16 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
     if (!hasExamples) return 1
     return Math.max(...examples.quantile_examples.map(ex => ex.max_activation))
   }, [examples, hasExamples])
+
+  // Pre-build highlight lookups for all examples (keyed by prompt_id)
+  const highlightLookups = useMemo(() => {
+    if (!hasExamples || !highlightMode) return new Map<number, Map<number, Array<{comp: string, score: number}>>>()
+    const map = new Map<number, Map<number, Array<{comp: string, score: number}>>>()
+    for (const ex of examples.quantile_examples) {
+      map.set(ex.prompt_id, buildHighlightLookup(ex.highlights))
+    }
+    return map
+  }, [examples, hasExamples, highlightMode])
 
   // Group examples by quantile_index (memoized for performance)
   // Prioritize examples with n-gram positions
@@ -362,6 +392,7 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
       }}
       onMouseLeave={() => {
         setShowPopover(false)
+        setHoveredHighlight(null)
         onHoverChange?.(false)
       }}
     >
@@ -380,13 +411,15 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
           // Truncate based on available width (symmetric around max token with full tokens)
           const { displayTokens } = formatTokensWithEllipsis(tokens, containerWidth)
 
+          const lookup = highlightLookups.get(example.prompt_id)
+
           return (
             <div
               key={`${qIndex}-${exampleIdx}`}
               className="activation-example__quantile"
             >
               {displayTokens.map((token, tokenIdx) => {
-                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode)
+                return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode, lookup, hoveredHighlight, handleTokenHover, example.prompt_id, showActivation)
               })}
             </div>
           )
@@ -406,11 +439,12 @@ const ActivationExample: React.FC<ActivationExampleProps> = ({
                   // Pass all tokens - use 2x length to ensure symmetric window covers full array
                   const tokens = buildActivationTokens(example, example.prompt_tokens.length * 2)
                   const { displayTokens } = formatTokensWithEllipsis(tokens, containerWidth)
+                  const lookup = highlightLookups.get(example.prompt_id)
 
                   return (
                     <div key={exIdx} className="activation-example__popover-row">
                               {displayTokens.map((token, tokenIdx) => {
-                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode)
+                        return renderActivationToken(token, tokenIdx, example, ngramLength, disableNgramHighlight, featureMaxActivation, highlightMode, lookup, hoveredHighlight, handleTokenHover, example.prompt_id, showActivation)
                       })}
                     </div>
                   )

@@ -582,6 +582,8 @@ class ActivationDisplayProcessor(BaseProcessor):
         Args:
             unique_features: List of feature IDs to process
         """
+        import gc
+        import pickle
         from core.ngrams import compute_common_ngrams
         from core.highlight import (
             compute_word_ngram_scores,
@@ -616,6 +618,34 @@ class ActivationDisplayProcessor(BaseProcessor):
         logger.info("=" * 60)
 
         # ============================================================
+        # Checkpoint helpers
+        # ============================================================
+        intermediate_dir = self._resolve_path("data/intermediate")
+
+        def save_checkpoint(name, data):
+            path = intermediate_dir / name
+            with open(path, "wb") as f:
+                pickle.dump(data, f)
+            logger.info(f"Saved checkpoint: {path}")
+
+        def load_checkpoint(name):
+            path = intermediate_dir / name
+            if path.exists():
+                with open(path, "rb") as f:
+                    data = pickle.load(f)
+                logger.info(f"Loaded checkpoint: {path} (skipping computation)")
+                return data
+            return None
+
+        # Check which stages need computation
+        has_s2_cache = (intermediate_dir / "highlight_s2_relations.pkl").exists()
+        has_avg_sims_cache = (intermediate_dir / "highlight_span_avg_sims.pkl").exists()
+        has_span_8_cache = (intermediate_dir / "highlight_span_8_data.pkl").exists()
+        has_span_16_cache = (intermediate_dir / "highlight_span_16_data.pkl").exists()
+        need_s2 = not has_s2_cache
+        need_encoding = not (has_avg_sims_cache and has_span_8_cache and has_span_16_cache)
+
+        # ============================================================
         # Pass 1: Global IDF (vectorized Polars, uses ALL examples)
         # ============================================================
         logger.info("Building global token IDF...")
@@ -623,14 +653,21 @@ class ActivationDisplayProcessor(BaseProcessor):
         logger.info(f"Global IDF: {len(global_idf_lookup):,} unique tokens")
 
         # ============================================================
-        # Load models (S2 + C1)
+        # Load models (only if needed)
         # ============================================================
-        logger.info("Loading spaCy model...")
-        spacy_nlp = load_spacy_model()
-        logger.info("Loading tree-sitter parsers...")
-        ts_parsers = load_tree_sitter_parsers()
-        logger.info("Loading sentence encoder...")
-        span_model = load_sentence_encoder(self.hl["span_model"])
+        if need_s2:
+            logger.info("Loading spaCy model...")
+            spacy_nlp = load_spacy_model()
+            logger.info("Loading tree-sitter parsers...")
+            ts_parsers = load_tree_sitter_parsers()
+        else:
+            logger.info("Skipping spaCy/tree-sitter model loading (cached)")
+
+        if need_encoding:
+            logger.info("Loading sentence encoder...")
+            span_model = load_sentence_encoder(self.hl["span_model"])
+        else:
+            logger.info("Skipping sentence encoder loading (all embeddings cached)")
 
         # ============================================================
         # Pass 2: Single merged loop — build ALL data structures
@@ -650,7 +687,7 @@ class ActivationDisplayProcessor(BaseProcessor):
         span_32_index = []   # (fid, ex_idx)
         span_1_index = []
 
-        for row in filtered_examples.to_dicts():
+        for row in tqdm(filtered_examples.to_dicts(), desc="Building index", total=len(filtered_examples)):
             fid = row["feature_id"]
             if fid not in feature_examples:
                 feature_examples[fid] = []
@@ -696,89 +733,121 @@ class ActivationDisplayProcessor(BaseProcessor):
         # ============================================================
         # S2: Tree-sitter first (to identify code), then spaCy on non-code only
         # ============================================================
-        # Step 1: Run tree-sitter AST on all examples
-        logger.info("Running tree-sitter AST parsing...")
-        ast_relations_by_feature: Dict[int, list] = defaultdict(list)
-        prompt_ids_by_feature: Dict[int, list] = defaultdict(list)
-        is_code: List[bool] = []  # parallel to parse_jobs: True if tree-sitter found structure
+        cached_s2 = load_checkpoint("highlight_s2_relations.pkl")
+        if cached_s2:
+            common_dep_by_feature, common_ast_by_feature = cached_s2
+        else:
+            # Step 1: Run tree-sitter AST on all examples
+            logger.info("Running tree-sitter AST parsing...")
+            ast_relations_by_feature: Dict[int, list] = defaultdict(list)
+            prompt_ids_by_feature: Dict[int, list] = defaultdict(list)
+            is_code: List[bool] = []  # parallel to parse_jobs: True if tree-sitter found structure
 
-        for idx, (fid, prompt_id, tokens, max_pos, c2t) in enumerate(parse_jobs):
-            char_start, char_end = get_activated_char_range(max_pos, c2t)
-            ast_rels = extract_ast_relations(
-                parse_texts[idx], char_start, char_end, c2t, ts_parsers, prompt_id
-            )
-            ast_relations_by_feature[fid].append(ast_rels)
-            prompt_ids_by_feature[fid].append(prompt_id)
-            is_code.append(len(ast_rels) > 0)
+            for idx, (fid, prompt_id, tokens, max_pos, c2t) in enumerate(tqdm(parse_jobs, desc="S2 relation extraction")):
+                char_start, char_end = get_activated_char_range(max_pos, c2t)
+                ast_rels = extract_ast_relations(
+                    parse_texts[idx], char_start, char_end, c2t, ts_parsers, prompt_id
+                )
+                ast_relations_by_feature[fid].append(ast_rels)
+                prompt_ids_by_feature[fid].append(prompt_id)
+                is_code.append(len(ast_rels) > 0)
 
-        code_count = sum(is_code)
-        logger.info(f"Tree-sitter: {code_count:,}/{len(parse_jobs):,} examples identified as code")
+            code_count = sum(is_code)
+            logger.info(f"Tree-sitter: {code_count:,}/{len(parse_jobs):,} examples identified as code")
 
-        # Step 2: Run spaCy only on non-code examples
-        nl_indices = [i for i, ic in enumerate(is_code) if not ic]
-        nl_texts = [parse_texts[i] for i in nl_indices]
-        logger.info(f"Running spaCy on {len(nl_texts):,} non-code examples...")
-        spacy_docs = list(spacy_nlp.pipe(nl_texts, batch_size=256))
+            # Step 2: Run spaCy only on non-code examples
+            nl_indices = [i for i, ic in enumerate(is_code) if not ic]
+            nl_texts = [parse_texts[i] for i in nl_indices]
+            logger.info(f"Running spaCy on {len(nl_texts):,} non-code examples...")
+            spacy_docs = list(tqdm(
+                spacy_nlp.pipe(nl_texts, batch_size=256),
+                total=len(nl_texts), desc="spaCy parsing"
+            ))
 
-        dep_relations_by_feature: Dict[int, list] = defaultdict(list)
-        # Initialize with empty lists for all examples (code examples get [])
-        for fid in features_to_process:
-            dep_relations_by_feature[fid] = [[] for _ in feature_examples[fid]]
+            dep_relations_by_feature: Dict[int, list] = defaultdict(list)
+            # Initialize with empty lists for all examples (code examples get [])
+            for fid in features_to_process:
+                dep_relations_by_feature[fid] = [[] for _ in feature_examples[fid]]
 
-        for doc_idx, orig_idx in enumerate(nl_indices):
-            fid, prompt_id, tokens, max_pos, c2t = parse_jobs[orig_idx]
-            char_start, _ = get_activated_char_range(max_pos, c2t)
-            dep_rels = extract_dependency_relations(spacy_docs[doc_idx], char_start, c2t, prompt_id)
-            # Find example index within this feature
-            ex_idx = prompt_ids_by_feature[fid].index(prompt_id)
-            dep_relations_by_feature[fid][ex_idx] = dep_rels
+            for doc_idx, orig_idx in enumerate(tqdm(nl_indices, desc="spaCy dep extraction")):
+                fid, prompt_id, tokens, max_pos, c2t = parse_jobs[orig_idx]
+                char_start, _ = get_activated_char_range(max_pos, c2t)
+                dep_rels = extract_dependency_relations(spacy_docs[doc_idx], char_start, c2t, prompt_id)
+                # Find example index within this feature
+                ex_idx = prompt_ids_by_feature[fid].index(prompt_id)
+                dep_relations_by_feature[fid][ex_idx] = dep_rels
 
-        logger.info(f"spaCy parsed {len(nl_texts):,} texts (skipped {code_count:,} code examples)")
+            logger.info(f"spaCy parsed {len(nl_texts):,} texts (skipped {code_count:,} code examples)")
 
-        # Compute common structural relations per feature
-        common_dep_by_feature: Dict[int, list] = {}
-        common_ast_by_feature: Dict[int, list] = {}
-        for fid in features_to_process:
-            common_dep_by_feature[fid] = compute_common_structural_relations(
-                dep_relations_by_feature[fid], prompt_ids_by_feature[fid]
-            )
-            common_ast_by_feature[fid] = compute_common_structural_relations(
-                ast_relations_by_feature[fid], prompt_ids_by_feature[fid]
-            )
+            # Free spaCy docs — no longer needed after dep extraction
+            del spacy_docs, nl_texts
+            gc.collect()
+            logger.info("Freed spaCy docs")
 
-        dep_features_with_patterns = sum(1 for v in common_dep_by_feature.values() if v)
-        ast_features_with_patterns = sum(1 for v in common_ast_by_feature.values() if v)
-        logger.info(f"S2 dep parse: {dep_features_with_patterns:,} features with common relations")
-        logger.info(f"S2 AST parse: {ast_features_with_patterns:,} features with common relations")
+            # Compute common structural relations per feature
+            common_dep_by_feature: Dict[int, list] = {}
+            common_ast_by_feature: Dict[int, list] = {}
+            for fid in features_to_process:
+                common_dep_by_feature[fid] = compute_common_structural_relations(
+                    dep_relations_by_feature[fid], prompt_ids_by_feature[fid]
+                )
+                common_ast_by_feature[fid] = compute_common_structural_relations(
+                    ast_relations_by_feature[fid], prompt_ids_by_feature[fid]
+                )
+
+            dep_features_with_patterns = sum(1 for v in common_dep_by_feature.values() if v)
+            ast_features_with_patterns = sum(1 for v in common_ast_by_feature.values() if v)
+            logger.info(f"S2 dep parse: {dep_features_with_patterns:,} features with common relations")
+            logger.info(f"S2 AST parse: {ast_features_with_patterns:,} features with common relations")
+
+            save_checkpoint("highlight_s2_relations.pkl", (common_dep_by_feature, common_ast_by_feature))
 
         # ============================================================
         # C1: Batch span embedding
         # ============================================================
-        # Span_32 + Span_1 (already collected in merged loop)
-
-        logger.info(f"Encoding {len(span_32_texts):,} span_32 texts + {len(span_1_texts):,} span_1 texts...")
-        span_32_embs = batch_encode_spans(span_model, span_32_texts)
-        span_1_embs = batch_encode_spans(span_model, span_1_texts)
-
-        # Compute span_32 avg_sim per feature
-        span_32_avg_sims: Dict[int, float] = {}
-        span_32_embs_by_feature: Dict[int, list] = {}
-        span_1_embs_by_feature: Dict[int, list] = {}
-
-        for i, (fid, ex_idx) in enumerate(span_32_index):
-            if fid not in span_32_embs_by_feature:
-                span_32_embs_by_feature[fid] = []
-            span_32_embs_by_feature[fid].append(span_32_embs[i])
-
-        for i, (fid, ex_idx) in enumerate(span_1_index):
-            if fid not in span_1_embs_by_feature:
-                span_1_embs_by_feature[fid] = []
-            span_1_embs_by_feature[fid].append(span_1_embs[i])
-
         import numpy as np
-        for fid, embs in span_32_embs_by_feature.items():
-            emb_array = np.array(embs)
-            span_32_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
+
+        cached_avg_sims = load_checkpoint("highlight_span_avg_sims.pkl")
+        if cached_avg_sims:
+            span_32_avg_sims, span_1_avg_sims = cached_avg_sims
+        else:
+            # Span_32 + Span_1 (already collected in merged loop)
+            logger.info(f"Encoding {len(span_32_texts):,} span_32 texts + {len(span_1_texts):,} span_1 texts...")
+            span_32_embs = batch_encode_spans(span_model, span_32_texts)
+            span_1_embs = batch_encode_spans(span_model, span_1_texts)
+
+            # Compute span_32 avg_sim per feature
+            span_32_avg_sims: Dict[int, float] = {}
+            span_32_embs_by_feature: Dict[int, list] = {}
+            span_1_embs_by_feature: Dict[int, list] = {}
+
+            for i, (fid, ex_idx) in enumerate(span_32_index):
+                if fid not in span_32_embs_by_feature:
+                    span_32_embs_by_feature[fid] = []
+                span_32_embs_by_feature[fid].append(span_32_embs[i])
+
+            for i, (fid, ex_idx) in enumerate(span_1_index):
+                if fid not in span_1_embs_by_feature:
+                    span_1_embs_by_feature[fid] = []
+                span_1_embs_by_feature[fid].append(span_1_embs[i])
+
+            for fid, embs in span_32_embs_by_feature.items():
+                emb_array = np.array(embs)
+                span_32_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
+
+            # Compute span_1 avg_sim per feature
+            span_1_avg_sims: Dict[int, float] = {}
+            for fid, embs in span_1_embs_by_feature.items():
+                emb_array = np.array(embs)
+                span_1_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
+
+            # Free span_32/span_1 embeddings — only scalar avg_sims needed from here
+            del span_32_embs, span_1_embs
+            del span_32_embs_by_feature, span_1_embs_by_feature
+            gc.collect()
+            logger.info("Freed span_32/span_1 embeddings")
+
+            save_checkpoint("highlight_span_avg_sims.pkl", (span_32_avg_sims, span_1_avg_sims))
 
         # Identify qualifying features for span_8/16
         qualifying_features = {
@@ -788,57 +857,81 @@ class ActivationDisplayProcessor(BaseProcessor):
         logger.info(f"span_32 avg_sim > {self.hl['span_32_threshold']}: "
                      f"{len(qualifying_features):,}/{len(features_to_process):,} features qualify for span_8/16")
 
-        # Compute span_1 avg_sim per feature
-        span_1_avg_sims: Dict[int, float] = {}
-        for fid, embs in span_1_embs_by_feature.items():
-            emb_array = np.array(embs)
-            span_1_avg_sims[fid] = compute_pairwise_avg_sim(emb_array)
-
         # Pass 2: span_8 + span_16 for qualifying features
         span_data: Dict[int, Dict] = {}  # fid -> {span_size: {embs_by_ex, spans_by_ex}}
 
+        SPAN_CHUNK_SIZE = 1000  # features per chunk to avoid OOM
+
         if qualifying_features:
             for span_size in [8, 16]:
-                logger.info(f"Pass 2: Computing span_{span_size} embeddings for {len(qualifying_features):,} features...")
-                all_texts = []
-                text_index = []  # (fid, ex_idx, span_idx)
+                cached_span = load_checkpoint(f"highlight_span_{span_size}_data.pkl")
+                if cached_span:
+                    for fid, data in cached_span.items():
+                        if fid not in span_data:
+                            span_data[fid] = {}
+                        span_data[fid][span_size] = data
+                    del cached_span
+                    continue
 
-                spans_by_feature: Dict[int, List[List[Dict]]] = {}
+                feature_list = sorted(qualifying_features)
+                n_chunks = (len(feature_list) + SPAN_CHUNK_SIZE - 1) // SPAN_CHUNK_SIZE
+                logger.info(f"Pass 2: Computing span_{span_size} embeddings for "
+                            f"{len(feature_list):,} features in {n_chunks} chunks of {SPAN_CHUNK_SIZE}...")
 
-                for fid in qualifying_features:
-                    examples = feature_examples[fid]
-                    spans_by_feature[fid] = []
-                    for ex_idx, (_, _, tokens, max_pos) in enumerate(examples):
-                        spans = extract_spans(tokens, max_pos, span_size)
-                        spans_by_feature[fid].append(spans)
-                        for sp_idx, span in enumerate(spans):
-                            all_texts.append(span["text"])
-                            text_index.append((fid, ex_idx, sp_idx))
+                for chunk_start in range(0, len(feature_list), SPAN_CHUNK_SIZE):
+                    chunk_fids = feature_list[chunk_start:chunk_start + SPAN_CHUNK_SIZE]
+                    chunk_num = chunk_start // SPAN_CHUNK_SIZE + 1
+                    logger.info(f"  Chunk {chunk_num}/{n_chunks}: "
+                                f"features {chunk_start + 1}-{chunk_start + len(chunk_fids)}/{len(feature_list)}")
 
-                logger.info(f"Encoding {len(all_texts):,} span_{span_size} texts...")
-                all_embs = batch_encode_spans(span_model, all_texts)
+                    all_texts = []
+                    text_index = []  # (fid, ex_idx, span_idx)
+                    spans_by_feature: Dict[int, List[List[Dict]]] = {}
 
-                # Distribute embeddings back to per-feature per-example
-                embs_by_feature: Dict[int, List[list]] = {}
-                for fid in qualifying_features:
-                    n_examples = len(feature_examples[fid])
-                    embs_by_feature[fid] = [[] for _ in range(n_examples)]
+                    for fid in chunk_fids:
+                        examples = feature_examples[fid]
+                        spans_by_feature[fid] = []
+                        for ex_idx, (_, _, tokens, max_pos) in enumerate(examples):
+                            spans = extract_spans(tokens, max_pos, span_size)
+                            spans_by_feature[fid].append(spans)
+                            for sp_idx, span in enumerate(spans):
+                                all_texts.append(span["text"])
+                                text_index.append((fid, ex_idx, sp_idx))
 
-                for i, (fid, ex_idx, sp_idx) in enumerate(text_index):
-                    embs_by_feature[fid][ex_idx].append(all_embs[i])
+                    logger.info(f"  Encoding {len(all_texts):,} span_{span_size} texts...")
+                    all_embs = batch_encode_spans(span_model, all_texts)
 
-                # Compute cross-example span scores
-                for fid in qualifying_features:
-                    embs_by_ex = [np.array(e) if e else np.array([]).reshape(0, all_embs.shape[1])
-                                  for e in embs_by_feature[fid]]
-                    scores = compute_cross_example_span_scores(embs_by_ex, spans_by_feature[fid])
+                    # Distribute embeddings back to per-feature per-example
+                    embs_by_feature: Dict[int, List[list]] = {}
+                    for fid in chunk_fids:
+                        n_examples = len(feature_examples[fid])
+                        embs_by_feature[fid] = [[] for _ in range(n_examples)]
 
-                    if fid not in span_data:
-                        span_data[fid] = {}
-                    span_data[fid][span_size] = {
-                        "scores": scores,
-                        "spans": spans_by_feature[fid],
-                    }
+                    for i, (fid, ex_idx, sp_idx) in enumerate(text_index):
+                        embs_by_feature[fid][ex_idx].append(all_embs[i])
+
+                    # Compute cross-example span scores
+                    for fid in chunk_fids:
+                        embs_by_ex = [np.array(e) if e else np.array([]).reshape(0, all_embs.shape[1])
+                                      for e in embs_by_feature[fid]]
+                        scores = compute_cross_example_span_scores(embs_by_ex, spans_by_feature[fid])
+
+                        if fid not in span_data:
+                            span_data[fid] = {}
+                        span_data[fid][span_size] = {
+                            "scores": scores,
+                            "spans": spans_by_feature[fid],
+                        }
+
+                    # Free chunk embeddings
+                    del all_embs, embs_by_feature, all_texts, text_index
+                    gc.collect()
+
+                # Save checkpoint after all chunks complete
+                span_size_data = {fid: span_data[fid][span_size]
+                                  for fid in span_data if span_size in span_data[fid]}
+                save_checkpoint(f"highlight_span_{span_size}_data.pkl", span_size_data)
+                logger.info(f"Completed span_{span_size}")
 
         # ============================================================
         # Per-feature: compute all component scores

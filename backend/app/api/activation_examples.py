@@ -12,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 from ..services.data_service import DataService
 from ..services.activation_cache_service import activation_cache_service
+from ..services.highlight_service import HighlightService
 from ..models.activation_examples import ActivationExamplesRequest, ActivationExamplesResponse
 
 # Thread pool for running blocking I/O operations without blocking the event loop
@@ -21,12 +22,19 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _data_service: Optional[DataService] = None
+_highlight_service: Optional[HighlightService] = None
 
 
 def set_data_service(service: DataService) -> None:
     """Set the data service instance."""
     global _data_service
     _data_service = service
+
+
+def set_highlight_service(service: HighlightService) -> None:
+    """Set the highlight service instance."""
+    global _highlight_service
+    _highlight_service = service
 
 
 def get_data_service() -> DataService:
@@ -63,6 +71,15 @@ async def get_activation_examples(
             service.get_activation_examples,
             request.feature_ids
         )
+
+        # Inject per-component highlight data if available
+        if _highlight_service is not None:
+            for fid, example_data in examples.items():
+                qe_list = example_data.get("quantile_examples", [])
+                for qe in qe_list:
+                    data = _highlight_service.get_scores(fid, qe.get("prompt_id", 0))
+                    if data:
+                        qe["highlights"] = data["highlights"]
 
         logger.info(f"Successfully fetched activation examples for {len(examples)} features")
         return ActivationExamplesResponse(examples=examples)

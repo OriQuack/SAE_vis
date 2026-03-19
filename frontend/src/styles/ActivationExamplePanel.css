@@ -161,6 +161,14 @@
   border: 2px solid var(--selection-blue);
 }
 
+/* Hover grouping: bold tokens sharing the same highlight component */
+.activation-token--hover-group {
+  font-weight: bold;
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 1px;
+}
+
 /* Newline token styling */
 .activation-token--newline {
   position: relative;

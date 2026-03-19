@@ -37,6 +37,9 @@ class QuantileExample(BaseModel):
         default_factory=list,
         description="List of {token_position, char_offset} where the selected best n-gram appears (unified format)"
     )
+    highlights: Optional[Dict[str, List[List[float]]]] = Field(
+        None, description="Per-component highlight data: {component: [[position, score], ...]}"
+    )
 
 
 class ActivationExampleData(BaseModel):

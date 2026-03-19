@@ -1263,16 +1263,20 @@ const CauseView: React.FC<CauseViewProps> = ({
                           <span className="legend-label">Activation Strength</span>
                         </div>
                         <div className="legend-item">
-                          <span className="legend-sample legend-sample--inter">token</span>:
-                          <span className="legend-label">Shared Pattern in Examples</span>
+                          <span className="legend-sample legend-sample--syntax">token</span>:
+                          <span className="legend-label">Syntax</span>
+                        </div>
+                        <div className="legend-item">
+                          <span className="legend-sample legend-sample--context">token</span>:
+                          <span className="legend-label">Context</span>
                         </div>
                       </div>
                     </div>
                     {/* Activation section — Syntax + Context dual panels */}
-                    <div className="cause-view__activation-section">
-                      <div className="cause-view__activation-examples">
-                        {selectedFeatureData.activation ? (
-                          <>
+                    {selectedFeatureData.activation ? (
+                      <>
+                        <div className="cause-view__activation-panel">
+                          <div className="cause-view__activation-examples">
                             <ActivationExample
                               examples={selectedFeatureData.activation}
                               containerWidth={containerWidth}
@@ -1280,7 +1284,12 @@ const CauseView: React.FC<CauseViewProps> = ({
                               examplesPerQuantile={[2, 2, 2, 2]}
                               disableHover={true}
                               highlightMode="syntax"
+                              showActivation={false}
                             />
+                          </div>
+                        </div>
+                        <div className="cause-view__activation-panel">
+                          <div className="cause-view__activation-examples">
                             <ActivationExample
                               examples={selectedFeatureData.activation}
                               containerWidth={containerWidth}
@@ -1288,13 +1297,14 @@ const CauseView: React.FC<CauseViewProps> = ({
                               examplesPerQuantile={[2, 2, 2, 2]}
                               disableHover={true}
                               highlightMode="context"
+                              showActivation={false}
                             />
-                          </>
-                        ) : (
-                          <div className="cause-view__loading">Loading activating examples...</div>
-                        )}
-                      </div>
-                    </div>
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="cause-view__loading">Loading activating examples...</div>
+                    )}
 
                     {/* Consensus + Parallel Coordinates row */}
                     <div className="cause-view__consensus-row-header">
