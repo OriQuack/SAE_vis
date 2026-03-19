@@ -97,6 +97,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             # N-gram settings
             "char_ngram_sizes": params.get("char_ngram_sizes", [2, 3, 4, 5]),
             "word_ngram_sizes": params.get("word_ngram_sizes", [1, 2, 3]),
+            # Common n-gram settings (for highlight scoring)
+            "min_example_count": params.get("min_example_count", 3),
+            "top_n_per_k": params.get("top_n_per_k", 2),
         }
 
         # Statistics tracking
@@ -175,7 +178,8 @@ class ActivationSimilarityProcessor(BaseProcessor):
             Dict with char_ngrams, word_ngrams, top_char, top_word
         """
         if len(examples) == 0:
-            return {"char_ngrams": [], "word_ngrams": [], "top_char": None, "top_word": None}
+            return {"char_ngrams": [], "word_ngrams": [], "top_char": None, "top_word": None,
+                    "common_char_ngrams": [], "common_word_ngrams": []}
 
         char_window_size = self.proc_params["char_ngram_window_size"]
         word_window_size = self.proc_params["word_ngram_window_size"]
@@ -273,11 +277,54 @@ class ActivationSimilarityProcessor(BaseProcessor):
                     "occurrences": top_word_occurrences
                 }
 
+        # Common n-grams: top-N per k-size with count >= min_example_count (for highlights)
+        min_count = self.proc_params["min_example_count"]
+        top_n = self.proc_params["top_n_per_k"]
+
+        common_char_ngrams = []
+        for size in char_ngram_sizes:
+            size_ngrams = {ng: cnt for ng, cnt in char_ngram_counts.items()
+                          if len(ng) == size and cnt >= min_count}
+            # Sort by count desc, then length desc for tie-breaking
+            sorted_ngrams = sorted(size_ngrams.items(), key=lambda x: (x[1], len(x[0])), reverse=True)
+            for ngram, count in sorted_ngrams[:top_n]:
+                occurrences = char_ngram_occurrences.get(ngram, [])
+                # Flatten to list of [prompt_id, token_pos, char_offset] for parquet compatibility
+                flat_positions = []
+                for occ in occurrences:
+                    flat_positions.append([occ["prompt_id"], occ["token_position"], occ["char_offset"]])
+                common_char_ngrams.append({
+                    "ngram": ngram,
+                    "ngram_size": size,
+                    "count": count,
+                    "positions": flat_positions,
+                })
+
+        common_word_ngrams = []
+        for size in word_ngram_sizes:
+            size_ngrams = {ng: cnt for ng, cnt in word_ngram_counts.items()
+                          if len(ng.split()) == size and cnt >= min_count}
+            sorted_ngrams = sorted(size_ngrams.items(), key=lambda x: (x[1], len(x[0])), reverse=True)
+            for ngram, count in sorted_ngrams[:top_n]:
+                occurrences = word_ngram_occurrences.get(ngram, [])
+                # Flatten to list of [prompt_id, token_pos] for parquet compatibility
+                flat_positions = []
+                for occ in occurrences:
+                    flat_positions.append([occ["prompt_id"], occ["start_position"]])
+                common_word_ngrams.append({
+                    "ngram": ngram,
+                    "ngram_size": size,
+                    "count": count,
+                    "positions": flat_positions,
+                })
+
         return {
             "char_ngrams": top_char_ngrams,
             "word_ngrams": top_word_ngrams,
             "top_char": overall_top_char,
-            "top_word": overall_top_word
+            "top_word": overall_top_word,
+            "common_char_ngrams": common_char_ngrams,
+            "common_word_ngrams": common_word_ngrams,
         }
 
     def _process_feature(self, feature_id: int) -> Dict[str, Any]:
@@ -366,6 +413,8 @@ class ActivationSimilarityProcessor(BaseProcessor):
         top_word_ngrams = ngram_results.get("word_ngrams", [])
         overall_top_char = ngram_results.get("top_char")
         overall_top_word = ngram_results.get("top_word")
+        common_char_ngrams = ngram_results.get("common_char_ngrams", [])
+        common_word_ngrams = ngram_results.get("common_word_ngrams", [])
 
         if len(top_char_ngrams) > 0 or len(top_word_ngrams) > 0:
             self.stats["ngram_analysis_computed"] += 1
@@ -380,6 +429,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word_ngrams": top_word_ngrams,
             "top_char_ngram": overall_top_char,
             "top_word_ngram": overall_top_word,
+            # Common n-grams: top-2 per k (for highlight scoring)
+            "common_char_ngrams": common_char_ngrams,
+            "common_word_ngrams": common_word_ngrams,
             # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": char_ngram_max_jaccard,
             "word_ngram_max_jaccard": word_ngram_max_jaccard,
@@ -403,6 +455,9 @@ class ActivationSimilarityProcessor(BaseProcessor):
             "top_word_ngrams": [],
             "top_char_ngram": None,
             "top_word_ngram": None,
+            # Common n-grams: top-2 per k (for highlight scoring)
+            "common_char_ngrams": [],
+            "common_word_ngrams": [],
             # per-k-max Jaccard (keep for SVM)
             "char_ngram_max_jaccard": None,
             "word_ngram_max_jaccard": None,

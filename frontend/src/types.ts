@@ -416,7 +416,18 @@ export interface QuantileExample {
     char_offset: number | null         // Character offset (null = highlight entire token for word n-grams)
   }>
   // Per-component highlight data: {component: [position, score][]}
-  highlights?: Record<string, [number, number][]>
+  highlights?: Record<string, [number, number][]> & {
+    context_spans?: ContextSpan[]
+  }
+}
+
+/** A span region matched across multiple examples via tree-search. */
+export interface ContextSpan {
+  start: number       // Start token index (inclusive)
+  end: number         // End token index (exclusive)
+  score: number       // Average pairwise similarity within span set
+  span_size: number   // Number of tokens (3 = char_span, 11 = word_span)
+  set_index: number   // 0 = primary, 1 = secondary
 }
 
 export interface TableDataRequest {

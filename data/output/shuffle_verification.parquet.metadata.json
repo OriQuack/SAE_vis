@@ -1,0 +1,83 @@
+{
+  "created_at": "2026-03-19T14:49:08.092441",
+  "step_name": "Step 15: Shuffle Verification",
+  "script_version": "1.0",
+  "total_rows": 3,
+  "schema": {
+    "feature_id": "UInt32",
+    "sae_id": "Categorical",
+    "per_example": "List(Struct([Field('example_idx', Int64), Field('prompt_id', Int64), Field('original_activation', Float64), Field('max_token_position', Int64), Field('window_3_inner_ratio', Float64), Field('window_3_outer_ratio', Float64), Field('window_11_inner_ratio', Float64), Field('window_11_outer_ratio', Float64)]))",
+    "window_3_inner_mean_ratio": "Float64",
+    "window_3_outer_mean_ratio": "Float64",
+    "window_11_inner_mean_ratio": "Float64",
+    "window_11_outer_mean_ratio": "Float64"
+  },
+  "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+  "processing_stats": {
+    "features_processed": 3,
+    "examples_processed": 60,
+    "modifications_generated": 240,
+    "forward_passes": 240,
+    "features_skipped": 0
+  },
+  "result_stats": {
+    "unique_feature_ids": 3,
+    "unique_sae_ids": 1
+  },
+  "config_used": {
+    "enabled": true,
+    "inputs": {
+      "activation_display": "${output}/activation_display.parquet",
+      "activation_examples": "${intermediate}/activation_examples.parquet"
+    },
+    "outputs": {
+      "main": "${output}/shuffle_verification.parquet"
+    },
+    "parameters": {
+      "model_name": "google/gemma-2-9b",
+      "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+      "window_sizes": [
+        3,
+        11
+      ],
+      "batch_size": 128,
+      "seed": 42
+    },
+    "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+    "global": {
+      "sae_id": "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120",
+      "sae_id_sanitized": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
+      "paths": {
+        "input": "data/input",
+        "intermediate": "data/intermediate",
+        "output": "data/output",
+        "master": "data/master",
+        "feature_similarity": "data/feature_similarity",
+        "scores": "data/scores"
+      },
+      "processing": {
+        "num_features": 16384,
+        "feature_range": {
+          "start": 0,
+          "end": 16384
+        },
+        "embedding": {
+          "model": "google/embeddinggemma-300m",
+          "dimension": 768,
+          "device": "cuda",
+          "batch_size": 256
+        }
+      },
+      "data_sources": [
+        "llama_e-llama_s-16k-v2",
+        "gemini_e-llama_s-16k-v2",
+        "openai_e-llama_s-16k-v2"
+      ],
+      "llm_explainer_mapping": {
+        "llama_e": "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4",
+        "gemini_e": "google/gemini-flash-2.5",
+        "openai_e": "openai/gpt-4o-mini"
+      }
+    }
+  }
+}

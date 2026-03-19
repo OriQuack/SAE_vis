@@ -528,6 +528,7 @@ def get_refactored_steps() -> Set[str]:
         "step_12_explanation_alignment",
         "step_13_explanation_consensus",
         "step_14_svm_metrics",
+        "step_15_shuffle_verification",
     }
 
 

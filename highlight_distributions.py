@@ -11,7 +11,7 @@ from kneed import KneeLocator
 PARQUET = "data/output/activation_highlights.parquet"
 
 SYNTAX = ["s_word_ngram", "s_char_ngram", "s_dep_parse", "s_ast_parse"]
-CONTEXT = ["c_span_1", "c_span_8", "c_span_16", "c_span_32", "c_discriminative", "c_token_idf"]
+CONTEXT = ["c_span_1", "c_span_8", "c_span_16", "c_discriminative", "c_token_idf"]
 COMPONENTS = SYNTAX + CONTEXT
 
 SYNTAX_THRESHOLD = 0.1       # Fixed threshold for syntax components

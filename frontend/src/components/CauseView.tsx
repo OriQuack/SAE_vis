@@ -1284,7 +1284,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                               examplesPerQuantile={[2, 2, 2, 2]}
                               disableHover={true}
                               highlightMode="syntax"
-                              showActivation={false}
+                              showActivation={true}
                             />
                           </div>
                         </div>
@@ -1297,7 +1297,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                               examplesPerQuantile={[2, 2, 2, 2]}
                               disableHover={true}
                               highlightMode="context"
-                              showActivation={false}
+                              showActivation={true}
                             />
                           </div>
                         </div>

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
-import type { ActivationExamples, QuantileExample } from '../types'
+import type { ActivationExamples, QuantileExample, ContextSpan } from '../types'
 import {
   buildActivationTokens,
   getActivationColor,
@@ -51,6 +51,7 @@ function buildHighlightLookup(
   const map = new Map<number, Array<{comp: string, score: number}>>()
   if (!highlights) return map
   for (const [comp, entries] of Object.entries(highlights)) {
+    if (comp === 'context_spans' || !Array.isArray(entries)) continue
     for (const [pos, score] of entries) {
       const existing = map.get(pos)
       if (existing) {
@@ -132,41 +133,51 @@ const renderActivationToken = (
   promptId?: number,
   showActivation?: boolean,
 ): React.ReactNode => {
-  // Per-component highlighting mode (syntax or context)
-  if (highlightMode && highlightLookup) {
-    const entries = highlightLookup.get(token.position) ?? []
-    // Filter to components matching the mode
-    const matching = entries.filter(e =>
-      highlightMode === 'syntax' ? isSyntaxComponent(e.comp) : !isSyntaxComponent(e.comp)
-    )
-    const highlightColor = highlightMode === 'syntax' ? SYNTAX_HIGHLIGHT_COLOR : CONTEXT_HIGHLIGHT_COLOR
+  // Context highlighting: span-based regions
+  if (highlightMode === 'context') {
+    const contextSpans: ContextSpan[] = example.highlights?.context_spans ?? []
+    // Also include disc_idf per-token data from highlightLookup
+    const discEntries = highlightLookup?.get(token.position)?.filter(e => e.comp === 'disc_idf') ?? []
 
-    // Filter out low activations: tokens below 5% of per-example max are treated as non-activated
+    // Find which context span(s) this token falls within
+    const matchingSpans = contextSpans.filter(s => token.position >= s.start && token.position < s.end)
+
+    const highlightColor = CONTEXT_HIGHLIGHT_COLOR
     const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
 
-    // Check if this token is in the hovered component group (same component AND same example)
-    const isInHoverGroup = hoveredHighlight != null && hoveredHighlight.promptId === promptId && matching.some(e => e.comp === hoveredHighlight.comp)
+    // Hover group: spans use cross-example hover (same set_index across all examples),
+    // disc_idf uses same-example hover only
+    const isInHoverGroup = hoveredHighlight != null && (
+      matchingSpans.some(s => hoveredHighlight.comp === `context_span_${s.set_index}`) ||
+      (hoveredHighlight.promptId === promptId && discEntries.some(e => hoveredHighlight.comp === e.comp))
+    )
 
     const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}`
     const bgColor = isActivated
       ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
       : undefined
 
-    // Build style: orange activation + score-based highlight background
     const style: React.CSSProperties = isActivated ? { '--activation-color': bgColor } as React.CSSProperties : {}
-    if (matching.length > 0) {
-      const maxScore = Math.max(...matching.map(e => e.score))
-      const opacity = 0.15 + maxScore * 0.85
+
+    // Apply span highlight (use best score if multiple spans overlap)
+    if (matchingSpans.length > 0) {
+      const bestScore = Math.max(...matchingSpans.map(s => s.score))
+      const opacity = 0.15 + bestScore * 0.85
+      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
+    } else if (discEntries.length > 0) {
+      // Fallback to disc_idf if no span covers this token
+      const bestScore = Math.max(...discEntries.map(e => e.score))
+      const opacity = 0.15 + bestScore * 0.85
       style.backgroundColor = addOpacityToHex(highlightColor, opacity)
     }
 
-    // Hover handlers for highlighted tokens
-    const hoverProps = matching.length > 0 && onTokenHover && promptId != null ? {
-      onMouseEnter: () => onTokenHover(matching[0].comp, promptId),
+    const hasHighlight = matchingSpans.length > 0 || discEntries.length > 0
+    const hoverComp = matchingSpans.length > 0 ? `context_span_${matchingSpans[0].set_index}` : discEntries.length > 0 ? 'disc_idf' : null
+    const hoverProps = hasHighlight && onTokenHover && promptId != null ? {
+      onMouseEnter: () => onTokenHover(hoverComp, promptId),
       onMouseLeave: () => onTokenHover(null, promptId),
     } : undefined
 
-    // Handle newlines
     if (token.is_newline) {
       return (
         <span key={tokenIdx} className={className} style={style} {...hoverProps}>
@@ -175,7 +186,54 @@ const renderActivationToken = (
       )
     }
 
-    // Split leading spaces
+    const leadingSpaces = isActivated && token.text.match(/^ +/)
+    if (leadingSpaces) {
+      const spaceLen = leadingSpaces[0].length
+      return (
+        <React.Fragment key={tokenIdx}>
+          <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
+          <span className={className} style={style} {...hoverProps}>{token.text.slice(spaceLen)}</span>
+        </React.Fragment>
+      )
+    }
+
+    return <span key={tokenIdx} className={className} style={style} {...hoverProps}>{token.text}</span>
+  }
+
+  // Syntax highlighting: per-token component scores (unchanged)
+  if (highlightMode === 'syntax' && highlightLookup) {
+    const entries = highlightLookup.get(token.position) ?? []
+    const matching = entries.filter(e => isSyntaxComponent(e.comp))
+    const highlightColor = SYNTAX_HIGHLIGHT_COLOR
+
+    const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
+    const isInHoverGroup = hoveredHighlight != null && hoveredHighlight.promptId === promptId && matching.some(e => e.comp === hoveredHighlight.comp)
+
+    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}`
+    const bgColor = isActivated
+      ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
+      : undefined
+
+    const style: React.CSSProperties = isActivated ? { '--activation-color': bgColor } as React.CSSProperties : {}
+    if (matching.length > 0) {
+      const maxScore = Math.max(...matching.map(e => e.score))
+      const opacity = 0.15 + maxScore * 0.85
+      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
+    }
+
+    const hoverProps = matching.length > 0 && onTokenHover && promptId != null ? {
+      onMouseEnter: () => onTokenHover(matching[0].comp, promptId),
+      onMouseLeave: () => onTokenHover(null, promptId),
+    } : undefined
+
+    if (token.is_newline) {
+      return (
+        <span key={tokenIdx} className={className} style={style} {...hoverProps}>
+          <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
+        </span>
+      )
+    }
+
     const leadingSpaces = isActivated && token.text.match(/^ +/)
     if (leadingSpaces) {
       const spaceLen = leadingSpaces[0].length

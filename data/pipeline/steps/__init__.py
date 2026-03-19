@@ -47,6 +47,9 @@ from .step_13_explanation_consensus import ExplanationConsensusProcessor
 # Step 14: Pre-aggregated SVM metrics for feature and pair classification
 from .step_14_svm_metrics import SvmMetricsProcessor
 
+# Step 15: Shuffle verification (syntax vs context contribution)
+from .step_15_shuffle_verification import ShuffleVerificationProcessor
+
 
 # Step mapping for dynamic dispatch
 STEP_PROCESSORS = {
@@ -64,6 +67,7 @@ STEP_PROCESSORS = {
     "step_12_explanation_alignment": ExplanationAlignmentProcessor,
     "step_13_explanation_consensus": ExplanationConsensusProcessor,
     "step_14_svm_metrics": SvmMetricsProcessor,
+    "step_15_shuffle_verification": ShuffleVerificationProcessor,
 }
 
 
@@ -82,5 +86,6 @@ __all__ = [
     'ExplanationAlignmentProcessor',
     'SvmMetricsProcessor',
     'ExplanationConsensusProcessor',
+    'ShuffleVerificationProcessor',
     'STEP_PROCESSORS',
 ]

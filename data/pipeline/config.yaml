@@ -156,6 +156,9 @@ steps:
       # N-gram settings
       char_ngram_sizes: [2, 3, 4, 5, 6, 7, 8]
       word_ngram_sizes: [1, 2, 3]
+      # Common n-gram settings (for highlight scoring in step_10)
+      min_example_count: 4
+      top_n_per_k: 2
 
   # Step 9: Inter-feature activation similarity
   step_09_interfeature_similarity:
@@ -193,14 +196,13 @@ steps:
         ngram_jaccard: 0.10
       highlight_scoring:
         enabled: true
-        char_window_size: 5
-        word_window_size: 15
-        char_ngram_sizes: [2, 3, 4, 5, 6, 7, 8]
-        word_ngram_sizes: [1, 2, 3]
+        # S1 n-gram params now in step_08 config (min_example_count, top_n_per_k)
         min_example_count: 4
         span_model: "google/embeddinggemma-300m"
-        span_sizes: [1, 8, 16, 32]
-        span_32_threshold: 0.15
+        span_sizes: [3, 11]             # char_span (3) and word_span (11)
+        span_gate_threshold: 0.20       # gate using step_08 semantic_sim
+        span_sim_threshold: 0.25        # tree-search pruning threshold
+        top_span_sets: 2                # number of span sets to track per span_size
 
   # Step 11: Process interfeature display data
   step_11_interfeature_display:
@@ -259,6 +261,21 @@ steps:
       pair_metrics: "${output}/svm_pair_metrics.parquet"
     parameters: {}  # No parameters needed - simple aggregation
 
+  # Step 15: Shuffle verification — syntax vs context contribution
+  step_15_shuffle_verification:
+    enabled: true
+    inputs:
+      activation_display: "${output}/activation_display.parquet"
+      activation_examples: "${intermediate}/activation_examples.parquet"
+    outputs:
+      main: "${output}/shuffle_verification.parquet"
+    parameters:
+      model_name: "google/gemma-2-9b"
+      sae_id: "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
+      window_sizes: [3, 11]
+      batch_size: 128
+      seed: 42
+
 # Dependency graph - defines execution order
 # Format: step_name: [list of dependencies]
 dependencies:
@@ -276,6 +293,7 @@ dependencies:
   step_12_explanation_alignment: [step_07_features]
   step_13_explanation_consensus: [step_07_features, step_05_activation_embeddings]
   step_14_svm_metrics: [step_07_features, step_10_activation_display, step_11_interfeature_display, step_13_explanation_consensus]
+  step_15_shuffle_verification: [step_10_activation_display]
 
 # Output files required by backend (for verification)
 backend_required:

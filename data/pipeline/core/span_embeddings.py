@@ -169,79 +169,146 @@ def batch_encode_spans(model, texts: List[str], batch_size: int = 256) -> np.nda
     )
 
 
-def compute_cross_example_span_scores(
+def find_top_span_sets(
     embeddings_by_example: List[np.ndarray],
     spans_by_example: List[List[Dict]],
-) -> List[List[float]]:
-    """Compute cross-example span matching scores.
+    prompt_ids: List[int],
+    max_pos_by_example: List[int],
+    span_size: int,
+    sim_threshold: float = 0.25,
+    top_k: int = 2,
+) -> List[Dict]:
+    """Find top span sets across examples using tree-search.
 
-    For each example i's each span a:
-      score(i,a) = mean_{j!=i}(max_b(cosine(embed(i,a), embed(j,b))))
+    A span set is a group of spans (one per example) that are mutually similar.
+    The algorithm progressively matches spans across examples, pruning by
+    similarity threshold. Examples where no span passes the threshold are
+    excluded from the set (the set may have fewer members than total examples).
+
+    Algorithm:
+    1. Compare examples[0] vs examples[1]: keep span pairs > sim_threshold
+    2. For each surviving set, find best matching span in examples[2],
+       keep if avg pairwise sim with existing set members > threshold
+    3. Continue through remaining examples, pruning when sim drops
+    4. Rank span sets by avg pairwise sim, return top_k
 
     Args:
-        embeddings_by_example: List of arrays, each (num_spans_i, embed_dim)
+        embeddings_by_example: List of arrays, each (num_spans, embed_dim)
         spans_by_example: Parallel list of span dicts per example
+        prompt_ids: Prompt ID for each example
+        max_pos_by_example: Max activation position per example
+        span_size: Size of spans in tokens
+        sim_threshold: Minimum cosine similarity to include a span
+        top_k: Number of span sets to return
 
     Returns:
-        Nested list: [example_idx][span_idx] -> float score
+        List of span set dicts, each containing:
+        - span_size: int
+        - avg_sim: float (average pairwise sim within the set)
+        - num_examples: int
+        - spans: [{prompt_id, center_offset, start, end}]
     """
     n_examples = len(embeddings_by_example)
     if n_examples < 2:
-        return [[0.0] * len(spans) for spans in spans_by_example]
+        return []
 
-    scores = []
-    for i in range(n_examples):
-        embs_i = embeddings_by_example[i]
-        if len(embs_i) == 0:
-            scores.append([])
+    # Skip examples with no spans
+    valid = [(i, embeddings_by_example[i], spans_by_example[i])
+             for i in range(n_examples) if len(embeddings_by_example[i]) > 0]
+    if len(valid) < 2:
+        return []
+
+    # Step 1: Seed span sets from first two valid examples
+    i0, embs_0, spans_0 = valid[0]
+    i1, embs_1, spans_1 = valid[1]
+
+    # Compute all pairwise cosine sims between spans of example 0 and 1
+    # (embeddings are L2-normalized)
+    sim_matrix = embs_0 @ embs_1.T  # (num_spans_0, num_spans_1)
+
+    # Collect seed sets: pairs of spans exceeding threshold
+    seed_sets: List[List[Tuple[int, int]]] = []  # each: [(example_idx, span_idx), ...]
+    seed_embs: List[List[np.ndarray]] = []  # embeddings for each set member
+
+    for a in range(len(spans_0)):
+        for b in range(len(spans_1)):
+            if sim_matrix[a, b] >= sim_threshold:
+                seed_sets.append([(i0, a), (i1, b)])
+                seed_embs.append([embs_0[a], embs_1[b]])
+
+    if not seed_sets:
+        return []
+
+    # Step 2: Expand through remaining examples
+    for vi in range(2, len(valid)):
+        ex_idx, embs_new, _spans = valid[vi]
+        if len(embs_new) == 0:
             continue
 
-        span_scores = []
-        for a in range(len(embs_i)):
-            # For each span a in example i, compute mean over j!=i of max_b(cosine)
-            cross_scores = []
-            for j in range(n_examples):
-                if j == i:
-                    continue
-                embs_j = embeddings_by_example[j]
-                if len(embs_j) == 0:
-                    cross_scores.append(0.0)
-                    continue
-                # cosine similarity (embeddings are already L2-normalized)
-                sims = embs_i[a] @ embs_j.T
-                cross_scores.append(float(np.max(sims)))
+        for set_idx in range(len(seed_sets)):
+            # Compute avg sim of each new span against all existing set members
+            existing_embs = np.array(seed_embs[set_idx])  # (K, dim)
+            sims_to_existing = embs_new @ existing_embs.T  # (num_new_spans, K)
+            avg_sims = sims_to_existing.mean(axis=1)  # (num_new_spans,)
 
-            span_scores.append(float(np.mean(cross_scores)) if cross_scores else 0.0)
+            best_span = int(np.argmax(avg_sims))
+            best_sim = float(avg_sims[best_span])
 
-        scores.append(span_scores)
+            if best_sim >= sim_threshold:
+                seed_sets[set_idx].append((ex_idx, best_span))
+                seed_embs[set_idx].append(embs_new[best_span])
 
-    return scores
+    # Step 3: Compute final avg pairwise sim and build output
+    results = []
+    for set_idx, members in enumerate(seed_sets):
+        if len(members) < 2:
+            continue
 
+        # Compute avg pairwise sim
+        embs = np.array(seed_embs[set_idx])  # (K, dim)
+        sim_mat = embs @ embs.T
+        n = len(embs)
+        total = 0.0
+        count = 0
+        for i in range(n):
+            for j in range(i + 1, n):
+                total += sim_mat[i, j]
+                count += 1
+        avg_sim = float(total / count) if count > 0 else 0.0
 
-def compute_pairwise_avg_sim(embeddings: np.ndarray) -> float:
-    """Compute average pairwise cosine similarity.
+        # Build span entries
+        span_entries = []
+        for ex_idx, sp_idx in members:
+            span = spans_by_example[ex_idx][sp_idx]
+            max_pos = max_pos_by_example[ex_idx]
+            span_center = (span["start"] + span["end"]) // 2
+            center_offset = span_center - max_pos
+            span_entries.append({
+                "prompt_id": prompt_ids[ex_idx],
+                "center_offset": center_offset,
+                "start": span["start"],
+                "end": span["end"],
+            })
 
-    Args:
-        embeddings: Array of shape (N, dim), L2-normalized
+        results.append({
+            "span_size": span_size,
+            "avg_sim": avg_sim,
+            "num_examples": len(members),
+            "spans": span_entries,
+        })
 
-    Returns:
-        Average pairwise similarity (excluding self-pairs)
-    """
-    n = len(embeddings)
-    if n < 2:
-        return 0.0
+    # Deduplicate: if two sets share the same span in example 0, keep higher avg_sim
+    seen_seeds: Dict[Tuple, int] = {}
+    deduped = []
+    for r in sorted(results, key=lambda x: x["avg_sim"], reverse=True):
+        # Use first span as dedup key
+        seed_key = (r["spans"][0]["prompt_id"], r["spans"][0]["start"])
+        if seed_key not in seen_seeds:
+            seen_seeds[seed_key] = len(deduped)
+            deduped.append(r)
 
-    # Cosine similarity matrix (embeddings are L2-normalized)
-    sim_matrix = embeddings @ embeddings.T
-    # Extract upper triangle (excluding diagonal)
-    total = 0.0
-    count = 0
-    for i in range(n):
-        for j in range(i + 1, n):
-            total += sim_matrix[i, j]
-            count += 1
-
-    return float(total / count) if count > 0 else 0.0
+    # Return top_k by avg_sim (already sorted)
+    return deduped[:top_k]
 
 
 def compute_discriminative_tokens(
