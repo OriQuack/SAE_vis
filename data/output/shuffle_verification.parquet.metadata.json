@@ -1,8 +1,8 @@
 {
-  "created_at": "2026-03-19T14:49:08.092441",
+  "created_at": "2026-03-20T07:52:43.764494",
   "step_name": "Step 15: Shuffle Verification",
   "script_version": "1.0",
-  "total_rows": 3,
+  "total_rows": 16383,
   "schema": {
     "feature_id": "UInt32",
     "sae_id": "Categorical",
@@ -14,24 +14,24 @@
   },
   "sae_id": "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120",
   "processing_stats": {
-    "features_processed": 3,
-    "examples_processed": 60,
-    "modifications_generated": 240,
-    "forward_passes": 240,
+    "features_processed": 16383,
+    "examples_processed": 310252,
+    "modifications_generated": 1241008,
+    "forward_passes": 1241008,
     "features_skipped": 0
   },
   "result_stats": {
-    "unique_feature_ids": 3,
+    "unique_feature_ids": 16383,
     "unique_sae_ids": 1
   },
   "config_used": {
     "enabled": true,
     "inputs": {
-      "activation_display": "${output}/activation_display.parquet",
-      "activation_examples": "${intermediate}/activation_examples.parquet"
+      "activation_display": "data/output/activation_display.parquet",
+      "activation_examples": "data/intermediate/activation_examples.parquet"
     },
     "outputs": {
-      "main": "${output}/shuffle_verification.parquet"
+      "main": "data/output/shuffle_verification.parquet"
     },
     "parameters": {
       "model_name": "google/gemma-2-9b",
