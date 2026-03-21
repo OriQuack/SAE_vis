@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useMemo } from 'react'
 import chroma from 'chroma-js'
-import type { ConsensusResponse, ConsensusItem } from '../types'
+import type { ConsensusResponse, ConsensusItem, ExplainerScoreData, ScorerScoreSet } from '../types'
 import { D3_SCHEME_TABLEAU10 } from '../lib/constants'
-import { scoreToColor, METRIC_GRADIENT } from '../lib/color-utils'
+import { scoreToColor, METRIC_GRADIENT, metricToTealColor } from '../lib/color-utils'
 import { Tooltip } from './Tooltip'
 import '../styles/ConsensusSection.css'
 
@@ -22,11 +22,21 @@ export interface PhraseHighlightData {
   offsets?: { start: number; end: number }[]  // Multi-range offsets (new pipeline)
 }
 
+/** Per-cluster average metric scores (averaged across unique explainers) */
+export interface ClusterMetricScores {
+  avg_embedding: number
+  avg_fuzz: number
+  avg_detection: number
+}
+
 interface ConsensusSectionProps {
   consensus: ConsensusResponse | null
   onPhraseHover?: (data: PhraseHighlightData[] | null) => void
   expanded?: boolean
   hasNoActivations?: boolean
+  clusterMetrics?: Map<number, ClusterMetricScores>
+  explainerScores?: Record<string, ExplainerScoreData>
+  hideOutliers?: boolean
 }
 
 interface TooltipData {
@@ -70,7 +80,20 @@ export const ConsensusLegend: React.FC = React.memo(() => (
 // CONSENSUS SECTION
 // ============================================================================
 
-const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover, expanded, hasNoActivations }) => {
+const METRICS = ['avg_embedding', 'avg_fuzz', 'avg_detection'] as const
+const METRIC_LABELS: Record<string, string> = { avg_embedding: 'Emb', avg_fuzz: 'Fuzz', avg_detection: 'Det' }
+const BAR_W = 80, BAR_H = 7
+
+function avgScorerSet(s: ScorerScoreSet): number {
+  const vals = [s.s1, s.s2, s.s3].filter((v): v is number => v != null)
+  return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+}
+
+function explainerToMetrics(d: ExplainerScoreData): ClusterMetricScores {
+  return { avg_embedding: d.embedding ?? 0, avg_fuzz: avgScorerSet(d.fuzz), avg_detection: avgScorerSet(d.detection) }
+}
+
+const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhraseHover, expanded, hasNoActivations, clusterMetrics, explainerScores, hideOutliers }) => {
   // Local state for tooltip on hover
   const [tooltipData, setTooltipData] = useState<TooltipData | null>(null)
 
@@ -128,6 +151,17 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
     setTooltipData(prev => prev ? { ...prev, position: { x: e.clientX, y: e.clientY } } : null)
   }, [])
+
+  // Resolve metric scores for the hovered item (cluster or outlier)
+  const tooltipMetrics: ClusterMetricScores | null = useMemo(() => {
+    const item = tooltipData?.item
+    if (!item) return null
+    if (item.is_outlier) {
+      const d = explainerScores?.[item.explainer]
+      return d ? explainerToMetrics(d) : null
+    }
+    return clusterMetrics?.get(item.cluster_id) ?? null
+  }, [tooltipData, clusterMetrics, explainerScores])
 
   if (hasNoActivations) {
     return (
@@ -198,7 +232,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
   }
 
   return (
-    <div className="consensus-section">
+    <div className={`consensus-section${hideOutliers ? ' consensus-section--single' : ''}`}>
       <div className="consensus-section__column">
         <div className="consensus-section__header">
           <span className="instruction-subheader">Consensus-Reached Concepts</span>
@@ -211,18 +245,20 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           }
         </div>
       </div>
-      <div className="consensus-section__column consensus-section__column--outlier">
-        <div className="consensus-section__header">
-          <span className="instruction-subheader">Explainer-Specific Concepts</span>
-          <span className="consensus-section__criteria">(consensus score = 0)</span>
+      {!hideOutliers && (
+        <div className="consensus-section__column consensus-section__column--outlier">
+          <div className="consensus-section__header">
+            <span className="instruction-subheader">Explainer-Specific Concepts</span>
+            <span className="consensus-section__criteria">(consensus score = 0)</span>
+          </div>
+          <div className="consensus-section__items">
+            {outliers.length > 0
+              ? outliers.map((item, idx) => renderPill(item, idx))
+              : <span className="consensus-section__empty">No outliers</span>
+            }
+          </div>
         </div>
-        <div className="consensus-section__items">
-          {outliers.length > 0
-            ? outliers.map((item, idx) => renderPill(item, idx))
-            : <span className="consensus-section__empty">No outliers</span>
-          }
-        </div>
-      </div>
+      )}
 
       {/* Tooltip with all info */}
       <Tooltip position={tooltipData?.position ?? null}>
@@ -235,11 +271,33 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
           Consensus: {tooltipData?.item.is_outlier
             ? '0.00'
             : (tooltipData?.item.cluster_score?.toFixed(2) ?? '0.00')} / 3.00
-          <br />
-          Avg. Metric Score: {(tooltipData?.item.is_outlier
-            ? tooltipData?.item.quality_score
-            : tooltipData?.item.avg_quality_score
-          )?.toFixed(2) ?? '0.00'} / 1.00
+          {tooltipMetrics ? (
+            <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 1 }}>
+              {METRICS.map((key) => {
+                const score = tooltipMetrics[key]
+                return (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, lineHeight: '10px' }}>
+                    <span style={{ width: 28, color: '#6b7280' }}>{METRIC_LABELS[key]}</span>
+                    <svg width={BAR_W + 2} height={BAR_H}>
+                      <rect x={1} y={0} width={BAR_W} height={BAR_H} fill="#f3f4f6" stroke="#e5e7eb" strokeWidth={0.5} />
+                      {score > 0 && <rect x={1} y={0} width={score * BAR_W} height={BAR_H} fill={metricToTealColor(score)} />}
+                      <line x1={1 + 0.5 * BAR_W} y1={0} x2={1 + 0.5 * BAR_W} y2={BAR_H} stroke="#B22222" strokeWidth={1} strokeDasharray="3 2" />
+                    </svg>
+                    <span style={{ width: 26, color: '#6b7280', fontSize: 10 }}>{score.toFixed(2)}</span>
+                  </div>
+                )
+              })}
+              <div style={{ fontSize: 9, color: '#B22222', opacity: 0.7, paddingLeft: 28 + 4 + 1 + 0.5 * BAR_W - 18, marginTop: -1 }}>Random</div>
+            </div>
+          ) : (
+            <>
+              <br />
+              Avg. Metric Score: {(tooltipData?.item.is_outlier
+                ? tooltipData?.item.quality_score
+                : tooltipData?.item.avg_quality_score
+              )?.toFixed(2) ?? '0.00'} / 1.00
+            </>
+          )}
         </Tooltip.Summary>
         {/* Show all phrases for clusters */}
         {!expanded && !onPhraseHover && !tooltipData?.item.is_outlier && tooltipData?.item.cluster_phrases && (

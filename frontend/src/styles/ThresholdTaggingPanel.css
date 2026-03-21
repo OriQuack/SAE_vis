@@ -88,20 +88,14 @@
   min-height: 0;
 }
 
-/* Cause mode: RadViz + BatchTagging side by side */
-.threshold-tagging-panel__cause-batch-row {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  flex: 1;
-  min-height: 0;
-}
-
-/* RadViz column: subheader + CauseRadViz stacked vertically */
+/* RadViz column: promoted to top-level in cause mode, full height */
 .threshold-tagging-panel__radviz-column {
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
   min-height: 0;
+  min-width: 0;
+  gap: 4px;
 }
 
 .threshold-tagging-panel__radviz-column .cause-radviz {
@@ -117,14 +111,20 @@
   flex-shrink: 0;
 }
 
-/* Non-cause mode: batch-column is direct child, fill available height */
+/* Non-cause mode: batch-column is direct child of batch-section */
 .threshold-tagging-panel__batch-section > .threshold-tagging-panel__batch-column {
   flex: 1;
   min-height: 0;
 }
 
+/* Cause mode: batch-column is direct child of right-section */
+.threshold-tagging-panel__right-section > .threshold-tagging-panel__batch-column {
+  flex: 6;  /* 4:6 ratio with indicator section */
+  min-height: 0;
+}
+
 /* Cause mode: single-column layout for batch buttons */
-.threshold-tagging-panel__cause-batch-row .batch-tagging__action-row {
+.threshold-tagging-panel__right-section > .threshold-tagging-panel__batch-column .batch-tagging__action-row {
   grid-template-columns: 1fr;
 }
 

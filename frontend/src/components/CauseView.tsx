@@ -1,12 +1,12 @@
 import React, { useMemo, useEffect, useCallback, useState, useRef } from 'react'
 import { useVisualizationStore } from '../store/index'
-import type { FeatureTableRow, FlipTrackingInfo } from '../types'
+import type { FeatureTableRow, FlipTrackingInfo, ScorerScoreSet } from '../types'
 import * as api from '../api'
 import { useSortableList, type ActiveStage, type BootstrapMode, type SortMode } from '../lib/tagging-hooks/useSortableList'
 import StageAccordionList from './StageAccordionList'
 import { TagBadge, TagButton, DisagreementIndicator } from './Indicators'
 import ActivationExample from './ActivationExamplePanel'
-import ConsensusSection, { ConsensusLegend } from './ConsensusSection'
+import ConsensusSection, { ConsensusLegend, type ClusterMetricScores } from './ConsensusSection'
 import ThresholdTaggingPanel from './ThresholdTaggingPanel'
 import { TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY, PANEL_LEFT } from '../lib/constants'
 import { t, getTagTooltip } from '../lib/i18n'
@@ -667,6 +667,40 @@ const CauseView: React.FC<CauseViewProps> = ({
     }
   }, [displayedFeatureId, featureListWithMetadata, activationExamples])
 
+  // Compute per-cluster metric averages (across unique explainers) for tooltip bars
+  const clusterMetrics = useMemo(() => {
+    if (!consensus?.items || !selectedFeatureData?.row?.explainers) return undefined
+    const explainers = selectedFeatureData.row.explainers
+    const avgSet = (s: ScorerScoreSet): number => {
+      const vals = [s.s1, s.s2, s.s3].filter((v): v is number => v != null)
+      return vals.length > 0 ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+    }
+    const map = new Map<number, ClusterMetricScores>()
+    for (const item of consensus.items) {
+      if (item.is_outlier || !item.cluster_phrases) continue
+      const seen = new Set<string>()
+      let sumEmb = 0, sumFuzz = 0, sumDet = 0, count = 0
+      for (const p of item.cluster_phrases) {
+        if (seen.has(p.explainer)) continue
+        seen.add(p.explainer)
+        const d = explainers[p.explainer]
+        if (!d) continue
+        sumEmb += d.embedding ?? 0
+        sumFuzz += avgSet(d.fuzz)
+        sumDet += avgSet(d.detection)
+        count++
+      }
+      if (count > 0) {
+        map.set(item.cluster_id, {
+          avg_embedding: sumEmb / count,
+          avg_fuzz: sumFuzz / count,
+          avg_detection: sumDet / count,
+        })
+      }
+    }
+    return map
+  }, [consensus, selectedFeatureData])
+
   // Handle click on feature list item (main StageAccordionList)
   const handleListItemClick = useCallback((index: number) => {
     // Set feature ID first (survives mode switches)
@@ -1312,7 +1346,7 @@ const CauseView: React.FC<CauseViewProps> = ({
                       <ConsensusLegend />
                     </div>
                     <div className="cause-view__consensus-with-metrics">
-                      <ConsensusSection consensus={consensus} expanded hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} />
+                      <ConsensusSection consensus={consensus} expanded hasNoActivations={!selectedFeatureData?.activation?.quantile_examples?.length} clusterMetrics={clusterMetrics} explainerScores={selectedFeatureData?.row?.explainers} />
                     </div>
 
                     {/* ---- Floating control panel ---- */}

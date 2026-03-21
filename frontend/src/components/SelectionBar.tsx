@@ -92,7 +92,10 @@ const SelectionStateBar: React.FC<SelectionStateBarProps> = ({
     let featureTotal: number
 
     if (stage === 'stage3' && causeCounts) {
-      featureLabeled = causeCounts.total - causeCounts.unsure
+      // Only count user-confirmed (click + threshold) as "labeled"
+      // SVM predictions (auto) are not yet labeled until batch-confirmed
+      featureLabeled = causeCounts.noisyActivation + causeCounts.missedNgram +
+        causeCounts.missedContext + causeCounts.wellExplained
       featureTotal = causeCounts.total
     } else {
       featureLabeled = counts.total - counts.unsure

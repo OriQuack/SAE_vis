@@ -19,6 +19,7 @@ import '../styles/ThresholdTaggingPanel.css'
 // THRESHOLD TAGGING PANEL - Reusable bottom row for tagging workflows
 // ============================================================================
 // Layout: [Histogram] | [Flip Rate (top) + Batch Tagging (bottom)]
+// Cause mode: [Histogram] | [RadViz (full height)] | [Stability (top) + Batch (bottom)]
 // Used by: FeatureSplitView, QualityView, and CauseView
 
 // Cause mode specific props
@@ -178,8 +179,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
 
   // Compute threshold counts (items past threshold handles) for BatchTaggingPanel
   const thresholdCounts = useMemo(() => {
-    const selectThreshold = tagAutomaticState?.selectThreshold ?? 0.8
-    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -0.8
+    const selectThreshold = tagAutomaticState?.selectThreshold ?? 1.0
+    const rejectThreshold = tagAutomaticState?.rejectThreshold ?? -1.0
 
     let leftCount = 0
     let rightCount = 0
@@ -271,7 +272,20 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         </div>
       </div>
 
-      {/* Right section: Flip Rate (top) + Batch Tagging (bottom) */}
+      {/* Cause mode: RadViz as middle column (full height) */}
+      {mode === 'cause' && causeProps && (
+        <div className="threshold-tagging-panel__radviz-column">
+          <h4 className="subheader" data-tooltip-title="Category Scatter" data-tooltip={t("Each feature positioned by relative classifier confidence toward each category.", "각 feature를 category별 classifier confidence에 따라 배치.")}>Category Scatter</h4>
+          <CauseRadViz
+            featureIds={causeProps.stableFeatureIds}
+            selectedFeatureId={causeProps.selectedFeatureId}
+            activeStage={activeStage}
+            hideTagged={causeProps.hideTagged}
+          />
+        </div>
+      )}
+
+      {/* Right section: Stability Chart (top) + Batch Tagging (bottom) */}
       <div className="threshold-tagging-panel__right-section">
         {/* Convergence indicator at top */}
         <div className="threshold-tagging-panel__indicator-section">
@@ -325,33 +339,22 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
         )}
 
         {/* Batch tagging area */}
-        <div className="threshold-tagging-panel__batch-section">
-          {mode === 'cause' && causeProps ? (
-            /* Cause mode: RadViz + BatchTagging side by side */
-            <div className="threshold-tagging-panel__cause-batch-row">
-              <div className="threshold-tagging-panel__radviz-column">
-                <h4 className="subheader" data-tooltip-title="Category Scatter" data-tooltip={t("Each feature positioned by relative classifier confidence toward each category.", "각 feature를 category별 classifier confidence에 따라 배치.")}>Category Scatter</h4>
-                <CauseRadViz
-                  featureIds={causeProps.stableFeatureIds}
-                  selectedFeatureId={causeProps.selectedFeatureId}
-                  activeStage={activeStage}
-                  hideTagged={causeProps.hideTagged}
-                />
-              </div>
-              <div className="threshold-tagging-panel__batch-column">
-                <h4 className="subheader" data-tooltip-title="Automatic Labeling" data-tooltip={t("Apply classifier predictions to remaining unlabeled features.", "미분류 feature에 classifier prediction 적용.")}>Automatic Labeling</h4>
-                <BatchTaggingPanel
-                  categories={causeProps.categories}
-                  unsureCount={causeProps.unsureCount}
-                  disabled={activeStage !== 'apply' || !causeProps.canTrainSVM || causeProps.causeDecisionMargins.size === 0}
-                  onConfirmAll={causeProps.onConfirmAll}
-                  onTagAllUnsure={causeProps.onTagAllUnsure}
-                  itemLabel="features"
-                />
-              </div>
-            </div>
-          ) : (
-            /* Pair/Feature mode: BatchTagging only */
+        {mode === 'cause' && causeProps ? (
+          /* Cause mode: BatchTagging directly in right section */
+          <div className="threshold-tagging-panel__batch-column">
+            <h4 className="subheader" data-tooltip-title="Automatic Labeling" data-tooltip={t("Apply classifier predictions to remaining unlabeled features.", "미분류 feature에 classifier prediction 적용.")}>Automatic Labeling</h4>
+            <BatchTaggingPanel
+              categories={causeProps.categories}
+              unsureCount={causeProps.unsureCount}
+              disabled={activeStage !== 'apply' || !causeProps.canTrainSVM || causeProps.causeDecisionMargins.size === 0}
+              onConfirmAll={causeProps.onConfirmAll}
+              onTagAllUnsure={causeProps.onTagAllUnsure}
+              itemLabel="features"
+            />
+          </div>
+        ) : (
+          /* Pair/Feature mode: BatchTagging in batch-section wrapper */
+          <div className="threshold-tagging-panel__batch-section">
             <div className="threshold-tagging-panel__batch-column">
               <h4 className="subheader" data-tooltip-title="Automatic Labeling" data-tooltip={t("Apply classifier predictions to remaining unlabeled features.", "미분류 feature에 classifier prediction 적용.")}>Automatic Labeling</h4>
               <BatchTaggingPanel
@@ -382,8 +385,8 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 itemLabel={mode === 'pair' ? 'pairs' : 'features'}
               />
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -14,6 +14,12 @@
   gap: 0;
 }
 
+/* Single-column mode (no outliers) */
+.consensus-section--single {
+  flex-direction: column;
+  gap: 2px;
+}
+
 .consensus-section__column {
   flex: 1;
   min-width: 0;

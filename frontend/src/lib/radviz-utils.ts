@@ -19,7 +19,7 @@ import type { CauseCategory } from './cause-visualization-utils'
  */
 export const RADVIZ_CIRCLE = {
   center: { x: 0.5, y: 0.5 },
-  radius: 0.45  // Slightly less than 0.5 to leave room for labels
+  radius: 0.4  // Smaller circle to leave room for labels
 }
 
 /**

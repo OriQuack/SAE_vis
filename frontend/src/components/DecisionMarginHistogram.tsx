@@ -104,8 +104,8 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   })
   // Initialize thresholds from store if available, otherwise use defaults
   const [thresholds, setThresholds] = useState(() => ({
-    select: tagAutomaticState?.selectThreshold ?? 0.1,
-    reject: tagAutomaticState?.rejectThreshold ?? -0.1
+    select: tagAutomaticState?.selectThreshold ?? 1.0,
+    reject: tagAutomaticState?.rejectThreshold ?? -1.0
   }))
   const [hoveredBinIndex, setHoveredBinIndex] = useState<number | null>(null)
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null)
@@ -258,14 +258,10 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
 
           if (histogramResponse) {
             setLocalHistogramData(histogramResponse)
-            // Calculate dynamic thresholds based on data range
+            // Clip default thresholds to data range
             const { statistics } = histogramResponse
-            const maxAbsValue = Math.max(
-              Math.abs(statistics.min || 0),
-              Math.abs(statistics.max || 0)
-            )
-            const defaultSelect = maxAbsValue > 0 && isFinite(maxAbsValue) ? maxAbsValue / 2 : 0.2
-            const defaultReject = maxAbsValue > 0 && isFinite(maxAbsValue) ? -maxAbsValue / 2 : -0.2
+            const defaultSelect = Math.min(1.0, statistics.max || 1.0)
+            const defaultReject = Math.max(-1.0, statistics.min || -1.0)
             const selectThreshold = tagAutomaticStateRef.current?.selectThreshold ?? defaultSelect
             const rejectThreshold = tagAutomaticStateRef.current?.rejectThreshold ?? defaultReject
 

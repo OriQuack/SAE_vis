@@ -391,7 +391,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['noisy-activation'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['noisy-activation'].y),
-                  transform: 'translate(-50%, -100%) translate(8px, -8px)',
+                  transform: 'translate(-50%, -100%) translate(0, -8px)',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Noisy Activation') || '#9ca3af'
                 } as React.CSSProperties}
               >
@@ -403,7 +403,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-N-gram'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-N-gram'].y),
-                  transform: 'translate(-100%, 150%) rotate(60deg)',
+                  transform: 'translate(-90%, 220%) rotate(60deg)',
                   transformOrigin: 'right center',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Syntax') || '#9ca3af'
                 } as React.CSSProperties}
@@ -416,7 +416,7 @@ const CauseRadViz: React.FC<CauseRadVizProps> = ({
                 style={{
                   left: scales.xScale(RADVIZ_ANCHORS['missed-context'].x),
                   top: scales.yScale(RADVIZ_ANCHORS['missed-context'].y),
-                  transform: 'translate(0%, 150%) rotate(-60deg)',
+                  transform: 'translate(-10%, 220%) rotate(-60deg)',
                   transformOrigin: 'left center',
                   '--tag-color': getTagColor(TAG_CATEGORY_CAUSE, 'Missed Context') || '#9ca3af'
                 } as React.CSSProperties}

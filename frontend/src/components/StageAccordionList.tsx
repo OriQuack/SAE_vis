@@ -139,6 +139,13 @@ export function StageAccordionList<T>({
     if (learnDisabled) setSvmReadyPopoverDismissed(false)
   }, [learnDisabled])
 
+  // Auto-enable disagreement filter when entering apply stage
+  useEffect(() => {
+    if (activeStage === 'apply' && hasDisagreementData && onShowDisagreementOnlyChange) {
+      onShowDisagreementOnlyChange(true)
+    }
+  }, [activeStage]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const showLearnTabPopover = showLearnPopover && activeStage === 'bootstrap' && !learnDisabled && !learnPopoverDismissed
   const showMetricPopover = showLearnPopover && activeStage === 'bootstrap' && learnDisabled && !learnPopoverDismissed
   const showSvmReadyPopover = activeStage === 'bootstrap' && bootstrapMode === 'byScore' && !learnDisabled && !svmReadyPopoverDismissed && !showLearnTabPopover
@@ -239,7 +246,7 @@ export function StageAccordionList<T>({
           disabled={learnDisabled}
           title={learnDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip-title={learnDisabled ? undefined : "Uncertainty-first Phase"}
-          data-tooltip={learnDisabled ? undefined : t(`Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident. (~80 labels)`, `Classifier가 가장 불확실해하는 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토합니다. (~80개 labeling)`)}
+          data-tooltip={learnDisabled ? undefined : t(`Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident. (~60 labels)`, `Classifier가 가장 불확실해하는 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토합니다. (~60개 labeling)`)}
         >
           <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Uncertainty</span>
