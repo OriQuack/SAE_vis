@@ -94,6 +94,7 @@ async def get_activation_examples(
         )
 
 
+@router.head("/activation-examples-cached")
 @router.get("/activation-examples-cached")
 async def get_all_activation_examples_cached():
     """

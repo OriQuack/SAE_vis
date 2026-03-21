@@ -5,7 +5,6 @@ import {
   getActivationColor,
   formatTokensWithEllipsis
 } from '../lib/activation-utils'
-import { addOpacityToHex } from '../lib/color-utils'
 import '../styles/ActivationExamplePanel.css'
 
 interface ActivationExampleProps {
@@ -37,9 +36,6 @@ interface ActivationExampleProps {
   showActivation?: boolean
 }
 
-// Highlight colors from cause category palette (D3_SCHEME_TABLEAU10)
-const SYNTAX_HIGHLIGHT_COLOR = '#af7aa1'  // PURPLE = Missed Syntax
-const CONTEXT_HIGHLIGHT_COLOR = '#edc949' // YELLOW = Missed Context
 
 /** Build tooltip text describing which highlight sets cover a token */
 function buildSyntaxTooltip(
@@ -63,10 +59,14 @@ function buildSyntaxTooltip(
 function buildContextTooltip(
   spans: ContextSpan[],
   discScore: number | undefined,
+  centroidScore: number | undefined,
 ): string | undefined {
   const parts: string[] = []
   for (const s of spans) {
     parts.push(`Span (${s.span_size} tokens): sim ${s.score.toFixed(2)}`)
+  }
+  if (centroidScore != null && centroidScore > 0) {
+    parts.push(`Centroid span: sim ${centroidScore.toFixed(2)}`)
   }
   if (discScore != null && discScore > 0) {
     parts.push(`Discriminative (IDF): ${discScore.toFixed(2)}`)
@@ -166,43 +166,36 @@ const renderActivationToken = (
   // Context highlighting: span-based regions
   if (highlightMode === 'context') {
     const contextSpans: ContextSpan[] = example.highlights?.context_spans ?? []
+    const centroidSpans: ContextSpan[] = example.highlights?.context_centroid_spans ?? []
     // Also include disc_idf per-token data from highlightLookup
     const discEntries = highlightLookup?.get(token.position)?.filter(e => e.comp === 'disc_idf') ?? []
 
-    // Find which context span(s) this token falls within
+    // Find which spans cover this token
     const matchingSpans = contextSpans.filter(s => token.position >= s.start && token.position < s.end)
+    const matchingCentroid = centroidSpans.filter(s => token.position >= s.start && token.position < s.end)
 
-    const highlightColor = CONTEXT_HIGHLIGHT_COLOR
     const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
+    const hasHighlight = matchingSpans.length > 0 || matchingCentroid.length > 0 || discEntries.length > 0
 
-    // Hover group: spans use cross-example hover (same set_index across all examples),
-    // disc_idf uses cross-example hover (same token highlighted across all examples in feature)
+    // Hover group: spans/centroid use cross-example hover (same set_index),
+    // disc_idf uses cross-example hover (same token across all examples)
     const isInHoverGroup = hoveredHighlight != null && (
       matchingSpans.some(s => hoveredHighlight.comp === `context_span_${s.set_index}`) ||
+      (hoveredHighlight.comp === 'centroid_span_0' && matchingCentroid.length > 0) ||
       (hoveredHighlight.comp === 'disc_idf' && discEntries.length > 0)
     )
 
-    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}`
+    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}${hasHighlight ? ' activation-token--context-highlight' : ''}`
     const bgColor = isActivated
       ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
       : undefined
 
     const style: React.CSSProperties = isActivated ? { '--activation-color': bgColor } as React.CSSProperties : {}
-
-    // Apply span highlight (use best score if multiple spans overlap)
-    if (matchingSpans.length > 0) {
-      const bestScore = Math.max(...matchingSpans.map(s => s.score))
-      const opacity = 0.75
-      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
-    } else if (discEntries.length > 0) {
-      // Fallback to disc_idf if no span covers this token
-      const bestScore = Math.max(...discEntries.map(e => e.score))
-      const opacity = 0.75
-      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
-    }
-
-    const hasHighlight = matchingSpans.length > 0 || discEntries.length > 0
-    const hoverComp = matchingSpans.length > 0 ? `context_span_${matchingSpans[0].set_index}` : discEntries.length > 0 ? 'disc_idf' : null
+    const hoverComp = matchingSpans.length > 0
+      ? `context_span_${matchingSpans[0].set_index}`
+      : matchingCentroid.length > 0
+        ? 'centroid_span_0'
+        : discEntries.length > 0 ? 'disc_idf' : null
     const hoverProps = hasHighlight && onTokenHover && promptId != null ? {
       onMouseEnter: () => onTokenHover(hoverComp, promptId),
       onMouseLeave: () => onTokenHover(null, promptId),
@@ -210,7 +203,8 @@ const renderActivationToken = (
 
     // Tooltip showing context highlight type
     const discScore = discEntries.length > 0 ? Math.max(...discEntries.map(e => e.score)) : undefined
-    const ctxTooltipText = hasHighlight ? buildContextTooltip(matchingSpans, discScore) : undefined
+    const centroidScore = matchingCentroid.length > 0 ? Math.max(...matchingCentroid.map(s => s.score)) : undefined
+    const ctxTooltipText = hasHighlight ? buildContextTooltip(matchingSpans, discScore, centroidScore) : undefined
     const ctxTooltipProps = ctxTooltipText ? { 'data-tooltip': ctxTooltipText, 'data-tooltip-below': true } as Record<string, unknown> : {}
 
     if (token.is_newline) {
@@ -237,8 +231,6 @@ const renderActivationToken = (
 
   // Syntax highlighting: set-based (ngram + dep + ast) with cross-example hover
   if (highlightMode === 'syntax') {
-    const highlightColor = SYNTAX_HIGHLIGHT_COLOR
-
     // Find ALL syntax sets covering this token position
     const ngramSets: SyntaxNgramSet[] = example.highlights?.syntax_ngram_sets ?? []
     const depSets: SyntaxParseSet[] = example.highlights?.syntax_dep_sets ?? []
@@ -251,15 +243,6 @@ const renderActivationToken = (
     const coveringAsts = astSets.filter(as => as.spans.some(posInSpan))
 
     const hasAnyCovering = coveringNgrams.length > 0 || coveringDeps.length > 0 || coveringAsts.length > 0
-
-    // Best score for background opacity (Jaccard for ngrams, rate for parse)
-    const bestScore = Math.max(
-      ...coveringNgrams.map(n => n.jaccard),
-      ...coveringDeps.map(d => d.rate),
-      ...coveringAsts.map(a => a.rate),
-      0
-    )
-
     const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
 
     // Build covering set identifiers for hover (prefixed to avoid collisions)
@@ -275,16 +258,12 @@ const renderActivationToken = (
       : null
     const isInHoverGroup = hoveredIds != null && coveringIds.some(id => hoveredIds.has(id))
 
-    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}`
+    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}${hasAnyCovering ? ' activation-token--syntax-highlight' : ''}`
     const bgColor = isActivated
       ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
       : undefined
 
     const style: React.CSSProperties = isActivated ? { '--activation-color': bgColor } as React.CSSProperties : {}
-    if (hasAnyCovering && bestScore > 0) {
-      const opacity = 0.75
-      style.backgroundColor = addOpacityToHex(highlightColor, opacity)
-    }
 
     // Hover emits all covering set IDs
     const hoverComp = coveringIds.length > 0 ? `syntax_set_${coveringIds.join(',')}` : null

@@ -103,6 +103,7 @@ class ActivationDisplayProcessor(BaseProcessor):
             "span_gate_threshold": highlight.get("span_gate_threshold", 0.20),
             "span_sim_threshold": highlight.get("span_sim_threshold", 0.25),
             "top_span_sets": highlight.get("top_span_sets", 2),
+            "centroid_sim_threshold": highlight.get("centroid_sim_threshold", 0.40),
         }
         self.highlights_output_path = self._resolve_path(f"{output_dir}/activation_highlights.parquet")
 
@@ -637,8 +638,9 @@ class ActivationDisplayProcessor(BaseProcessor):
         # Check which stages need computation
         has_s2_cache = (intermediate_dir / "highlight_s2_relations.pkl").exists()
         has_span_sets_cache = (intermediate_dir / "highlight_span_sets.pkl").exists()
+        has_centroid_cache = (intermediate_dir / "highlight_centroid_spans.pkl").exists()
         need_s2 = not has_s2_cache
-        need_encoding = not has_span_sets_cache
+        need_encoding = not has_span_sets_cache or not has_centroid_cache
 
         # ============================================================
         # Pass 1: Global IDF (vectorized Polars, uses ALL examples)
@@ -821,11 +823,16 @@ class ActivationDisplayProcessor(BaseProcessor):
 
         # Compute span sets per feature (cached)
         span_sets_by_feature: Dict[int, list] = {}  # fid -> list of span set dicts
+        centroid_spans_by_feature: Dict[int, list] = {}  # fid -> list of centroid span dicts
 
         cached_span_sets = load_checkpoint("highlight_span_sets.pkl")
+        cached_centroid = load_checkpoint("highlight_centroid_spans.pkl")
         if cached_span_sets:
             span_sets_by_feature = cached_span_sets
-        elif qualifying_features:
+        if cached_centroid:
+            centroid_spans_by_feature = cached_centroid
+
+        if qualifying_features and (not cached_span_sets or not cached_centroid):
             SPAN_CHUNK_SIZE = 1000
             feature_list = sorted(qualifying_features)
 
@@ -867,37 +874,82 @@ class ActivationDisplayProcessor(BaseProcessor):
                     for i, (fid, ex_idx, sp_idx) in enumerate(text_index):
                         embs_by_feature[fid][ex_idx].append(all_embs[i])
 
-                    # Find span sets per feature
-                    for fid in chunk_fids:
-                        examples = feature_examples[fid]
-                        embs_by_ex = [np.array(e) if e else np.array([]).reshape(0, all_embs.shape[1])
-                                      for e in embs_by_feature[fid]]
-                        prompt_ids_list = [ex[0] for ex in examples]
-                        max_pos_list = [ex[3] for ex in examples]
+                    # Find span sets per feature (tree-search)
+                    if not cached_span_sets:
+                        for fid in chunk_fids:
+                            examples = feature_examples[fid]
+                            embs_by_ex = [np.array(e) if e else np.array([]).reshape(0, all_embs.shape[1])
+                                          for e in embs_by_feature[fid]]
+                            prompt_ids_list = [ex[0] for ex in examples]
+                            max_pos_list = [ex[3] for ex in examples]
 
-                        top_sets = find_top_span_sets(
-                            embs_by_ex,
-                            spans_by_feature[fid],
-                            prompt_ids_list,
-                            max_pos_list,
-                            span_size=span_size,
-                            sim_threshold=span_sim_threshold,
-                            top_k=top_span_sets_k,
-                        )
-                        if top_sets:
-                            if fid not in span_sets_by_feature:
-                                span_sets_by_feature[fid] = []
-                            span_sets_by_feature[fid].extend(top_sets)
+                            top_sets = find_top_span_sets(
+                                embs_by_ex,
+                                spans_by_feature[fid],
+                                prompt_ids_list,
+                                max_pos_list,
+                                span_size=span_size,
+                                sim_threshold=span_sim_threshold,
+                                top_k=top_span_sets_k,
+                            )
+                            if top_sets:
+                                if fid not in span_sets_by_feature:
+                                    span_sets_by_feature[fid] = []
+                                span_sets_by_feature[fid].extend(top_sets)
+
+                    # Centroid-based span scoring
+                    if not cached_centroid:
+                        centroid_threshold = self.hl["centroid_sim_threshold"]
+                        for fid in chunk_fids:
+                            # Flatten all span embeddings for this feature
+                            all_feature_embs = []
+                            span_meta = []  # (ex_idx, sp_idx)
+                            for ex_idx, ex_embs in enumerate(embs_by_feature[fid]):
+                                for sp_idx, emb in enumerate(ex_embs):
+                                    all_feature_embs.append(emb)
+                                    span_meta.append((ex_idx, sp_idx))
+
+                            if len(all_feature_embs) < 2:
+                                continue
+
+                            emb_matrix = np.array(all_feature_embs)  # already L2-normalized
+                            centroid = emb_matrix.mean(axis=0)
+                            centroid /= (np.linalg.norm(centroid) + 1e-10)
+
+                            sims = emb_matrix @ centroid  # cosine sim
+
+                            spans_for_fid = []
+                            for idx in range(len(sims)):
+                                if sims[idx] >= centroid_threshold:
+                                    ex_idx, sp_idx = span_meta[idx]
+                                    span = spans_by_feature[fid][ex_idx][sp_idx]
+                                    prompt_id = feature_examples[fid][ex_idx][0]
+                                    max_pos = feature_examples[fid][ex_idx][3]
+                                    span_center = (span["start"] + span["end"]) // 2
+                                    spans_for_fid.append({
+                                        "prompt_id": prompt_id,
+                                        "start": span["start"],
+                                        "end": span["end"],
+                                        "center_offset": span_center - max_pos,
+                                        "score": round(float(sims[idx]), 4),
+                                    })
+                            if spans_for_fid:
+                                centroid_spans_by_feature[fid] = spans_for_fid
 
                     del all_embs, embs_by_feature, all_texts, text_index
                     gc.collect()
 
                 logger.info(f"Completed span_{span_size} set finding")
 
-            save_checkpoint("highlight_span_sets.pkl", span_sets_by_feature)
+            if not cached_span_sets:
+                save_checkpoint("highlight_span_sets.pkl", span_sets_by_feature)
+            if not cached_centroid:
+                save_checkpoint("highlight_centroid_spans.pkl", centroid_spans_by_feature)
 
         features_with_spans = sum(1 for v in span_sets_by_feature.values() if v)
         logger.info(f"Found context span sets for {features_with_spans:,} features")
+        features_with_centroid = sum(1 for v in centroid_spans_by_feature.values() if v)
+        logger.info(f"Found centroid spans for {features_with_centroid:,} features")
 
         # ============================================================
         # Per-feature: compute all component scores
@@ -1044,6 +1096,7 @@ class ActivationDisplayProcessor(BaseProcessor):
                 feature_level_rows.append({
                     "feature_id": fid,
                     "context_span_sets": span_sets_by_feature.get(fid, []),
+                    "context_centroid_spans": centroid_spans_by_feature.get(fid, []),
                     "syntax_ngram_sets": ngram_sets_by_feature.get(fid, []),
                     "syntax_dep_sets": dep_sets_by_feature.get(fid, []),
                     "syntax_ast_sets": ast_sets_by_feature.get(fid, []),

@@ -2,7 +2,7 @@
 Highlight service for per-token context scoring and set-based syntax highlighting.
 
 Loads activation_highlights.parquet and returns:
-- Syntax: set-based (syntax_ngram_sets, syntax_dep_sets, syntax_ast_sets)
+- Syntax: set-based (syntax_ngram_sets only; dep/ast excluded — too noisy)
   with cross-example hover via set_index
 - Context: span-based (context_spans) + per-token (disc_idf)
 """
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Thresholds
 NGRAM_JACCARD_MIN = 0.1       # Gate n-gram sets by Jaccard
-CONTEXT_SPAN_MIN_SIM = 0.45  # Gate context span sets by avg_sim
+CONTEXT_SPAN_MIN_SIM = 0.5  # Gate context span sets by avg_sim
 DISC_IDF_GLOBAL_MAX = 3.12   # Scale disc*idf into [0, 1]
 DISC_IDF_MIN = 0.1           # Gate scaled disc*idf
 
@@ -68,7 +68,7 @@ class HighlightService:
 
         # Detect available feature-level columns
         feature_cols = ["feature_id"]
-        set_columns = ["context_span_sets", "syntax_ngram_sets", "syntax_dep_sets", "syntax_ast_sets"]
+        set_columns = ["context_span_sets", "syntax_ngram_sets"]
         available_set_cols = [c for c in set_columns if c in df.columns]
         feature_cols.extend(available_set_cols)
 
@@ -92,15 +92,21 @@ class HighlightService:
                     n for n in raw_ngrams if n.get("jaccard", 0) >= NGRAM_JACCARD_MIN
                 ]
 
-                # Dep/AST parse: pass through (already gated at rate >= 0.5 in pipeline)
-                sets["syntax_dep_sets"] = row.get("syntax_dep_sets") or []
-                sets["syntax_ast_sets"] = row.get("syntax_ast_sets") or []
+                # Dep/AST parse: excluded (too noisy to be useful)
 
                 feature_sets[fid] = sets
 
-        # Group rows by feature_id
+        # Per-row processing: only need feature_id, prompt_id, c_discriminative, c_token_idf
+        row_cols = ["feature_id", "prompt_id"]
+        if "c_discriminative" in df.columns:
+            row_cols.append("c_discriminative")
+        if "c_token_idf" in df.columns:
+            row_cols.append("c_token_idf")
+        row_df = df.select(row_cols)
+
+        # Group rows by feature_id (only lightweight columns)
         feature_groups: Dict[int, List[dict]] = {}
-        for row in df.to_dicts():
+        for row in row_df.to_dicts():
             fid = row["feature_id"]
             if fid not in feature_groups:
                 feature_groups[fid] = []
@@ -183,7 +189,7 @@ class HighlightService:
                 highlights["context_spans"] = ctx_spans
 
             # Syntax sets: filter spans to this prompt_id
-            for set_key in ["syntax_ngram_sets", "syntax_dep_sets", "syntax_ast_sets"]:
+            for set_key in ["syntax_ngram_sets"]:
                 prompt_sets = []
                 for s in sets.get(set_key, []):
                     matching = [sp for sp in s.get("spans", []) if sp.get("prompt_id") == prompt_id]

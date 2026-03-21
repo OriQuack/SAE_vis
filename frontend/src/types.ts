@@ -419,6 +419,7 @@ export interface QuantileExample {
   highlights?: {
     // Context
     context_spans?: ContextSpan[]
+    context_centroid_spans?: ContextSpan[]   // One best centroid span per example (set_index=0)
     disc_idf?: [number, number][]           // [[position, score], ...]
     // Syntax (set-based, cross-example hover via set_index)
     syntax_ngram_sets?: SyntaxNgramSet[]

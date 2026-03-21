@@ -203,6 +203,7 @@ steps:
         span_gate_threshold: 0.20       # gate using step_08 semantic_sim
         span_sim_threshold: 0.25        # tree-search pruning threshold
         top_span_sets: 2                # number of span sets to track per span_size
+        centroid_sim_threshold: 0.40    # minimum cosine sim to centroid for span scoring
 
   # Step 11: Process interfeature display data
   step_11_interfeature_display:

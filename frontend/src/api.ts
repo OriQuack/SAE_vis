@@ -314,7 +314,7 @@ const ACTIVATION_FETCH_MAX_RETRIES = 3
 export async function getAllActivationExamplesCached(): Promise<Record<number, ActivationExamples>> {
   const startTime = performance.now()
 
-  // Step 1: Check IndexedDB cache (use stored contentLength from last fetch)
+  // Step 1: Check IndexedDB cache — validate against backend Content-Length via HEAD request
   try {
     const db = await openActivationDB()
     const cached = await idbGet(db)
@@ -322,8 +322,21 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
     if (cached && cached.contentLength && cached.data) {
       const featureCount = Object.keys(cached.data).length
       if (featureCount > 0) {
-        console.log(`[API] getAllActivationExamplesCached: IndexedDB cache hit — ${featureCount} features in ${(performance.now() - startTime).toFixed(0)}ms`)
-        return cached.data
+        // Validate: check if backend blob size changed (catches pipeline reruns + threshold changes)
+        try {
+          const headResp = await fetch(`${BASE_URL}/api/activation-examples-cached`, { method: 'HEAD' })
+          const backendLength = headResp.headers.get('Content-Length')
+          if (backendLength && backendLength !== cached.contentLength) {
+            console.log(`[API] IndexedDB cache stale — backend ${backendLength} vs cached ${cached.contentLength}, refetching`)
+          } else {
+            console.log(`[API] getAllActivationExamplesCached: IndexedDB cache hit — ${featureCount} features in ${(performance.now() - startTime).toFixed(0)}ms`)
+            return cached.data
+          }
+        } catch {
+          // HEAD request failed — use cache anyway
+          console.log(`[API] getAllActivationExamplesCached: IndexedDB cache hit (HEAD check skipped) — ${featureCount} features`)
+          return cached.data
+        }
       }
     }
   } catch (e) {
