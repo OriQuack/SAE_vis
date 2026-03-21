@@ -1240,7 +1240,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                   currentIndex={mainListHighlightIndex}
                   isActive
                   emptyMessage={!selectedFeatureIds || selectedFeatureIds.size === 0 ? "Select a cell with features" : undefined}
-                  disableAutoScroll={true}
                   scrollTargetIndex={scrollTargetIndex}
                 />
 

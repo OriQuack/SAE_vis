@@ -199,7 +199,7 @@ steps:
         # S1 n-gram params now in step_08 config (min_example_count, top_n_per_k)
         min_example_count: 4
         span_model: "google/embeddinggemma-300m"
-        span_sizes: [3, 11]             # char_span (3) and word_span (11)
+        span_sizes: [11]
         span_gate_threshold: 0.20       # gate using step_08 semantic_sim
         span_sim_threshold: 0.25        # tree-search pruning threshold
         top_span_sets: 2                # number of span sets to track per span_size

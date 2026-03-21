@@ -415,19 +415,44 @@ export interface QuantileExample {
     token_position: number             // Token index containing the n-gram
     char_offset: number | null         // Character offset (null = highlight entire token for word n-grams)
   }>
-  // Per-component highlight data: {component: [position, score][]}
-  highlights?: Record<string, [number, number][]> & {
+  // Highlight data: set-based syntax + span-based context + per-token disc_idf
+  highlights?: {
+    // Context
     context_spans?: ContextSpan[]
+    disc_idf?: [number, number][]           // [[position, score], ...]
+    // Syntax (set-based, cross-example hover via set_index)
+    syntax_ngram_sets?: SyntaxNgramSet[]
+    syntax_dep_sets?: SyntaxParseSet[]
+    syntax_ast_sets?: SyntaxParseSet[]
   }
 }
 
 /** A span region matched across multiple examples via tree-search. */
 export interface ContextSpan {
-  start: number       // Start token index (inclusive)
-  end: number         // End token index (exclusive)
+  start: number
+  end: number
   score: number       // Average pairwise similarity within span set
   span_size: number   // Number of tokens (3 = char_span, 11 = word_span)
-  set_index: number   // 0 = primary, 1 = secondary
+  set_index: number
+}
+
+/** An n-gram set matched across multiple examples. */
+export interface SyntaxNgramSet {
+  ngram: string
+  type: 'word' | 'char'
+  ngram_size: number
+  jaccard: number     // Per-k Jaccard similarity
+  set_index: number
+  spans: Array<{ prompt_id: number, start: number, end: number }>
+}
+
+/** A structural parse relation set matched across multiple examples. */
+export interface SyntaxParseSet {
+  relation: string    // e.g., "nsubj", "child_of"
+  direction: string   // "head"/"dep" for dep, node_type for AST
+  rate: number        // Fraction of successful parses with this relation
+  set_index: number
+  spans: Array<{ prompt_id: number, start: number, end: number }>
 }
 
 export interface TableDataRequest {

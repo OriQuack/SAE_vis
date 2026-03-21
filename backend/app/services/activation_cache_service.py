@@ -39,10 +39,24 @@ class ActivationCacheService:
         self._cache_size_bytes: int = 0
         self._ready = False
 
+    def _get_source_max_mtime(self) -> float:
+        """Get the max mtime of all source files that affect the cache blob."""
+        mtimes = []
+        if self.activation_display_file.exists():
+            mtimes.append(self.activation_display_file.stat().st_mtime)
+        # Highlights parquet affects injected highlight data
+        highlights_parquet = self.data_path / "output" / "activation_highlights.parquet"
+        if highlights_parquet.exists():
+            mtimes.append(highlights_parquet.stat().st_mtime)
+        return max(mtimes) if mtimes else 0.0
+
     async def initialize(self):
         """
         Initialize cache by loading all activation data from parquet,
         serializing to MessagePack, and compressing with gzip.
+
+        Uses a disk cache to avoid recomputing on subsequent startups.
+        The cache is invalidated when source parquet files change.
 
         Called at application startup.
         """
@@ -51,6 +65,32 @@ class ActivationCacheService:
         if not self.activation_display_file.exists():
             logger.warning(f"Activation display file not found: {self.activation_display_file}")
             return
+
+        # Try loading from disk cache
+        cache_dir = self.data_path / "cache"
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_dir / "activation_cache.blob"
+        source_mtime = self._get_source_max_mtime()
+
+        if cache_path.exists() and cache_path.stat().st_mtime >= source_mtime:
+            try:
+                self._cache = cache_path.read_bytes()
+                self._cache_size_bytes = len(self._cache)
+                # Count features from the blob header isn't practical, use a metadata file
+                meta_path = cache_path.with_suffix(".meta")
+                if meta_path.exists():
+                    import json
+                    meta = json.loads(meta_path.read_text())
+                    self._feature_count = meta.get("feature_count", 0)
+                self._ready = True
+                logger.info(
+                    f"[ActivationCacheService] ✅ Loaded from disk cache: "
+                    f"{self._feature_count} features, {self._cache_size_bytes / 1024 / 1024:.2f} MB "
+                    f"in {time.time() - start_time:.2f}s"
+                )
+                return
+            except Exception as e:
+                logger.warning(f"[ActivationCacheService] Failed to load disk cache, recomputing: {e}")
 
         try:
             logger.info(f"[ActivationCacheService] Loading activation data from {self.activation_display_file}")
@@ -162,6 +202,16 @@ class ActivationCacheService:
             self._ready = True
             total_time = time.time() - start_time
             logger.info(f"[ActivationCacheService] ✅ Cache ready: {self._feature_count} features, {self._cache_size_bytes / 1024 / 1024:.2f} MB in {total_time:.2f}s")
+
+            # Save blob to disk for next startup
+            try:
+                cache_path.write_bytes(self._cache)
+                import json
+                meta_path = cache_path.with_suffix(".meta")
+                meta_path.write_text(json.dumps({"feature_count": self._feature_count}))
+                logger.info(f"[ActivationCacheService] Saved disk cache: {self._cache_size_bytes / 1024 / 1024:.2f} MB")
+            except Exception as e:
+                logger.warning(f"[ActivationCacheService] Failed to save disk cache: {e}")
 
         except Exception as e:
             logger.error(f"[ActivationCacheService] Failed to initialize cache: {e}", exc_info=True)

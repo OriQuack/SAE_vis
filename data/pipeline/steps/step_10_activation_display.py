@@ -99,7 +99,7 @@ class ActivationDisplayProcessor(BaseProcessor):
             "enabled": highlight.get("enabled", True),
             "min_examples": highlight.get("min_example_count", 3),  # for C2 discriminative tokens
             "span_model": highlight.get("span_model", "all-MiniLM-L6-v2"),
-            "span_sizes": highlight.get("span_sizes", [3, 11]),
+            "span_sizes": highlight.get("span_sizes", [11]),
             "span_gate_threshold": highlight.get("span_gate_threshold", 0.20),
             "span_sim_threshold": highlight.get("span_sim_threshold", 0.25),
             "top_span_sets": highlight.get("top_span_sets", 2),
@@ -589,8 +589,6 @@ class ActivationDisplayProcessor(BaseProcessor):
         import gc
         import pickle
         from core.highlight import (
-            compute_word_ngram_scores_jaccard,
-            compute_char_ngram_scores_jaccard,
             compute_discriminative_scores,
         )
         from core.span_embeddings import (
@@ -608,7 +606,6 @@ class ActivationDisplayProcessor(BaseProcessor):
             extract_dependency_relations,
             extract_ast_relations,
             compute_common_structural_relations,
-            compute_structural_parse_scores,
             load_spacy_model,
             load_tree_sitter_parsers,
         )
@@ -907,6 +904,9 @@ class ActivationDisplayProcessor(BaseProcessor):
         # ============================================================
         logger.info("Computing per-feature highlight component scores...")
         highlight_rows = []
+        ngram_sets_by_feature: Dict[int, list] = {}
+        dep_sets_by_feature: Dict[int, list] = {}
+        ast_sets_by_feature: Dict[int, list] = {}
 
         for fid in tqdm(features_to_process, desc="Highlight scoring"):
             examples = feature_examples[fid]
@@ -921,6 +921,96 @@ class ActivationDisplayProcessor(BaseProcessor):
             char_per_k_jaccard = sim_row.get("char_ngram_per_k_jaccard") or {}
             word_per_k_jaccard = sim_row.get("word_ngram_per_k_jaccard") or {}
 
+            # Build syntax_ngram_sets for this feature (feature-level, like context_span_sets)
+            # Parse per-k Jaccard values
+            def _parse_per_k_jaccard(per_k: dict) -> Dict[int, float]:
+                result: Dict[int, float] = {}
+                for key, value in (per_k or {}).items():
+                    if isinstance(key, str) and key.startswith("k"):
+                        try:
+                            k = int(key[1:])
+                            if value is not None:
+                                result[k] = float(value)
+                        except (ValueError, TypeError):
+                            pass
+                    elif isinstance(key, int) and value is not None:
+                        result[key] = float(value)
+                return result
+
+            char_jaccard_by_k = _parse_per_k_jaccard(char_per_k_jaccard)
+            word_jaccard_by_k = _parse_per_k_jaccard(word_per_k_jaccard)
+
+            fid_ngram_sets = []
+            set_idx = 0
+            for ng in common_word:
+                k = ng.get("ngram_size", 1)
+                jaccard = word_jaccard_by_k.get(k, 0.0)
+                if jaccard <= 0:
+                    continue
+                flat_pos = ng.get("positions", [])
+                spans = []
+                for p in flat_pos:
+                    spans.append({"prompt_id": p[0], "start": p[1], "end": p[1] + k})
+                fid_ngram_sets.append({
+                    "ngram": ng.get("ngram", ""),
+                    "type": "word",
+                    "ngram_size": k,
+                    "jaccard": round(jaccard, 4),
+                    "set_index": set_idx,
+                    "spans": spans,
+                })
+                set_idx += 1
+            for ng in common_char:
+                k = ng.get("ngram_size", 1)
+                jaccard = char_jaccard_by_k.get(k, 0.0)
+                if jaccard <= 0:
+                    continue
+                flat_pos = ng.get("positions", [])
+                spans = []
+                for p in flat_pos:
+                    spans.append({"prompt_id": p[0], "start": p[1], "end": p[1] + 1})
+                fid_ngram_sets.append({
+                    "ngram": ng.get("ngram", ""),
+                    "type": "char",
+                    "ngram_size": k,
+                    "jaccard": round(jaccard, 4),
+                    "set_index": set_idx,
+                    "spans": spans,
+                })
+                set_idx += 1
+            ngram_sets_by_feature[fid] = fid_ngram_sets
+
+            # S2: build dep/ast relation sets (feature-level, like ngram sets)
+            fid_dep_sets = []
+            for set_idx, rel in enumerate(common_dep_by_feature.get(fid, [])):
+                spans = []
+                for pid, positions in rel.get("partner_positions_by_prompt", {}).items():
+                    for pos in positions:
+                        spans.append({"prompt_id": pid, "start": pos, "end": pos + 1})
+                fid_dep_sets.append({
+                    "relation": rel["relation"],
+                    "direction": rel["direction"],
+                    "rate": round(rel["rate"], 4),
+                    "set_index": set_idx,
+                    "spans": spans,
+                })
+            dep_sets_by_feature[fid] = fid_dep_sets
+
+            fid_ast_sets = []
+            for set_idx, rel in enumerate(common_ast_by_feature.get(fid, [])):
+                spans = []
+                for pid, positions in rel.get("partner_positions_by_prompt", {}).items():
+                    for pos in positions:
+                        spans.append({"prompt_id": pid, "start": pos, "end": pos + 1})
+                fid_ast_sets.append({
+                    "relation": rel["relation"],
+                    "direction": rel.get("direction", ""),
+                    "rate": round(rel["rate"], 4),
+                    "set_index": set_idx,
+                    "spans": spans,
+                })
+            ast_sets_by_feature[fid] = fid_ast_sets
+
             # C2: discriminative tokens
             disc_tokens = compute_discriminative_tokens(
                 examples,
@@ -929,31 +1019,13 @@ class ActivationDisplayProcessor(BaseProcessor):
             )
 
             for ex_idx, (prompt_id, _, tokens, max_pos) in enumerate(examples):
-                num_tokens = len(tokens)
-
-                # S1 components (Jaccard-based scoring from step_08 data)
-                s_word = compute_word_ngram_scores_jaccard(num_tokens, prompt_id, common_word, word_per_k_jaccard)
-                s_char = compute_char_ngram_scores_jaccard(num_tokens, prompt_id, common_char, char_per_k_jaccard)
-
-                # S2 components
-                s_dep = compute_structural_parse_scores(
-                    num_tokens, prompt_id, common_dep_by_feature.get(fid, [])
-                )
-                s_ast = compute_structural_parse_scores(
-                    num_tokens, prompt_id, common_ast_by_feature.get(fid, [])
-                )
-
-                # C2 discriminative + IDF
+                # C2 discriminative + IDF (only dense arrays remaining)
                 c_disc = compute_discriminative_scores(tokens, disc_tokens)
                 c_idf = compute_token_idf_scores(tokens, global_idf_lookup)
 
                 highlight_rows.append({
                     "feature_id": fid,
                     "prompt_id": prompt_id,
-                    "s_word_ngram": s_word,
-                    "s_char_ngram": s_char,
-                    "s_dep_parse": s_dep,
-                    "s_ast_parse": s_ast,
                     "c_discriminative": c_disc,
                     "c_token_idf": c_idf,
                 })
@@ -966,18 +1038,20 @@ class ActivationDisplayProcessor(BaseProcessor):
                 pl.col("feature_id").cast(pl.UInt32),
             ])
 
-            # Add context_span_sets as feature-level column (join on feature_id)
-            # Build a DataFrame of span sets per feature
-            span_set_rows = []
+            # Add feature-level columns (join on feature_id)
+            feature_level_rows = []
             for fid in highlights_df["feature_id"].unique().to_list():
-                span_set_rows.append({
+                feature_level_rows.append({
                     "feature_id": fid,
                     "context_span_sets": span_sets_by_feature.get(fid, []),
+                    "syntax_ngram_sets": ngram_sets_by_feature.get(fid, []),
+                    "syntax_dep_sets": dep_sets_by_feature.get(fid, []),
+                    "syntax_ast_sets": ast_sets_by_feature.get(fid, []),
                 })
-            span_sets_df = pl.DataFrame(span_set_rows).with_columns(
+            feature_level_df = pl.DataFrame(feature_level_rows).with_columns(
                 pl.col("feature_id").cast(pl.UInt32),
             )
-            highlights_df = highlights_df.join(span_sets_df, on="feature_id", how="left")
+            highlights_df = highlights_df.join(feature_level_df, on="feature_id", how="left")
 
             highlights_df.write_parquet(self.highlights_output_path)
             logger.info(f"Saved highlights to {self.highlights_output_path} "

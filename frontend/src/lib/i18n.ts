@@ -17,7 +17,7 @@ import {
 } from './constants'
 
 /** Toggle: set to true for Korean, false for English */
-export const USE_KOREAN = true
+export const USE_KOREAN = false
 
 /** Returns Korean string when toggle is on, English otherwise */
 export function t(en: string, ko: string): string {

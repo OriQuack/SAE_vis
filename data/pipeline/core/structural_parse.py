@@ -325,31 +325,32 @@ def _find_deepest_named_node(node, byte_start: int, byte_end: int):
 def compute_common_structural_relations(
     all_example_relations: List[List[Dict]],
     prompt_ids: List[int],
-    min_rate: float = 0.5,
-    min_success: int = 3,
+    min_success: int = 6,
+    min_count: int = 4,
 ) -> List[Dict]:
     """Count relation frequencies across examples, return common ones.
 
     A relation is identified by (relation_type, direction_or_node_type).
-    Rate is computed over successfully parsed examples only.
+    Only proceeds if enough examples parse successfully (min_success).
+    A relation is common if it appears in >= min_count total examples (absolute, not rate).
 
     Args:
         all_example_relations: [example_idx] -> list of relation dicts
         prompt_ids: Prompt IDs for each example (parallel to all_example_relations)
-        min_rate: Minimum rate among successful parses
-        min_success: Minimum number of successful parses to report
+        min_success: Minimum successful parses to proceed (default 6/8)
+        min_count: Minimum examples with the relation to include (default 4/8)
 
     Returns:
         List of common relation dicts with per-example partner positions
     """
-    # Count successful parses
+    num_examples = len(all_example_relations)
     success_count = sum(1 for rels in all_example_relations if len(rels) > 0)
     if success_count < min_success:
         return []
 
     # Group relations by key
     # Key: (relation, direction_or_node_type)
-    relation_examples: Dict[Tuple, Set[int]] = defaultdict(set)  # key -> set of example indices
+    relation_examples: Dict[Tuple, Set[int]] = defaultdict(set)
     relation_positions: Dict[Tuple, Dict[int, List[int]]] = defaultdict(lambda: defaultdict(list))
 
     for ex_idx, rels in enumerate(all_example_relations):
@@ -360,55 +361,20 @@ def compute_common_structural_relations(
             relation_examples[key].add(ex_idx)
             relation_positions[key][pid].extend(rel["partner_token_positions"])
 
-    # Filter to common relations
+    # Filter: relation must appear in >= min_count examples (absolute count)
     result = []
     for key, example_set in relation_examples.items():
-        rate = len(example_set) / success_count
-        if rate >= min_rate:
+        count = len(example_set)
+        if count >= min_count:
             result.append({
                 "relation": key[0],
                 "direction": key[1],
-                "rate": rate,
-                "count": len(example_set),
+                "rate": count / num_examples,
+                "count": count,
                 "partner_positions_by_prompt": dict(relation_positions[key]),
             })
 
     return result
-
-
-def compute_structural_parse_scores(
-    num_tokens: int,
-    prompt_id: int,
-    common_relations: List[Dict],
-) -> List[float]:
-    """Per-token score from common structural relations.
-
-    For each token j that is a partner in a common relation:
-      score[j] = max(rate) across all common relations involving j.
-
-    Uses max (not sum) for consistency with s_word_ngram and s_char_ngram.
-    Multiple relations at the same token are correlated evidence about
-    structural role, not independent signals. Keeps scores in [0, 1].
-
-    Args:
-        num_tokens: Number of tokens in the example
-        prompt_id: Prompt ID to look up positions for
-        common_relations: Common relations from compute_common_structural_relations
-
-    Returns:
-        List of floats, length = num_tokens, values in [0, 1]
-    """
-    scores = [0.0] * num_tokens
-
-    for rel in common_relations:
-        positions = rel.get("partner_positions_by_prompt", {}).get(prompt_id, [])
-        rate = rel["rate"]
-        for pos in positions:
-            if 0 <= pos < num_tokens:
-                if rate > scores[pos]:
-                    scores[pos] = rate
-
-    return scores
 
 
 def load_spacy_model(model_name: str = "en_core_web_sm"):

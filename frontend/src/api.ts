@@ -185,6 +185,46 @@ export async function getActivationExamples(
   return data.examples || {}
 }
 
+// ============================================================================
+// IndexedDB Cache for Activation Data
+// ============================================================================
+
+const IDB_NAME = 'activation-cache'
+const IDB_STORE = 'blobs'
+const IDB_KEY = 'activations'
+
+interface CachedActivationData {
+  contentLength: string
+  data: Record<number, ActivationExamples>
+}
+
+function openActivationDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, 1)
+    req.onupgradeneeded = () => { req.result.createObjectStore(IDB_STORE) }
+    req.onsuccess = () => resolve(req.result)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+function idbGet(db: IDBDatabase): Promise<CachedActivationData | undefined> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readonly')
+    const req = tx.objectStore(IDB_STORE).get(IDB_KEY)
+    req.onsuccess = () => resolve(req.result as CachedActivationData | undefined)
+    req.onerror = () => reject(req.error)
+  })
+}
+
+function idbPut(db: IDBDatabase, value: CachedActivationData): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE, 'readwrite')
+    const req = tx.objectStore(IDB_STORE).put(value, IDB_KEY)
+    req.onsuccess = () => resolve()
+    req.onerror = () => reject(req.error)
+  })
+}
+
 /**
  * Get ALL activating examples as pre-computed cached data (MessagePack + gzip).
  *
@@ -195,6 +235,9 @@ export async function getActivationExamples(
  *
  * @returns Record mapping feature_id to ActivationExamples
  */
+// Stores Content-Length from last successful fetch (used as IndexedDB cache key)
+let _lastFetchContentLength: string | null = null
+
 async function fetchActivationsCachedOnce(): Promise<Record<number, ActivationExamples>> {
   const startTime = performance.now()
 
@@ -240,6 +283,9 @@ async function fetchActivationsCachedOnce(): Promise<Record<number, ActivationEx
 
   const compressedSize = compressedData.byteLength
 
+  // Store Content-Length for IndexedDB cache key
+  _lastFetchContentLength = expectedLength || String(compressedSize)
+
   // Decompress gzip
   const decompressStart = performance.now()
   const decompressed = pako.ungzip(new Uint8Array(compressedData))
@@ -266,11 +312,35 @@ async function fetchActivationsCachedOnce(): Promise<Record<number, ActivationEx
 const ACTIVATION_FETCH_MAX_RETRIES = 3
 
 export async function getAllActivationExamplesCached(): Promise<Record<number, ActivationExamples>> {
-  console.log('[API] getAllActivationExamplesCached: Starting cached fetch...')
+  const startTime = performance.now()
+
+  // Step 1: Check IndexedDB cache (use stored contentLength from last fetch)
+  try {
+    const db = await openActivationDB()
+    const cached = await idbGet(db)
+    db.close()
+    if (cached && cached.contentLength && cached.data) {
+      const featureCount = Object.keys(cached.data).length
+      if (featureCount > 0) {
+        console.log(`[API] getAllActivationExamplesCached: IndexedDB cache hit — ${featureCount} features in ${(performance.now() - startTime).toFixed(0)}ms`)
+        return cached.data
+      }
+    }
+  } catch (e) {
+    console.warn('[API] IndexedDB cache read failed, falling back to fetch:', e)
+  }
+
+  // Step 2: Cache miss — fetch from backend with retries
+  console.log('[API] getAllActivationExamplesCached: Cache miss, fetching from backend...')
+  let data: Record<number, ActivationExamples> | null = null
+  let contentLength: string | null = null
 
   for (let attempt = 1; attempt <= ACTIVATION_FETCH_MAX_RETRIES; attempt++) {
     try {
-      return await fetchActivationsCachedOnce()
+      data = await fetchActivationsCachedOnce()
+      // Retrieve Content-Length for cache key (stored during fetch)
+      contentLength = _lastFetchContentLength
+      break
     } catch (error) {
       if (attempt === ACTIVATION_FETCH_MAX_RETRIES) throw error
       const delay = 1000 * Math.pow(2, attempt - 1)
@@ -278,7 +348,23 @@ export async function getAllActivationExamplesCached(): Promise<Record<number, A
       await new Promise(resolve => setTimeout(resolve, delay))
     }
   }
-  throw new Error('Unreachable')
+
+  if (!data) throw new Error('Unreachable')
+
+  // Step 3: Save to IndexedDB for next reload
+  if (contentLength) {
+    const saveStart = performance.now()
+    try {
+      const db = await openActivationDB()
+      await idbPut(db, { contentLength, data })
+      db.close()
+      console.log(`[API] getAllActivationExamplesCached: Saved to IndexedDB in ${(performance.now() - saveStart).toFixed(0)}ms`)
+    } catch (e) {
+      console.warn('[API] IndexedDB cache write failed (non-fatal):', e)
+    }
+  }
+
+  return data
 }
 
 export async function getSimilaritySort(

@@ -11,7 +11,7 @@ from kneed import KneeLocator
 PARQUET = "data/output/activation_highlights.parquet"
 
 SYNTAX = ["s_word_ngram", "s_char_ngram", "s_dep_parse", "s_ast_parse"]
-CONTEXT = ["c_span_1", "c_span_8", "c_span_16", "c_discriminative", "c_token_idf"]
+CONTEXT = ["c_discriminative", "c_token_idf"]
 COMPONENTS = SYNTAX + CONTEXT
 
 SYNTAX_THRESHOLD = 0.1       # Fixed threshold for syntax components
@@ -48,8 +48,24 @@ def main():
     min_len = min(len(disc), len(idf))
     disc_idf = disc[:min_len] * idf[:min_len]
 
-    all_names = COMPONENTS + ["disc × idf"]
-    all_arrays = [flatten_column(df, c) for c in COMPONENTS] + [disc_idf]
+    # Extract span set avg_sim values, separated by span_size
+    span_3_sims = []
+    span_11_sims = []
+    if "context_span_sets" in df.columns:
+        for r in df.select("context_span_sets").to_dicts():
+            for s in (r.get("context_span_sets") or []):
+                if isinstance(s, dict):
+                    sim = s.get("avg_sim", 0)
+                    sz = s.get("span_size", 0)
+                    if sz == 3:
+                        span_3_sims.append(sim)
+                    elif sz == 11:
+                        span_11_sims.append(sim)
+    span_3_sims = np.array(span_3_sims) if span_3_sims else np.array([0.0])
+    span_11_sims = np.array(span_11_sims) if span_11_sims else np.array([0.0])
+
+    all_names = COMPONENTS + ["disc × idf", "span_3 avg_sim", "span_11 avg_sim"]
+    all_arrays = [flatten_column(df, c) for c in COMPONENTS] + [disc_idf, span_3_sims, span_11_sims]
 
     # Compute elbows and thresholds
     elbows = {}
@@ -72,9 +88,13 @@ def main():
 
     for i, (name, arr) in enumerate(zip(all_names, all_arrays)):
         ax = axes[i]
-        # Clip extreme outliers for visibility (0.5th–99.5th percentile)
-        lo, hi = np.percentile(arr, [0.5, 99.5])
-        clipped = arr[(arr >= lo) & (arr <= hi)]
+        # For ngram columns show the full distribution; clip others to 0.5–99.5 pctl
+        if "ngram" in name or "parse" in name:
+            clipped = arr
+            lo, hi = arr.min(), arr.max()
+        else:
+            lo, hi = np.percentile(arr, [0.5, 99.5])
+            clipped = arr[(arr >= lo) & (arr <= hi)]
         counts, _, _ = ax.hist(clipped, bins=100, color="#4e79a7", edgecolor="none", alpha=0.8)
         # Elbow line (red dashed)
         elbow = elbows[name]
