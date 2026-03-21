@@ -633,23 +633,23 @@ Matches .nav__button style: white background, 11px font
   border: 2px solid var(--selection-blue);
 }
 
-/* Syntax highlight - purple (#af7aa1) */
+/* Syntax highlight - purple border + black outline */
 .legend-sample--syntax {
-  background: rgba(175, 122, 161, 0.75);
-  border: none;
+  border: 1.5px solid #af7aa1;
+  outline: 0.5px solid black;
 }
 
-/* Context highlight - yellow (#edc949) */
+/* Context highlight - yellow border + black outline */
 .legend-sample--context {
-  background: rgba(237, 201, 73, 0.75);
-  border: none;
+  border: 1.5px solid #edc949;
+  outline: 0.5px solid black;
 }
 
 /* Legend group - container for a group of legend items (tighter spacing, no separators) */
 .legend-group {
   display: flex;
   align-items: center;
-  gap: 0;
+  gap: 8px;
 }
 
 .legend-group > .legend-item {

@@ -37,42 +37,6 @@ interface ActivationExampleProps {
 }
 
 
-/** Build tooltip text describing which highlight sets cover a token */
-function buildSyntaxTooltip(
-  ngrams: SyntaxNgramSet[],
-  deps: SyntaxParseSet[],
-  asts: SyntaxParseSet[],
-): string | undefined {
-  const parts: string[] = []
-  for (const n of ngrams) {
-    parts.push(`"${n.ngram}"`)
-  }
-  for (const d of deps) {
-    parts.push(`${d.relation} [${d.direction}]`)
-  }
-  for (const a of asts) {
-    parts.push(`${a.relation} → ${a.direction}`)
-  }
-  return parts.length > 0 ? parts.join(', ') : undefined
-}
-
-function buildContextTooltip(
-  spans: ContextSpan[],
-  discScore: number | undefined,
-  centroidScore: number | undefined,
-): string | undefined {
-  const parts: string[] = []
-  for (const s of spans) {
-    parts.push(`Span (${s.span_size} tokens): sim ${s.score.toFixed(2)}`)
-  }
-  if (centroidScore != null && centroidScore > 0) {
-    parts.push(`Centroid span: sim ${centroidScore.toFixed(2)}`)
-  }
-  if (discScore != null && discScore > 0) {
-    parts.push(`Discriminative (IDF): ${discScore.toFixed(2)}`)
-  }
-  return parts.length > 0 ? parts.join('\n') : undefined
-}
 
 /** Build position → [{comp, score}] lookup from highlights data (used for disc_idf in context mode) */
 function buildHighlightLookup(
@@ -177,6 +141,19 @@ const renderActivationToken = (
     const isActivated = showActivation !== false && (token.activation_value ?? 0) >= example.max_activation * 0.05
     const hasHighlight = matchingSpans.length > 0 || matchingCentroid.length > 0 || discEntries.length > 0
 
+    // Determine span position for continuous border
+    const allSpans = [...matchingSpans, ...matchingCentroid]
+    let spanPos = ''
+    if (allSpans.length > 0) {
+      const span = allSpans[0]
+      const isStart = token.position === span.start
+      const isEnd = token.position === span.end - 1
+      if (isStart && isEnd) spanPos = ''
+      else if (isStart) spanPos = 'start'
+      else if (isEnd) spanPos = 'end'
+      else spanPos = 'mid'
+    }
+
     // Hover group: spans/centroid use cross-example hover (same set_index),
     // disc_idf uses cross-example hover (same token across all examples)
     const isInHoverGroup = hoveredHighlight != null && (
@@ -185,7 +162,7 @@ const renderActivationToken = (
       (hoveredHighlight.comp === 'disc_idf' && discEntries.length > 0)
     )
 
-    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}${hasHighlight ? ' activation-token--context-highlight' : ''}`
+    const className = `activation-token${isActivated ? ' activation-token--activated' : ''}${token.is_max ? ' activation-token--max' : ''}${token.is_newline ? ' activation-token--newline' : ''}${isInHoverGroup ? ' activation-token--hover-group' : ''}${hasHighlight ? ' activation-token--context-highlight' : ''}${spanPos ? ` activation-token--span-${spanPos}` : ''}`
     const bgColor = isActivated
       ? getActivationColor(token.activation_value!, maxActivation ?? example.max_activation)
       : undefined
@@ -202,14 +179,9 @@ const renderActivationToken = (
     } : undefined
 
     // Tooltip showing context highlight type
-    const discScore = discEntries.length > 0 ? Math.max(...discEntries.map(e => e.score)) : undefined
-    const centroidScore = matchingCentroid.length > 0 ? Math.max(...matchingCentroid.map(s => s.score)) : undefined
-    const ctxTooltipText = hasHighlight ? buildContextTooltip(matchingSpans, discScore, centroidScore) : undefined
-    const ctxTooltipProps = ctxTooltipText ? { 'data-tooltip': ctxTooltipText, 'data-tooltip-below': true } as Record<string, unknown> : {}
-
     if (token.is_newline) {
       return (
-        <span key={tokenIdx} className={className} style={style} {...hoverProps} {...ctxTooltipProps}>
+        <span key={tokenIdx} className={className} style={style} {...hoverProps}>
           <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
         </span>
       )
@@ -221,12 +193,12 @@ const renderActivationToken = (
       return (
         <React.Fragment key={tokenIdx}>
           <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
-          <span className={className} style={style} {...hoverProps} {...ctxTooltipProps}>{token.text.slice(spaceLen)}</span>
+          <span className={className} style={style} {...hoverProps}>{token.text.slice(spaceLen)}</span>
         </React.Fragment>
       )
     }
 
-    return <span key={tokenIdx} className={className} style={style} {...hoverProps} {...ctxTooltipProps}>{token.text}</span>
+    return <span key={tokenIdx} className={className} style={style} {...hoverProps}>{token.text}</span>
   }
 
   // Syntax highlighting: set-based (ngram + dep + ast) with cross-example hover
@@ -272,13 +244,9 @@ const renderActivationToken = (
       onMouseLeave: () => onTokenHover(null, promptId),
     } : undefined
 
-    // Tooltip showing what type of highlight covers this token
-    const tooltipText = hasAnyCovering ? buildSyntaxTooltip(coveringNgrams, coveringDeps, coveringAsts) : undefined
-    const tooltipProps = tooltipText ? { 'data-tooltip': tooltipText, 'data-tooltip-below': true } as Record<string, unknown> : {}
-
     if (token.is_newline) {
       return (
-        <span key={tokenIdx} className={className} style={style} {...hoverProps} {...tooltipProps}>
+        <span key={tokenIdx} className={className} style={style} {...hoverProps}>
           <span className="newline-symbol">{getWhitespaceSymbol(token.text)}</span>
         </span>
       )
@@ -290,12 +258,12 @@ const renderActivationToken = (
       return (
         <React.Fragment key={tokenIdx}>
           <span className="activation-token"><span>{leadingSpaces[0]}</span></span>
-          <span className={className} style={style} {...hoverProps} {...tooltipProps}>{token.text.slice(spaceLen)}</span>
+          <span className={className} style={style} {...hoverProps}>{token.text.slice(spaceLen)}</span>
         </React.Fragment>
       )
     }
 
-    return <span key={tokenIdx} className={className} style={style} {...hoverProps} {...tooltipProps}>{token.text}</span>
+    return <span key={tokenIdx} className={className} style={style} {...hoverProps}>{token.text}</span>
   }
 
   // Legacy: binary ngram_positions highlighting

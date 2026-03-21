@@ -83,7 +83,6 @@
   border-radius: 2px;
   background: transparent;
   transition: box-shadow 0.2s ease;
-  overflow: hidden;
   white-space: nowrap;
 }
 
@@ -94,6 +93,7 @@
 /* Disable hover effects when no-hover class is present */
 .activation-example--no-hover {
   cursor: default;
+  overflow: visible;
 }
 
 .activation-example--no-hover:hover .activation-example__quantile {
@@ -158,35 +158,67 @@
 .activation-token--syntax-highlight,
 .activation-token--context-highlight {
   position: relative;
+  z-index: 1;
 }
 
 .activation-token--syntax-highlight::after,
 .activation-token--context-highlight::after {
   content: '';
   position: absolute;
-  top: -1px;
-  bottom: -1px;
-  left: -1px;
-  right: -1px;
+  top: -2.2px;
+  bottom: -2.2px;
+  left: -0.2px;
+  right: -0.2px;
   border-radius: 2px;
   pointer-events: none;
+  z-index: 2;
 }
 
 .activation-token--syntax-highlight::after {
   border: 1.5px solid #af7aa1;
+  outline: 0.5px solid black;
 }
 
 .activation-token--context-highlight::after {
-  border: 2.5px solid #edc949;
+  border: 1.5px solid #edc949;
+  outline: 1px solid black;
 }
 
-/* Activated tokens: push border outside the ::before orange area (2px + 0.5px gap) */
-.activation-token--activated.activation-token--syntax-highlight::after,
-.activation-token--activated.activation-token--context-highlight::after {
-  top: -3px;
-  bottom: -3px;
-  left: -3px;
-  right: -3px;
+/* Continuous span: suppress outline, use box-shadow for black lines (1px matching context outline) */
+.activation-token--span-start.activation-token--context-highlight::after {
+  right: 0;
+  border-right: none;
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  outline: none;
+  box-shadow:
+    0 -1px 0 0 black,
+    0 1px 0 0 black,
+    -1px 0 0 0 black;
+}
+
+.activation-token--span-mid.activation-token--context-highlight::after {
+  left: 0;
+  right: 0;
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  outline: none;
+  box-shadow:
+    0 -1px 0 0 black,
+    0 1px 0 0 black;
+}
+
+.activation-token--span-end.activation-token--context-highlight::after {
+  left: 0;
+  border-left: none;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  outline: none;
+  box-shadow:
+    0 -1px 0 0 black,
+    0 1px 0 0 black,
+    1px 0 0 0 black;
 }
 
 /* Inter-feature (shared) pattern highlighting (when hovering/clicking decoder similarity badges) */
