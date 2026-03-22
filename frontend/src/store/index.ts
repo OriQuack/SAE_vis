@@ -471,7 +471,7 @@ const initialState = {
   causeDecisionMargins: new Map<number, number>(),
   causeSortCategory: null,  // Sort by max decision margin by default
   // Cause margin threshold for effective category calculation
-  causeMarginThreshold: 0.15,
+  causeMarginThreshold: 1.0,
 
   // Similarity tagging popover state (for automatic tagging feature)
   tagAutomaticState: null,

@@ -337,8 +337,9 @@ export const createFeatureSplitActions = (set: any, get: any) => ({
 
         // Clip default thresholds to data range (preserves user-adjusted thresholds when refetching)
         const { statistics } = histogramData
-        const defaultSelectThreshold = Math.min(1.0, statistics.max || 1.0)
-        const defaultRejectThreshold = Math.max(-1.0, statistics.min || -1.0)
+        const absThreshold = Math.min(1.0, Math.abs((statistics.max || 1.0)) - 0.2, Math.abs((statistics.min || -1.0)) - 0.2)
+        const defaultSelectThreshold = absThreshold
+        const defaultRejectThreshold = -absThreshold
 
         // Preserve existing thresholds if they exist, otherwise use calculated defaults
         const selectThreshold = currentState?.selectThreshold ?? defaultSelectThreshold

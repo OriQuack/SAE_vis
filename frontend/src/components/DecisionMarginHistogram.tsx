@@ -260,8 +260,9 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
             setLocalHistogramData(histogramResponse)
             // Clip default thresholds to data range
             const { statistics } = histogramResponse
-            const defaultSelect = Math.min(1.0, statistics.max || 1.0)
-            const defaultReject = Math.max(-1.0, statistics.min || -1.0)
+            const absThreshold = Math.min(1.0, Math.abs((statistics.max || 1.0)) - 0.2, Math.abs((statistics.min || -1.0)) - 0.2)
+            const defaultSelect = absThreshold
+            const defaultReject = -absThreshold
             const selectThreshold = tagAutomaticStateRef.current?.selectThreshold ?? defaultSelect
             const rejectThreshold = tagAutomaticStateRef.current?.rejectThreshold ?? defaultReject
 

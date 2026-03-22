@@ -2,6 +2,7 @@ import { useMemo, useCallback, useRef, useState, useEffect, type ReactNode } fro
 import { ScrollableItemList, type ScrollableItemListProps, type ListVariant } from './ScrollableItemList'
 import GuidancePopover from './GuidancePopover'
 import { t } from '../lib/i18n'
+import { buildEmptyHints } from '../lib/empty-hint-utils'
 import '../styles/StageAccordionList.css'
 
 // ============================================================================
@@ -178,21 +179,18 @@ export function StageAccordionList<T>({
 
     const itemLabel = variant === 'allPairs' ? 'pairs' : 'features'
     const line1 = `No ${itemLabel} to display`
-
-    const hints: string[] = []
-    if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
-    if (activeStage === 'apply' || activeStage === 'learn') hints.push('adjust the threshold range')
-    if (hideTagged) hints.push(`uncheck "Hide Labeled" to review labeled ${itemLabel}`)
-
-    if (hints.length === 0) return line1
-
-    const joined = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
-      + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
+    const hintNode = buildEmptyHints(
+      itemLabel,
+      showDisagreementOnly ?? false,
+      hideTagged ?? false,
+      activeStage === 'apply' || activeStage === 'learn'
+    )
+    if (!hintNode) return line1
 
     return (
       <>
         <span>{line1}</span>
-        <span className="scrollable-list__empty-subtext">{joined}</span>
+        <span className="scrollable-list__empty-subtext">{hintNode}</span>
       </>
     )
   }, [emptyMessage, variant, activeStage, hideTagged, showDisagreementOnly])

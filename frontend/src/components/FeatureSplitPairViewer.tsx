@@ -12,6 +12,7 @@ import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
 import { logAction } from '../lib/action-logger'
 import LabelingGuidePopup from './LabelingGuidePopup'
+import { buildEmptyHints } from '../lib/empty-hint-utils'
 import '../styles/FeatureSplitPairViewer.css'
 
 // ============================================================================
@@ -432,14 +433,13 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
           <div className="pair-viewer__empty-state">
             <span>No pairs to display</span>
             {(() => {
-              const hints: string[] = []
-              if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
-              if (activeStage === 'apply' && !allItemsLabeled) hints.push('adjust the threshold range')
-              if (hideTagged && (activeStage !== 'apply' || allItemsLabeled)) hints.push('uncheck "Hide Labeled" to review labeled pairs')
-              if (hints.length === 0) return null
-              const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
-                + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
-              return <span className="empty-state-subtext">{text}</span>
+              const hintNode = buildEmptyHints(
+                'pairs',
+                showDisagreementOnly,
+                hideTagged && (activeStage !== 'apply' || allItemsLabeled),
+                activeStage === 'apply' && !allItemsLabeled
+              )
+              return hintNode && <span className="empty-state-subtext">{hintNode}</span>
             })()}
           </div>
         )}

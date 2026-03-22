@@ -536,6 +536,51 @@ Matches .nav__button style: white background, 11px font
   text-align: center;
 }
 
+/* Inline checkbox toggle replicas for empty-state hints */
+.hint-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+  line-height: 1;
+  vertical-align: middle;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+}
+
+.hint-toggle--disagreement {
+  border-left: 3px solid #f59e0b;
+  background-color: rgba(245, 158, 11, 0.1);
+}
+
+.hint-toggle__checkbox {
+  display: inline-block;
+  width: 13px;
+  height: 13px;
+  background: white;
+  border: 1px solid var(--selection-blue);
+  border-radius: 2px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.hint-toggle__checkbox::after {
+  content: '';
+  position: absolute;
+  left: 3.5px;
+  top: 0.5px;
+  width: 4px;
+  height: 7px;
+  border: solid var(--selection-blue);
+  border-width: 0 1.5px 1.5px 0;
+  transform: rotate(45deg);
+}
+
 /* Explanation popover - shows full text on hover, covers the header */
 .explanation-popover {
   background: #f9fafb;

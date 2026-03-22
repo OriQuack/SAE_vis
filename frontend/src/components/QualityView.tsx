@@ -19,6 +19,7 @@ import CrossMetricConsensus, { CrossMetricLegend } from './CrossMetricConsensus'
 import { useResizeObserver } from '../lib/utils'
 import { logAction, createDebouncedLogger } from '../lib/action-logger'
 import LabelingGuidePopup from './LabelingGuidePopup'
+import { buildEmptyHints } from '../lib/empty-hint-utils'
 import '../styles/QualityView.css'
 import '../styles/ThresholdTaggingPanel.css'
 
@@ -1294,14 +1295,13 @@ const QualityView: React.FC<QualityViewProps> = ({
                 <div className="quality-view__placeholder-text">
                   <span>No features to display</span>
                   {(() => {
-                    const hints: string[] = []
-                    if (showDisagreementOnly) hints.push('uncheck "Disagreement Only"')
-                    if (activeStage === 'apply' && !allFeaturesLabeled) hints.push('adjust the threshold range')
-                    if (hideTagged && (activeStage !== 'apply' || allFeaturesLabeled)) hints.push('uncheck "Hide Labeled" to review labeled features')
-                    if (hints.length === 0) return null
-                    const text = hints[0].charAt(0).toUpperCase() + hints[0].slice(1)
-                      + (hints.length > 1 ? ', or ' + hints.slice(1).join(', or ') : '')
-                    return <span className="empty-state-subtext">{text}</span>
+                    const hintNode = buildEmptyHints(
+                      'features',
+                      showDisagreementOnly,
+                      hideTagged && (activeStage !== 'apply' || allFeaturesLabeled),
+                      activeStage === 'apply' && !allFeaturesLabeled
+                    )
+                    return hintNode && <span className="empty-state-subtext">{hintNode}</span>
                   })()}
                 </div>
               )}
