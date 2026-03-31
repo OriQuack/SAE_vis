@@ -26,6 +26,8 @@ interface TooltipProps {
   centered?: boolean
   /** Hide the arrow indicator (default: false) */
   hideArrow?: boolean
+  /** Position tooltip above the cursor (default: false) */
+  above?: boolean
   /** Content to render inside the tooltip */
   children: React.ReactNode
 }
@@ -39,9 +41,15 @@ const TooltipBase: React.FC<TooltipProps> = ({
   offsetY = -12,
   centered = false,
   hideArrow = false,
+  above = false,
   children
 }) => {
   if (!position) return null
+
+  const transform = [
+    centered ? 'translateX(-50%)' : '',
+    above ? 'translateY(-100%)' : ''
+  ].filter(Boolean).join(' ') || undefined
 
   return (
     <div
@@ -49,7 +57,7 @@ const TooltipBase: React.FC<TooltipProps> = ({
       style={{
         left: position.x + offsetX,
         top: position.y + offsetY,
-        ...(centered ? { transform: 'translateX(-50%)' } : {})
+        ...(transform ? { transform } : {})
       }}
     >
       {!hideArrow && <span className="tooltip__arrow" />}

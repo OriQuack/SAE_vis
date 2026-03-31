@@ -7,7 +7,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 4px 10px;
+  padding: 0px 10px;
   background: white;
   border-bottom: 2px solid #e5e7eb;
   gap: 1rem;
@@ -60,7 +60,7 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  padding: 2px 6px;
+  padding: 0px 6px;
   background: #f1f5f9;
   border-radius: 20px;
   line-height: 1.4;

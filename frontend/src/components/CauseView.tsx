@@ -1290,7 +1290,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                     <div className="cause-view__header-row">
                       <h4 className="subheader" data-tooltip-title="Activating Examples" data-tooltip={t('Ranked by max activation strength, then 2 examples sampled per quartile (highest → lowest). Blue-bordered tokens mark recurring patterns.', '최대 activation 강도순 정렬 후, Quartile별 2개 example 추출 (높은 순 → 낮은 순). 파란 테두리 token은 반복 pattern 표시.')}>Activating Examples <span className="instruction-subheader">of</span> <span className="panel-header__id">#{selectedFeatureData.featureId}</span></h4>
                       <div style={{ flex: 1 }} />
-                      {/* Activation legend */}
                       <div className="legend-group">
                         <div className="legend-item">
                           <span className="legend-sample legend-sample--activation">token</span>:
@@ -1299,10 +1298,6 @@ const CauseView: React.FC<CauseViewProps> = ({
                         <div className="legend-item">
                           <span className="legend-sample legend-sample--syntax">token</span>:
                           <span className="legend-label">Syntax</span>
-                        </div>
-                        <div className="legend-item">
-                          <span className="legend-sample legend-sample--context">token</span>:
-                          <span className="legend-label">Context</span>
                         </div>
                       </div>
                     </div>
@@ -1320,6 +1315,18 @@ const CauseView: React.FC<CauseViewProps> = ({
                               highlightMode="syntax"
                               showActivation={true}
                             />
+                          </div>
+                        </div>
+                        <div className="cause-view__panel-legend">
+                          <div className="legend-group">
+                            <div className="legend-item">
+                              <span className="legend-sample legend-sample--activation">token</span>:
+                              <span className="legend-label">Activation Strength</span>
+                            </div>
+                            <div className="legend-item">
+                              <span className="legend-sample legend-sample--context">token</span>:
+                              <span className="legend-label">Context</span>
+                            </div>
                           </div>
                         </div>
                         <div className="cause-view__activation-panel">

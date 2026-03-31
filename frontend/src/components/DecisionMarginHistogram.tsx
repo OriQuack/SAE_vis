@@ -17,7 +17,7 @@ import type { ActiveStage } from './StageAccordionList'
 import * as api from '../api'
 import ThresholdHandles from './ThresholdHandles'
 import { Tooltip } from './Tooltip'
-import { formatCount } from '../lib/utils'
+import { formatCount, formatAxisCount } from '../lib/utils'
 import '../styles/DecisionMarginHistogram.css'
 
 // ============================================================================
@@ -819,7 +819,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                         fontSize={12}
                         fill="#666"
                       >
-                        {formatCount(tick.value)}
+                        {formatAxisCount(tick.value)}
                       </text>
                     </g>
                   ))}
@@ -921,7 +921,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
                 const totalCount = counts.confirmed + counts.autoSelected + counts.rejected + counts.autoRejected + counts.unsure
 
                 return (
-                  <Tooltip position={tooltipPosition} offsetX={12} offsetY={-12}>
+                  <Tooltip position={tooltipPosition} offsetX={12} offsetY={-20} above>
                     <Tooltip.Header>
                       {bin.x0.toFixed(2)} – {bin.x1.toFixed(2)}
                     </Tooltip.Header>

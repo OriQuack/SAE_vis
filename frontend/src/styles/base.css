@@ -416,7 +416,7 @@ Matches .nav__button style: white background, 11px font
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 6px 12px;
+  padding: 2px 12px;
   flex-shrink: 0;
   width: fit-content;
   align-self: center;

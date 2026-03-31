@@ -298,6 +298,17 @@ export function formatCount(value: number): string {
   return value.toLocaleString()
 }
 
+/**
+ * Format a number for axis ticks: 1400 -> "1.4k", 800 -> "800"
+ */
+export function formatAxisCount(value: number): string {
+  if (value >= 1000) {
+    const k = value / 1000
+    return Number.isInteger(k) ? `${k}k` : `${parseFloat(k.toFixed(1))}k`
+  }
+  return value.toString()
+}
+
 export function getLLMExplainerNames(explainerIds: string[]): string {
   const names = explainerIds.map(id => {
     const lowerCaseId = id.toLowerCase()

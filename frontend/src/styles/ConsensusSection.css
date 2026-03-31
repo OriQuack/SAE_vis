@@ -25,7 +25,7 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 0px;
   padding: 0 2px;
 }
 
@@ -33,7 +33,7 @@
   display: flex;
   align-items: baseline;
   padding-left: 6px;
-  padding-top: 2px;
+  padding-top: 0;
 }
 
 .consensus-section__column--outlier {
@@ -52,7 +52,7 @@
 .consensus-section__items {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 6px;
+  gap: 2px 4px;
   flex: 1;
   min-width: 0;
   overflow-y: auto;
@@ -62,7 +62,7 @@
 
 /* Wider gap between expanded huge pills in the clusters column */
 .consensus-section__column:not(.consensus-section__column--outlier) > .consensus-section__items {
-  gap: 6px;
+  gap: 2px 4px;
 }
 
 /* Custom scrollbar for items container */
@@ -138,8 +138,8 @@
 .consensus-item__expanded-content {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
-  padding: 4px;
+  gap: 2px;
+  padding: 3px;
   flex: 1;
   min-width: 0;
   position: relative;
@@ -160,7 +160,7 @@
 .consensus-item__phrase {
   color: var(--text-primary, #1f2937);
   font-weight: 500;
-  padding: 0 4px;
+  padding: 0 6px;
 }
 
 /* Score tag - colored side indicator */
@@ -201,7 +201,7 @@
 .consensus-tooltip__phrase {
   display: inline-flex;
   align-items: center;
-  padding: 0px 8px;
+  padding: 0px 6px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 500;

@@ -81,7 +81,7 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  gap: 8px;
+  gap: 4px;
   overflow: visible;
 }
 
@@ -109,7 +109,7 @@
   gap: 4px;
   overflow: hidden;
   flex-shrink: 0;
-  flex: 5;
+  flex: 5 0 100px;
 }
 
 
@@ -141,6 +141,20 @@
   bottom: 0;
   background-color: rgba(255, 255, 255, 0.5);
   z-index: 10;
+}
+
+/* Panel legend - right-aligned legend above each activation panel */
+.cause-view__panel-legend {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.cause-view__activation-panel + .cause-view__panel-legend {
+  margin-top: -4px;
+  margin-bottom: -4px;
 }
 
 /* Activation panel - each syntax/context panel */

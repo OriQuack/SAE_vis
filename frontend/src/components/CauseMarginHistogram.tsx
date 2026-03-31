@@ -2,7 +2,7 @@ import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react'
 import { scaleLinear } from 'd3-scale'
 import { ThresholdHandles } from './ThresholdHandles'
 import { Tooltip } from './Tooltip'
-import { formatCount } from '../lib/utils'
+import { formatCount, formatAxisCount } from '../lib/utils'
 import { TAG_CATEGORY_CAUSE, UNSURE_GRAY, SELECTION_BLUE } from '../lib/constants'
 import { STRIPE_PATTERN } from '../lib/color-utils'
 import { getTagColor } from '../lib/tag-system'
@@ -648,7 +648,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
               <g key={`y-tick-${i}`}>
                 <line x1={-LAYOUT.axis.tickLength} y1={y} x2={0} y2={y} stroke="#333" strokeWidth={1} />
                 <text x={-LAYOUT.axis.labelOffset.yTick} y={y + LAYOUT.axis.labelOffset.yTextAdjust} fontSize={12} fill="#666" textAnchor="end">
-                  {formatCount(value)}
+                  {formatAxisCount(value)}
                 </text>
               </g>
             )
@@ -757,7 +757,7 @@ export const CauseMarginHistogram: React.FC<CauseMarginHistogramProps> = ({
 
       {/* Tooltip */}
       {tooltipContent && (
-        <Tooltip position={tooltipPosition}>
+        <Tooltip position={tooltipPosition} offsetX={12} offsetY={-20} above>
           <Tooltip.Header>
             {tooltipContent.range}
           </Tooltip.Header>

@@ -93,7 +93,7 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
     // Use measured container size for viewBox
     const width = containerSize.width
     const height = containerSize.height
-    const padding = { top: 10, bottom: 24, left: 40, right: 35 }
+    const padding = { top: 8, bottom: 24, left: 40, right: 35 }
 
     const chartWidth = width - padding.left - padding.right
     const chartHeight = height - padding.top - padding.bottom
