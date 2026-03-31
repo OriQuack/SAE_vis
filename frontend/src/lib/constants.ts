@@ -92,7 +92,7 @@ export const TAG_CATEGORIES: Record<string, TagCategoryConfig> = {
     ],
     description: "Identifies whether a feature represents a single semantic concept or multiple overlapping concepts",
     parentTagForNextStage: "Monosemantic",
-    instruction: "Q: Does any activating example from one feature represent a concept indistinguishable from the other feature?",
+    instruction: "Q: Is there any activating example from one feature that is indistinguishable from the concept of the other feature?",
     tagColors: {},  // Populated by tag-system.ts
     parentTag: null  // Stage 1 has no parent
   },
@@ -568,11 +568,11 @@ export interface TagTooltipInfo {
 export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
   // Stage 1: Structural Soundness
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Monosemantic`]: {
-    verdict: 'neutral', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable, or at least one feature lacks an overarching concept that encompasses all its activating examples',
+    verdict: 'neutral', flow: 'Further inspected in Stage 2', description: 'Concepts between the two features are clearly separable, or at least one feature lacks a distinctive concept that encompasses all its activating examples',
     example: 'If neither feature is Noisy, shuffled activating examples can be separated into the original features they belong to'
   },
   [`${TAG_CATEGORY_FEATURE_SPLITTING}:Incoherent Splitting`]: {
-    verdict: 'negative', flow: 'Finalized at Stage 1', description: 'Both features possess overarching concepts that encompass their activating examples, but the boundary between them is ambiguous',
+    verdict: 'negative', flow: 'Finalized at Stage 1', description: 'Both features possess distinctive concepts that encompass their activating examples, but the boundary between them is ambiguous',
     example: 'You cannot separate shuffled activating examples into original features they belong to'
   },
 
@@ -589,11 +589,11 @@ export const TAG_TOOLTIPS: Record<string, TagTooltipInfo> = {
     verdict: 'positive', description: 'Explanation is sufficiently faithful despite low scores'
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Syntax`]: {
-    verdict: 'negative', description: 'Explainer omitted shared surface-level patterns from the activating examples',
+    verdict: 'negative', description: 'Explainer omitted shared surface-form patterns across activating examples from the explanation',
     example: 'e.g. suffix, prefix, position within words/sentences, before/after specific tokens, sentence components, repetition'
   },
   [`${TAG_CATEGORY_CAUSE}:Missed Context`]: {
-    verdict: 'negative', description: 'Explainer omitted shared semantic or contextual patterns from the activating examples',
+    verdict: 'negative', description: 'Explainer omitted shared semantic and contextual patterns across activating examples from the explanation',
     example: 'e.g. context, domain, topic, sentiment, tone, types, language'
   },
   [`${TAG_CATEGORY_CAUSE}:Noisy Activation`]: {

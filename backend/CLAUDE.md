@@ -184,7 +184,34 @@ def get_feature_consensus(feature_id):
     # Maps raw explainer names to display names via MODEL_NAME_MAP
 ```
 
-### 9. Action Log Endpoint
+### 9. Highlight Service
+Per-token syntax/context scoring for activation display highlighting:
+
+```python
+# services/highlight_service.py
+class HighlightService:
+    """Per-token context scoring and set-based syntax highlighting."""
+
+    # Loads activation_highlights.parquet, pre-computes + caches to pickle
+    # Three highlight types:
+    # 1. disc_idf: Per-token discriminative × IDF scoring (context)
+    # 2. context_spans: Feature-level context span sets with cross-example hover
+    # 3. syntax_ngram_sets: Set-based syntax n-grams (character + word patterns)
+
+    NGRAM_JACCARD_MIN = 0.1       # Gate n-gram sets by Jaccard
+    CONTEXT_SPAN_MIN_SIM = 0.5    # Gate context span sets by avg_sim
+    DISC_IDF_GLOBAL_MAX = 3.12    # Scale disc×idf into [0,1]
+    DISC_IDF_MIN = 0.1            # Gate scaled disc×idf
+
+    def get_scores(feature_id, prompt_id)    # Pre-computed highlights for one example
+    def get_feature_scores(feature_id)       # All highlights for a feature
+```
+
+**Injected into**:
+- `activation_examples.py` endpoint (per-request injection)
+- `activation_cache_service.py` (pre-computed blob injection at build time)
+
+### 10. Action Log Endpoint
 Receives batches of frontend action log entries and appends to JSONL file:
 
 ```python
@@ -225,7 +252,7 @@ backend/
 │   │   ├── filters.py            # Filter option models
 │   │   ├── histogram.py          # Histogram models
 │   │   └── table.py              # Table data models
-│   └── services/                  # Business logic (15 files)
+│   └── services/                  # Business logic (16 files)
 │       ├── activation_cache_service.py # Cached activation data (msgpack+gzip)
 │       ├── alignment_service.py      # Explanation alignment
 │       ├── classification_service.py # Unified SVM classification (binary + multi-class)
@@ -236,6 +263,7 @@ backend/
 │       ├── data_service.py           # Data loading + initialization
 │       ├── feature_group_service.py  # Feature grouping
 │       ├── hierarchical_cluster_candidate_service.py # Clustering
+│       ├── highlight_service.py      # Per-token syntax/context scoring
 │       ├── histogram_service.py      # Histogram generation
 │       ├── pair_similarity_service.py # SVM scoring for pairs
 │       ├── pytorch_mlp.py            # PyTorch MLP with sample weighting
@@ -542,6 +570,18 @@ Get consensus phrases for a feature (HDBSCAN clustering results)
 - **Key Columns**: feature_a, feature_b, inter_ngram_jaccard, inter_semantic_sim, decoder_sim
 - **Used by**: pair_similarity_service.py
 
+#### activation_highlights.parquet
+- **Location**: `/data/output/activation_highlights.parquet`
+- **Purpose**: Per-token syntax/context highlight data for activation display
+- **Size**: ~523MB
+- **Key Columns**: feature_id, prompt_id, syntax_ngram_sets (set-based), context_span_sets (tree-search), disc_idf (discriminative × IDF)
+- **Used by**: highlight_service.py (loaded at startup, cached to pickle)
+
+#### shuffle_verification.parquet
+- **Location**: `/data/output/shuffle_verification.parquet`
+- **Purpose**: Syntax vs context pattern verification via token shuffling
+- **Size**: ~11MB
+
 #### clustering_linkage.npy
 - **Location**: `/data/output/clustering_linkage.npy`
 - **Purpose**: Hierarchical clustering linkage matrix for decoder similarity
@@ -667,11 +707,12 @@ Services are initialized in `main.py` lifespan in this order:
 4. **FeatureGroupService** - Initialize grouping
 5. **HistogramService** - Histogram generation
 6. **HierarchicalClusterCandidateService** - Load decoder weights
-7. **ClassificationService** - Unified SVM classification (binary + multi-class)
-8. **PairSimilarityService** - SVM scoring for pairs (depends on cluster service)
-9. **ColdStartService** - Diversity-based representative sampling
-10. **ActivationCacheService** - Pre-compute msgpack blob
-11. **ConsensusService** - Load phrase clustering data
+7. **HighlightService** - Per-token syntax/context scoring (loads activation_highlights.parquet)
+8. **ClassificationService** - Unified SVM classification (binary + multi-class)
+9. **PairSimilarityService** - SVM scoring for pairs (depends on cluster service)
+10. **ColdStartService** - Diversity-based representative sampling
+11. **ActivationCacheService** - Pre-compute msgpack blob (receives HighlightService for injection)
+12. **ConsensusService** - Load phrase clustering data
 
 ## Common Issues & Solutions
 

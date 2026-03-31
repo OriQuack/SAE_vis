@@ -55,6 +55,9 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Global Tooltip System (DataTooltipLayer with [data-tooltip] attrs)     │
 │  • Stage Persistence (workflowActiveStage saved in commit snapshots)      │
 │  • Commit History for tagging state snapshots                             │
+│  • Syntax/Context Highlight System (dual-panel activation display)        │
+│  • i18n Support (Korean language toggle for conference demo)              │
+│  • Labeling Guide Flowcharts (stage-specific decision guidance)           │
 └────────────────────────────────────────────────────────────────────────────┘
                                       ↕
                         POST /api/feature-groups
@@ -75,6 +78,7 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • Committee Service (QBC: Random Forest + PyTorch MLP for active learning)│
 │  • Alignment Service (semantic phrase matching)                           │
 │  • Consensus Service (HDBSCAN phrase clustering)                          │
+│  • Highlight Service (per-token syntax/context scoring)                   │
 │  • Activation Cache Service (pre-computed msgpack+gzip)                   │
 │  • Table Data Service (feature scores and metadata)                       │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -88,6 +92,8 @@ User Interaction → Frontend State Update → API Request → Backend Processin
 │  • explanation_consensus.parquet (HDBSCAN phrase clustering)              │
 │  • svm_feature_metrics.parquet (pre-aggregated feature SVM metrics)       │
 │  • svm_pair_metrics.parquet (pre-computed pair SVM metrics)               │
+│  • activation_highlights.parquet (per-token syntax/context highlights)    │
+│  • shuffle_verification.parquet (syntax vs context verification)          │
 │  • clustering_linkage.npy (hierarchical clustering)                       │
 └────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -165,10 +171,10 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 /home/dohyun/interface/
 ├── frontend/           # React application
 │   ├── src/
-│   │   ├── components/    # UI components (31 files)
-│   │   ├── lib/          # D3 utilities, helpers (22 files + 7 tagging hooks)
+│   │   ├── components/    # UI components (32 files)
+│   │   ├── lib/          # D3 utilities, helpers (24 files + 7 tagging hooks)
 │   │   ├── store/        # Zustand state (8 files)
-│   │   ├── styles/       # CSS files (30 files)
+│   │   ├── styles/       # CSS files (31 files)
 │   │   ├── types.ts      # TypeScript types
 │   │   └── api.ts        # API client
 │   └── CLAUDE.md         # Frontend docs
@@ -176,12 +182,12 @@ function buildChildNodes(parent: SankeyTreeNode, groups: FeatureGroup[]) {
 │   ├── app/
 │   │   ├── api/          # Endpoints (11 files)
 │   │   ├── models/       # Pydantic schemas (11 files)
-│   │   └── services/     # Business logic (15 files)
+│   │   └── services/     # Business logic (16 files)
 │   └── CLAUDE.md         # Backend docs
 ├── data/              # Data files
 │   ├── input/            # Raw input data (run configs, activation examples)
-│   ├── output/           # Backend-required parquet files (8 files)
-│   ├── pipeline/         # Refactored preprocessing pipeline (14 steps)
+│   ├── output/           # Backend-required parquet files (10 files)
+│   ├── pipeline/         # Refactored preprocessing pipeline (15 steps)
 │   ├── diagnostics/      # Analysis and diagnostic scripts
 │   ├── Thematic-LM/      # Thematic analysis (WWW '25 paper impl.)
 │   └── CLAUDE.md         # Data docs
@@ -223,6 +229,9 @@ npm run dev -- --port 3003
 - **ConvergenceIndicator**: Decision Flip Rate sparkline with stacked category bars
 - **DataTooltipLayer**: Global event-delegated tooltip system via `[data-tooltip]` attributes
 - **Commit History**: Save and restore tagging state snapshots (includes workflowActiveStage)
+- **LabelingGuidePopup**: Stage-specific decision flowchart for labeling guidance
+- **Syntax/Context Highlights**: Dual-panel activation display (syntax purple, context yellow) with set-based cross-example hover
+- **i18n**: Korean language toggle for conference demo
 
 ### 3-Stage Tagging Workflow
 
@@ -330,6 +339,8 @@ All backend-required files are in `/data/output/`:
 - **Explanation Consensus**: `explanation_consensus.parquet` (HDBSCAN phrase clustering, multi-range char offsets)
 - **SVM Feature Metrics**: `svm_feature_metrics.parquet` (pre-aggregated for Stage 2/3)
 - **SVM Pair Metrics**: `svm_pair_metrics.parquet` (pre-computed for Stage 1)
+- **Activation Highlights**: `activation_highlights.parquet` (per-token syntax/context scoring)
+- **Shuffle Verification**: `shuffle_verification.parquet` (syntax vs context verification)
 - **Clustering**: `clustering_linkage.npy` (hierarchical clustering)
 
 ### Thematic-LM (Separate Tool)

@@ -48,7 +48,7 @@ const STAGE_1_CONFIG: FlowchartConfig = {
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
+      text: t('For each feature, can you identify a core concept that encompasses all its activating examples?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
       x: 60, y: 20, width: 360, height: 56
     },
     {
@@ -115,7 +115,7 @@ const STAGE_2_CONFIG: FlowchartConfig = {
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
+      text: t('For each feature, can you identify a core concept that encompasses all its activating examples?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
       x: 70, y: 20, width: 360, height: 56
     },
     {
@@ -205,7 +205,7 @@ const STAGE_3_CONFIG: FlowchartConfig = {
   nodes: [
     {
       id: 'q1', type: 'question',
-      text: t('Can you find an overarching concept that encompasses all its activating examples for each feature?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
+      text: t('For each feature, can you identify a core concept that encompasses all its activating examples?', '각 feature의 모든 activating example을 아우르는 핵심 개념을 찾을 수 있는가?'),
       x: 60, y: 20, width: 360, height: 56
     },
     {

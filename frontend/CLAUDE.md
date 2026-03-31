@@ -7,7 +7,7 @@ Professional guidance for the React frontend of the SAE Feature Visualization re
 **Purpose**: Interactive visualization interface for exploring SAE feature explanation reliability
 **Status**: Conference-ready research prototype
 **Dataset**: 16,000+ features
-**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning + contextual guidance popovers + global tooltip system + action logging
+**Key Innovation**: Smart tree-based Sankey building with frontend-side set intersection + SVM-based similarity scoring + Query by Committee (QBC) active learning + contextual guidance popovers + global tooltip system + syntax/context highlight system + i18n + action logging
 
 ## Important Development Principles
 
@@ -117,7 +117,7 @@ Both Stage 1 and Stage 2 share the same layout pattern:
 
 ```
 frontend/src/
-├── components/                    # React Components (31 files)
+├── components/                    # React Components (32 files)
 │   ├── ActivationExamplePanel.tsx # Activation display panel with n-gram highlighting
 │   ├── AppHeader.tsx             # Header with logo
 │   ├── BatchTaggingPanel.tsx     # Batch tagging operations panel
@@ -134,6 +134,7 @@ frontend/src/
 │   ├── FlowPanel.tsx             # Flow panel for stage transitions
 │   ├── GuidancePopover.tsx      # Contextual guidance popover anchored to UI elements
 │   ├── Indicators.tsx            # TagBadge, MetricBar, QBC vote indicators
+│   ├── LabelingGuidePopup.tsx   # Stage-specific decision flowchart for labeling guidance
 │   ├── OverviewSummary.tsx       # Manual vs auto labeling breakdown (used in ExportResultsPopup)
 │   ├── ParallelCoordinates.tsx   # Parallel coordinates visualization with category bands
 │   ├── QualityView.tsx           # Stage 2: Quality assessment
@@ -149,14 +150,17 @@ frontend/src/
 │   ├── ThresholdHandles.tsx      # Draggable threshold handles
 │   ├── ThresholdTaggingPanel.tsx # Bottom tagging panel (pair/feature)
 │   └── Tooltip.tsx               # Reusable tooltip with composition pattern
-├── lib/                          # Utilities (22 files + 7 tagging hooks)
+├── lib/                          # Utilities (24 files + 7 tagging hooks)
 │   ├── action-logger.ts          # Frontend action logging (buffers + flushes to /api/action-log)
 │   ├── constants.ts              # App constants, tag categories, metrics, SELECTION_BLUE palette
+│   ├── empty-hint-utils.tsx     # Context-specific empty state hint generation
+│   ├── export-utils.ts          # Export tagging results to JSON
 │   ├── sankey-utils.ts           # Sankey layout calculations
 │   ├── sankey-builder.ts         # Tree building logic
 │   ├── sankey-histogram-utils.ts # Inline histograms
 │   ├── sankey-selection-flow-utils.ts # Flow overlay calculations
 │   ├── histogram-utils.ts        # Histogram processing
+│   ├── i18n.ts                  # Korean language toggle for conference demo
 │   ├── threshold-utils.ts        # Threshold path handling
 │   ├── flow-utils.ts             # Flow panel utilities
 │   ├── table-data-utils.ts       # Table data processing
@@ -188,7 +192,7 @@ frontend/src/
 │   ├── common-actions.ts         # Shared actions
 │   ├── activation-actions.ts     # Activation loading
 │   └── utils.ts                  # Store utilities
-├── styles/                       # CSS Files (30 files)
+├── styles/                       # CSS Files (31 files)
 │   ├── ActivationExamplePanel.css # Activation panel styles
 │   ├── App.css                   # Main app layout
 │   ├── AppHeader.css             # Header styles
@@ -205,6 +209,7 @@ frontend/src/
 │   ├── FeatureSplitView.css      # Stage 1 styles
 │   ├── FlowPanel.css             # Flow panel styles
 │   ├── GuidancePopover.css      # Guidance popover styles
+│   ├── LabelingGuidePopup.css   # Labeling guide flowchart styles
 │   ├── OverviewSummary.css       # Overview summary styles
 │   ├── ParallelCoordinates.css   # Parallel coordinates styles
 │   ├── QualityView.css           # Stage 2 styles
@@ -215,7 +220,6 @@ frontend/src/
 │   ├── SelectionBar.css          # Selection bar styles
 │   ├── SelectionPanel.css        # Selection panel styles
 │   ├── StageAccordionList.css    # Bootstrap/Learn/Apply workflow styles
-│   ├── TagAutomaticPopover.css   # Legacy popover styles
 │   ├── TagStagePanel.css         # Stage panel styles
 │   ├── ThresholdTaggingPanel.css # Bottom panel styles
 │   └── Tooltip.css               # Unified tooltip styles
@@ -315,6 +319,13 @@ frontend/src/
 - Used by StageAccordionList and views to guide users through workflow phases
 - Replaces previous pulsing indicator approach
 
+**LabelingGuidePopup.tsx** - Labeling Decision Flowchart
+- Stage-specific SVG flowchart with question and outcome nodes
+- Guides users through labeling decisions for each tagging stage
+- Flowchart edges with custom path controls
+- Tag coloring via `getTagColor()` from tag-system.ts
+- Uses i18n for Korean translations
+
 **ExportResultsPopup.tsx** - Export Results Popup
 - Popup overlay triggered from CauseView after Stage 3 completion
 - Layout with SankeyDiagram (left) + OverviewSummary (right)
@@ -374,10 +385,12 @@ frontend/src/
 - Click handlers for navigation
 
 **ActivationExamplePanel.tsx** - Activation Display
-- Shows activation examples for features
+- Shows activation examples for features with dual-mode highlighting
+- **Syntax mode** (purple #af7aa1): Set-based n-gram highlighting (syntax_ngram_sets)
+- **Context mode** (yellow #edc949): Context span + disc_idf highlighting (context_span_sets)
+- Cross-example hover via set_index for grouped highlight patterns
 - Token highlighting with activation values
 - Unified n-gram position handling (both char and word use same format)
-- N-gram highlighting using pre-computed positions from backend
 
 **ExplanationPanel.tsx** - Explanation Display
 - Explanation text with keyword highlights
@@ -424,6 +437,14 @@ Frontend action logger (`lib/action-logger.ts`) records user interaction events:
 - Provides `logAction(stage, event, details)` and `createDebouncedLogger()` for continuous events
 - Records: sequence number, ISO timestamp, elapsed time, stage, event, details
 - Controlled by `LOGGING_ENABLED` flag (currently `true`)
+
+## i18n (Korean Language Toggle)
+
+Frontend i18n module (`lib/i18n.ts`) provides Korean language support for conference demo:
+- Toggle flag: `USE_KOREAN` (currently `false`)
+- Translation function: `t(en, ko)` returns English or Korean string
+- Covers: stage instructions, tag tooltips, verdict labels, metric descriptions
+- Used by: LabelingGuidePopup, StageAccordionList, ParallelCoordinates, indicators
 
 ## SVM-Based Similarity Scoring
 
