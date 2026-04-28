@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react'
+import React, { useMemo, useRef, useEffect, useState, useCallback } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { getSelectionColors, getStripeGradient, type TableStage } from '../lib/color-utils'
 import '../styles/ScrollableItemList.css'
@@ -99,6 +99,9 @@ export interface ScrollableItemListProps<T = any> {
   // Use this to scroll to an item from external events (e.g., subview clicks)
   scrollTargetIndex?: number
 
+  // Search: convert item to searchable text. When provided, enables Ctrl+F search.
+  getSearchText?: (item: T) => string
+
   // Styling (ignored when variant is set)
   width?: number | string
   height?: number | string
@@ -118,6 +121,7 @@ export function ScrollableItemList<T = any>({
   isTemplateSort: _isTemplateSort = true,
   footerButton,
   sortConfig,
+  getSearchText,
   variant,
   emptyMessage = 'None',
   disableAutoScroll = false,
@@ -129,6 +133,14 @@ export function ScrollableItemList<T = any>({
 }: ScrollableItemListProps<T>) {
   const currentItem = currentIndex >= 0 && currentIndex < items.length ? items[currentIndex] : null
   const containerRef = useRef<HTMLDivElement>(null)
+  const rootRef = useRef<HTMLDivElement>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Search state
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [matchIndices, setMatchIndices] = useState<number[]>([])
+  const [currentMatchPos, setCurrentMatchPos] = useState(0)
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -152,6 +164,66 @@ export function ScrollableItemList<T = any>({
     }
   }, [scrollTargetIndex, items.length, virtualizer])
 
+  // Ctrl+F intercept: only when hovering this list or focus is inside it
+  useEffect(() => {
+    if (!getSearchText) return
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
+        const el = rootRef.current
+        if (!el) return
+        if (!el.matches(':hover') && !el.contains(document.activeElement)) return
+        e.preventDefault()
+        setSearchOpen(true)
+        setTimeout(() => searchInputRef.current?.focus(), 0)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [getSearchText])
+
+  // Recompute matches when query or items change
+  useEffect(() => {
+    if (!getSearchText || !searchQuery.trim()) {
+      setMatchIndices([])
+      setCurrentMatchPos(0)
+      return
+    }
+    const q = searchQuery.trim().toLowerCase()
+    const matches: number[] = []
+    for (let i = 0; i < items.length; i++) {
+      if (getSearchText(items[i]).toLowerCase().includes(q)) {
+        matches.push(i)
+      }
+    }
+    setMatchIndices(matches)
+    setCurrentMatchPos(0)
+    if (matches.length > 0) {
+      virtualizer.scrollToIndex(matches[0], { align: 'center', behavior: 'smooth' })
+    }
+  }, [searchQuery, items, getSearchText, virtualizer])
+
+  const matchIndexSet = useMemo(() => new Set(matchIndices), [matchIndices])
+
+  const closeSearch = useCallback(() => {
+    setSearchOpen(false)
+    setSearchQuery('')
+    setMatchIndices([])
+  }, [])
+
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      closeSearch()
+      return
+    }
+    if (e.key === 'Enter' && matchIndices.length > 0) {
+      const next = e.shiftKey
+        ? (currentMatchPos - 1 + matchIndices.length) % matchIndices.length
+        : (currentMatchPos + 1) % matchIndices.length
+      setCurrentMatchPos(next)
+      virtualizer.scrollToIndex(matchIndices[next], { align: 'center', behavior: 'smooth' })
+    }
+  }, [matchIndices, currentMatchPos, virtualizer, closeSearch])
+
   // Get stripe style for header based on mode (CSS gradient approach)
   const headerStripeStyle = useMemo(() => {
     if (!headerStripe) return undefined
@@ -172,6 +244,7 @@ export function ScrollableItemList<T = any>({
 
   return (
     <div
+      ref={rootRef}
       className={`scrollable-list ${variantClass} ${isActive ? 'scrollable-list--active' : ''} ${className}`}
       style={variant ? undefined : {
         width: typeof width === 'number' ? `${width}px` : width,
@@ -212,6 +285,32 @@ export function ScrollableItemList<T = any>({
         </div>
       )}
 
+      {/* Search bar (Ctrl+F) */}
+      {searchOpen && getSearchText && (
+        <div className="scrollable-list__search-bar">
+          <input
+            ref={searchInputRef}
+            className="scrollable-list__search-input"
+            type="text"
+            placeholder="Find by ID..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+          />
+          <span className="scrollable-list__search-count">
+            {matchIndices.length > 0
+              ? `${currentMatchPos + 1}/${matchIndices.length}`
+              : searchQuery.trim() ? '0' : ''}
+          </span>
+          <button
+            className="scrollable-list__search-close"
+            onClick={closeSearch}
+          >
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Scrollable list container */}
       <div className="scrollable-list__container" ref={containerRef}>
         {items.length === 0 ? (
@@ -230,10 +329,15 @@ export function ScrollableItemList<T = any>({
               const isCurrent = index === currentIndex
               const isHighlighted = highlightPredicate && currentItem ? highlightPredicate(item, currentItem) : false
 
+              const isSearchMatch = matchIndexSet.has(index)
+              const isCurrentSearchMatch = matchIndices[currentMatchPos] === index
+
               const itemClasses = [
                 'scrollable-list-item',
                 isCurrent && 'scrollable-list-item--current',
-                isHighlighted && 'scrollable-list-item--highlighted'
+                isHighlighted && 'scrollable-list-item--highlighted',
+                isSearchMatch && 'scrollable-list-item--search-match',
+                isCurrentSearchMatch && 'scrollable-list-item--search-active'
               ].filter(Boolean).join(' ')
 
               const itemContent = renderItem(item, index)

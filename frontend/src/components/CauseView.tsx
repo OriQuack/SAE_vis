@@ -1233,6 +1233,7 @@ const CauseView: React.FC<CauseViewProps> = ({
             <div className="cause-view__row-top">
               <StageAccordionList
                   variant="causeBrushed"
+                  getSearchText={(id) => String(id)}
                   activeStage={activeStage}
                   onStageChange={handleStageChange}
                   bootstrapMode={bootstrapMode}

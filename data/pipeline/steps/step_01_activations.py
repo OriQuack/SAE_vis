@@ -58,13 +58,13 @@ class ActivationExamplesProcessor(BaseProcessor):
         # Input paths
         inputs = self.config.get("inputs", {})
         global_config = self.config.get("global", {})
-        input_path = global_config.get("paths", {}).get("input", "data/input")
+        intermediate_path = global_config.get("paths", {}).get("intermediate", "data/intermediate")
 
         self.activations_path = self._resolve_path(
-            inputs.get("activations", f"{input_path}/activation_examples/activations.jsonl")
+            inputs.get("activations", f"{intermediate_path}/activation_examples/activations.jsonl")
         )
         self.prompts_path = self._resolve_path(
-            inputs.get("prompts", f"{input_path}/activation_examples/prompts.json")
+            inputs.get("prompts", f"{intermediate_path}/activation_examples/prompts.json")
         )
 
         # Output path

@@ -80,6 +80,9 @@ interface StageAccordionListProps<T> {
   // External scroll target index - triggers scroll from subview clicks
   scrollTargetIndex?: number
 
+  // Search: convert item to searchable text. Enables Ctrl+F search in the list.
+  getSearchText?: (item: T) => string
+
   className?: string
 }
 
@@ -118,6 +121,7 @@ export function StageAccordionList<T>({
   emptyMessage,
   disableAutoScroll = false,
   scrollTargetIndex,
+  getSearchText,
   className = ''
 }: StageAccordionListProps<T>) {
   // Consume unused props for backward compatibility
@@ -220,9 +224,10 @@ export function StageAccordionList<T>({
       sortConfig,
       emptyMessage: computedEmptyMessage,
       disableAutoScroll,
-      scrollTargetIndex
+      scrollTargetIndex,
+      getSearchText
     }
-  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, computedEmptyMessage, disableAutoScroll, scrollTargetIndex, activeStage, bootstrapMode, learnSortable])
+  }, [badges, columnHeader, items, renderItem, currentIndex, highlightPredicate, isActive, isTemplateSort, sortConfig, computedEmptyMessage, disableAutoScroll, scrollTargetIndex, getSearchText, activeStage, bootstrapMode, learnSortable])
 
   return (
     <div className={`stage-selector ${className}`}>
@@ -232,7 +237,7 @@ export function StageAccordionList<T>({
           className={`stage-selector__tab ${activeStage === 'bootstrap' ? 'stage-selector__tab--active' : ''}`}
           onClick={() => handleStageClick('bootstrap')}
           data-tooltip-title="Prototype-first Phase"
-          data-tooltip={t(`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier. (~20-30 labels)`, `대표 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토하여 classifier를 초기화합니다. (~20-30개 labeling)`)}
+          data-tooltip={t(`Inspect a representative set of ${variant === 'allPairs' ? 'pairs' : 'features'} to initialize the classifier. (20-30 labels)`, `대표 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토하여 classifier를 초기화합니다. (~20-30개 labeling)`)}
         >
           <span className="stage-selector__number">1</span>
           <span className="stage-selector__label">Prototype</span>
@@ -244,7 +249,7 @@ export function StageAccordionList<T>({
           disabled={learnDisabled}
           title={learnDisabled ? `Label 3+ ${variant === 'allPairs' ? 'pairs' : 'features'} per category to enable` : undefined}
           data-tooltip-title={learnDisabled ? undefined : "Uncertainty-first Phase"}
-          data-tooltip={learnDisabled ? undefined : t(`Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident. (~60 labels)`, `Classifier가 가장 불확실해하는 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토합니다. (~60개 labeling)`)}
+          data-tooltip={learnDisabled ? undefined : t(`Review ${variant === 'allPairs' ? 'pairs' : 'features'} where the classifier is least confident. (~50 labels)`, `Classifier가 가장 불확실해하는 ${variant === 'allPairs' ? 'pair' : 'feature'}를 검토합니다. (~60개 labeling)`)}
         >
           <span className="stage-selector__number">2</span>
           <span className="stage-selector__label">Uncertainty</span>

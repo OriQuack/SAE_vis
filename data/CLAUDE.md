@@ -17,31 +17,32 @@ Professional guidance for the data layer of the SAE Feature Visualization resear
 - **Research-focused**: Easy data manipulation and re-processing more important than production-level optimization
 - **Reproducible but flexible**: Config files for tracking, but prioritize easy modification
 
-### Using the New Pipeline (Recommended)
+### Using the Pipeline
 
-The preprocessing pipeline has been refactored with a single master config and master script.
+The preprocessing pipeline uses a single master config (`data/pipeline/config.yaml`) and master script.
 
+**First-time setup:** Step 00 downloads activations and feature metadata from Neuronpedia:
 ```bash
-# Run full pipeline
-python data/pipeline/run.py
+# 1. Set SAE identifiers in config.yaml (global.neuronpedia_model_id, neuronpedia_sae_id)
+# 2. Download base data
+python data/pipeline/run.py --steps step_00 --only
 
-# Run specific steps (automatically includes dependencies)
-python data/pipeline/run.py --steps step_07_features step_10_activation_display
+# 3. Provide explanations + scores in data/input/{source_name}/
+#    See pipeline/README.md for details on generating scores with EleutherAI/delphi
+```
 
-# Run from a specific step onwards
-python data/pipeline/run.py --from step_07_features
-
-# Dry run (show execution plan)
-python data/pipeline/run.py --dry-run
-
-# List all available steps
-python data/pipeline/run.py --list
-
-# Limit features for testing
-python data/pipeline/run.py --limit 100
+**Running the pipeline:**
+```bash
+python data/pipeline/run.py                    # Run full pipeline
+python data/pipeline/run.py --steps step_07    # Run specific step (+ dependents)
+python data/pipeline/run.py --from step_07     # Run from a step onwards
+python data/pipeline/run.py --dry-run          # Preview execution plan
+python data/pipeline/run.py --list             # List all steps
+python data/pipeline/run.py --limit 100        # Test with limited features
 ```
 
 Configuration is in `data/pipeline/config.yaml` - a single YAML file containing all settings.
+After step_00 runs, it generates `config_sources.yaml` with SAE metadata (auto-merged at load time).
 
 ### Legacy Scripts (Still Supported)
 
@@ -69,12 +70,13 @@ python 5_act_similarity.py --config ../config/5_act_similarity.json
 
 ```
 data/
-├── input/                        # Input data for pipeline
-│   ├── activation_examples/      # Raw activation data (activations.jsonl, prompts.json)
-│   ├── gemini_e-llama_s-16k-v2/  # Gemini explainer run config
-│   ├── llama_e-llama_s-16k-v2/   # Llama explainer run config
-│   ├── openai_e-llama_s-16k-v2/  # OpenAI explainer run config
-│   └── neuronpedia_frac_nonzero/ # Neuronpedia fraction nonzero data
+├── input/                        # User-provided explainer/score data
+│   ├── gemini_e-llama_s-16k-v2/  # Gemini explainer (explanations/ + scores/)
+│   ├── llama_e-llama_s-16k-v2/   # Llama explainer (explanations/ + scores/)
+│   └── openai_e-llama_s-16k-v2/  # OpenAI explainer (explanations/ + scores/)
+│
+├── cache/                        # Cached Neuronpedia downloads (reusable across runs)
+│   └── neuronpedia/              # Raw S3 batch files (managed by step_00)
 │
 ├── raw/                          # Raw SAE experimental data (explanations, scores)
 │
@@ -96,7 +98,8 @@ data/
 │   │   ├── structural_parse.py  # spaCy + tree-sitter for syntax parsing
 │   │   ├── shuffle.py           # Token shuffle verification logic
 │   │   └── sae.py               # SAE model utilities
-│   └── steps/                   # Processing step implementations (15 steps)
+│   └── steps/                   # Processing step implementations (16 steps)
+│       ├── step_00_data_preparation.py  # Download from Neuronpedia S3
 │       ├── step_01_activations.py
 │       ├── step_02_decoder_similarity.py
 │       ├── step_03_scores.py
@@ -125,6 +128,8 @@ data/
 │   └── export_assembled_explanations.py
 │
 ├── intermediate/                # Intermediate processing files
+│   ├── activation_examples/     # Downloaded by step_00 (activations.jsonl, prompts.json)
+│   ├── neuronpedia_frac_nonzero/ # Downloaded by step_00 (frac_nonzero.json)
 │
 ├── output/                      # BACKEND-REQUIRED FILES (used by backend)
 │   ├── features.parquet         # Main dataset (~4.7MB)
@@ -334,6 +339,7 @@ python data/pipeline/run.py --limit 100
 
 | Step | Purpose | Output |
 |------|---------|--------|
+| step_00_data_preparation | Download from Neuronpedia S3 | intermediate/activation_examples/, intermediate/neuronpedia_frac_nonzero/ |
 | step_01_activations | Create activation examples | activation_examples.parquet |
 | step_02_decoder_similarity | Compute decoder weight similarities | decoder_similarity/ |
 | step_03_scores | Aggregate scoring metrics | scores/ |

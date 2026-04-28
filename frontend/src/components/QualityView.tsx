@@ -1055,6 +1055,7 @@ const QualityView: React.FC<QualityViewProps> = ({
           <div className="quality-view__row-top">
             <StageAccordionList
               variant="features"
+              getSearchText={(f) => String(f.featureId)}
               activeStage={activeStage}
               onStageChange={handleStageChange}
               bootstrapMode={bootstrapMode}

@@ -982,6 +982,7 @@ const FeatureSplitView: React.FC<FeatureSplitViewProps> = ({
         <div className="feature-split-view__row-top">
             <StageAccordionList
               variant="allPairs"
+              getSearchText={(pair) => pair.pairKey}
               activeStage={activeStage}
               onStageChange={handleStageChange}
               bootstrapMode={bootstrapMode}

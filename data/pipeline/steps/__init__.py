@@ -5,6 +5,9 @@ Each step is implemented as a class inheriting from BaseProcessor.
 Steps are discovered and executed by the run.py master script.
 """
 
+# Step 0: Data preparation (download Neuronpedia data)
+from .step_00_data_preparation import DataPreparationProcessor
+
 # Step 1: Create activation examples from raw JSONL
 from .step_01_activations import ActivationExamplesProcessor
 
@@ -53,6 +56,7 @@ from .step_15_shuffle_verification import ShuffleVerificationProcessor
 
 # Step mapping for dynamic dispatch
 STEP_PROCESSORS = {
+    "step_00_data_preparation": DataPreparationProcessor,
     "step_01_activations": ActivationExamplesProcessor,
     "step_02_decoder_similarity": DecoderSimilarityProcessor,
     "step_03_scores": ScoresProcessor,
@@ -72,6 +76,7 @@ STEP_PROCESSORS = {
 
 
 __all__ = [
+    'DataPreparationProcessor',
     'ActivationExamplesProcessor',
     'DecoderSimilarityProcessor',
     'ScoresProcessor',

@@ -14,10 +14,34 @@
   gap: 0;
 }
 
-/* Single-column mode (no outliers) */
+/* Single-column mode (no outliers) - bigger pills for Stage 2 */
 .consensus-section--single {
   flex-direction: column;
   gap: 2px;
+}
+
+.consensus-section--single .consensus-section__items {
+  gap: 4px 6px;
+  padding-left: 6px;
+}
+
+.consensus-section--single .consensus-item__pill {
+  font-size: 14px;
+  padding: 1px 0;
+}
+
+.consensus-section--single .consensus-item__phrase {
+  padding: 0 8px;
+}
+
+.consensus-section--single .consensus-item__expanded-content {
+  gap: 4px;
+  padding: 5px;
+}
+
+.consensus-section--single .consensus-tooltip__phrase {
+  padding: 1px 8px;
+  font-size: 14px;
 }
 
 .consensus-section__column {

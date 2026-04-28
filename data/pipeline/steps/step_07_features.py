@@ -82,7 +82,7 @@ class FeaturesProcessor(BaseProcessor):
             inputs.get("clustering_linkage", f"{output_dir}/clustering_linkage.npy")
         )
         self.frac_nonzero_path = self._resolve_path(
-            inputs.get("frac_nonzero", f"{paths.get('input', 'data/input')}/neuronpedia_frac_nonzero/frac_nonzero.json")
+            inputs.get("frac_nonzero", f"{intermediate_dir}/neuronpedia_frac_nonzero/frac_nonzero.json")
         )
 
         # Output path from step config

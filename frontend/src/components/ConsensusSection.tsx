@@ -235,7 +235,7 @@ const ConsensusSection: React.FC<ConsensusSectionProps> = ({ consensus, onPhrase
     <div className={`consensus-section${hideOutliers ? ' consensus-section--single' : ''}`}>
       <div className="consensus-section__column">
         <div className="consensus-section__header">
-          <span className="instruction-subheader">Consensus-Reached Concepts</span>
+          <span className="instruction-subheader">Consensus-reached Concepts</span>
           <span className="consensus-section__criteria">(consensus score &gt; 0)</span>
         </div>
         <div className="consensus-section__items">

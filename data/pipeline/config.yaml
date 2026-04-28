@@ -7,16 +7,19 @@
 
 # Global settings shared across all steps
 global:
-  # SAE model identifier
+  # SAE identifiers (HuggingFace)
   sae_id: "google/gemma-scope-9b-pt-res/layer_30/width_16k/average_l0_120"
   sae_id_sanitized: "google--gemma-scope-9b-pt-res--layer_30--width_16k--average_l0_120"
+
+  # Neuronpedia identifiers (for step_00 S3 download)
+  neuronpedia_model_id: "gemma-2-9b"
+  neuronpedia_sae_id: "30-gemmascope-res-16k"
 
   # Base paths (relative to project root)
   paths:
     input: "data/input"
     intermediate: "data/intermediate"
     output: "data/output"
-    master: "data/master"  # Legacy path for transition
     feature_similarity: "data/feature_similarity"
     scores: "data/scores"
 
@@ -35,12 +38,14 @@ global:
       batch_size: 256
 
   # Data sources (LLM explainers)
+  # Each entry must have a corresponding directory in data/input/{name}/
+  # with explanations/ (and optionally scores/) subdirs
   data_sources:
     - "llama_e-llama_s-16k-v2"
     - "gemini_e-llama_s-16k-v2"
     - "openai_e-llama_s-16k-v2"
 
-  # Explainer name mapping
+  # Explainer name mapping (data_source prefix → full model name)
   llm_explainer_mapping:
     llama_e: "hugging-quants/Meta-Llama-3.1-70B-Instruct-AWQ-INT4"
     gemini_e: "google/gemini-flash-2.5"
@@ -48,12 +53,57 @@ global:
 
 # Step-specific configurations
 steps:
+  # Step 0: Download and prepare data from Neuronpedia
+  # This step downloads activations, explanations, and feature metadata
+  # from the Neuronpedia S3 bucket and converts them into the directory
+  # structure expected by steps 01-15.
+  #
+  # SCORING: Scores (fuzz, detection, embedding) are NOT available from Neuronpedia.
+  # To generate scores, use one of:
+  #
+  #   Option 1: EleutherAI/delphi (recommended for local use)
+  #     pip install delphi-ai
+  #     See: https://github.com/EleutherAI/delphi
+  #     Output: Place score files in data/input/{source}/scores/{method}/
+  #
+  #   Option 2: Neuronpedia API (requires API key + provider keys on account)
+  #     Set scoring.enabled: true and NEURONPEDIA_API_KEY env var
+  #     Scorer types: eleuther_fuzz, eleuther_embedding, eleuther_recall
+  #
+  # Score file format: JSON array per feature, see data/CLAUDE.md for details
+  step_00_data_preparation:
+    enabled: true
+    parameters:
+      # Download settings
+      download:
+        cache_dir: "data/cache/neuronpedia"   # Raw downloaded files (reusable across runs)
+        max_concurrent: 4                      # Parallel download threads
+        skip_existing: true                    # Skip already-downloaded files
+
+      # Neuronpedia explanation sources to download (optional)
+      # Enable these if you don't have your own explainer runs.
+      # Note: Neuronpedia "explanations" dir = google/gemini-2.5-flash-lite
+      #       (same model as gemini-flash-2.5, different naming)
+      explanation_sources: []
+      # Available Neuronpedia explanation sources:
+      # - s3_dir: "explanations"
+      #   data_source_name: "neuronpedia_gemini_flash_lite"
+      #   explainer_model: "google/gemini-2.5-flash-lite"
+      # - s3_dir: "explanations-gemini-flash-2.0"
+      #   data_source_name: "neuronpedia_gemini_flash_2"
+      #   explainer_model: "google/gemini-2.0-flash"
+
+      # Neuronpedia API scoring (optional, future enhancement)
+      scoring:
+        enabled: false
+        api_key_env: "NEURONPEDIA_API_KEY"
+
   # Step 1: Create activation examples parquet
   step_01_activations:
     enabled: true
     inputs:
-      activations: "${input}/activation_examples/activations.jsonl"
-      prompts: "${input}/activation_examples/prompts.json"
+      activations: "${intermediate}/activation_examples/activations.jsonl"
+      prompts: "${intermediate}/activation_examples/prompts.json"
     outputs:
       main: "${intermediate}/activation_examples.parquet"
     parameters:
@@ -134,7 +184,7 @@ steps:
       aggregated_scores: "${intermediate}/aggregated_scores.parquet"
       decoder_similarity_matrix: "${intermediate}/decoder_similarity_matrix.npz"
       clustering_linkage: "${output}/clustering_linkage.npy"
-      frac_nonzero: "${input}/neuronpedia_frac_nonzero/frac_nonzero.json"
+      frac_nonzero: "${intermediate}/neuronpedia_frac_nonzero/frac_nonzero.json"
     outputs:
       main: "${output}/features.parquet"
     parameters:
@@ -280,10 +330,11 @@ steps:
 # Dependency graph - defines execution order
 # Format: step_name: [list of dependencies]
 dependencies:
-  step_01_activations: []
+  step_00_data_preparation: []
+  step_01_activations: [step_00_data_preparation]
   step_02_decoder_similarity: []
-  step_03_scores: []
-  step_04_explanation_embeddings: []
+  step_03_scores: [step_00_data_preparation]
+  step_04_explanation_embeddings: [step_00_data_preparation]
   step_05_activation_embeddings: [step_01_activations]
   step_06_clustering: [step_02_decoder_similarity]
   step_07_features: [step_03_scores, step_04_explanation_embeddings, step_06_clustering]
