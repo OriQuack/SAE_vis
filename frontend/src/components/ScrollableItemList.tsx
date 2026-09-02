@@ -139,6 +139,7 @@ export function ScrollableItemList<T = any>({
   // Search state
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
+  const [exactMatch, setExactMatch] = useState(false)
   const [matchIndices, setMatchIndices] = useState<number[]>([])
   const [currentMatchPos, setCurrentMatchPos] = useState(0)
 
@@ -191,7 +192,12 @@ export function ScrollableItemList<T = any>({
     const q = searchQuery.trim().toLowerCase()
     const matches: number[] = []
     for (let i = 0; i < items.length; i++) {
-      if (getSearchText(items[i]).toLowerCase().includes(q)) {
+      const text = getSearchText(items[i]).toLowerCase()
+      // Exact match: whole text, or any single ID within a composite key (e.g. "7732-20" matches "20")
+      const isMatch = exactMatch
+        ? text === q || text.split('-').includes(q)
+        : text.includes(q)
+      if (isMatch) {
         matches.push(i)
       }
     }
@@ -200,13 +206,14 @@ export function ScrollableItemList<T = any>({
     if (matches.length > 0) {
       virtualizer.scrollToIndex(matches[0], { align: 'center', behavior: 'smooth' })
     }
-  }, [searchQuery, items, getSearchText, virtualizer])
+  }, [searchQuery, exactMatch, items, getSearchText, virtualizer])
 
   const matchIndexSet = useMemo(() => new Set(matchIndices), [matchIndices])
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false)
     setSearchQuery('')
+    setExactMatch(false)
     setMatchIndices([])
   }, [])
 
@@ -292,11 +299,18 @@ export function ScrollableItemList<T = any>({
             ref={searchInputRef}
             className="scrollable-list__search-input"
             type="text"
-            placeholder="Find by ID..."
+            placeholder={exactMatch ? 'Exact ID...' : 'Find by ID...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
           />
+          <button
+            className={`scrollable-list__search-exact ${exactMatch ? 'scrollable-list__search-exact--active' : ''}`}
+            onClick={() => setExactMatch(v => !v)}
+            title={exactMatch ? 'Exact match (whole ID). Click for partial match.' : 'Partial match. Click for exact match (whole ID).'}
+          >
+            =
+          </button>
           <span className="scrollable-list__search-count">
             {matchIndices.length > 0
               ? `${currentMatchPos + 1}/${matchIndices.length}`
