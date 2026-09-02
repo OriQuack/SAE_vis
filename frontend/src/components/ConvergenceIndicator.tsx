@@ -3,7 +3,7 @@ import { useResizeObserver } from '../lib/utils'
 import '../styles/ConvergenceIndicator.css'
 import type { FlipTrackingInfo } from '../types'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE } from '../lib/constants'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import { Tooltip } from './Tooltip'
 
 // Tooltip data type
@@ -77,8 +77,8 @@ export const ConvergenceIndicator: React.FC<ConvergenceIndicatorProps> = ({ flip
         rejected: getTagColor(categoryId, rejectedTag) || '#F44336'
       },
       labels: {
-        selected: selectedTag,
-        rejected: rejectedTag
+        selected: getTagDisplayLabel(selectedTag),
+        rejected: getTagDisplayLabel(rejectedTag)
       }
     }
   }, [stage])

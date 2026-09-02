@@ -9,7 +9,7 @@ import {
 } from '../lib/histogram-utils'
 import type { CategoryCounts } from '../lib/histogram-utils'
 import { getSelectionColors, STRIPE_PATTERN } from '../lib/color-utils'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, SELECTION_BLUE } from '../lib/constants'
 import { isPairInSelection } from '../lib/pairUtils'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
@@ -84,7 +84,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
   // Get mode-specific labels for threshold display
   const modeLabels = useMemo(() => {
     if (mode === 'pair') {
-      return { selected: 'Incoherent Splitting', rejected: 'Monosemantic' }
+      return { selected: 'Incoherent Splitting', rejected: getTagDisplayLabel('Monosemantic') }
     } else {
       return { selected: 'Well-Explained', rejected: 'Need Revision' }
     }
@@ -543,7 +543,7 @@ const DecisionMarginHistogram: React.FC<DecisionMarginHistogramProps> = ({
       ? (getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#D3D3D3')
       : (getTagColor(TAG_CATEGORY_QUALITY, 'Need Revision') || '#FF9800')
     const selectedLabel = mode === 'pair' ? 'Incoherent Splitting' : 'Well-Explained'
-    const rejectedLabel = mode === 'pair' ? 'Monosemantic' : 'Need Revision'
+    const rejectedLabel = mode === 'pair' ? getTagDisplayLabel('Monosemantic') : 'Need Revision'
     const itemType = mode === 'pair' ? 'pairs' : 'features'
 
     return (

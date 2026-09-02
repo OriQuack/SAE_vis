@@ -1,5 +1,5 @@
 import React from 'react'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import { TAG_CATEGORY_FEATURE_SPLITTING, TAG_CATEGORY_QUALITY, TAG_CATEGORY_CAUSE, UNSURE_GRAY } from '../lib/constants'
 import { t, USE_KOREAN } from '../lib/i18n'
 import '../styles/LabelingGuidePopup.css'
@@ -58,7 +58,7 @@ const STAGE_1_CONFIG: FlowchartConfig = {
     },
     {
       id: 'monosemantic', type: 'outcome',
-      text: 'Monosemantic',
+      text: getTagDisplayLabel('Monosemantic'),
       tag: 'Monosemantic', categoryId: TAG_CATEGORY_FEATURE_SPLITTING,
       x: 20, y: 260, width: 140, height: 44
     },

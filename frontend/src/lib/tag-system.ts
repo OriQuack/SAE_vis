@@ -386,5 +386,25 @@ export function getAllTagColors(): Record<string, Record<string, string>> {
   return result
 }
 
+// ============================================================================
+// TAG DISPLAY LABEL UTILITIES
+// Maps internal tag values to user-facing display text (identifiers used for
+// comparisons/keys/colors stay unchanged; only the rendered text differs)
+// ============================================================================
+
+const TAG_DISPLAY_LABELS: Record<string, string> = {
+  'Monosemantic': 'Coherent Separation',
+}
+
+/**
+ * Get the user-facing display label for a tag name
+ *
+ * @param tagName - Internal tag name (e.g., 'Monosemantic')
+ * @returns Display label if mapped, otherwise the tag name unchanged
+ */
+export function getTagDisplayLabel(tagName: string): string {
+  return TAG_DISPLAY_LABELS[tagName] ?? tagName
+}
+
 // Re-export tag category constants for convenience
 export { TAG_CATEGORY_QUALITY, TAG_CATEGORY_FEATURE_SPLITTING }

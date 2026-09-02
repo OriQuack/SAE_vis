@@ -7,7 +7,7 @@ import CauseRadViz from './CauseRadViz'
 import ConvergenceIndicator from './ConvergenceIndicator'
 import BatchTaggingPanel from './BatchTaggingPanel'
 import GuidancePopover from './GuidancePopover'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import type { CauseCategory } from '../lib/cause-visualization-utils'
 import type { SortMode } from '../lib/tagging-hooks/useSortableList'
 import type { ActiveStage } from './StageAccordionList'
@@ -361,7 +361,7 @@ const ThresholdTaggingPanel: React.FC<ThresholdTaggingPanelProps> = ({
                 categories={[
                   {
                     id: 'left',
-                    label: leftListLabel,
+                    label: getTagDisplayLabel(leftListLabel),
                     color: leftTagColor,
                     count: thresholdCounts.left,
                     inputCount: boundaryTagCounts.left,

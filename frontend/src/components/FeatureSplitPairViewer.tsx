@@ -6,7 +6,7 @@ import { ExplanationWithPopover } from './ExplanationPanel'
 import { TagButton } from './Indicators'
 import { UNSURE_GRAY, TAG_CATEGORY_FEATURE_SPLITTING } from '../lib/constants'
 import { t, getTagTooltip } from '../lib/i18n'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 // import { extractInterFeaturePositions } from '../lib/activation-utils' // commented out: inter-feature highlighting
 import { getBestExplanation } from '../lib/table-data-utils'
 import { useTaggingNavigation, type SortMode, type ActiveStage } from '../lib/tagging-hooks'
@@ -381,7 +381,7 @@ const FeatureSplitPairViewer: React.FC<FeatureSplitPairViewerProps> = ({
 
               {/* Selection buttons - Monosemantic | Fragmented */}
               <TagButton
-                label="Monosemantic"
+                label={getTagDisplayLabel('Monosemantic')}
                 variant="monosemantic"
                 color={monosemanticColor}
                 isSelected={pairSelectionState === 'rejected' || currentPairPreview === 'rejected'}

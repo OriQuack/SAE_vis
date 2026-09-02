@@ -23,7 +23,7 @@ import {
   UNSURE_GRAY,
   METRIC_DISPLAY_NAMES
 } from '../lib/constants'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import { STRIPE_PATTERN, addOpacityToHex } from '../lib/color-utils'
 import { SankeyOverlay } from './SankeyOverlay'
 // SankeyInlineSelector removed - no longer needed with fixed 3-stage auto-expansion
@@ -844,8 +844,8 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                           // Add "?" suffix for terminal segments (with stripe pattern) to show unsure status
                           const displayTagName = isTerminalSegment(segment.tagName)
-                            ? `${segment.tagName}?`
-                            : segment.tagName
+                            ? `${getTagDisplayLabel(segment.tagName)}?`
+                            : getTagDisplayLabel(segment.tagName)
 
                           // Terminal segments from previous stages get smaller fonts
                           // Use node depth to determine if this is a previous stage (not tag names, since Stage 3 reuses tag names)
@@ -918,7 +918,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
 
                   // For stage3_segment without segments, show "Unsure" as fallback
                   const isStage3SegmentFallback = node.id === 'stage3_segment' && structureNode?.type === 'segment'
-                  const fallbackDisplayName = isStage3SegmentFallback ? 'Unsure' : node.name
+                  const fallbackDisplayName = isStage3SegmentFallback ? 'Unsure' : getTagDisplayLabel(node.name)
                   const fallbackNameLines = fallbackDisplayName.split('\n')
                   const fallbackAllLines = [...fallbackNameLines, `(${node.feature_count.toLocaleString()})`]
 
@@ -978,7 +978,7 @@ export const SankeyDiagram: React.FC<SankeyDiagramProps> = ({
                 const isHovered = hoveredNodeId === node.id
 
                 // Split name into lines and add feature count on separate line
-                const nameLines = node.name.split('\n')
+                const nameLines = getTagDisplayLabel(node.name).split('\n')
                 const allLines = [...nameLines, `(${node.feature_count.toLocaleString()})`]
 
                 // Check if this is a previous stage terminal node

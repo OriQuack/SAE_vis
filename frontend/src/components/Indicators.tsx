@@ -1,5 +1,5 @@
 import React from 'react'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import { getStripeGradient, addOpacityToHex, STRIPE_PATTERN } from '../lib/color-utils'
 import { UNSURE_GRAY, TAG_CATEGORY_CAUSE, TAG_CATEGORY_QUALITY, type TagTooltipInfo } from '../lib/constants'
 import { getVerdictLabel } from '../lib/i18n'
@@ -152,7 +152,7 @@ export const TagBadge: React.FC<TagBadgeProps> = ({
 
       {/* Tag name section (right) */}
       <div style={getTagSectionStyle()}>
-        <span style={textWrapperStyle}>{tagName}</span>
+        <span style={textWrapperStyle}>{getTagDisplayLabel(tagName)}</span>
       </div>
     </div>
   )

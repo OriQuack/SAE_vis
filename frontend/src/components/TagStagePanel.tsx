@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import {
   getTagCategoriesInOrder,
   getTagColor,
+  getTagDisplayLabel,
 } from '../lib/tag-system';
 import { type TagCategoryConfig, TAG_CATEGORY_REGENERATION } from '../lib/constants';
 import { getInstruction } from '../lib/i18n';
@@ -326,9 +327,9 @@ const TagCategoryPanel: React.FC<TagCategoryPanelProps> = ({
                             data-node-id={node.id}
                             className="stage-tag-badge"
                             style={{ backgroundColor: node.color, borderColor: node.color }}
-                            title={`${node.tag}: ${node.count.toLocaleString()} features`}
+                            title={`${getTagDisplayLabel(node.tag)}: ${node.count.toLocaleString()} features`}
                           >
-                            <span className="stage-tag-badge__label">{node.tag}</span>
+                            <span className="stage-tag-badge__label">{getTagDisplayLabel(node.tag)}</span>
                             <span className="stage-tag-badge__count">{node.count.toLocaleString()}</span>
                           </div>
                           {annotation?.suffix && (

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react'
 import { useVisualizationStore } from '../store/index'
 import { type SelectionCategory } from '../lib/constants'
 import { getSelectionColors, type TableStage } from '../lib/color-utils'
+import { getTagDisplayLabel } from '../lib/tag-system'
 import { isUserConfirmed } from '../lib/tagging-hooks/useCommitHistory'
 import SelectionStateBar, { type CategoryCounts, type CauseCategoryCounts } from './SelectionBar'
 import '../styles/SelectionPanel.css'
@@ -630,7 +631,7 @@ const TableSelectionPanel: React.FC<SelectionPanelProps> = ({
                           <div className="commit-hover-tooltip__counts">
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.rejected }} />
-                              Monosemantic: {monosematicCount}
+                              {getTagDisplayLabel('Monosemantic')}: {monosematicCount}
                             </span>
                             <span className="commit-hover-tooltip__count">
                               <span className="commit-hover-tooltip__dot" style={{ backgroundColor: stageColors.unsure }} />

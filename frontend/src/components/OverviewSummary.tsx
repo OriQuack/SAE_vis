@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react'
 import { useVisualizationStore } from '../store'
-import { getTagColor } from '../lib/tag-system'
+import { getTagColor, getTagDisplayLabel } from '../lib/tag-system'
 import {
   TAG_CATEGORY_FEATURE_SPLITTING,
   TAG_CATEGORY_QUALITY,
@@ -87,7 +87,7 @@ const OverviewSummary: React.FC<OverviewSummaryProps> = ({ className = '' }) => 
               { manual: s1.incoherentSplitting.manual.length, auto: s1.incoherentSplitting.auto.length }
             )}
             {renderTagRow(
-              'Monosemantic',
+              getTagDisplayLabel('Monosemantic'),
               getTagColor(TAG_CATEGORY_FEATURE_SPLITTING, 'Monosemantic') || '#9ca3af',
               { manual: s1.monosemantic.manual.length, auto: s1.monosemantic.auto.length }
             )}
